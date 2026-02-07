@@ -64,9 +64,9 @@ else if (_view == View.List)
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Name</th>
+                            <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th>Address</th>
-                            <th>Type</th>
+                            <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
                             <th class="d-none d-md-table-cell">Owner</th>
                             <th class="text-center d-none d-md-table-cell">Sq Ft</th>
                             <th class="text-center d-none d-lg-table-cell">Assets</th>
@@ -112,7 +112,15 @@ else if (_view == View.Detail && _detail is not null)
                 <li><a class="dropdown-item" href="jobs/new?siteId=@_detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
                 <li><a class="dropdown-item" href="assets/new?siteId=@_detail.Id"><i class="bi bi-cpu me-2"></i>Add Asset</a></li>
                 <li><hr class="dropdown-divider" /></li>
-                <li><button class="dropdown-item text-danger" @onclick="ArchiveSite"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                @if (!_confirmArchive)
+                {
+                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                }
+                else
+                {
+                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveSite"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
+                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
+                }
             </ul>
         </div>
     </div>
@@ -124,27 +132,27 @@ else if (_view == View.Detail && _detail is not null)
                 <div class="col-md-6">
                     <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Location</h6>
                     @{ var addr = FormatDetailAddr(_detail); }
-                    @if (!string.IsNullOrEmpty(addr)) { <div class="mb-2"><i class="bi bi-geo-alt me-2 text-muted"></i>@addr</div> }
-                    @if (_detail.SqFt.HasValue) { <div class="mb-2"><i class="bi bi-rulers me-2 text-muted"></i>@_detail.SqFt?.ToString("N0") sq ft</div> }
-                    @if (_detail.Zones.HasValue) { <div class="mb-2"><i class="bi bi-grid me-2 text-muted"></i>@_detail.Zones zones</div> }
-                    @if (_detail.Stories.HasValue) { <div class="mb-2"><i class="bi bi-building me-2 text-muted"></i>@_detail.Stories stories</div> }
+                    @if (!string.IsNullOrEmpty(addr)) { <div class="mb-1"><i class="bi bi-geo-alt me-2 text-muted"></i>@addr</div> }
+                    @if (_detail.SqFt.HasValue) { <div class="mb-1"><i class="bi bi-rulers me-2 text-muted"></i>@_detail.SqFt?.ToString("N0") sq ft</div> }
+                    @if (_detail.Zones.HasValue) { <div class="mb-1"><i class="bi bi-grid me-2 text-muted"></i>@_detail.Zones zones</div> }
+                    @if (_detail.Stories.HasValue) { <div class="mb-1"><i class="bi bi-building me-2 text-muted"></i>@_detail.Stories stories</div> }
                     @if (!string.IsNullOrEmpty(_detail.CustomerName))
                     {
-                        <div class="mb-2"><i class="bi bi-person me-2 text-muted"></i>
+                        <div class="mb-1"><i class="bi bi-person me-2 text-muted"></i>
                             <a href="customers/@_detail.CustomerId">@_detail.CustomerName</a>
                         </div>
                     }
                     @if (!string.IsNullOrEmpty(_detail.CompanyName))
                     {
-                        <div class="mb-2"><i class="bi bi-building me-2 text-muted"></i>@_detail.CompanyName</div>
+                        <div class="mb-1"><i class="bi bi-building me-2 text-muted"></i>@_detail.CompanyName</div>
                     }
                 </div>
                 <div class="col-md-6">
                     <h6 class="text-muted"><i class="bi bi-key me-1"></i>Access & Notes</h6>
-                    @if (!string.IsNullOrEmpty(_detail.AccessCodes)) { <div class="mb-2"><strong>Access:</strong> @_detail.AccessCodes</div> }
-                    @if (!string.IsNullOrEmpty(_detail.Parking)) { <div class="mb-2"><strong>Parking:</strong> @_detail.Parking</div> }
-                    @if (!string.IsNullOrEmpty(_detail.EquipmentLocation)) { <div class="mb-2"><strong>Equipment:</strong> @_detail.EquipmentLocation</div> }
-                    @if (!string.IsNullOrEmpty(_detail.Instructions)) { <div class="mb-2"><strong>Instructions:</strong> @_detail.Instructions</div> }
+                    @if (!string.IsNullOrEmpty(_detail.AccessCodes)) { <div class="mb-1"><strong>Access:</strong> @_detail.AccessCodes</div> }
+                    @if (!string.IsNullOrEmpty(_detail.Parking)) { <div class="mb-1"><strong>Parking:</strong> @_detail.Parking</div> }
+                    @if (!string.IsNullOrEmpty(_detail.EquipmentLocation)) { <div class="mb-1"><strong>Equipment:</strong> @_detail.EquipmentLocation</div> }
+                    @if (!string.IsNullOrEmpty(_detail.Instructions)) { <div class="mb-1"><strong>Instructions:</strong> @_detail.Instructions</div> }
                     @if (!string.IsNullOrEmpty(_detail.Notes)) { <div class="mt-2 p-2 bg-light rounded small">@_detail.Notes</div> }
                 </div>
             </div>
@@ -181,17 +189,10 @@ else if (_view == View.Detail && _detail is not null)
                     { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>Basement</div> }
                 </div>
             }
-        </div>
-    </div>
-
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                </div>
+            <hr class="my-2" />
+            <div class="d-flex gap-3 text-muted small">
+                <span><i class="bi bi-clock me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</span>
+                <span><i class="bi bi-pencil-square me-1"></i>Updated @_detail.UpdatedAt.ToString("MMM dd, yyyy")</span>
             </div>
         </div>
     </div>
@@ -315,12 +316,12 @@ else if (_view == View.Form)
                 @if (!string.IsNullOrEmpty(_formError)) { <div class="alert alert-danger py-2 small">@_formError</div> }
 
                 <div class="row">
-                    <div class="col-md-8 mb-3">
+                    <div class="col-md-8 mb-2">
                         <label class="form-label">Name <span class="text-danger">*</span></label>
                         <InputText @bind-Value="_editModel.Name" class="form-control" placeholder="Site name" />
                         <ValidationMessage For="() => _editModel.Name" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Property Type</label>
                         <InputSelect @bind-Value="_editModel.PropertyType" class="form-select">
                             <option value="@PropertyType.Residential">Residential</option>
@@ -330,18 +331,18 @@ else if (_view == View.Form)
                     </div>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">Address</label>
                     <InputText @bind-Value="_editModel.Address" class="form-control" placeholder="Street address" />
                 </div>
                 <div class="row">
-                    <div class="col-md-5 mb-3"><label class="form-label">City</label><InputText @bind-Value="_editModel.City" class="form-control" /></div>
-                    <div class="col-md-3 mb-3"><label class="form-label">State</label><InputText @bind-Value="_editModel.State" class="form-control" /></div>
-                    <div class="col-md-4 mb-3"><label class="form-label">Zip</label><InputText @bind-Value="_editModel.Zip" class="form-control" /></div>
+                    <div class="col-md-5 mb-2"><label class="form-label">City</label><InputText @bind-Value="_editModel.City" class="form-control" /></div>
+                    <div class="col-md-3 mb-2"><label class="form-label">State</label><InputText @bind-Value="_editModel.State" class="form-control" /></div>
+                    <div class="col-md-4 mb-2"><label class="form-label">Zip</label><InputText @bind-Value="_editModel.Zip" class="form-control" /></div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
                             <option value="">— Select Customer —</option>
@@ -351,7 +352,7 @@ else if (_view == View.Form)
                             }
                         </InputSelect>
                     </div>
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Company</label>
                         <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
                             <option value="">— No Company —</option>
@@ -363,28 +364,28 @@ else if (_view == View.Form)
                     </div>
                 </div>
 
-                <hr />
+                <hr class="my-2" />
                 <h6 class="text-muted">Property Details</h6>
                 <div class="row">
-                    <div class="col-md-3 mb-3"><label class="form-label">Sq Ft</label><InputNumber @bind-Value="_editModel.SqFt" class="form-control" /></div>
-                    <div class="col-md-3 mb-3"><label class="form-label">Zones</label><InputNumber @bind-Value="_editModel.Zones" class="form-control" /></div>
-                    <div class="col-md-3 mb-3"><label class="form-label">Stories</label><InputNumber @bind-Value="_editModel.Stories" class="form-control" /></div>
-                    <div class="col-md-3 mb-3"><label class="form-label">Year Built</label><InputNumber @bind-Value="_editModel.YearBuilt" class="form-control" /></div>
+                    <div class="col-md-3 mb-2"><label class="form-label">Sq Ft</label><InputNumber @bind-Value="_editModel.SqFt" class="form-control" /></div>
+                    <div class="col-md-3 mb-2"><label class="form-label">Zones</label><InputNumber @bind-Value="_editModel.Zones" class="form-control" /></div>
+                    <div class="col-md-3 mb-2"><label class="form-label">Stories</label><InputNumber @bind-Value="_editModel.Stories" class="form-control" /></div>
+                    <div class="col-md-3 mb-2"><label class="form-label">Year Built</label><InputNumber @bind-Value="_editModel.YearBuilt" class="form-control" /></div>
                 </div>
                 <div class="row">
-                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="col-md-4 mb-2 d-flex align-items-end">
                         <div class="form-check mb-2">
                             <InputCheckbox @bind-Value="_hasAtticAccess" class="form-check-input" id="atticCheck" />
                             <label class="form-check-label" for="atticCheck">Attic Access</label>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="col-md-4 mb-2 d-flex align-items-end">
                         <div class="form-check mb-2">
                             <InputCheckbox @bind-Value="_hasCrawlSpace" class="form-check-input" id="crawlCheck" />
                             <label class="form-check-label" for="crawlCheck">Crawl Space</label>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="col-md-4 mb-2 d-flex align-items-end">
                         <div class="form-check mb-2">
                             <InputCheckbox @bind-Value="_hasBasement" class="form-check-input" id="basementCheck" />
                             <label class="form-check-label" for="basementCheck">Basement</label>
@@ -392,27 +393,27 @@ else if (_view == View.Form)
                     </div>
                 </div>
 
-                <hr />
+                <hr class="my-2" />
                 <h6 class="text-muted">Access Information</h6>
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label class="form-label">Access Codes</label><InputText @bind-Value="_editModel.AccessCodes" class="form-control" placeholder="Gate codes, lock box..." /></div>
-                    <div class="col-md-6 mb-3"><label class="form-label">Parking</label><InputText @bind-Value="_editModel.Parking" class="form-control" placeholder="Parking instructions" /></div>
+                    <div class="col-md-6 mb-2"><label class="form-label">Access Codes</label><InputText @bind-Value="_editModel.AccessCodes" class="form-control" placeholder="Gate codes, lock box..." /></div>
+                    <div class="col-md-6 mb-2"><label class="form-label">Parking</label><InputText @bind-Value="_editModel.Parking" class="form-control" placeholder="Parking instructions" /></div>
                 </div>
-                <div class="mb-3"><label class="form-label">Equipment Location</label><InputText @bind-Value="_editModel.EquipmentLocation" class="form-control" placeholder="Attic, basement, rooftop..." /></div>
-                <div class="mb-3"><label class="form-label">Special Instructions</label><InputTextArea @bind-Value="_editModel.Instructions" class="form-control" rows="2" /></div>
+                <div class="mb-2"><label class="form-label">Equipment Location</label><InputText @bind-Value="_editModel.EquipmentLocation" class="form-control" placeholder="Attic, basement, rooftop..." /></div>
+                <div class="mb-2"><label class="form-label">Special Instructions</label><InputTextArea @bind-Value="_editModel.Instructions" class="form-control" rows="2" /></div>
 
-                <hr />
+                <hr class="my-2" />
                 <h6 class="text-muted">Utility & Infrastructure</h6>
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label class="form-label">Gas Line Location</label><InputText @bind-Value="_editModel.GasLineLocation" class="form-control" placeholder="Meter location, shutoff..." /></div>
-                    <div class="col-md-6 mb-3"><label class="form-label">Electrical Panel Location</label><InputText @bind-Value="_editModel.ElectricalPanelLocation" class="form-control" placeholder="Garage, utility room..." /></div>
+                    <div class="col-md-6 mb-2"><label class="form-label">Gas Line Location</label><InputText @bind-Value="_editModel.GasLineLocation" class="form-control" placeholder="Meter location, shutoff..." /></div>
+                    <div class="col-md-6 mb-2"><label class="form-label">Electrical Panel Location</label><InputText @bind-Value="_editModel.ElectricalPanelLocation" class="form-control" placeholder="Garage, utility room..." /></div>
                 </div>
                 <div class="row">
-                    <div class="col-md-6 mb-3"><label class="form-label">Water Shutoff Location</label><InputText @bind-Value="_editModel.WaterShutoffLocation" class="form-control" placeholder="Front yard, basement..." /></div>
-                    <div class="col-md-6 mb-3"><label class="form-label">Heating Fuel Source</label><InputText @bind-Value="_editModel.HeatingFuelSource" class="form-control" placeholder="Natural Gas, Propane, Electric..." /></div>
+                    <div class="col-md-6 mb-2"><label class="form-label">Water Shutoff Location</label><InputText @bind-Value="_editModel.WaterShutoffLocation" class="form-control" placeholder="Front yard, basement..." /></div>
+                    <div class="col-md-6 mb-2"><label class="form-label">Heating Fuel Source</label><InputText @bind-Value="_editModel.HeatingFuelSource" class="form-control" placeholder="Natural Gas, Propane, Electric..." /></div>
                 </div>
 
-                <div class="mb-3"><label class="form-label">Notes</label><InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="2" /></div>
+                <div class="mb-2"><label class="form-label">Notes</label><InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="2" /></div>
 
                 <div class="d-flex justify-content-end gap-2">
                     <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Cancel</button>
@@ -443,6 +444,7 @@ else if (_view == View.Form)
     private List<CompanyOption> _companies = [];
     private string? _formError;
     private bool _saving;
+    private bool _confirmArchive;
     private bool _hasAtticAccess;
     private bool _hasCrawlSpace;
     private bool _hasBasement;
@@ -522,10 +524,10 @@ else if (_view == View.Form)
 
     private async Task ReloadList() => _sites = await SiteService.GetSitesAsync(_filter);
 
-    private void OnTypeFilterChanged()
+    private async Task OnTypeFilterChanged()
     {
         _filter.PropertyType = string.IsNullOrEmpty(_filterType) ? null : Enum.Parse<PropertyType>(_filterType);
-        _ = ReloadList();
+        await ReloadList();
     }
 
     private void GoToDetail(int id) => Navigation.NavigateTo($"sites/{id}");
@@ -568,6 +570,29 @@ else if (_view == View.Form)
     };
     private static string FormatAddr(SiteListItem s) => string.Join(", ", new[] { s.Address, s.City, s.State }.Where(p => !string.IsNullOrWhiteSpace(p)));
     private static string FormatDetailAddr(SiteDetail s) => string.Join(", ", new[] { s.Address, s.City, s.State, s.Zip }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+    private async Task ToggleSort(string column)
+    {
+        if (_filter.SortBy == column)
+            _filter.SortDescending = !_filter.SortDescending;
+        else
+        {
+            _filter.SortBy = column;
+            _filter.SortDescending = false;
+        }
+        await ReloadList();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var icon = _filter.SortBy == column
+            ? (_filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up";
+        var css = _filter.SortBy == column ? "text-primary" : "text-muted";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {icon} {css} small");
+        builder.CloseElement();
+    };
 
     private static string JobStatusBadge(JobStatus s) => s switch
     {

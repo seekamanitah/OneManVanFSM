@@ -28,6 +28,7 @@ public class ProductService : IProductService
             query = filter.SortBy?.ToLower() switch
             {
                 "category" => filter.SortDescending ? query.OrderByDescending(p => p.Category) : query.OrderBy(p => p.Category),
+                "cost" => filter.SortDescending ? query.OrderByDescending(p => p.Cost) : query.OrderBy(p => p.Cost),
                 "price" => filter.SortDescending ? query.OrderByDescending(p => p.Price) : query.OrderBy(p => p.Price),
                 _ => filter.SortDescending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name)
             };

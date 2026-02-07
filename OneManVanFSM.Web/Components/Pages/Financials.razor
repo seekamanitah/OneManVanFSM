@@ -29,7 +29,15 @@
             }
             @if (invoiceDetail.Status != InvoiceStatus.Void)
             {
-                <button class="btn btn-outline-danger btn-sm" @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Void)"><i class="bi bi-x-circle me-1"></i>Void</button>
+                @if (_confirmVoid)
+                {
+                    <button class="btn btn-danger btn-sm" @onclick="() => { _confirmVoid = false; ChangeInvoiceStatus(InvoiceStatus.Void); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Void</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmVoid = false">Cancel</button>
+                }
+                else
+                {
+                    <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmVoid = true"><i class="bi bi-x-circle me-1"></i>Void</button>
+                }
             }
         </div>
     </div>
@@ -130,8 +138,8 @@
                                             <td>@(l.AssetName ?? "—")</td>
                                             <td><small>@(l.Unit ?? "—")</small></td>
                                             <td class="text-end">@l.Quantity</td>
-                                            <td class="text-end">@l.UnitPrice.ToString("C")</td>
-                                            <td class="text-end">@l.LineTotal.ToString("C")</td>
+                                            <td class="text-end">@l.UnitPrice.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</td>
+                                            <td class="text-end">@l.LineTotal.ToString("C", System.Globalization.CultureInfo.GetCultureInfo("en-US"))</td>
                                         </tr>
                                     }
                                 }
@@ -142,7 +150,7 @@
                             </tbody>
                         </table>
                     </div>
-                    @if (!string.IsNullOrEmpty(invoiceDetail.Notes)) { <hr /><p class="text-muted small mb-0">@invoiceDetail.Notes</p> }
+                    @if (!string.IsNullOrEmpty(invoiceDetail.Notes)) { <hr class="my-2" /><p class="text-muted small mb-0">@invoiceDetail.Notes</p> }
 
                     @* ?? Print-Only Pricing Summary ?? *@
                     <div class="print-pricing-summary d-none">
@@ -194,18 +202,18 @@
         <div class="col-md-4 no-print">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3">Pricing Summary</h6>
+                    <h6 class="text-muted mb-2">Pricing Summary</h6>
                     <div class="d-flex justify-content-between mb-1"><span>Subtotal</span><span>@invoiceDetail.Subtotal.ToString("C")</span></div>
                     @if (invoiceDetail.MarkupAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Markup</span><span>@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
                     @if (invoiceDetail.TaxAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax</span><span>@invoiceDetail.TaxAmount.ToString("C")</span></div> }
                     @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount.Value > 0) { <div class="d-flex justify-content-between mb-1 text-success"><span>Discount</span><span>-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
-                    <hr />
+                    <hr class="my-2" />
                     <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@invoiceDetail.Total.ToString("C")</span></div>
                     @if (invoiceDetail.DepositApplied.HasValue && invoiceDetail.DepositApplied.Value > 0)
                     {
                         <div class="d-flex justify-content-between mb-1 mt-1"><span>Deposit Applied</span><span>-@invoiceDetail.DepositApplied.Value.ToString("C")</span></div>
                     }
-                    <hr />
+                    <hr class="my-2" />
                     <div class="d-flex justify-content-between fw-bold @(invoiceDetail.BalanceDue > 0 ? "text-danger" : "text-success")"><span>Balance Due</span><span>@invoiceDetail.BalanceDue.ToString("C")</span></div>
                 </div>
             </div>
@@ -267,13 +275,10 @@
                             </EditForm>
                         </div>
                     }
-                </div>
-            </div>
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @invoiceDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @invoiceDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <div class="d-flex justify-content-between text-muted small mt-2 pt-2 border-top">
+                        <span><i class="bi bi-info-circle me-1"></i>Created @invoiceDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                        <span>Updated @invoiceDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -298,7 +303,7 @@ else
             </div>
             <div class="card-body">
                 <EditForm Model="invoiceForm" OnValidSubmit="SaveInvoice">
-                    <div class="row g-3 mb-3">
+                    <div class="row g-2 mb-3">
                         <div class="col-md-3">
                             <label class="form-label">Status</label>
                             <InputSelect @bind-Value="invoiceForm.Status" class="form-select form-select-sm">
@@ -444,7 +449,7 @@ else
             <div class="card-body">
                 <EditForm Model="expenseForm" OnValidSubmit="SaveExpense">
                     <DataAnnotationsValidator />
-                    <div class="row g-3">
+                    <div class="row g-2">
                         <div class="col-md-3">
                             <label class="form-label">Category</label>
                             <InputText @bind-Value="expenseForm.Category" class="form-control form-control-sm" placeholder="e.g. Materials, Travel, Fuel" />
@@ -511,17 +516,14 @@ else
         <div class="card border-0 shadow-sm mb-2">
             <div class="card-body py-2">
                 <div class="row g-2 align-items-end">
-                    <div class="col-md-6">
-                        <input type="text" class="form-control form-control-sm" placeholder="Search invoices..." @bind="invoiceFilter.Search" @bind:event="oninput" @onkeyup="HandleInvoiceSearchKey" />
+                    <div class="col-md-8">
+                        <input type="text" class="form-control form-control-sm" placeholder="Search invoices..." @bind="invoiceFilter.Search" @bind:event="oninput" @bind:after="LoadInvoices" />
                     </div>
                     <div class="col-md-4">
-                        <select class="form-select form-select-sm" @bind="invoiceFilterStatus">
+                        <select class="form-select form-select-sm" @bind="invoiceFilterStatus" @bind:after="LoadInvoices">
                             <option value="">All Statuses</option>
                             @foreach (var s in Enum.GetValues<InvoiceStatus>()) { <option value="@s">@s</option> }
                         </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadInvoices"><i class="bi bi-search"></i></button>
                     </div>
                 </div>
             </div>
@@ -539,7 +541,7 @@ else
             {
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light"><tr><th>Number</th><th>Customer</th><th>Status</th><th>Total</th><th>Balance</th><th>Due</th></tr></thead>
+                        <thead class="table-light"><tr><th role="button" @onclick='() => ToggleInvoiceSort("number")'>Number@(InvoiceSortIcon("number"))</th><th>Customer</th><th>Status</th><th role="button" @onclick='() => ToggleInvoiceSort("total")'>Total@(InvoiceSortIcon("total"))</th><th>Balance</th><th role="button" @onclick='() => ToggleInvoiceSort("duedate")'>Due@(InvoiceSortIcon("duedate"))</th></tr></thead>
                         <tbody>
                             @foreach (var i in invoices)
                             {
@@ -563,17 +565,14 @@ else
         <div class="card border-0 shadow-sm mb-2">
             <div class="card-body py-2">
                 <div class="row g-2 align-items-end">
-                    <div class="col-md-6">
-                        <input type="text" class="form-control form-control-sm" placeholder="Search expenses..." @bind="expenseFilter.Search" @bind:event="oninput" @onkeyup="HandleExpenseSearchKey" />
+                    <div class="col-md-8">
+                        <input type="text" class="form-control form-control-sm" placeholder="Search expenses..." @bind="expenseFilter.Search" @bind:event="oninput" @bind:after="LoadExpenses" />
                     </div>
                     <div class="col-md-4">
-                        <select class="form-select form-select-sm" @bind="expenseFilterStatus">
+                        <select class="form-select form-select-sm" @bind="expenseFilterStatus" @bind:after="LoadExpenses">
                             <option value="">All Statuses</option>
                             @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
                         </select>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadExpenses"><i class="bi bi-search"></i></button>
                     </div>
                 </div>
             </div>
@@ -591,7 +590,7 @@ else
             {
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light"><tr><th>Category</th><th>Description</th><th>Amount</th><th>Status</th><th>Employee</th><th>Job</th><th>Billable</th><th>Date</th></tr></thead>
+                        <thead class="table-light"><tr><th role="button" @onclick='() => ToggleExpenseSort("category")'>Category@(ExpenseSortIcon("category"))</th><th>Description</th><th role="button" @onclick='() => ToggleExpenseSort("amount")'>Amount@(ExpenseSortIcon("amount"))</th><th>Status</th><th>Employee</th><th>Job</th><th>Billable</th><th role="button" @onclick='() => ToggleExpenseSort("createdat")'>Date@(ExpenseSortIcon("createdat"))</th></tr></thead>
                         <tbody>
                             @foreach (var e in expenses)
                             {
@@ -627,7 +626,7 @@ else
             {
                 <div class="table-responsive">
                     <table class="table table-hover mb-0 align-middle">
-                        <thead class="table-light"><tr><th>Amount</th><th>Method</th><th>Status</th><th>Invoice</th><th>Reference</th><th>Date</th></tr></thead>
+                        <thead class="table-light"><tr><th role="button" @onclick='() => TogglePaymentSort("amount")'>Amount@(PaymentSortIcon("amount"))</th><th>Method</th><th>Status</th><th>Invoice</th><th>Reference</th><th role="button" @onclick='() => TogglePaymentSort("createdat")'>Date@(PaymentSortIcon("createdat"))</th></tr></thead>
                         <tbody>
                             @foreach (var p in payments)
                             {
@@ -669,10 +668,12 @@ else
     private int? editingInvoiceId;
     private decimal taxRate = 0;
     private bool showPaymentForm;
+    private bool _confirmVoid;
     private InvoiceFilter invoiceFilter = new();
     private string invoiceFilterStatus = "";
     private ExpenseFilter expenseFilter = new();
     private string expenseFilterStatus = "";
+    private PaymentFilter paymentFilter = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -704,7 +705,7 @@ else
     {
         if (activeTab == "invoices") await LoadInvoices();
         else if (activeTab == "expenses") await LoadExpenses();
-        else if (activeTab == "payments") payments = await FinSvc.GetPaymentsAsync();
+        else if (activeTab == "payments") await LoadPayments();
     }
 
     private async Task LoadInvoices()
@@ -717,6 +718,11 @@ else
     {
         expenseFilter.Status = string.IsNullOrWhiteSpace(expenseFilterStatus) ? null : Enum.Parse<ExpenseStatus>(expenseFilterStatus);
         expenses = await FinSvc.GetExpensesAsync(expenseFilter);
+    }
+
+    private async Task LoadPayments()
+    {
+        payments = await FinSvc.GetPaymentsAsync(paymentFilter);
     }
 
     private void ShowInvoiceForm()
@@ -890,8 +896,41 @@ else
         _ => "bg-secondary"
     };
 
-    private async Task HandleInvoiceSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadInvoices(); }
-    private async Task HandleExpenseSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadExpenses(); }
+    private async Task ToggleInvoiceSort(string column)
+    {
+        if (invoiceFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true) invoiceFilter.SortDescending = !invoiceFilter.SortDescending;
+        else { invoiceFilter.SortBy = column; invoiceFilter.SortDescending = false; }
+        await LoadInvoices();
+    }
+
+    private MarkupString InvoiceSortIcon(string column) =>
+        invoiceFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true
+            ? new MarkupString(invoiceFilter.SortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>")
+            : default;
+
+    private async Task ToggleExpenseSort(string column)
+    {
+        if (expenseFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true) expenseFilter.SortDescending = !expenseFilter.SortDescending;
+        else { expenseFilter.SortBy = column; expenseFilter.SortDescending = false; }
+        await LoadExpenses();
+    }
+
+    private MarkupString ExpenseSortIcon(string column) =>
+        expenseFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true
+            ? new MarkupString(expenseFilter.SortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>")
+            : default;
+
+    private async Task TogglePaymentSort(string column)
+    {
+        if (paymentFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true) paymentFilter.SortDescending = !paymentFilter.SortDescending;
+        else { paymentFilter.SortBy = column; paymentFilter.SortDescending = false; }
+        await LoadPayments();
+    }
+
+    private MarkupString PaymentSortIcon(string column) =>
+        paymentFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true
+            ? new MarkupString(paymentFilter.SortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>")
+            : default;
 
     private async Task PrintInvoice() => await JS.InvokeVoidAsync("window.print");
 

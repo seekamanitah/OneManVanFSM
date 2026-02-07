@@ -20,7 +20,7 @@
         <div class="card-body">
             <EditForm Model="form" OnValidSubmit="SaveEmployee">
                 <DataAnnotationsValidator />
-                <div class="row g-3">
+                <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label">Name <span class="text-danger">*</span></label>
                         <InputText @bind-Value="form.Name" class="form-control" />
@@ -72,7 +72,7 @@
                         <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
                     </div>
 
-                    <div class="col-12"><hr /></div>
+                    <div class="col-12"><hr class="my-2" /></div>
 
                     <div class="col-md-4">
                         <label class="form-label">License Number</label>
@@ -115,20 +115,32 @@ else if (mode == "detail" && detail is not null)
         <h4 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>@detail.Name</h4>
         <span class="badge ms-2 @(detail.Status == EmployeeStatus.Active ? "bg-success" : "bg-secondary")">@detail.Status</span>
         <span class="badge bg-info ms-1">@detail.Role</span>
-        <div class="ms-auto">
-            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
-            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        <div class="ms-auto dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>Actions</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><button class="dropdown-item" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button></li>
+                <li><hr class="dropdown-divider" /></li>
+                @if (_confirmArchive)
+                {
+                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Archive</button></li>
+                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-1"></i>Cancel</button></li>
+                }
+                else
+                {
+                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button></li>
+                }
+            </ul>
         </div>
     </div>
     <div class="row g-3">
         <div class="col-md-4">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3">Contact Info</h6>
+                    <h6 class="text-muted mb-2">Contact Info</h6>
                     <p class="mb-1"><i class="bi bi-telephone me-1"></i>@(detail.Phone ?? "—")</p>
                     <p class="mb-1"><i class="bi bi-envelope me-1"></i>@(detail.Email ?? "—")</p>
                     <p class="mb-1"><i class="bi bi-geo-alt me-1"></i>@(detail.Address ?? "—")</p>
-                    <hr />
+                    <hr class="my-2" />
                     <p class="mb-1"><strong>Rate:</strong> @detail.HourlyRate.ToString("C")/hr</p>
                     @if (detail.OvertimeRate.HasValue)
                     {
@@ -138,12 +150,12 @@ else if (mode == "detail" && detail is not null)
                     <p class="mb-1"><strong>Hired:</strong> @detail.HireDate.ToString("MMM dd, yyyy")</p>
                     @if (!string.IsNullOrWhiteSpace(detail.Certifications))
                     {
-                        <hr />
+                        <hr class="my-2" />
                         <p class="mb-0"><strong>Certs:</strong> @detail.Certifications</p>
                     }
                     @if (!string.IsNullOrWhiteSpace(detail.LicenseNumber) || detail.LicenseExpiry.HasValue)
                     {
-                        <hr />
+                        <hr class="my-2" />
                         <h6 class="text-muted mb-2"><i class="bi bi-card-text me-1"></i>License</h6>
                         @if (!string.IsNullOrWhiteSpace(detail.LicenseNumber))
                         {
@@ -161,12 +173,12 @@ else if (mode == "detail" && detail is not null)
                     }
                     @if (!string.IsNullOrWhiteSpace(detail.VehicleAssigned))
                     {
-                        <hr />
+                        <hr class="my-2" />
                         <p class="mb-1"><i class="bi bi-truck me-1 text-muted"></i><strong>Vehicle:</strong> @detail.VehicleAssigned</p>
                     }
                     @if (!string.IsNullOrWhiteSpace(detail.EmergencyContactName) || !string.IsNullOrWhiteSpace(detail.EmergencyContactPhone))
                     {
-                        <hr />
+                        <hr class="my-2" />
                         <h6 class="text-muted mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Emergency Contact</h6>
                         @if (!string.IsNullOrWhiteSpace(detail.EmergencyContactName))
                         {
@@ -179,26 +191,22 @@ else if (mode == "detail" && detail is not null)
                     }
                     @if (!string.IsNullOrWhiteSpace(detail.Notes))
                     {
-                        <hr />
+                        <hr class="my-2" />
                         <h6 class="text-muted mb-2"><i class="bi bi-sticky me-1"></i>Notes</h6>
                         <p class="mb-0 small bg-light rounded p-2">@detail.Notes</p>
                     }
-                </div>
-            </div>
-
-            @* Record Info *@
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <hr class="my-2" />
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                        <span><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
                 </div>
             </div>
 
             @* Time Clock Panel *@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-clock me-1"></i>Time Clock</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-clock me-1"></i>Time Clock</h6>
                     @if (activeClock is not null)
                     {
                         <div class="alert alert-success py-2 mb-2">
@@ -504,22 +512,19 @@ else
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
                 <div class="col-md-5">
-                    <input type="text" class="form-control form-control-sm" placeholder="Search employees..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                    <input type="text" class="form-control form-control-sm" placeholder="Search employees..." @bind="filter.Search" @bind:event="oninput" @bind:after="LoadEmployees" />
                 </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="filterRole">
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm" @bind="filterRole" @bind:after="LoadEmployees">
                         <option value="">All Roles</option>
                         @foreach (var r in Enum.GetValues<EmployeeRole>()) { <option value="@r">@r</option> }
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <select class="form-select form-select-sm" @bind="filterStatusStr">
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filterStatusStr" @bind:after="LoadEmployees">
                         <option value="">All Statuses</option>
                         @foreach (var s in Enum.GetValues<EmployeeStatus>()) { <option value="@s">@s</option> }
                     </select>
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadEmployees"><i class="bi bi-search"></i></button>
                 </div>
             </div>
         </div>
@@ -540,7 +545,14 @@ else
         {
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
-                    <thead class="table-light"><tr><th>Name</th><th>Role</th><th>Status</th><th>Phone</th><th>Territory</th><th>Rate</th><th>Active Jobs</th></tr></thead>
+                    <thead class="table-light"><tr>
+                        <th style="cursor:pointer" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
+                        <th style="cursor:pointer" @onclick='() => ToggleSort("Role")'>Role @SortIcon("Role")</th>
+                        <th style="cursor:pointer" @onclick='() => ToggleSort("Status")'>Status @SortIcon("Status")</th>
+                        <th>Phone</th><th>Territory</th>
+                        <th style="cursor:pointer" @onclick='() => ToggleSort("Rate")'>Rate @SortIcon("Rate")</th>
+                        <th>Active Jobs</th>
+                    </tr></thead>
                     <tbody>
                         @foreach (var e in employees)
                         {
@@ -574,6 +586,7 @@ else
     private EmployeeEditModel form = new();
     private int? editId;
     private string? errorMsg;
+    private bool _confirmArchive;
 
     // Time clock state
     private EmployeeTimeEntry? activeClock;
@@ -701,7 +714,7 @@ else
 
     private async Task ArchiveDetail()
     {
-        if (detail is not null) { await EmployeeSvc.ArchiveEmployeeAsync(detail.Id); Nav.NavigateTo("/employees"); }
+        if (detail is not null) { await EmployeeSvc.ArchiveEmployeeAsync(detail.Id); _confirmArchive = false; Nav.NavigateTo("/employees"); }
     }
 
     // Time Clock
@@ -775,7 +788,23 @@ else
     private void GoToDetail(int id) => Nav.NavigateTo($"/employees/{id}");
     private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/employees/{detail.Id}/edit"); }
-    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadEmployees(); }
+
+    private async Task ToggleSort(string column)
+    {
+        if (filter.SortBy == column) filter.SortDescending = !filter.SortDescending;
+        else { filter.SortBy = column; filter.SortDescending = false; }
+        await LoadEmployees();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var css = filter.SortBy == column
+            ? (filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up opacity-25";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {css} ms-1{(filter.SortBy == column ? " text-primary" : "")}");
+        builder.CloseElement();
+    };
 
     private static string JobStatusBadge(JobStatus status) => status switch
     {

@@ -22,7 +22,7 @@
         <div class="card-body">
             <EditForm Model="form" OnValidSubmit="SaveEvent">
                 <DataAnnotationsValidator />
-                <div class="row g-3">
+                <div class="row g-2">
                     <div class="col-md-6">
                         <label class="form-label">Title</label>
                         <InputText @bind-Value="form.Title" class="form-control" />
@@ -132,7 +132,15 @@ else if (mode == "detail" && selected is not null)
         @if (selected.IsRecurring) { <span class="badge bg-primary ms-1"><i class="bi bi-arrow-repeat me-1"></i>Recurring</span> }
         <div class="ms-auto">
             <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
-            <button class="btn btn-outline-danger btn-sm" @onclick="DeleteDetail"><i class="bi bi-trash me-1"></i>Delete</button>
+            @if (_confirmDelete)
+            {
+                <button class="btn btn-danger btn-sm me-1" @onclick="() => { _confirmDelete = false; DeleteDetail(); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmDelete = false">Cancel</button>
+            }
+            else
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmDelete = true"><i class="bi bi-trash me-1"></i>Delete</button>
+            }
         </div>
     </div>
     <div class="row g-3">
@@ -200,20 +208,17 @@ else if (mode == "detail" && selected is not null)
         <div class="col-md-4">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-lightning me-1"></i>Quick Status</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-lightning me-1"></i>Quick Status</h6>
                     <div class="d-flex flex-wrap gap-1">
                         @foreach (var s in Enum.GetValues<CalendarEventStatus>())
                         {
                             <button class="btn btn-sm @(s == selected.Status ? "btn-primary" : "btn-outline-secondary")" @onclick="() => UpdateStatus(s)">@s</button>
                         }
                     </div>
-                </div>
-            </div>
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @selected.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @selected.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <div class="d-flex justify-content-between text-muted small mt-2 pt-2 border-top">
+                        <span><i class="bi bi-info-circle me-1"></i>Created @selected.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                        <span>Updated @selected.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -258,7 +263,7 @@ else
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadEvents"><i class="bi bi-search me-1"></i>Filter</button>
+                    <!-- Filter button removed for auto-search -->
                 </div>
             </div>
         </div>
@@ -329,7 +334,9 @@ else
 }
 
 @code {
-    [Parameter] public int? Id { get; set; }
+    [Parameter]
+    public int? Id { get; set; }
+    private bool _confirmDelete;
 
     private string mode = "list";
     private List<CalendarEventItem>? events;
@@ -359,8 +366,11 @@ else
 
     private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
     {
-        await DetermineView();
-        await InvokeAsync(StateHasChanged);
+        await Task.Run(async () => 
+        {
+            await DetermineView();
+            await InvokeAsync(StateHasChanged);
+        });
     }
 
     private async Task DetermineView()
@@ -473,3 +483,4 @@ else
     private void GoToEmployee(int id) => Nav.NavigateTo($"/employees/{id}");
     private void GoToAgreement(int id) => Nav.NavigateTo($"/serviceagreements/{id}");
 }
+

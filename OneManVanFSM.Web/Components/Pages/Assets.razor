@@ -22,8 +22,8 @@
             <EditForm Model="form" OnValidSubmit="SaveAsset">
                 <DataAnnotationsValidator />
                 <!-- Core Identity -->
-                <h6 class="text-muted mb-3"><i class="bi bi-tag me-1"></i>Identity</h6>
-                <div class="row g-3">
+                <h6 class="text-muted mb-2"><i class="bi bi-tag me-1"></i>Identity</h6>
+                <div class="row g-2">
                     <div class="col-md-4">
                         <label class="form-label">Name <span class="text-danger">*</span></label>
                         <InputText @bind-Value="form.Name" class="form-control" />
@@ -65,9 +65,9 @@
                     </div>
                 </div>
 
-                <hr />
-                <h6 class="text-muted mb-3"><i class="bi bi-thermometer-half me-1"></i>HVAC Specs</h6>
-                <div class="row g-3">
+                <hr class="my-2" />
+                <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>HVAC Specs</h6>
+                <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">Tonnage</label>
                         <InputNumber @bind-Value="form.Tonnage" class="form-control" />
@@ -106,9 +106,9 @@
                     </div>
                 </div>
 
-                <hr />
-                <h6 class="text-muted mb-3"><i class="bi bi-lightning-charge me-1"></i>Electrical / <i class="bi bi-droplet me-1"></i>Plumbing</h6>
-                <div class="row g-3">
+                <hr class="my-2" />
+                <h6 class="text-muted mb-2"><i class="bi bi-lightning-charge me-1"></i>Electrical / <i class="bi bi-droplet me-1"></i>Plumbing</h6>
+                <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">Voltage</label>
                         <InputText @bind-Value="form.Voltage" class="form-control" placeholder="120V, 240V" />
@@ -135,9 +135,9 @@
                     </div>
                 </div>
 
-                <hr />
-                <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-1"></i>Dates & Warranty</h6>
-                <div class="row g-3">
+                <hr class="my-2" />
+                <h6 class="text-muted mb-2"><i class="bi bi-calendar3 me-1"></i>Dates & Warranty</h6>
+                <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">Install Date</label>
                         <InputDate @bind-Value="form.InstallDate" class="form-control" />
@@ -168,9 +168,9 @@
                     </div>
                 </div>
 
-                <hr />
-                <h6 class="text-muted mb-3"><i class="bi bi-link-45deg me-1"></i>Connections</h6>
-                <div class="row g-3">
+                <hr class="my-2" />
+                <h6 class="text-muted mb-2"><i class="bi bi-link-45deg me-1"></i>Connections</h6>
+                <div class="row g-2">
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="form.CustomerId" class="form-select">
@@ -224,9 +224,22 @@ else if (mode == "detail" && detail is not null)
         {
             <span class="badge bg-danger ms-1"><i class="bi bi-shield-x me-1"></i>Warranty Expired</span>
         }
-        <div class="ms-auto">
-            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
-            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        <div class="ms-auto dropdown">
+            <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg me-1"></i>Actions</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><button class="dropdown-item" @onclick="EditDetail"><i class="bi bi-pencil me-2"></i>Edit Asset</button></li>
+                <li><a class="dropdown-item" href="jobs/new?assetId=@detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                @if (!_confirmArchive)
+                {
+                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                }
+                else
+                {
+                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
+                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
+                }
+            </ul>
         </div>
     </div>
     <div class="row g-3">
@@ -235,7 +248,7 @@ else if (mode == "detail" && detail is not null)
             <!-- Equipment Details -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-gear me-1"></i>Equipment Details</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-gear me-1"></i>Equipment Details</h6>
                     <div class="row g-2">
                         <div class="col-sm-4"><strong>Type:</strong> @(detail.AssetType ?? "—")</div>
                         <div class="col-sm-4"><strong>Brand:</strong> @(detail.Brand ?? "—")</div>
@@ -255,7 +268,7 @@ else if (mode == "detail" && detail is not null)
             {
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
-                        <h6 class="text-muted mb-3"><i class="bi bi-thermometer-half me-1"></i>HVAC Specifications</h6>
+                        <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>HVAC Specifications</h6>
                         <div class="row g-2">
                             @if (detail.Tonnage.HasValue) { <div class="col-sm-3"><strong>Tonnage:</strong> @detail.Tonnage</div> }
                             @if (detail.BTURating.HasValue) { <div class="col-sm-3"><strong>BTU:</strong> @detail.BTURating.Value.ToString("N0")</div> }
@@ -282,7 +295,7 @@ else if (mode == "detail" && detail is not null)
             {
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
-                        <h6 class="text-muted mb-3"><i class="bi bi-lightning-charge me-1"></i>Electrical</h6>
+                        <h6 class="text-muted mb-2"><i class="bi bi-lightning-charge me-1"></i>Electrical</h6>
                         <div class="row g-2">
                             @if (detail.Voltage is not null) { <div class="col-sm-3"><strong>Voltage:</strong> @detail.Voltage</div> }
                             @if (detail.Phase is not null) { <div class="col-sm-3"><strong>Phase:</strong> @detail.Phase</div> }
@@ -298,7 +311,7 @@ else if (mode == "detail" && detail is not null)
             {
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
-                        <h6 class="text-muted mb-3"><i class="bi bi-droplet me-1"></i>Plumbing</h6>
+                        <h6 class="text-muted mb-2"><i class="bi bi-droplet me-1"></i>Plumbing</h6>
                         <div class="row g-2">
                             @if (detail.PipeMaterial is not null) { <div class="col-sm-6"><strong>Pipe Material:</strong> @detail.PipeMaterial</div> }
                             @if (detail.GallonCapacity.HasValue) { <div class="col-sm-6"><strong>Capacity:</strong> @detail.GallonCapacity gal</div> }
@@ -310,7 +323,7 @@ else if (mode == "detail" && detail is not null)
             <!-- Key Dates & Warranty -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-calendar3 me-1"></i>Key Dates & Warranty</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-calendar3 me-1"></i>Key Dates & Warranty</h6>
                     <div class="row g-2">
                         <div class="col-sm-4"><strong>Installed:</strong> @(detail.InstallDate?.ToString("MMM dd, yyyy") ?? "—")</div>
                         <div class="col-sm-4"><strong>Manufactured:</strong> @(detail.ManufactureDate?.ToString("MMM dd, yyyy") ?? "—")</div>
@@ -389,7 +402,7 @@ else if (mode == "detail" && detail is not null)
             <!-- Service History -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-clock-history me-1"></i>Service History (@detail.ServiceHistory.Count)</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-clock-history me-1"></i>Service History (@detail.ServiceHistory.Count)</h6>
                     @if (detail.ServiceHistory.Any())
                     {
                         <div class="table-responsive">
@@ -432,7 +445,7 @@ else if (mode == "detail" && detail is not null)
             <!-- Linked Jobs -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-wrench-adjustable me-1"></i>Linked Jobs (@detail.LinkedJobs.Count)</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-wrench-adjustable me-1"></i>Linked Jobs (@detail.LinkedJobs.Count)</h6>
                     @if (detail.LinkedJobs.Any())
                     {
                         <div class="table-responsive">
@@ -465,7 +478,7 @@ else if (mode == "detail" && detail is not null)
             <!-- Unified Service Timeline -->
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-timeline me-1"></i>Unified Service Timeline (@detail.UnifiedTimeline.Count)</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-timeline me-1"></i>Unified Service Timeline (@detail.UnifiedTimeline.Count)</h6>
                     @if (detail.UnifiedTimeline.Any())
                     {
                         <div class="table-responsive">
@@ -529,13 +542,11 @@ else if (mode == "detail" && detail is not null)
                     {
                         <p class="mb-1"><i class="bi bi-box-seam me-1"></i><a href="products/@detail.ProductId">@detail.ProductName</a></p>
                     }
-                </div>
-            </div>
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="text-muted mb-2"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <hr class="my-2" />
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><i class="bi bi-clock me-1"></i>Created @detail.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        <span><i class="bi bi-pencil-square me-1"></i>Updated @detail.UpdatedAt.ToString("MMM dd, yyyy")</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -551,20 +562,18 @@ else
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
                 <div class="col-md-5">
-                    <input type="text" class="form-control form-control-sm" placeholder="Search assets..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                    <input type="text" class="form-control form-control-sm" placeholder="Search assets..." @bind="filter.Search" @bind:event="oninput" @bind:after="LoadAssets" />
                 </div>
                 <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="filterStatus">
+                    <select class="form-select form-select-sm" @bind="filterStatus" @bind:after="OnStatusFilterChanged">
                         <option value="">All Statuses</option>
                         @foreach (var s in Enum.GetValues<AssetStatus>()) { <option value="@s">@s</option> }
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <input type="text" class="form-control form-control-sm" placeholder="Type..." @bind="filter.AssetType" @bind:event="oninput" />
+                    <input type="text" class="form-control form-control-sm" placeholder="Type..." @bind="filter.AssetType" @bind:event="oninput" @bind:after="LoadAssets" />
                 </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadAssets"><i class="bi bi-search"></i></button>
-                </div>
+                <div class="col-md-2 text-end text-muted small">@(assets?.Count ?? 0) asset@(assets?.Count != 1 ? "s" : "")</div>
             </div>
         </div>
     </div>
@@ -585,7 +594,15 @@ else
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
-                        <tr><th>Name</th><th>Type</th><th>Model</th><th>Status</th><th>Customer</th><th>Site</th><th>Warranty</th></tr>
+                        <tr>
+                            <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
+                            <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
+                            <th>Model</th>
+                            <th role="button" @onclick='() => ToggleSort("Status")'>Status @SortIcon("Status")</th>
+                            <th>Customer</th>
+                            <th>Site</th>
+                            <th>Warranty</th>
+                        </tr>
                     </thead>
                     <tbody>
                         @foreach (var a in assets)
@@ -621,6 +638,7 @@ else
     private AssetEditModel form = new();
     private int? editId;
     private string? errorMsg;
+    private bool _confirmArchive;
     private List<CustomerListItem> _customers = [];
     private List<SiteListItem> _sites = [];
 
@@ -734,7 +752,30 @@ else
     private void GoToDetail(int id) => Nav.NavigateTo($"/assets/{id}");
     private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/assets/{detail.Id}/edit"); }
-    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadAssets(); }
+
+    private async Task OnStatusFilterChanged()
+    {
+        filter.Status = string.IsNullOrWhiteSpace(filterStatus) ? null : Enum.Parse<AssetStatus>(filterStatus);
+        await LoadAssets();
+    }
+
+    private async Task ToggleSort(string column)
+    {
+        if (filter.SortBy == column) filter.SortDescending = !filter.SortDescending;
+        else { filter.SortBy = column; filter.SortDescending = false; }
+        await LoadAssets();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var icon = filter.SortBy == column
+            ? (filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up";
+        var css = filter.SortBy == column ? "text-primary" : "text-muted";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {icon} {css} small");
+        builder.CloseElement();
+    };
 
     private string GetWarrantyState(AssetDetail d)
     {

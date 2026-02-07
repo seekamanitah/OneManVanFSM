@@ -69,14 +69,18 @@ else if (_view == View.List)
                     <thead class="table-light">
                         <tr>
                             <th role="button" @onclick='() => ToggleSort("Name")'>
-                                Name <i class="bi bi-arrow-down-up text-muted small"></i>
+                                Name @SortIcon("Name")
                             </th>
-                            <th>Type</th>
+                            <th role="button" @onclick='() => ToggleSort("Type")'>
+                                Type @SortIcon("Type")
+                            </th>
                             <th class="d-none d-md-table-cell">Contact</th>
                             <th class="text-center d-none d-lg-table-cell">Sites</th>
                             <th class="text-center d-none d-lg-table-cell">Assets</th>
                             <th class="text-center d-none d-md-table-cell">Open Jobs</th>
-                            <th class="text-end d-none d-lg-table-cell">Balance</th>
+                            <th class="text-end d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("Balance")'>
+                                Balance @SortIcon("Balance")
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
@@ -161,7 +165,15 @@ else if (_view == View.Detail && _detail is not null)
                     <li><button class="dropdown-item" @onclick="EmailCustomer"><i class="bi bi-envelope me-2"></i>Email Customer</button></li>
                 }
                 <li><hr class="dropdown-divider" /></li>
-                <li><button class="dropdown-item text-danger" @onclick="ArchiveCustomer"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                @if (!_confirmArchive)
+                {
+                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                }
+                else
+                {
+                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveCustomer"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
+                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
+                }
             </ul>
         </div>
     </div>
@@ -174,47 +186,47 @@ else if (_view == View.Detail && _detail is not null)
                 <div class="col-md-6">
                     @if (!string.IsNullOrEmpty(_detail.PrimaryPhone))
                     {
-                        <div class="mb-2"><i class="bi bi-telephone me-2 text-muted"></i>@_detail.PrimaryPhone</div>
+                        <div class="mb-1"><i class="bi bi-telephone me-2 text-muted"></i>@_detail.PrimaryPhone</div>
                     }
                     @if (!string.IsNullOrEmpty(_detail.SecondaryPhone))
                     {
-                        <div class="mb-2"><i class="bi bi-telephone me-2 text-muted"></i>@_detail.SecondaryPhone <small class="text-muted">(secondary)</small></div>
+                        <div class="mb-1"><i class="bi bi-telephone me-2 text-muted"></i>@_detail.SecondaryPhone <small class="text-muted">(secondary)</small></div>
                     }
                     @if (!string.IsNullOrEmpty(_detail.PrimaryEmail))
                     {
-                        <div class="mb-2"><i class="bi bi-envelope me-2 text-muted"></i>@_detail.PrimaryEmail</div>
+                        <div class="mb-1"><i class="bi bi-envelope me-2 text-muted"></i>@_detail.PrimaryEmail</div>
                     }
                     @if (!string.IsNullOrEmpty(_detail.PreferredContactMethod))
                     {
-                        <div class="mb-2"><i class="bi bi-chat-dots me-2 text-muted"></i>Prefers: <span class="badge bg-light text-dark border">@_detail.PreferredContactMethod</span></div>
+                        <div class="mb-1"><i class="bi bi-chat-dots me-2 text-muted"></i>Prefers: <span class="badge bg-light text-dark border">@_detail.PreferredContactMethod</span></div>
                     }
                     @if (!string.IsNullOrEmpty(_detail.CompanyName))
                     {
-                        <div class="mb-2"><i class="bi bi-building me-2 text-muted"></i>@_detail.CompanyName</div>
+                        <div class="mb-1"><i class="bi bi-building me-2 text-muted"></i>@_detail.CompanyName</div>
                     }
                 </div>
                 <div class="col-md-6">
                     @{ var addr = FormatAddress(_detail); }
                     @if (!string.IsNullOrEmpty(addr))
                     {
-                        <div class="mb-2"><i class="bi bi-geo-alt me-2 text-muted"></i>@addr</div>
+                        <div class="mb-1"><i class="bi bi-geo-alt me-2 text-muted"></i>@addr</div>
                     }
-                    <div class="mb-2"><i class="bi bi-calendar me-2 text-muted"></i>Customer since @_detail.SinceDate.ToString("MMM yyyy")</div>
+                    <div class="mb-1"><i class="bi bi-calendar me-2 text-muted"></i>Customer since @_detail.SinceDate.ToString("MMM yyyy")</div>
                     @if (_detail.CreditLimit > 0)
                     {
-                        <div class="mb-2"><i class="bi bi-credit-card me-2 text-muted"></i>Credit Limit: @_detail.CreditLimit.ToString("C")</div>
+                        <div class="mb-1"><i class="bi bi-credit-card me-2 text-muted"></i>Credit Limit: @_detail.CreditLimit.ToString("C")</div>
                     }
                     @if (_detail.BalanceOwed > 0)
                     {
-                        <div class="mb-2"><i class="bi bi-cash me-2 text-danger"></i><strong>Balance Owed:</strong> <span class="text-danger">@_detail.BalanceOwed.ToString("C")</span></div>
+                        <div class="mb-1"><i class="bi bi-cash me-2 text-danger"></i><strong>Balance Owed:</strong> <span class="text-danger">@_detail.BalanceOwed.ToString("C")</span></div>
                     }
                     @if (_detail.TaxExempt)
                     {
-                        <div class="mb-2"><i class="bi bi-shield-check me-2 text-success"></i><span class="badge bg-success">Tax Exempt</span></div>
+                        <div class="mb-1"><i class="bi bi-shield-check me-2 text-success"></i><span class="badge bg-success">Tax Exempt</span></div>
                     }
                     @if (!string.IsNullOrEmpty(_detail.ReferralSource))
                     {
-                        <div class="mb-2"><i class="bi bi-megaphone me-2 text-muted"></i>Referral: @_detail.ReferralSource</div>
+                        <div class="mb-1"><i class="bi bi-megaphone me-2 text-muted"></i>Referral: @_detail.ReferralSource</div>
                     }
                 </div>
             </div>
@@ -231,18 +243,10 @@ else if (_view == View.Detail && _detail is not null)
                     }
                 </div>
             }
-        </div>
-    </div>
-
-    @* Record Info *@
-    <div class="row mb-3">
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                </div>
+            <hr class="my-2" />
+            <div class="d-flex gap-3 text-muted small">
+                <span><i class="bi bi-clock me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</span>
+                <span><i class="bi bi-pencil-square me-1"></i>Updated @_detail.UpdatedAt.ToString("MMM dd, yyyy")</span>
             </div>
         </div>
     </div>
@@ -541,12 +545,12 @@ else if (_view == View.Form)
                 }
 
                 <div class="row">
-                    <div class="col-md-8 mb-3">
+                    <div class="col-md-8 mb-2">
                         <label class="form-label">Name <span class="text-danger">*</span></label>
                         <InputText @bind-Value="_editModel.Name" class="form-control" placeholder="Customer name" />
                         <ValidationMessage For="() => _editModel.Name" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Type</label>
                         <InputSelect @bind-Value="_editModel.Type" class="form-select">
                             <option value="@CustomerType.Individual">Individual</option>
@@ -557,22 +561,22 @@ else if (_view == View.Form)
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Phone</label>
                         <InputText @bind-Value="_editModel.PrimaryPhone" class="form-control" placeholder="(555) 123-4567" />
                     </div>
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Email</label>
                         <InputText @bind-Value="_editModel.PrimaryEmail" class="form-control" placeholder="email@example.com" />
                         <ValidationMessage For="() => _editModel.PrimaryEmail" />
                     </div>
                 </div>
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Secondary Phone</label>
                         <InputText @bind-Value="_editModel.SecondaryPhone" class="form-control" placeholder="(555) 987-6543" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Preferred Contact</label>
                         <InputSelect @bind-Value="_editModel.PreferredContactMethod" class="form-select">
                             <option value="">No Preference</option>
@@ -581,41 +585,41 @@ else if (_view == View.Form)
                             <option value="Text">Text</option>
                         </InputSelect>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Referral Source</label>
                         <InputText @bind-Value="_editModel.ReferralSource" class="form-control" placeholder="Word of Mouth, Google..." />
                     </div>
                 </div>
 
-                <hr />
+                <hr class="my-2" />
 
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">Address</label>
                     <InputText @bind-Value="_editModel.Address" class="form-control" placeholder="Street address" />
                 </div>
                 <div class="row">
-                    <div class="col-md-5 mb-3">
+                    <div class="col-md-5 mb-2">
                         <label class="form-label">City</label>
                         <InputText @bind-Value="_editModel.City" class="form-control" />
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-3 mb-2">
                         <label class="form-label">State</label>
                         <InputText @bind-Value="_editModel.State" class="form-control" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Zip</label>
                         <InputText @bind-Value="_editModel.Zip" class="form-control" />
                     </div>
                 </div>
 
-                <hr />
+                <hr class="my-2" />
 
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Credit Limit</label>
                         <InputNumber @bind-Value="_editModel.CreditLimit" class="form-control" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Company</label>
                         <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
                             <option value="">— No Company —</option>
@@ -625,19 +629,19 @@ else if (_view == View.Form)
                             }
                         </InputSelect>
                     </div>
-                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                    <div class="col-md-4 mb-2 d-flex align-items-end">
                         <div class="form-check mb-2">
                             <InputCheckbox @bind-Value="_editModel.TaxExempt" class="form-check-input" id="taxExemptCheck" />
                             <label class="form-check-label" for="taxExemptCheck">Tax Exempt</label>
                         </div>
                     </div>
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">Tags</label>
                     <InputText @bind-Value="_editModel.Tags" class="form-control" placeholder="VIP, Warranty Customer, Propane (comma separated)" />
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">Notes</label>
                     <InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="3" placeholder="Internal notes about this customer..." />
                 </div>
@@ -679,6 +683,7 @@ else if (_view == View.Form)
     private List<CompanyOption> _companies = [];
     private string? _formError;
     private bool _saving;
+    private bool _confirmArchive;
 
     protected override void OnInitialized()
     {
@@ -765,13 +770,13 @@ else if (_view == View.Form)
         _customers = await CustomerService.GetCustomersAsync(_filter);
     }
 
-    private void OnTypeFilterChanged()
+    private async Task OnTypeFilterChanged()
     {
         _filter.Type = string.IsNullOrEmpty(_filterType) ? null : Enum.Parse<CustomerType>(_filterType);
-        _ = ReloadList();
+        await ReloadList();
     }
 
-    private void ToggleSort(string column)
+    private async Task ToggleSort(string column)
     {
         if (_filter.SortBy == column)
             _filter.SortDescending = !_filter.SortDescending;
@@ -780,7 +785,7 @@ else if (_view == View.Form)
             _filter.SortBy = column;
             _filter.SortDescending = false;
         }
-        _ = ReloadList();
+        await ReloadList();
     }
 
     private void GoToDetail(int id) => Navigation.NavigateTo($"customers/{id}");
@@ -881,6 +886,17 @@ else if (_view == View.Form)
         var parts = new[] { s.Address, s.City, s.State }.Where(p => !string.IsNullOrWhiteSpace(p));
         return string.Join(", ", parts);
     }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var icon = _filter.SortBy == column
+            ? (_filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up";
+        var css = _filter.SortBy == column ? "text-primary" : "text-muted";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {icon} {css} small");
+        builder.CloseElement();
+    };
 
     private async Task EmailCustomer()
     {

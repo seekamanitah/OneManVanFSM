@@ -13,6 +13,8 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
+@using Microsoft.AspNetCore.Components
+
 <PageTitle>Documents - OneManVanFSM</PageTitle>
 
 @if (mode == "form")
@@ -132,10 +134,18 @@ else if (mode == "detail" && selectedDoc is not null)
                 }
                 <i class="bi bi-download me-1"></i>Download
             </button>
-            <button class="btn btn-outline-danger btn-sm" @onclick="DeleteDoc"><i class="bi bi-trash me-1"></i>Delete</button>
+            @if (_confirmDelete)
+            {
+                <button class="btn btn-danger btn-sm me-1" @onclick="() => { _confirmDelete = false; DeleteDoc(); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmDelete = false">Cancel</button>
+            }
+            else
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmDelete = true"><i class="bi bi-trash me-1"></i>Delete</button>
+            }
         </div>
     </div>
-    <div class="row g-3">
+                 <div class="row g-2">
         <div class="col-md-8">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white"><strong><i class="bi bi-file-earmark-text me-1"></i>File Information</strong></div>
@@ -226,13 +236,10 @@ else if (mode == "detail" && selectedDoc is not null)
                     <a href="/assets" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-cpu me-1"></i>View Assets</a>
                     <a href="/jobs" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-briefcase me-1"></i>View Jobs</a>
                     <a href="/customers" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-people me-1"></i>View Customers</a>
-                </div>
-            </div>
-            <div class="card border-0 shadow-sm">
-                <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-clock-history me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Uploaded:</strong> @selectedDoc.UploadDate.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Created:</strong> @selectedDoc.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <div class="d-flex justify-content-between text-muted small mt-2 pt-2 border-top">
+                        <span><i class="bi bi-clock-history me-1"></i>Uploaded @selectedDoc.UploadDate.ToString("MMM dd, yyyy h:mm tt")</span>
+                        <span>Created @selectedDoc.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -248,16 +255,16 @@ else
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
                 <div class="col-md-4">
-                    <input type="text" class="form-control form-control-sm" placeholder="Search documents..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                    <input type="text" class="form-control form-control-sm" placeholder="Search documents..." @bind="filter.Search" @bind:event="oninput" @bind:after="LoadDocuments" />
                 </div>
                 <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="filterCategory">
+                    <select class="form-select form-select-sm" @bind="filterCategory" @bind:after="LoadDocuments">
                         <option value="">All Categories</option>
                         @foreach (var c in Enum.GetValues<DocumentCategory>()) { <option value="@c">@c</option> }
                     </select>
                 </div>
                 <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="filterEntity">
+                    <select class="form-select form-select-sm" @bind="filterEntity" @bind:after="LoadDocuments">
                         <option value="">All Entities</option>
                         <option value="Customer">Customer</option>
                         <option value="Site">Site</option>
@@ -265,9 +272,6 @@ else
                         <option value="Job">Job</option>
                         <option value="Employee">Employee</option>
                     </select>
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadDocuments"><i class="bi bi-search"></i></button>
                 </div>
             </div>
         </div>
@@ -308,7 +312,9 @@ else
 }
 
 @code {
-    [Parameter] public int? Id { get; set; }
+    [Parameter]
+    public int? Id { get; set; }
+    private bool _confirmDelete;
 
     private string mode = "list";
     private List<DocumentListItem>? documents;
@@ -496,3 +502,4 @@ else
     private void GoToEmployee() { if (selectedDoc?.EmployeeId is not null) Nav.NavigateTo($"/employees/{selectedDoc.EmployeeId}"); }
     private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadDocuments(); }
 }
+

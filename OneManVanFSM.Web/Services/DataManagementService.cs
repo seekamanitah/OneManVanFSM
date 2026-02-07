@@ -351,18 +351,57 @@ public class DataManagementService : IDataManagementService
             File.Copy(dbPath, backupPath, true);
         }
 
-        // Delete all data from every table (preserve schema)
-        foreach (var tableName in TableMap.Keys)
-        {
-            await _db.Database.ExecuteSqlRawAsync($"DELETE FROM \"{tableName}\"");
-        }
-        // Also clear Users table (except leave it empty for re-seed)
-        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Users\"");
-        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"AuditLogs\"");
-        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"ServiceHistoryRecords\"");
+        // Disable FK constraints so tables can be deleted in any order
+        await _db.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = OFF;");
 
-        // Reset SQLite auto-increment counters
-        await _db.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence");
+        try
+        {
+            // Delete child/junction tables first, then parent tables
+            string[] deleteOrder =
+            [
+                // Junction / child tables (no dependents)
+                "JobAssets", "JobEmployees", "ServiceAgreementAssets", "AssetServiceLogs",
+                "InvoiceLines", "EstimateLines", "MaterialListItems", "TemplateVersions", "ClaimActions",
+                // Leaf tables
+                "Payments", "Expenses", "TimeEntries", "CalendarEvents", "QuickNotes", "Documents",
+                "DropdownOptions", "Suppliers",
+                // Mid-level tables
+                "Invoices", "MaterialLists", "Templates",
+                // Core tables
+                "Jobs", "Estimates", "ServiceAgreements",
+                "Assets", "InventoryItems", "Products",
+                "Sites", "Employees", "Companies", "Customers",
+                // System tables
+                "Users", "AuditLogs", "ServiceHistoryRecords",
+            ];
+
+            foreach (var tableName in deleteOrder)
+            {
+                try
+                {
+                    await _db.Database.ExecuteSqlRawAsync($"DELETE FROM \"{tableName}\"");
+                }
+                catch
+                {
+                    // Table may not exist if schema evolved — skip silently
+                }
+            }
+
+            // Reset SQLite auto-increment counters
+            try
+            {
+                await _db.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence");
+            }
+            catch
+            {
+                // sqlite_sequence may not exist if no AUTOINCREMENT columns are used
+            }
+        }
+        finally
+        {
+            // Always re-enable FK constraints
+            await _db.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = ON;");
+        }
 
         // Re-seed the default admin account
         _db.Users.Add(new OneManVanFSM.Shared.Models.AppUser

@@ -47,26 +47,26 @@
             <div class="row g-3 mt-2">
                 <div class="col-md-6">
                     <label class="form-label">Company Name</label>
-                    <input type="text" class="form-control" value="OneManVanFSM" />
+                    <input type="text" class="form-control" @bind="_companyName" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Business Phone</label>
-                    <input type="text" class="form-control" placeholder="(555) 000-0000" />
+                    <input type="text" class="form-control" placeholder="(555) 000-0000" @bind="_companyPhone" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Business Email</label>
-                    <input type="email" class="form-control" placeholder="info@company.com" />
+                    <input type="email" class="form-control" placeholder="info@company.com" @bind="_companyEmail" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Tax ID</label>
-                    <input type="text" class="form-control" placeholder="XX-XXXXXXX" />
+                    <input type="text" class="form-control" placeholder="XX-XXXXXXX" @bind="_companyTaxId" />
                 </div>
                 <div class="col-12">
                     <label class="form-label">Address</label>
-                    <input type="text" class="form-control" placeholder="123 Main St, City, State ZIP" />
+                    <input type="text" class="form-control" placeholder="123 Main St, City, State ZIP" @bind="_companyAddress" />
                 </div>
             </div>
-            <button class="btn btn-primary mt-3" disabled><i class="bi bi-check-lg me-1"></i>Save Profile</button>
+            <button class="btn btn-primary mt-3" @onclick="SaveCompanyProfile"><i class="bi bi-check-lg me-1"></i>Save Profile</button>
         </div>
     </div>
 }
@@ -759,6 +759,14 @@ private string tab = "company";
 private string? successMessage;
 private string? errorMessage;
 
+// Company profile state
+private string _companyName = "OneManVanFSM";
+private string _companyPhone = "";
+private string _companyEmail = "";
+private string _companyTaxId = "";
+private string _companyAddress = "";
+private bool _companyLoaded;
+
 // Users tab
 private List<UserListItem>? userList;
 
@@ -840,6 +848,11 @@ private Dictionary<string, bool> notificationSettings = new()
 
     // Purge state
     private bool _confirmPurge;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadCompanyProfile();
+    }
 
     private async Task SwitchToCustom()
     {
@@ -1348,6 +1361,52 @@ private Dictionary<string, bool> notificationSettings = new()
             }
         }
         catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    // ---- Company Profile ----
+    private static string CompanyProfilePath => Path.Combine(AppContext.BaseDirectory, "companyprofile.json");
+
+    private async Task LoadCompanyProfile()
+    {
+        if (_companyLoaded) return;
+        try
+        {
+            if (File.Exists(CompanyProfilePath))
+            {
+                var json = await File.ReadAllTextAsync(CompanyProfilePath);
+                var profile = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                if (profile is not null)
+                {
+                    _companyName = profile.GetValueOrDefault("Name", "OneManVanFSM");
+                    _companyPhone = profile.GetValueOrDefault("Phone", "");
+                    _companyEmail = profile.GetValueOrDefault("Email", "");
+                    _companyTaxId = profile.GetValueOrDefault("TaxId", "");
+                    _companyAddress = profile.GetValueOrDefault("Address", "");
+                }
+            }
+        }
+        catch { /* Use defaults */ }
+        _companyLoaded = true;
+    }
+
+    private async Task SaveCompanyProfile()
+    {
+        errorMessage = null; successMessage = null;
+        try
+        {
+            var profile = new Dictionary<string, string>
+            {
+                ["Name"] = _companyName,
+                ["Phone"] = _companyPhone,
+                ["Email"] = _companyEmail,
+                ["TaxId"] = _companyTaxId,
+                ["Address"] = _companyAddress
+            };
+            var json = System.Text.Json.JsonSerializer.Serialize(profile, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(CompanyProfilePath, json);
+            successMessage = "Company profile saved successfully.";
+        }
+        catch (Exception ex) { errorMessage = $"Failed to save profile: {ex.Message}"; }
     }
 
     // ---- Purge Database ----

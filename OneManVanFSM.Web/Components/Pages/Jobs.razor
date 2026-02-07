@@ -73,9 +73,14 @@ else if (_view == View.List)
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>Job #</th><th>Title</th><th class="d-none d-md-table-cell">Customer</th>
-                            <th class="d-none d-lg-table-cell">Site</th><th>Status</th><th>Priority</th>
-                            <th class="d-none d-md-table-cell">Date</th><th class="d-none d-lg-table-cell">Tech</th>
+                            <th role="button" @onclick='() => ToggleSort("JobNumber")'>Job # @SortIcon("JobNumber")</th>
+                            <th>Title</th>
+                            <th class="d-none d-md-table-cell">Customer</th>
+                            <th class="d-none d-lg-table-cell">Site</th>
+                            <th role="button" @onclick='() => ToggleSort("Status")'>Status @SortIcon("Status")</th>
+                            <th role="button" @onclick='() => ToggleSort("Priority")'>Priority @SortIcon("Priority")</th>
+                            <th class="d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("ScheduledDate")'>Date @SortIcon("ScheduledDate")</th>
+                            <th class="d-none d-lg-table-cell">Tech</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -130,7 +135,15 @@ else if (_view == View.Detail && _detail is not null)
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="jobs/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Job</a></li>
                     <li><hr class="dropdown-divider" /></li>
-                    <li><button class="dropdown-item text-danger" @onclick="ArchiveJob"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                    @if (!_confirmArchive)
+                    {
+                        <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                    }
+                    else
+                    {
+                        <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveJob"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
+                        <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
+                    }
                 </ul>
             </div>
         </div>
@@ -146,24 +159,24 @@ else if (_view == View.Detail && _detail is not null)
                     <div class="row mt-3 g-2">
                         <div class="col-sm-6">
                             @if (!string.IsNullOrEmpty(_detail.CustomerName))
-                            { <div class="mb-2"><i class="bi bi-person me-2 text-muted"></i><a href="customers/@_detail.CustomerId">@_detail.CustomerName</a></div> }
+                            { <div class="mb-1"><i class="bi bi-person me-2 text-muted"></i><a href="customers/@_detail.CustomerId">@_detail.CustomerName</a></div> }
                             @if (!string.IsNullOrEmpty(_detail.SiteName))
-                            { <div class="mb-2"><i class="bi bi-geo-alt me-2 text-muted"></i><a href="sites/@_detail.SiteId">@_detail.SiteName</a></div> }
+                            { <div class="mb-1"><i class="bi bi-geo-alt me-2 text-muted"></i><a href="sites/@_detail.SiteId">@_detail.SiteName</a></div> }
                             @if (!string.IsNullOrEmpty(_detail.SiteAddress))
-                            { <div class="mb-2 ms-4 small text-muted">@_detail.SiteAddress</div> }
+                            { <div class="mb-1 ms-4 small text-muted">@_detail.SiteAddress</div> }
                         </div>
                         <div class="col-sm-6">
                             @if (!string.IsNullOrEmpty(_detail.TechnicianName))
-                            { <div class="mb-2"><i class="bi bi-person-badge me-2 text-muted"></i>@_detail.TechnicianName</div> }
+                            { <div class="mb-1"><i class="bi bi-person-badge me-2 text-muted"></i>@_detail.TechnicianName</div> }
                             @if (_detail.ScheduledDate.HasValue)
                             {
-                                <div class="mb-2">
+                                <div class="mb-1">
                                     <i class="bi bi-calendar me-2 text-muted"></i>@_detail.ScheduledDate.Value.ToString("MMM dd, yyyy")
                                     @if (_detail.ScheduledTime.HasValue) { <small class="text-muted ms-1">@DateTime.Today.Add(_detail.ScheduledTime.Value).ToString("h:mm tt")</small> }
                                 </div>
                             }
                             @if (_detail.EstimatedDuration.HasValue)
-                            { <div class="mb-2"><i class="bi bi-clock me-2 text-muted"></i>~@_detail.EstimatedDuration hrs est.</div> }
+                            { <div class="mb-1"><i class="bi bi-clock me-2 text-muted"></i>~@_detail.EstimatedDuration hrs est.</div> }
                         </div>
                     </div>
                     @if (_detail.TradeType is not null || _detail.JobType is not null || _detail.SystemType is not null)
@@ -191,7 +204,7 @@ else if (_view == View.Detail && _detail is not null)
             @* Linked Assets *@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-cpu me-1"></i>Linked Assets (@_detail.LinkedAssets.Count)</h6>
+                    <h6 class="text-muted mb-2"><i class="bi bi-cpu me-1"></i>Linked Assets (@_detail.LinkedAssets.Count)</h6>
                     @if (_detail.LinkedAssets.Any())
                     {
                         <div class="table-responsive">
@@ -286,21 +299,17 @@ else if (_view == View.Detail && _detail is not null)
                                 @(t.Hours?.ToString("F1") ?? "—")h
                                 <span class="text-muted">@(t.StartTime?.ToString("MMM dd") ?? "")</span>
                             </div>
-                        }
-                        @if (_detail.TimeEntries.Count > 10)
-                        {
-                            <small class="text-muted">+ @(_detail.TimeEntries.Count - 10) more entries</small>
-                        }
                     }
-                </div>
-            </div>
-
-            @* Record Info *@
-            <div class="card border-0 shadow-sm mb-3">
-                <div class="card-body">
-                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    @if (_detail.TimeEntries.Count > 10)
+                    {
+                        <small class="text-muted">+ @(_detail.TimeEntries.Count - 10) more entries</small>
+                    }
+                    }
+                    <hr class="my-2" />
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><i class="bi bi-clock me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</span>
+                        <span><i class="bi bi-pencil-square me-1"></i>Updated @_detail.UpdatedAt.ToString("MMM dd, yyyy")</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -406,57 +415,57 @@ else if (_view == View.Form)
                 @if (!string.IsNullOrEmpty(_formError)) { <div class="alert alert-danger py-2 small">@_formError</div> }
 
                 <div class="row">
-                    <div class="col-md-8 mb-3">
+                    <div class="col-md-8 mb-2">
                         <label class="form-label">Title <span class="text-danger">*</span></label>
                         <InputText @bind-Value="_editModel.Title" class="form-control" placeholder="Job title / description" />
                         <ValidationMessage For="() => _editModel.Title" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Priority</label>
                         <InputSelect @bind-Value="_editModel.Priority" class="form-select">
                             @foreach (var p in Enum.GetValues<JobPriority>()) { <option value="@p">@p</option> }
                         </InputSelect>
                     </div>
                 </div>
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">Description</label>
                     <InputTextArea @bind-Value="_editModel.Description" class="form-control" rows="2" />
                 </div>
 
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Status</label>
                         <InputSelect @bind-Value="_editModel.Status" class="form-select">
                             @foreach (var s in Enum.GetValues<JobStatus>()) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Scheduled Date</label>
                         <InputDate @bind-Value="_editModel.ScheduledDate" class="form-control" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Est. Duration (hrs)</label>
                         <InputNumber @bind-Value="_editModel.EstimatedDuration" class="form-control" />
                     </div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Trade Type</label>
                         <InputText @bind-Value="_editModel.TradeType" class="form-control" placeholder="HVAC, Plumbing, Electrical" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Job Type</label>
                         <InputText @bind-Value="_editModel.JobType" class="form-control" placeholder="Install, Repair, Maintenance" />
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">System Type</label>
                         <InputText @bind-Value="_editModel.SystemType" class="form-control" placeholder="Spider, Trunk, Ductless..." />
                     </div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
                             <option value="">— Select Customer —</option>
@@ -466,7 +475,7 @@ else if (_view == View.Form)
                             }
                         </InputSelect>
                     </div>
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Site</label>
                         <InputSelect @bind-Value="_editModel.SiteId" class="form-select">
                             <option value="">— Select Site —</option>
@@ -479,7 +488,7 @@ else if (_view == View.Form)
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Assigned Technician</label>
                         <InputSelect @bind-Value="_editModel.AssignedEmployeeId" class="form-select">
                             <option value="">Unassigned</option>
@@ -489,34 +498,34 @@ else if (_view == View.Form)
                             }
                         </InputSelect>
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-3 mb-2">
                         <label class="form-label">Estimated Total</label>
                         <InputNumber @bind-Value="_editModel.EstimatedTotal" class="form-control" />
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-3 mb-2">
                         <label class="form-label">Actual Total</label>
                         <InputNumber @bind-Value="_editModel.ActualTotal" class="form-control" />
                     </div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-3 mb-2">
                         <label class="form-label">Actual Duration (hrs)</label>
                         <InputNumber @bind-Value="_editModel.ActualDuration" class="form-control" />
                     </div>
-                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                    <div class="col-md-3 mb-2 d-flex align-items-end">
                         <div class="form-check mb-2">
                             <InputCheckbox @bind-Value="_permitRequired" class="form-check-input" id="permitCheck" />
                             <label class="form-check-label" for="permitCheck">Permit Required</label>
                         </div>
                     </div>
-                    <div class="col-md-6 mb-3">
+                    <div class="col-md-6 mb-2">
                         <label class="form-label">Permit Number</label>
                         <InputText @bind-Value="_editModel.PermitNumber" class="form-control" placeholder="Permit #" />
                     </div>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-2">
                     <label class="form-label">Notes</label>
                     <InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="2" />
                 </div>
@@ -552,6 +561,7 @@ else if (_view == View.Form)
     private string? _formError;
     private bool _saving;
     private bool _permitRequired;
+    private bool _confirmArchive;
 
     // Assigned employees
     private List<JobEmployeeDto> _assignedEmployees = [];
@@ -637,15 +647,15 @@ else if (_view == View.Form)
 
     private async Task ReloadList() => _jobs = await JobService.GetJobsAsync(_filter);
 
-    private void OnStatusFilterChanged()
+    private async Task OnStatusFilterChanged()
     {
         _filter.Status = string.IsNullOrEmpty(_filterStatus) ? null : Enum.Parse<JobStatus>(_filterStatus);
-        _ = ReloadList();
+        await ReloadList();
     }
-    private void OnPriorityFilterChanged()
+    private async Task OnPriorityFilterChanged()
     {
         _filter.Priority = string.IsNullOrEmpty(_filterPriority) ? null : Enum.Parse<JobPriority>(_filterPriority);
-        _ = ReloadList();
+        await ReloadList();
     }
 
     private async Task UpdateStatus(JobStatus status)
@@ -693,6 +703,24 @@ else if (_view == View.Form)
     {
         if (_detail is not null) { await JobService.ArchiveJobAsync(_detail.Id); Navigation.NavigateTo("jobs"); }
     }
+
+    private async Task ToggleSort(string column)
+    {
+        if (_filter.SortBy == column) _filter.SortDescending = !_filter.SortDescending;
+        else { _filter.SortBy = column; _filter.SortDescending = false; }
+        await ReloadList();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var icon = _filter.SortBy == column
+            ? (_filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up";
+        var css = _filter.SortBy == column ? "text-primary" : "text-muted";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {icon} {css} small");
+        builder.CloseElement();
+    };
 
     private static string StatusBadge(JobStatus s) => s switch
     {

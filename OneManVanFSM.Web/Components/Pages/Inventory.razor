@@ -20,7 +20,7 @@
         <div class="card-body">
             <EditForm Model="form" OnValidSubmit="SaveItem">
                 <DataAnnotationsValidator />
-                <div class="row g-3">
+                <div class="row g-2">
                     <div class="col-md-5">
                         <label class="form-label">Name <span class="text-danger">*</span></label>
                         <InputText @bind-Value="form.Name" class="form-control" />
@@ -115,9 +115,21 @@ else if (mode == "detail" && detail is not null)
         <span class="badge @(detail.Quantity <= detail.MinThreshold ? "bg-danger" : "bg-success") ms-2">
             @(detail.Quantity <= detail.MinThreshold ? "Low Stock" : "In Stock")
         </span>
-        <div class="ms-auto">
-            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
-            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        <div class="ms-auto dropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>Actions</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><button class="dropdown-item" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button></li>
+                <li><hr class="dropdown-divider" /></li>
+                @if (_confirmArchive)
+                {
+                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Archive</button></li>
+                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-1"></i>Cancel</button></li>
+                }
+                else
+                {
+                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button></li>
+                }
+            </ul>
         </div>
     </div>
     <div class="row g-3">
@@ -139,7 +151,7 @@ else if (mode == "detail" && detail is not null)
                     </div>
                     @if (!string.IsNullOrWhiteSpace(detail.LotNumber) || detail.ExpiryDate.HasValue || detail.LastRestockedDate.HasValue)
                     {
-                        <hr />
+                        <hr class="my-2" />
                         <div class="row g-2">
                             <div class="col-sm-4"><small class="text-muted d-block">Lot</small><span>@(detail.LotNumber ?? "—")</span></div>
                             <div class="col-sm-4"><small class="text-muted d-block">Expiry</small><span>@(detail.ExpiryDate?.ToString("MMM dd, yyyy") ?? "—")</span></div>
@@ -181,13 +193,11 @@ else if (mode == "detail" && detail is not null)
                              style="width: @pct%">@pct%</div>
                     </div>
                     <small class="text-muted">@detail.Quantity of @detail.MaxCapacity capacity</small>
-                </div>
-            </div>
-            <div class="card border-0 shadow-sm mt-3">
-                <div class="card-body">
-                    <h6 class="text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <hr class="my-2" />
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                        <span><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -242,10 +252,10 @@ else
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
                 <div class="col-md-5">
-                    <input type="text" class="form-control form-control-sm" placeholder="Search inventory..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                    <input type="text" class="form-control form-control-sm" placeholder="Search inventory..." @bind="filter.Search" @bind:event="oninput" @bind:after="LoadItems" />
                 </div>
-                <div class="col-md-3">
-                    <select class="form-select form-select-sm" @bind="filterLocation">
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm" @bind="filterLocation" @bind:after="LoadItems">
                         <option value="">All Locations</option>
                         @foreach (var loc in Enum.GetValues<InventoryLocation>())
                         {
@@ -253,14 +263,11 @@ else
                         }
                     </select>
                 </div>
-                <div class="col-md-2">
+                <div class="col-md-3">
                     <div class="form-check">
-                        <input type="checkbox" class="form-check-input" id="lowOnly" @bind="filter.LowStockOnly" />
-                        <label class="form-check-label" for="lowOnly">Low Only</label>
+                        <input type="checkbox" class="form-check-input" id="lowOnly" @bind="filter.LowStockOnly" @bind:after="LoadItems" />
+                        <label class="form-check-label" for="lowOnly">Low Stock Only</label>
                     </div>
-                </div>
-                <div class="col-md-2">
-                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadItems"><i class="bi bi-search"></i></button>
                 </div>
             </div>
         </div>
@@ -283,7 +290,16 @@ else
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
-                        <tr><th>Name</th><th>SKU</th><th>Location</th><th>Quantity</th><th>Threshold</th><th>Cost</th><th>Lot</th><th>Expiry</th></tr>
+                        <tr>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
+                            <th>SKU</th>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Location")'>Location @SortIcon("Location")</th>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Quantity")'>Quantity @SortIcon("Quantity")</th>
+                            <th>Threshold</th>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Cost")'>Cost @SortIcon("Cost")</th>
+                            <th>Lot</th>
+                            <th>Expiry</th>
+                        </tr>
                     </thead>
                     <tbody>
                         @foreach (var i in items)
@@ -323,6 +339,7 @@ else
     private InventoryEditModel form = new();
     private int? editId;
     private string? errorMsg;
+    private bool _confirmArchive;
 
     private List<ProductListItem> _products = [];
 
@@ -415,7 +432,7 @@ else
 
     private async Task ArchiveDetail()
     {
-        if (detail is not null) { await InventorySvc.ArchiveItemAsync(detail.Id); Nav.NavigateTo("/inventory"); }
+        if (detail is not null) { await InventorySvc.ArchiveItemAsync(detail.Id); _confirmArchive = false; Nav.NavigateTo("/inventory"); }
     }
 
     private void GoToList() => Nav.NavigateTo("/inventory");
@@ -424,7 +441,22 @@ else
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/inventory/{detail.Id}/edit"); }
     private void GoToProduct(int id) => Nav.NavigateTo($"/products/{id}");
 
-    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadItems(); }
+    private async Task ToggleSort(string column)
+    {
+        if (filter.SortBy == column) filter.SortDescending = !filter.SortDescending;
+        else { filter.SortBy = column; filter.SortDescending = false; }
+        await LoadItems();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var css = filter.SortBy == column
+            ? (filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up opacity-25";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {css} ms-1{(filter.SortBy == column ? " text-primary" : "")}");
+        builder.CloseElement();
+    };
 
     private async Task LoadDropdowns()
     {
