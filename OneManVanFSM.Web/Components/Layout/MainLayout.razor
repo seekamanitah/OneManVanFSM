@@ -1,4 +1,5 @@
 ﻿@inherits LayoutComponentBase
+@implements IDisposable
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 
@@ -10,7 +11,10 @@
 
 <div class="app-layout @(_darkMode ? "dark-theme" : "")">
     @* ===== SIDEBAR (Left Navigation per UI Layout guideline) ===== *@
-    <aside class="app-sidebar @(SidebarCollapsed ? "collapsed" : "")">
+    @* Mobile backdrop overlay *@
+    <div class="sidebar-backdrop @(_mobileMenuOpen ? "visible" : "")" @onclick="CloseMobileMenu"></div>
+
+    <aside class="app-sidebar @(SidebarCollapsed ? "collapsed" : "") @(_mobileMenuOpen ? "mobile-open" : "")">
         <div class="sidebar-brand">
             <a href="/">
                 <i class="bi bi-tools"></i>
@@ -217,6 +221,7 @@
 
 @code {
     private bool SidebarCollapsed { get; set; }
+    private bool _mobileMenuOpen;
     private bool _darkMode;
     private string _userName = "User";
     private string _userRole = "User";
@@ -224,9 +229,34 @@
     private string _selectedPeriod = "today";
     private string _selectedPeriodLabel = "Today";
 
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
     private void ToggleSidebar()
     {
-        SidebarCollapsed = !SidebarCollapsed;
+        _mobileMenuOpen = !_mobileMenuOpen;
+        if (!_mobileMenuOpen)
+        {
+            SidebarCollapsed = !SidebarCollapsed;
+        }
+    }
+
+    private void CloseMobileMenu()
+    {
+        _mobileMenuOpen = false;
+    }
+
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        _mobileMenuOpen = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
     }
 
     private void ToggleDarkMode()

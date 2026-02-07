@@ -13,6 +13,8 @@ public interface IAuthService
     Task<bool> ToggleUserActiveAsync(int userId);
     Task<bool> UpdateUserRoleAsync(int userId, UserRole role);
     Task<bool> ToggleLockAsync(int userId);
+    Task<AuthResult> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
+    Task<bool> AdminResetPasswordAsync(int userId, string newPassword);
 }
 
 public class AuthResult

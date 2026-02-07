@@ -191,6 +191,40 @@ public class AuthService : IAuthService
         return true;
     }
 
+    public async Task<AuthResult> ChangePasswordAsync(int userId, string currentPassword, string newPassword)
+    {
+        if (newPassword.Length < 6)
+            return AuthResult.Failure("New password must be at least 6 characters.");
+
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null)
+            return AuthResult.Failure("User not found.");
+
+        if (!VerifyPassword(currentPassword, user.PasswordHash))
+            return AuthResult.Failure("Current password is incorrect.");
+
+        user.PasswordHash = HashPassword(newPassword);
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return AuthResult.Success(user);
+    }
+
+    public async Task<bool> AdminResetPasswordAsync(int userId, string newPassword)
+    {
+        if (newPassword.Length < 6) return false;
+
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return false;
+
+        user.PasswordHash = HashPassword(newPassword);
+        user.LoginAttempts = 0;
+        user.IsLocked = false;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     // --- Password hashing with PBKDF2 ---
     public static string HashPassword(string password)
     {

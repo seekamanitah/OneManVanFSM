@@ -145,6 +145,9 @@ else if (tab == "users")
                                                     <i class="bi bi-lock"></i>
                                                 </button>
                                             }
+                                            <button class="btn btn-sm btn-outline-secondary" title="Reset Password" @onclick="() => ShowResetPassword(u.Id, u.Username)">
+                                                <i class="bi bi-key"></i>
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -153,7 +156,56 @@ else if (tab == "users")
                     </table>
                 </div>
                 <small class="text-muted d-block mt-2">@userList.Count user(s) total</small>
+
+                @if (_showResetPassword)
+                {
+                    <div class="card border-warning mt-3">
+                        <div class="card-body">
+                            <h6 class="text-warning"><i class="bi bi-key me-1"></i>Reset Password for "@_resetUsername"</h6>
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-4">
+                                    <label class="form-label small">New Password</label>
+                                    <input type="password" class="form-control form-control-sm" @bind="_resetNewPassword" placeholder="Min 6 characters" />
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small">Confirm Password</label>
+                                    <input type="password" class="form-control form-control-sm" @bind="_resetConfirmPassword" />
+                                </div>
+                                <div class="col-md-4">
+                                    <button class="btn btn-warning btn-sm me-1" @onclick="AdminResetPassword"><i class="bi bi-check me-1"></i>Reset</button>
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showResetPassword = false">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
             }
+
+            <hr class="my-3" />
+
+            @* Change Own Password *@
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <h6><i class="bi bi-shield-lock me-1"></i>Change My Password</h6>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label small">Current Password</label>
+                            <input type="password" class="form-control form-control-sm" @bind="_currentPassword" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">New Password</label>
+                            <input type="password" class="form-control form-control-sm" @bind="_newPassword" placeholder="Min 6 characters" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Confirm New Password</label>
+                            <input type="password" class="form-control form-control-sm" @bind="_confirmNewPassword" />
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary btn-sm" @onclick="ChangeMyPassword"><i class="bi bi-check-lg me-1"></i>Update Password</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 }
@@ -663,6 +715,41 @@ else if (tab == "data")
                 </div>
             </div>
             <small class="text-muted d-block mt-1"><i class="bi bi-exclamation-triangle text-warning me-1"></i>Restoring will overwrite ALL current data. This cannot be undone.</small>
+
+            <hr class="my-3" />
+
+            @* Purge & Reset Section *@
+            <h6 class="mb-2 text-danger"><i class="bi bi-radioactive me-1"></i>Purge & Reset Database</h6>
+            <p class="small text-muted">Deletes ALL data from every table (customers, jobs, invoices, etc.) and re-creates the default admin account. A backup is automatically saved before purging.</p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    @if (!_confirmPurge)
+                    {
+                        <button class="btn btn-outline-danger w-100" @onclick="() => _confirmPurge = true" disabled="@isProcessing">
+                            <i class="bi bi-trash3 me-1"></i>Purge All Data
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="card border-danger">
+                            <div class="card-body py-2">
+                                <p class="small text-danger fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Are you sure? This will permanently delete ALL data!</p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-danger btn-sm" @onclick="PurgeDatabase" disabled="@isProcessing">
+                                        @if (isProcessing && processingAction == "purge")
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        Yes, Purge Everything
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmPurge = false">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After purge, log in with <strong>admin / admin123</strong>. Change your password immediately.</small>
         </div>
     </div>
 }
@@ -738,6 +825,21 @@ private Dictionary<string, bool> notificationSettings = new()
     private bool _dbTesting;
     private bool _dbTestSuccess;
     private string? _dbTestResult;
+
+    // Change password state
+    private string _currentPassword = "";
+    private string _newPassword = "";
+    private string _confirmNewPassword = "";
+
+    // Admin reset password state
+    private bool _showResetPassword;
+    private int _resetUserId;
+    private string _resetUsername = "";
+    private string _resetNewPassword = "";
+    private string _resetConfirmPassword = "";
+
+    // Purge state
+    private bool _confirmPurge;
 
     private async Task SwitchToCustom()
     {
@@ -1173,6 +1275,93 @@ private Dictionary<string, bool> notificationSettings = new()
                 + (_dbEncrypt ? "SslMode=Required;" : ""),
             _ => ""
         };
+    }
+
+    // ---- Password Management ----
+    private async Task ChangeMyPassword()
+    {
+        errorMessage = null; successMessage = null;
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < 6)
+        {
+            errorMessage = "New password must be at least 6 characters.";
+            return;
+        }
+        if (_newPassword != _confirmNewPassword)
+        {
+            errorMessage = "New passwords do not match.";
+            return;
+        }
+        try
+        {
+            var currentUser = await AuthSvc.GetCurrentUserAsync();
+            if (currentUser is null) { errorMessage = "Could not identify current user."; return; }
+
+            var result = await AuthSvc.ChangePasswordAsync(currentUser.Id, _currentPassword, _newPassword);
+            if (result.Succeeded)
+            {
+                successMessage = "Password updated successfully.";
+                _currentPassword = ""; _newPassword = ""; _confirmNewPassword = "";
+            }
+            else
+            {
+                errorMessage = result.ErrorMessage ?? "Password change failed.";
+            }
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private void ShowResetPassword(int userId, string username)
+    {
+        _showResetPassword = true;
+        _resetUserId = userId;
+        _resetUsername = username;
+        _resetNewPassword = "";
+        _resetConfirmPassword = "";
+    }
+
+    private async Task AdminResetPassword()
+    {
+        errorMessage = null; successMessage = null;
+        if (string.IsNullOrWhiteSpace(_resetNewPassword) || _resetNewPassword.Length < 6)
+        {
+            errorMessage = "New password must be at least 6 characters.";
+            return;
+        }
+        if (_resetNewPassword != _resetConfirmPassword)
+        {
+            errorMessage = "Passwords do not match.";
+            return;
+        }
+        try
+        {
+            var success = await AuthSvc.AdminResetPasswordAsync(_resetUserId, _resetNewPassword);
+            if (success)
+            {
+                successMessage = $"Password reset for \"{_resetUsername}\".";
+                _showResetPassword = false;
+                _resetNewPassword = ""; _resetConfirmPassword = "";
+                userList = await AuthSvc.GetUsersAsync();
+            }
+            else
+            {
+                errorMessage = "Password reset failed.";
+            }
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    // ---- Purge Database ----
+    private async Task PurgeDatabase()
+    {
+        isProcessing = true; processingAction = "purge"; errorMessage = null;
+        try
+        {
+            await DataSvc.PurgeDatabaseAsync();
+            successMessage = "Database purged. All data deleted. Default admin account re-created (admin / admin123). Please log out and log back in.";
+            _confirmPurge = false;
+        }
+        catch (Exception ex) { errorMessage = $"Purge failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; }
     }
 
     private async Task DownloadFileAsync(byte[] bytes, string fileName, string contentType)

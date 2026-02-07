@@ -8,6 +8,7 @@ public interface IDataManagementService
     Task<ImportResult> ImportCsvAsync(Stream csvStream, string fileName);
     Task<byte[]> BackupDatabaseAsync();
     Task RestoreDatabaseAsync(Stream backupStream);
+    Task PurgeDatabaseAsync();
 }
 
 public class ImportResult

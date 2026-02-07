@@ -337,4 +337,42 @@ public class DataManagementService : IDataManagementService
         using var fs = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
         await backupStream.CopyToAsync(fs);
     }
+
+    public async Task PurgeDatabaseAsync()
+    {
+        var connStr = _config.GetConnectionString("DefaultConnection") ?? "Data Source=OneManVanFSM.db";
+        var dbPath = connStr.Replace("Data Source=", "").Trim();
+
+        // Create backup before purge
+        if (File.Exists(dbPath))
+        {
+            var backupPath = $"{dbPath}.pre-purge.{DateTime.UtcNow:yyyyMMddHHmmss}";
+            await _db.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
+            File.Copy(dbPath, backupPath, true);
+        }
+
+        // Delete all data from every table (preserve schema)
+        foreach (var tableName in TableMap.Keys)
+        {
+            await _db.Database.ExecuteSqlRawAsync($"DELETE FROM \"{tableName}\"");
+        }
+        // Also clear Users table (except leave it empty for re-seed)
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"Users\"");
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"AuditLogs\"");
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM \"ServiceHistoryRecords\"");
+
+        // Reset SQLite auto-increment counters
+        await _db.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence");
+
+        // Re-seed the default admin account
+        _db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
+        {
+            Username = "admin",
+            Email = "admin@onemanvan.local",
+            PasswordHash = AuthService.HashPassword("admin123"),
+            Role = OneManVanFSM.Shared.Models.UserRole.Owner,
+            IsActive = true,
+        });
+        await _db.SaveChangesAsync();
+    }
 }
