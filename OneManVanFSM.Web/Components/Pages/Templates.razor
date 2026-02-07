@@ -1,0 +1,485 @@
+@page "/templates"
+@page "/templates/new"
+@page "/templates/{Id:int}"
+@page "/templates/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject ITemplateService TemplateService
+@inject ICustomerService CustomerSvc
+@inject ISiteService SiteSvc
+@inject NavigationManager Navigation
+
+<PageTitle>Templates - OneManVanFSM</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-copy me-2"></i>Templates</h4>
+    <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Template</button>
+</div>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@* ===== VIEW MODES ===== *@
+@if (viewMode == "list")
+{
+    @* Filters *@
+    <div class="row g-2 mb-3">
+        <div class="col-md-4">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" placeholder="Search templates..." @bind="filter.Search" @bind:event="oninput" @bind:after="LoadTemplates" />
+            </div>
+        </div>
+        <div class="col-md-3">
+            <select class="form-select form-select-sm" @bind="selectedType" @bind:after="OnTypeFilterChanged">
+                <option value="">All Types</option>
+                @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.TemplateType>())
+                {
+                    <option value="@t">@t</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="selectedDefault" @bind:after="OnDefaultFilterChanged">
+                <option value="">All</option>
+                <option value="true">Company Defaults</option>
+                <option value="false">Custom</option>
+            </select>
+        </div>
+    </div>
+
+    @* List Table *@
+    @if (templates is null)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (templates.Count == 0)
+    {
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-copy display-4"></i>
+            <p class="mt-2">No templates found. Create your first template to start reusing blueprints.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Default</th>
+                        <th>Usage</th>
+                        <th>Last Used</th>
+                        <th>Owner</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var tpl in templates)
+                    {
+                        <tr class="cursor-pointer" @onclick="() => GoToDetail(tpl.Id)">
+                            <td>
+                                <strong>@tpl.Name</strong>
+                                @if (!string.IsNullOrWhiteSpace(tpl.Description))
+                                {
+                                    <br /><small class="text-muted">@Truncate(tpl.Description, 60)</small>
+                                }
+                            </td>
+                            <td><span class="badge @GetTypeBadge(tpl.Type)">@tpl.Type</span></td>
+                            <td>
+                                @if (tpl.IsCompanyDefault) { <i class="bi bi-check-circle-fill text-success"></i> }
+                                else { <i class="bi bi-dash text-muted"></i> }
+                            </td>
+                            <td>@tpl.UsageCount</td>
+                            <td>@(tpl.LastUsed?.ToString("MMM dd, yyyy") ?? "—")</td>
+                            <td>@(tpl.CompanyName ?? tpl.CustomerName ?? "—")</td>
+                            <td class="text-end" @onclick:stopPropagation="true">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" title="Edit" @onclick="() => GoToEdit(tpl.Id)"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-outline-secondary" title="Clone" @onclick="() => CloneTemplate(tpl.Id, tpl.Name)"><i class="bi bi-clipboard-plus"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+else if (viewMode == "detail" && detail is not null)
+{
+    @* ===== DETAIL VIEW ===== *@
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-copy me-2"></i>@detail.Name</h4>
+        <span class="badge @GetTypeBadge(detail.Type) ms-2">@detail.Type</span>
+        @if (detail.IsCompanyDefault) { <span class="badge bg-success ms-1">Company Default</span> }
+        @if (detail.IsArchived) { <span class="badge bg-secondary ms-1">Archived</span> }
+        <div class="ms-auto">
+            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="() => CloneTemplate(detail.Id, detail.Name)"><i class="bi bi-clipboard-plus me-1"></i>Clone</button>
+            <button class="btn btn-sm me-1 @(detail.IsCompanyDefault ? "btn-outline-warning" : "btn-outline-success")" @onclick="ToggleDefault">
+                <i class="bi @(detail.IsCompanyDefault ? "bi-star-fill" : "bi-star") me-1"></i>@(detail.IsCompanyDefault ? "Remove Default" : "Make Default")
+            </button>
+            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6><i class="bi bi-info-circle me-1"></i>Details</h6>
+                    <div class="row g-2 mt-2">
+                        <div class="col-sm-12">
+                            <small class="text-muted d-block">Description</small>
+                            <span>@(detail.Description ?? "—")</span>
+                        </div>
+                        <div class="col-sm-4">
+                            <small class="text-muted d-block">Customer</small>
+                            @if (detail.CustomerId.HasValue && detail.CustomerName is not null)
+                            { <a href="javascript:void(0)" @onclick="() => GoToCustomer(detail.CustomerId.Value)">@detail.CustomerName</a> }
+                            else { <span>—</span> }
+                        </div>
+                        <div class="col-sm-4">
+                            <small class="text-muted d-block">Company</small>
+                            <span>@(detail.CompanyName ?? "—")</span>
+                        </div>
+                        <div class="col-sm-4">
+                            <small class="text-muted d-block">Usage Count</small>
+                            <strong>@detail.UsageCount</strong>
+                        </div>
+                        <div class="col-sm-4">
+                            <small class="text-muted d-block">Last Used</small>
+                            <span>@(detail.LastUsed?.ToString("MMM dd, yyyy") ?? "Never")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @* Template Content Data *@
+            @if (!string.IsNullOrWhiteSpace(detail.Data))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong><i class="bi bi-code-square me-1"></i>Template Content</strong></div>
+                    <div class="card-body">
+                        <pre class="bg-light p-3 rounded small mb-0" style="max-height:300px;overflow:auto;">@detail.Data</pre>
+                    </div>
+                </div>
+            }
+
+            @* Versions *@
+            @if (detail.Versions.Count > 0)
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong><i class="bi bi-clock-history me-1"></i>Versions (@detail.Versions.Count)</strong></div>
+                    <div class="card-body p-0">
+                        <table class="table table-sm mb-0">
+                            <thead class="table-light"><tr><th>Version</th><th>Change Notes</th><th>Date</th></tr></thead>
+                            <tbody>
+                                @foreach (var ver in detail.Versions)
+                                {
+                                    <tr>
+                                        <td>v@ver.VersionNumber</td>
+                                        <td>@(ver.ChangeNotes ?? "—")</td>
+                                        <td>@ver.CreatedAt.ToString("MMM dd, yyyy")</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(detail.Notes))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong><i class="bi bi-journal-text me-1"></i>Notes</strong></div>
+                    <div class="card-body"><p class="text-muted small mb-0">@detail.Notes</p></div>
+                </div>
+            }
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-bar-chart me-1"></i>Usage Stats</h6>
+                    <p class="mb-1"><strong class="fs-4">@detail.UsageCount</strong> <small class="text-muted">times used</small></p>
+                    <p class="mb-0 small text-muted">Last used: @(detail.LastUsed?.ToString("MMM dd, yyyy") ?? "Never")</p>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else if (viewMode is "create" or "edit")
+{
+    @* ===== CREATE / EDIT FORM ===== *@
+    <button class="btn btn-sm btn-outline-secondary mb-3" @onclick="GoToList"><i class="bi bi-arrow-left me-1"></i>Cancel</button>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><strong>@(viewMode == "create" ? "New Template" : "Edit Template")</strong></div>
+        <div class="card-body">
+            <EditForm Model="editModel" OnValidSubmit="SaveTemplate">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <InputText class="form-control" @bind-Value="editModel.Name" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Type</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.Type">
+                            @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.TemplateType>())
+                            {
+                                <option value="@t">@t</option>
+                            }
+                    </InputSelect>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="editModel.Description" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Template Data (JSON)</label>
+                        <InputTextArea class="form-control font-monospace" rows="8" @bind-Value="editModel.Data" />
+                        <div class="form-text">Structured content: sections, items, quantities, defaults.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Customer</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.CustomerId">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Company</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.CompanyId">
+                            <option value="">— Select Company —</option>
+                            @foreach (var co in _companies)
+                            {
+                                <option value="@co.Id">@co.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Company Default</label>
+                        <div class="form-check form-switch mt-2">
+                            <InputCheckbox class="form-check-input" @bind-Value="editModel.IsCompanyDefault" />
+                            <label class="form-check-label">Yes</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="editModel.Notes" />
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>@(viewMode == "create" ? "Create" : "Save Changes")</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string viewMode = "list";
+    private List<TemplateListItem>? templates;
+    private TemplateDetail? detail;
+    private TemplateEditModel editModel = new();
+    private int? editId;
+    private string? errorMessage;
+
+    private TemplateFilter filter = new();
+    private string selectedType = "";
+    private string selectedDefault = "";
+
+    private List<CustomerListItem> _customers = [];
+    private List<CompanyOption> _companies = [];
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (uri.AbsolutePath.Contains("/templates/new", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadDropdowns();
+            editModel = new();
+            editId = null;
+            viewMode = "create";
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadDropdowns();
+            await LoadForEdit(Id.Value);
+        }
+        else if (Id.HasValue)
+        {
+            await LoadDetail(Id.Value);
+        }
+        else
+        {
+            viewMode = "list";
+            await LoadTemplates();
+        }
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadTemplates()
+    {
+        try { templates = await TemplateService.GetTemplatesAsync(filter); }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task LoadDetail(int id)
+    {
+        detail = await TemplateService.GetTemplateAsync(id);
+        viewMode = detail is not null ? "detail" : "list";
+        if (viewMode == "list") await LoadTemplates();
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var d = await TemplateService.GetTemplateAsync(id);
+        if (d is null) { viewMode = "list"; await LoadTemplates(); return; }
+        editId = id;
+        editModel = new()
+        {
+            Name = d.Name,
+            Description = d.Description,
+            Type = d.Type,
+            Data = d.Data,
+            IsCompanyDefault = d.IsCompanyDefault,
+            Notes = d.Notes,
+            CustomerId = d.CustomerId,
+            CompanyId = d.CompanyId
+        };
+        viewMode = "edit";
+    }
+
+    private async Task LoadDropdowns()
+    {
+        _customers = await CustomerSvc.GetCustomersAsync();
+        _companies = await SiteSvc.GetCompaniesForDropdownAsync();
+    }
+
+    private async Task SaveTemplate()
+    {
+        try
+        {
+            errorMessage = null;
+            if (viewMode == "create")
+                await TemplateService.CreateTemplateAsync(editModel);
+            else if (editId.HasValue)
+                await TemplateService.UpdateTemplateAsync(editId.Value, editModel);
+
+            Navigation.NavigateTo("/templates");
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task CloneTemplate(int id, string name)
+    {
+        await TemplateService.CloneTemplateAsync(id, $"{name} (Copy)");
+        await LoadTemplates();
+        viewMode = "list";
+    }
+
+    private async Task ArchiveDetail()
+    {
+        if (detail is not null)
+        {
+            await TemplateService.DeleteTemplateAsync(detail.Id);
+            Navigation.NavigateTo("/templates");
+        }
+    }
+
+    private async Task ToggleDefault()
+    {
+        if (detail is null) return;
+        var model = new TemplateEditModel
+        {
+            Name = detail.Name,
+            Description = detail.Description,
+            Type = detail.Type,
+            Data = detail.Data,
+            IsCompanyDefault = !detail.IsCompanyDefault,
+            Notes = detail.Notes,
+            CustomerId = detail.CustomerId,
+            CompanyId = detail.CompanyId
+        };
+        await TemplateService.UpdateTemplateAsync(detail.Id, model);
+        detail = await TemplateService.GetTemplateAsync(detail.Id);
+    }
+
+    private void GoToList() => Navigation.NavigateTo("/templates");
+    private void GoToNew() => Navigation.NavigateTo("/templates/new");
+    private void GoToDetail(int id) => Navigation.NavigateTo($"/templates/{id}");
+    private void GoToEdit(int id) => Navigation.NavigateTo($"/templates/{id}/edit");
+    private void EditDetail() { if (detail is not null) Navigation.NavigateTo($"/templates/{detail.Id}/edit"); }
+    private void GoToCustomer(int id) => Navigation.NavigateTo($"/customers/{id}");
+
+    private void OnTypeFilterChanged()
+    {
+        filter.Type = string.IsNullOrEmpty(selectedType) ? null : Enum.Parse<OneManVanFSM.Shared.Models.TemplateType>(selectedType);
+        _ = LoadTemplates();
+    }
+
+    private void OnDefaultFilterChanged()
+    {
+        filter.IsCompanyDefault = string.IsNullOrEmpty(selectedDefault) ? null : bool.Parse(selectedDefault);
+        _ = LoadTemplates();
+    }
+
+    private static string GetTypeBadge(OneManVanFSM.Shared.Models.TemplateType t) => t switch
+    {
+        OneManVanFSM.Shared.Models.TemplateType.MaterialList => "bg-info text-dark",
+        OneManVanFSM.Shared.Models.TemplateType.JobChecklist => "bg-primary",
+        OneManVanFSM.Shared.Models.TemplateType.EstimateFormat => "bg-success",
+        OneManVanFSM.Shared.Models.TemplateType.ProductVariant => "bg-warning text-dark",
+        OneManVanFSM.Shared.Models.TemplateType.ServiceAgreementStructure => "bg-secondary",
+        _ => "bg-light text-dark"
+    };
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength] + "…";
+}

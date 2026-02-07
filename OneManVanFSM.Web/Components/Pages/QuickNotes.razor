@@ -1,0 +1,417 @@
+@page "/quicknotes"
+@page "/quicknotes/new"
+@page "/quicknotes/{Id:int}"
+@page "/quicknotes/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IQuickNoteService NoteSvc
+@inject ICustomerService CustomerSvc
+@inject IJobService JobSvc
+@inject NavigationManager Nav
+
+<PageTitle>Quick Notes - OneManVanFSM</PageTitle>
+
+@if (mode == "form")
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-sticky-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Quick Note</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="SaveNote">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Title</label>
+                        <InputText @bind-Value="form.Title" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Category</label>
+                        <InputSelect @bind-Value="form.Category" class="form-select">
+                            <option value="">None</option>
+                            <option value="Material">Material</option>
+                            <option value="Customer">Customer</option>
+                            <option value="Equipment">Equipment</option>
+                            <option value="Safety">Safety</option>
+                            <option value="Dispatch">Dispatch</option>
+                            <option value="Other">Other</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect @bind-Value="form.Status" class="form-select">
+                            @foreach (var s in Enum.GetValues<QuickNoteStatus>()) { <option value="@s">@s</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Note Text <span class="text-danger">*</span></label>
+                        <InputTextArea @bind-Value="form.Text" class="form-control" rows="4" />
+                        <ValidationMessage For="() => form.Text" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Customer</label>
+                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
+                            <option value="">None</option>
+                            @if (customers is not null) { @foreach (var c in customers) { <option value="@c.Id">@c.Name</option> } }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Job</label>
+                        <InputSelect @bind-Value="form.JobId" class="form-select">
+                            <option value="">None</option>
+                            @if (jobs is not null) { @foreach (var j in jobs) { <option value="@j.Id">@j.Title</option> } }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Link to Entity</label>
+                        <InputSelect @bind-Value="form.EntityType" class="form-select">
+                            <option value="">None</option>
+                            <option value="Job">Job</option>
+                            <option value="Customer">Customer</option>
+                            <option value="Asset">Asset</option>
+                            <option value="Invoice">Invoice</option>
+                            <option value="Site">Site</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Entity ID</label>
+                        <InputNumber @bind-Value="form.EntityId" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Tags</label>
+                        <InputText @bind-Value="form.Tags" class="form-control" placeholder="tag1, tag2" />
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            <InputCheckbox @bind-Value="form.IsUrgent" class="form-check-input" id="isUrgent" />
+                            <label class="form-check-label text-danger fw-bold" for="isUrgent">Urgent</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (mode == "detail" && selectedNote is not null)
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-sticky-fill me-2"></i>@(selectedNote.Title ?? "Quick Note")</h4>
+        @if (selectedNote.IsUrgent) { <span class="badge bg-danger ms-2">Urgent</span> }
+        <span class="badge ms-1 @GetStatusBadge(selectedNote.Status)">@selectedNote.Status</span>
+        @if (!string.IsNullOrWhiteSpace(selectedNote.Category))
+        {
+            <span class="badge bg-info ms-1">@selectedNote.Category</span>
+        }
+        <div class="ms-auto">
+            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditNote"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-outline-danger btn-sm" @onclick="DeleteNote"><i class="bi bi-trash me-1"></i>Delete</button>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white"><strong><i class="bi bi-journal-text me-1"></i>Note Content</strong></div>
+                <div class="card-body">
+                    <p style="white-space: pre-wrap;" class="mb-0">@selectedNote.Text</p>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(selectedNote.Tags))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong><i class="bi bi-tags me-1"></i>Tags</strong></div>
+                    <div class="card-body">
+                        @foreach (var tag in selectedNote.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                        {
+                            <span class="badge bg-secondary me-1">@tag</span>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white"><strong><i class="bi bi-link-45deg me-1"></i>Connections</strong></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        @if (selectedNote.CustomerName is not null)
+                        {
+                            <div class="col-sm-6">
+                                <small class="text-muted d-block">Customer</small>
+                                <a href="javascript:void(0)" @onclick="GoToCustomer">@selectedNote.CustomerName</a>
+                            </div>
+                        }
+                        @if (selectedNote.JobTitle is not null)
+                        {
+                            <div class="col-sm-6">
+                                <small class="text-muted d-block">Job</small>
+                                <a href="javascript:void(0)" @onclick="GoToJob">@selectedNote.JobTitle</a>
+                            </div>
+                        }
+                        @if (selectedNote.EntityType is not null)
+                        {
+                            <div class="col-sm-6">
+                                <small class="text-muted d-block">Linked Entity</small>
+                                <span>@selectedNote.EntityType #@selectedNote.EntityId</span>
+                            </div>
+                        }
+                        @if (selectedNote.CustomerName is null && selectedNote.JobTitle is null && selectedNote.EntityType is null)
+                        {
+                            <div class="col-12"><span class="text-muted">No linked entities</span></div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Details</h6>
+                    <div class="row g-2">
+                        <div class="col-sm-6"><small class="text-muted d-block">Category</small><span>@(selectedNote.Category ?? "\u2014")</span></div>
+                        <div class="col-sm-6"><small class="text-muted d-block">Status</small><span class="badge @GetStatusBadge(selectedNote.Status)">@selectedNote.Status</span></div>
+                        <div class="col-sm-6"><small class="text-muted d-block">Urgent</small><span>@(selectedNote.IsUrgent ? "Yes" : "No")</span></div>
+                        <div class="col-sm-6"><small class="text-muted d-block">Created By</small><span>@(selectedNote.CreatedByName ?? "\u2014")</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Quick Actions</h6>
+                    <a href="/jobs" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-briefcase me-1"></i>View Jobs</a>
+                    <a href="/customers" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-people me-1"></i>View Customers</a>
+                    <a href="/assets" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-cpu me-1"></i>View Assets</a>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3"><i class="bi bi-clock-history me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @selectedNote.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @selectedNote.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-sticky-fill me-2"></i>Quick Notes</h4>
+        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Note</button>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search notes..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filterCategory">
+                        <option value="">All Categories</option>
+                        <option value="Material">Material</option>
+                        <option value="Customer">Customer</option>
+                        <option value="Equipment">Equipment</option>
+                        <option value="Safety">Safety</option>
+                        <option value="Dispatch">Dispatch</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filterStatus">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in Enum.GetValues<QuickNoteStatus>()) { <option value="@s">@s</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filterUrgent">
+                        <option value="">All</option>
+                        <option value="true">Urgent Only</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadNotes"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (notes is null)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+    }
+    else if (!notes.Any())
+    {
+        <div class="card border-0 shadow-sm"><div class="card-body text-center py-5 text-muted"><i class="bi bi-sticky" style="font-size:3rem;"></i><p class="mt-2">No notes. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div></div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var note in notes)
+            {
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100 @(note.IsUrgent ? "border-start border-danger border-3" : "")" style="cursor:pointer" @onclick="() => GoToDetail(note.Id)">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <h6 class="mb-0">@(note.Title ?? "Untitled")</h6>
+                                <div>
+                                    @if (note.IsUrgent) { <span class="badge bg-danger">Urgent</span> }
+                                    <span class="badge @GetStatusBadge(note.Status) ms-1">@note.Status</span>
+                                </div>
+                            </div>
+                            <p class="text-muted small mb-2" style="max-height:60px;overflow:hidden;">@note.Text</p>
+                            @if (!string.IsNullOrWhiteSpace(note.Tags))
+                            {
+                                <div class="mb-2">
+                                    @foreach (var tag in note.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Take(3))
+                                    {
+                                        <span class="badge bg-outline-secondary border me-1 small">@tag</span>
+                                    }
+                                </div>
+                            }
+                            <div class="d-flex justify-content-between align-items-center">
+                                <small class="text-muted">
+                                    @note.CreatedAt.ToString("MMM dd")
+                                    @if (note.CustomerName is not null) { <span class="ms-1">· @note.CustomerName</span> }
+                                </small>
+                                <div>
+                                    @if (note.Category is not null) { <span class="badge bg-secondary">@note.Category</span> }
+                                    @if (note.EntityType is not null) { <span class="badge bg-info ms-1">@note.EntityType</span> }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private List<QuickNoteListItem>? notes;
+    private QuickNoteFilter filter = new();
+    private string filterCategory = "";
+    private string filterStatus = "";
+    private string filterUrgent = "";
+    private QuickNoteDetail? selectedNote;
+    private QuickNoteEditModel form = new();
+    private int? editId;
+    private string? errorMsg;
+    private List<CustomerListItem>? customers;
+    private List<JobListItem>? jobs;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (uri.AbsolutePath.Contains("/quicknotes/new", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = "form"; editId = null; form = new();
+            await LoadDropdowns();
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+            await LoadForEdit(Id.Value);
+        else if (Id.HasValue)
+            await LoadDetail(Id.Value);
+        else { mode = "list"; await LoadNotes(); }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadDropdowns()
+    {
+        customers ??= await CustomerSvc.GetCustomersAsync();
+        jobs ??= await JobSvc.GetJobsAsync();
+    }
+
+    private async Task LoadNotes()
+    {
+        filter.Category = string.IsNullOrWhiteSpace(filterCategory) ? null : filterCategory;
+        filter.Status = string.IsNullOrWhiteSpace(filterStatus) ? null : Enum.Parse<QuickNoteStatus>(filterStatus);
+        filter.IsUrgent = string.IsNullOrWhiteSpace(filterUrgent) ? null : bool.Parse(filterUrgent);
+        notes = await NoteSvc.GetNotesAsync(filter);
+    }
+
+    private async Task LoadDetail(int id)
+    {
+        selectedNote = await NoteSvc.GetNoteAsync(id);
+        mode = selectedNote is not null ? "detail" : "list";
+        if (mode == "list") await LoadNotes();
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var n = await NoteSvc.GetNoteAsync(id);
+        if (n is null) { mode = "list"; await LoadNotes(); return; }
+        editId = id;
+        form = new QuickNoteEditModel
+        {
+            Title = n.Title, Text = n.Text, Category = n.Category,
+            EntityType = n.EntityType, EntityId = n.EntityId,
+            IsUrgent = n.IsUrgent, Status = n.Status, Tags = n.Tags,
+            CustomerId = n.CustomerId, JobId = n.JobId
+        };
+        mode = "form";
+        await LoadDropdowns();
+    }
+
+    private async Task SaveNote()
+    {
+        try
+        {
+            errorMsg = null;
+            if (editId.HasValue) await NoteSvc.UpdateNoteAsync(editId.Value, form);
+            else await NoteSvc.CreateNoteAsync(form);
+            Nav.NavigateTo("/quicknotes");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task DeleteNote()
+    {
+        if (selectedNote is not null) { await NoteSvc.DeleteNoteAsync(selectedNote.Id); Nav.NavigateTo("/quicknotes"); }
+    }
+
+    private string GetStatusBadge(QuickNoteStatus s) => s switch
+    {
+        QuickNoteStatus.Draft => "bg-secondary",
+        QuickNoteStatus.Active => "bg-success",
+        QuickNoteStatus.Imported => "bg-info",
+        QuickNoteStatus.Archived => "bg-dark",
+        _ => "bg-secondary"
+    };
+
+    private void GoToList() => Nav.NavigateTo("/quicknotes");
+    private void GoToNew() => Nav.NavigateTo("/quicknotes/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/quicknotes/{id}");
+    private void EditNote() { if (selectedNote is not null) Nav.NavigateTo($"/quicknotes/{selectedNote.Id}/edit"); }
+    private void GoToCustomer() { if (selectedNote?.CustomerId is not null) Nav.NavigateTo($"/customers/{selectedNote.CustomerId}"); }
+    private void GoToJob() { if (selectedNote?.JobId is not null) Nav.NavigateTo($"/jobs/{selectedNote.JobId}"); }
+    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadNotes(); }
+}

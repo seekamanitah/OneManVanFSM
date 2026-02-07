@@ -1,0 +1,257 @@
+﻿@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<AuthorizeView>
+    <Authorized>
+        @{ _userName = context.User.Identity?.Name ?? "User"; _userRole = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User"; }
+    </Authorized>
+</AuthorizeView>
+
+<div class="app-layout @(_darkMode ? "dark-theme" : "")">
+    @* ===== SIDEBAR (Left Navigation per UI Layout guideline) ===== *@
+    <aside class="app-sidebar @(SidebarCollapsed ? "collapsed" : "")">
+        <div class="sidebar-brand">
+            <a href="/">
+                <i class="bi bi-tools"></i>
+                @if (!SidebarCollapsed)
+                {
+                    <span>OneManVan</span>
+                }
+            </a>
+        </div>
+
+        <nav class="sidebar-nav">
+            @* Clients *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Clients" : "")</div>
+            <NavLink class="nav-link" href="customers" title="Customers">
+                <i class="bi bi-people-fill"></i>@if (!SidebarCollapsed) { <span>Customers</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="sites" title="Sites">
+                <i class="bi bi-geo-alt-fill"></i>@if (!SidebarCollapsed) { <span>Sites</span> }
+            </NavLink>
+
+            @* Inventory & Products *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Inventory & Products" : "")</div>
+            <NavLink class="nav-link" href="products" title="Products">
+                <i class="bi bi-box-seam-fill"></i>@if (!SidebarCollapsed) { <span>Products</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="inventory" title="Inventory">
+                <i class="bi bi-boxes"></i>@if (!SidebarCollapsed) { <span>Inventory</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="materiallists" title="Material Lists">
+                <i class="bi bi-list-check"></i>@if (!SidebarCollapsed) { <span>Material Lists</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="templates" title="Templates">
+                <i class="bi bi-copy"></i>@if (!SidebarCollapsed) { <span>Templates</span> }
+            </NavLink>
+
+            @* Bidding & Planning *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Bidding & Planning" : "")</div>
+            <NavLink class="nav-link" href="estimates" title="Estimates">
+                <i class="bi bi-calculator-fill"></i>@if (!SidebarCollapsed) { <span>Estimates</span> }
+            </NavLink>
+
+            @* Operations *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Operations" : "")</div>
+            <NavLink class="nav-link" href="jobs" title="Jobs">
+                <i class="bi bi-wrench-adjustable-circle-fill"></i>@if (!SidebarCollapsed) { <span>Jobs</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="calendar" title="Calendar">
+                <i class="bi bi-calendar3"></i>@if (!SidebarCollapsed) { <span>Calendar</span> }
+            </NavLink>
+
+            @* Services & History *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Services" : "")</div>
+            <NavLink class="nav-link" href="serviceagreements" title="Service Agreements">
+                <i class="bi bi-file-earmark-check-fill"></i>@if (!SidebarCollapsed) { <span>Agreements</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="assets" title="Assets">
+                <i class="bi bi-cpu-fill"></i>@if (!SidebarCollapsed) { <span>Assets</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="servicehistory" title="Service History">
+                <i class="bi bi-wrench-adjustable"></i>@if (!SidebarCollapsed) { <span>Service History</span> }
+            </NavLink>
+
+            @* Financials *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Financials" : "")</div>
+            <NavLink class="nav-link" href="financials" title="Financials">
+                <i class="bi bi-cash-stack"></i>@if (!SidebarCollapsed) { <span>Financials</span> }
+            </NavLink>
+
+            @* Team & HR *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Team & HR" : "")</div>
+            <NavLink class="nav-link" href="employees" title="Employees">
+                <i class="bi bi-person-badge-fill"></i>@if (!SidebarCollapsed) { <span>Employees</span> }
+            </NavLink>
+
+            @* Documents & Notes *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Documents & Notes" : "")</div>
+            <NavLink class="nav-link" href="documents" title="Documents">
+                <i class="bi bi-folder-fill"></i>@if (!SidebarCollapsed) { <span>Documents</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="quicknotes" title="Quick Notes">
+                <i class="bi bi-sticky-fill"></i>@if (!SidebarCollapsed) { <span>Quick Notes</span> }
+            </NavLink>
+
+            @* Insights *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Insights" : "")</div>
+            <NavLink class="nav-link" href="reports" title="Reports">
+                <i class="bi bi-graph-up"></i>@if (!SidebarCollapsed) { <span>Reports</span> }
+            </NavLink>
+
+            @* Admin *@
+            <div class="nav-section-header">@(!SidebarCollapsed ? "Admin" : "")</div>
+            <NavLink class="nav-link" href="settings" title="Settings">
+                <i class="bi bi-gear-fill"></i>@if (!SidebarCollapsed) { <span>Settings</span> }
+            </NavLink>
+        </nav>
+    </aside>
+
+    @* ===== MAIN AREA ===== *@
+    <div class="app-main">
+        @* ===== HEADER (Fixed Top Bar per UI Layout guideline) ===== *@
+        <header class="app-header">
+            <div class="header-left">
+                <button class="btn btn-link sidebar-toggle" @onclick="ToggleSidebar" title="Toggle sidebar">
+                    <i class="bi bi-list"></i>
+                </button>
+                <a class="header-brand d-md-none" href="/">OneManVan</a>
+            </div>
+
+            <div class="header-center">
+                <div class="global-search">
+                    <i class="bi bi-search"></i>
+                    <input type="text" placeholder="Search jobs, customers, invoices..."
+                           @bind="_searchText" @bind:event="oninput"
+                           @onkeydown="HandleSearchKeyDown" />
+                </div>
+            </div>
+
+            <div class="header-right">
+                @* Date/Period Selector *@
+                <div class="dropdown d-none d-md-block">
+                    <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-calendar-date"></i> @_selectedPeriodLabel
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item @(_selectedPeriod == "today" ? "active" : "")" href="javascript:void(0)" @onclick='() => SetPeriod("today", "Today")'>Today</a></li>
+                        <li><a class="dropdown-item @(_selectedPeriod == "week" ? "active" : "")" href="javascript:void(0)" @onclick='() => SetPeriod("week", "This Week")'>This Week</a></li>
+                        <li><a class="dropdown-item @(_selectedPeriod == "month" ? "active" : "")" href="javascript:void(0)" @onclick='() => SetPeriod("month", "This Month")'>This Month</a></li>
+                    </ul>
+                </div>
+
+                @* Quick Actions *@
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <i class="bi bi-plus-lg"></i><span class="d-none d-md-inline"> New</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="jobs/new"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                        <li><a class="dropdown-item" href="estimates/new"><i class="bi bi-calculator me-2"></i>New Estimate</a></li>
+                        <li><a class="dropdown-item" href="customers/new"><i class="bi bi-person-plus me-2"></i>New Customer</a></li>
+                        <li><a class="dropdown-item" href="quicknotes/new"><i class="bi bi-sticky me-2"></i>Quick Note</a></li>
+                    </ul>
+                </div>
+
+                @* Print *@
+                <button class="btn btn-link header-icon no-print" @onclick="PrintPage" title="Print this page">
+                    <i class="bi bi-printer"></i>
+                </button>
+
+                @* Notifications *@
+                <button class="btn btn-link header-icon position-relative" title="Notifications">
+                    <i class="bi bi-bell"></i>
+                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                        3
+                    </span>
+                </button>
+
+                @* User Profile *@
+                <div class="dropdown">
+                    <button class="btn btn-link header-icon dropdown-toggle" data-bs-toggle="dropdown" title="User menu">
+                        <i class="bi bi-person-circle"></i>
+                        <span class="d-none d-lg-inline small ms-1">@_userName</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><span class="dropdown-item-text fw-bold">@_userRole: @_userName</span></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="settings"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                        <li><a class="dropdown-item" href="javascript:void(0)" @onclick="ToggleDarkMode"><i class="bi @(_darkMode ? "bi-sun" : "bi-moon") me-2"></i>@(_darkMode ? "Light Mode" : "Dark Mode")</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="logout"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                    </ul>
+                </div>
+            </div>
+        </header>
+
+        @* ===== CONTENT ===== *@
+        <main class="app-content">
+            @Body
+        </main>
+
+        @* ===== FOOTER (per UI Layout guideline) ===== *@
+        <footer class="app-footer">
+            <div class="footer-left">
+                <small class="text-muted">OneManVanFSM v1.0.0</small>
+            </div>
+            <div class="footer-center">
+                <small class="text-success">
+                    <i class="bi bi-circle-fill" style="font-size: 0.5rem;"></i> Online
+                </small>
+            </div>
+            <div class="footer-right">
+                <a href="reports" class="text-muted me-3"><small>Reports</small></a>
+                <a href="settings" class="text-muted me-3"><small>Settings</small></a>
+                <a href="help" class="text-muted"><small><i class="bi bi-question-circle"></i> Help</small></a>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>
+
+@code {
+    private bool SidebarCollapsed { get; set; }
+    private bool _darkMode;
+    private string _userName = "User";
+    private string _userRole = "User";
+    private string _searchText = string.Empty;
+    private string _selectedPeriod = "today";
+    private string _selectedPeriodLabel = "Today";
+
+    private void ToggleSidebar()
+    {
+        SidebarCollapsed = !SidebarCollapsed;
+    }
+
+    private void ToggleDarkMode()
+    {
+        _darkMode = !_darkMode;
+    }
+
+    private void SetPeriod(string period, string label)
+    {
+        _selectedPeriod = period;
+        _selectedPeriodLabel = label;
+        Navigation.NavigateTo($"/?period={period}", forceLoad: false);
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchText))
+        {
+            Navigation.NavigateTo($"/search?q={Uri.EscapeDataString(_searchText.Trim())}");
+            _searchText = string.Empty;
+        }
+    }
+
+    private async Task PrintPage()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+}

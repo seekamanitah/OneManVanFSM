@@ -1,0 +1,664 @@
+@page "/"
+@page "/dashboard"
+@rendermode InteractiveServer
+@using OneManVanFSM.Shared.Models
+@inject OneManVanFSM.Web.Services.IDashboardService DashboardService
+@inject NavigationManager Navigation
+
+<PageTitle>Dashboard - OneManVanFSM</PageTitle>
+
+<div class="dashboard">
+    @if (_loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2 text-muted">Loading dashboard...</p>
+        </div>
+    }
+    else
+    {
+        @* ===== HEADER: Title, Period Selector, Quick Actions ===== *@
+        <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+            <h5 class="mb-0 text-muted">
+                <i class="bi bi-speedometer2 me-2"></i>Dashboard
+            </h5>
+            <div class="d-flex gap-2 align-items-center">
+                <div class="btn-group btn-group-sm" role="group">
+                    <button class="btn @(_period == DashboardPeriod.Today ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SetPeriod(DashboardPeriod.Today)">Today</button>
+                    <button class="btn @(_period == DashboardPeriod.ThisWeek ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SetPeriod(DashboardPeriod.ThisWeek)">This Week</button>
+                    <button class="btn @(_period == DashboardPeriod.ThisMonth ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SetPeriod(DashboardPeriod.ThisMonth)">This Month</button>
+                </div>
+                <div class="dropdown">
+                    <button class="btn btn-primary btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-plus-lg me-1"></i>Quick Action
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="/jobs"><i class="bi bi-briefcase me-2"></i>New Job</a></li>
+                        <li><a class="dropdown-item" href="/estimates"><i class="bi bi-calculator me-2"></i>New Estimate</a></li>
+                        <li><a class="dropdown-item" href="/customers"><i class="bi bi-people me-2"></i>New Customer</a></li>
+                        <li><a class="dropdown-item" href="/quicknotes"><i class="bi bi-sticky me-2"></i>New Quick Note</a></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        <li><a class="dropdown-item" href="/calendar"><i class="bi bi-calendar3 me-2"></i>Calendar</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        @* ===== KPI SUMMARY ROW ===== *@
+        <div class="row g-3 mb-4">
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm text-center py-2 h-100 cursor-pointer" @onclick='() => Navigation.NavigateTo("/jobs")'>
+                    <div class="card-body py-2">
+                        <div class="fs-4 fw-bold text-primary">@_data.KPIs.TotalJobsInPeriod</div>
+                        <small class="text-muted">Total Jobs</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm text-center py-2 h-100 cursor-pointer" @onclick='() => Navigation.NavigateTo("/jobs")'>
+                    <div class="card-body py-2">
+                        <div class="fs-4 fw-bold text-success">@_data.KPIs.CompletedJobsInPeriod</div>
+                        <small class="text-muted">Completed</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm text-center py-2 h-100 cursor-pointer" @onclick='() => Navigation.NavigateTo("/financials")'>
+                    <div class="card-body py-2">
+                        <div class="fs-4 fw-bold text-success">@_data.KPIs.RevenueCollected.ToString("C0")</div>
+                        <small class="text-muted">Revenue</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm text-center py-2 h-100 cursor-pointer" @onclick='() => Navigation.NavigateTo("/financials")'>
+                    <div class="card-body py-2">
+                        <div class="fs-4 fw-bold @(_data.KPIs.OutstandingBalance > 0 ? "text-danger" : "text-muted")">@_data.KPIs.OutstandingBalance.ToString("C0")</div>
+                        <small class="text-muted">Outstanding</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm text-center py-2 h-100 cursor-pointer" @onclick='() => Navigation.NavigateTo("/customers")'>
+                    <div class="card-body py-2">
+                        <div class="fs-4 fw-bold text-info">@_data.KPIs.ActiveCustomers</div>
+                        <small class="text-muted">Customers</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-6 col-md-4 col-xl-2">
+                <div class="card border-0 shadow-sm text-center py-2 h-100 cursor-pointer" @onclick='() => Navigation.NavigateTo("/serviceagreements")'>
+                    <div class="card-body py-2">
+                        <div class="fs-4 fw-bold text-warning">@_data.KPIs.ActiveAgreements</div>
+                        <small class="text-muted">Agreements</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ===== URGENT CONCERNS ROW ===== *@
+        <div class="row g-3 mb-4">
+            @* Scheduled Jobs Card *@
+            <div class="col-12 col-lg-6 col-xl-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-calendar-check text-success me-2"></i>Scheduled Jobs
+                        </h6>
+                        <a href="/jobs" class="badge bg-success-subtle text-success text-decoration-none">
+                            @_data.ScheduledJobs.Count Scheduled
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.ScheduledJobs.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Job #</th><th>Customer</th><th>Time</th><th>Tech</th><th>Priority</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var job in _data.ScheduledJobs.Take(5))
+                                        {
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/jobs/" + job.Id))">
+                                                <td class="fw-medium">@job.JobNumber</td>
+                                                <td>@job.Customer?.Name</td>
+                                                <td>@job.ScheduledTime?.ToString(@"hh\:mm")</td>
+                                                <td>@(job.AssignedEmployee?.Name ?? "Unassigned")</td>
+                                                <td><span class="badge @GetPriorityBadge(job.Priority)">@job.Priority</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                            @if (_data.ScheduledJobs.Count > 5)
+                            {
+                                <div class="text-center py-2">
+                                    <a href="/jobs" class="btn btn-sm btn-link text-muted">Show all @_data.ScheduledJobs.Count</a>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-1 mt-2">No jobs scheduled</p>
+                                <a href="/jobs" class="btn btn-sm btn-outline-primary">Create New Job</a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Finished Jobs Waiting Invoices *@
+            <div class="col-12 col-lg-6 col-xl-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-receipt-cutoff text-warning me-2"></i>Awaiting Invoices
+                        </h6>
+                        <a href="/jobs" class="badge bg-warning-subtle text-warning text-decoration-none">
+                            @_data.FinishedJobsWaitingInvoice.Count Jobs (@_data.FinishedJobsWaitingInvoice.Sum(j => j.EstimatedTotal ?? 0).ToString("C0"))
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.FinishedJobsWaitingInvoice.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Job #</th><th>Customer</th><th>Completed</th><th class="text-end">Est. Revenue</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var job in _data.FinishedJobsWaitingInvoice.Take(5))
+                                        {
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/jobs/" + job.Id))">
+                                                <td class="fw-medium">@job.JobNumber</td>
+                                                <td>@job.Customer?.Name</td>
+                                                <td>@job.CompletedDate?.ToString("MMM dd")</td>
+                                                <td class="text-end">@((job.EstimatedTotal ?? 0).ToString("C"))</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-emoji-smile" style="font-size: 2rem;"></i>
+                                <p class="mb-0 mt-2">All completed jobs have been invoiced!</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Unpaid Invoices *@
+            <div class="col-12 col-lg-6 col-xl-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-exclamation-triangle-fill text-danger me-2"></i>Unpaid Invoices
+                        </h6>
+                        <a href="/financials" class="badge bg-danger-subtle text-danger text-decoration-none">
+                            @_data.UnpaidInvoices.Count Unpaid (@_data.UnpaidInvoices.Sum(i => i.BalanceDue).ToString("C0"))
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.UnpaidInvoices.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Invoice #</th><th>Customer</th><th class="text-end">Amount Due</th><th class="text-end">Overdue</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var invoice in _data.UnpaidInvoices.Take(5))
+                                        {
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/financials/" + invoice.Id))">
+                                                <td class="fw-medium">@invoice.InvoiceNumber</td>
+                                                <td>@invoice.Customer?.Name</td>
+                                                <td class="text-end fw-medium text-danger">@invoice.BalanceDue.ToString("C")</td>
+                                                <td class="text-end">
+                                                    @{
+                                                        var daysOverdue = invoice.DueDate.HasValue ? (int)(DateTime.UtcNow - invoice.DueDate.Value).TotalDays : 0;
+                                                    }
+                                                    @if (daysOverdue > 0)
+                                                    {
+                                                        <span class="badge bg-danger">@daysOverdue days</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">Due soon</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-0 mt-2">All invoices paid!</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Unscheduled Jobs *@
+            <div class="col-12 col-lg-6 col-xl-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-clock-history text-info me-2"></i>Unscheduled Jobs
+                        </h6>
+                        <a href="/jobs" class="badge bg-info-subtle text-info text-decoration-none">
+                            @_data.UnscheduledJobs.Count Unscheduled (@_data.UnscheduledJobs.Sum(j => j.EstimatedTotal ?? 0).ToString("C0") at risk)
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.UnscheduledJobs.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Job #</th><th>Customer</th><th>Status</th><th class="text-end">Est. Value</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var job in _data.UnscheduledJobs.Take(5))
+                                        {
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/jobs/" + job.Id))">
+                                                <td class="fw-medium">@job.JobNumber</td>
+                                                <td>@job.Customer?.Name</td>
+                                                <td><span class="badge bg-secondary">@job.Status</span></td>
+                                                <td class="text-end">@((job.EstimatedTotal ?? 0).ToString("C"))</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-calendar-check" style="font-size: 2rem;"></i>
+                                <p class="mb-1 mt-2">No unscheduled jobs!</p>
+                                <a href="/jobs" class="btn btn-sm btn-outline-primary">Create New</a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Estimates Needing Attention *@
+            <div class="col-12 col-lg-6 col-xl-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-text text-primary me-2"></i>Estimates Pending
+                        </h6>
+                        <a href="/estimates" class="badge bg-primary-subtle text-primary text-decoration-none">
+                            @_data.PendingEstimates.Count Pending
+                            @{ var expiringCount = _data.PendingEstimates.Count(e => e.ExpiryDate.HasValue && e.ExpiryDate.Value <= DateTime.UtcNow.AddDays(7)); }
+                            @if (expiringCount > 0)
+                            {
+                                <span>(@expiringCount Expiring)</span>
+                            }
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.PendingEstimates.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Estimate #</th><th>Customer</th><th>Expiry</th><th>Status</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var est in _data.PendingEstimates.Take(5))
+                                        {
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/estimates/" + est.Id))">
+                                                <td class="fw-medium">@est.EstimateNumber</td>
+                                                <td>@est.Customer?.Name</td>
+                                                <td>
+                                                    @if (est.ExpiryDate.HasValue)
+                                                    {
+                                                        var daysToExpiry = (est.ExpiryDate.Value - DateTime.UtcNow).TotalDays;
+                                                        <span class="badge @(daysToExpiry <= 3 ? "bg-danger" : daysToExpiry <= 7 ? "bg-warning" : "bg-secondary")">
+                                                            @est.ExpiryDate.Value.ToString("MMM dd")
+                                                        </span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">&mdash;</span>
+                                                    }
+                                                </td>
+                                                <td><span class="badge bg-primary-subtle text-primary">@est.Status</span></td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-check-circle" style="font-size: 2rem;"></i>
+                                <p class="mb-1 mt-2">No pending estimates</p>
+                                <a href="/estimates" class="btn btn-sm btn-outline-primary">Create Estimate</a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Employee Hours & Expenses *@
+            <div class="col-12 col-lg-6 col-xl-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-people-fill text-secondary me-2"></i>Team Status
+                        </h6>
+                        <span class="badge bg-secondary-subtle text-secondary">
+                            @_data.EmployeeSummaries.Count Active (@_data.TotalPendingExpenses.ToString("C0") Expenses)
+                        </span>
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.EmployeeSummaries.Any())
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-hover table-sm mb-0">
+                                    <thead class="table-light">
+                                        <tr><th>Employee</th><th class="text-end">Today</th><th class="text-end">Week</th><th class="text-end">Expenses</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var emp in _data.EmployeeSummaries.Take(5))
+                                        {
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/employees/" + emp.EmployeeId))">
+                                                <td class="fw-medium">@emp.Name</td>
+                                                <td class="text-end">@emp.HoursToday.ToString("N1")h</td>
+                                                <td class="text-end">
+                                                    <span class="@(emp.HoursThisWeek >= 38 ? "text-warning fw-bold" : "")">
+                                                        @emp.HoursThisWeek.ToString("N1")h
+                                                    </span>
+                                                </td>
+                                                <td class="text-end">
+                                                    @if (emp.PendingExpenses > 0)
+                                                    {
+                                                        <span class="text-warning">@emp.PendingExpenses.ToString("C0")</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">&mdash;</span>
+                                                    }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-4 text-muted">
+                                <i class="bi bi-person-plus" style="font-size: 2rem;"></i>
+                                <p class="mb-1 mt-2">No active employees</p>
+                                <a href="/employees" class="btn btn-sm btn-outline-primary">Add Employee</a>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ===== SECONDARY ROW: Agreements, Inventory, Quick Notes ===== *@
+        <div class="row g-3 mb-4">
+            @* Expiring Service Agreements *@
+            <div class="col-12 col-lg-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-file-earmark-check text-info me-2"></i>Expiring Agreements
+                        </h6>
+                        @if (_data.ExpiringAgreements.Count > 0)
+                        {
+                            <span class="badge bg-warning-subtle text-warning">@_data.ExpiringAgreements.Count</span>
+                        }
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.ExpiringAgreements.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var ag in _data.ExpiringAgreements.Take(5))
+                                {
+                                    <a href="@("/serviceagreements/" + ag.Id)" class="list-group-item list-group-item-action py-2 px-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong class="small">@ag.AgreementNumber</strong>
+                                                <br /><small class="text-muted">@(ag.CustomerName ?? "N/A")</small>
+                                            </div>
+                                            <span class="badge @(ag.DaysUntilExpiry <= 7 ? "bg-danger" : ag.DaysUntilExpiry <= 14 ? "bg-warning" : "bg-info")">
+                                                @ag.DaysUntilExpiry days
+                                            </span>
+                                        </div>
+                                    </a>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-3 text-muted small">
+                                <i class="bi bi-check-circle me-1"></i>No agreements expiring within 30 days
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Low Inventory *@
+            <div class="col-12 col-lg-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-boxes text-danger me-2"></i>Low Inventory
+                        </h6>
+                        @if (_data.LowStockItems.Count > 0)
+                        {
+                            <a href="/inventory" class="badge bg-danger-subtle text-danger text-decoration-none">@_data.LowStockItems.Count items</a>
+                        }
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.LowStockItems.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var item in _data.LowStockItems.Take(5))
+                                {
+                                    <a href="/inventory" class="list-group-item list-group-item-action py-2 px-3">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong class="small">@item.Name</strong>
+                                                <br /><small class="text-muted">@item.Location</small>
+                                            </div>
+                                            <div class="text-end">
+                                                <span class="badge @(item.Quantity <= 0 ? "bg-danger" : "bg-warning text-dark")">
+                                                    @item.Quantity / @item.MinThreshold
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </a>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-3 text-muted small">
+                                <i class="bi bi-check-circle me-1"></i>All inventory above reorder thresholds
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @* Urgent Quick Notes *@
+            <div class="col-12 col-lg-4">
+                <div class="card dashboard-card border-0 shadow-sm h-100">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-exclamation-circle text-warning me-2"></i>Urgent Notes
+                        </h6>
+                        @if (_data.UrgentNotes.Count > 0)
+                        {
+                            <a href="/quicknotes" class="badge bg-warning-subtle text-warning text-decoration-none">@_data.UrgentNotes.Count</a>
+                        }
+                    </div>
+                    <div class="card-body p-0">
+                        @if (_data.UrgentNotes.Any())
+                        {
+                            <div class="list-group list-group-flush">
+                                @foreach (var note in _data.UrgentNotes.Take(5))
+                                {
+                                    <a href="/quicknotes" class="list-group-item list-group-item-action py-2 px-3">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div>
+                                                <strong class="small">@(note.Title ?? "Note")</strong>
+                                                <br /><small class="text-muted text-truncate d-inline-block" style="max-width:200px;">@note.Text</small>
+                                            </div>
+                                            <small class="text-muted text-nowrap ms-2">@note.CreatedAt.ToString("MMM dd")</small>
+                                        </div>
+                                    </a>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-3 text-muted small">
+                                <i class="bi bi-check-circle me-1"></i>No urgent notes
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        @* ===== RECENT ACTIVITY FEED ===== *@
+        <div class="row g-3">
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                        <h6 class="card-title mb-0">
+                            <i class="bi bi-activity me-2"></i>Recent Activity
+                        </h6>
+                        <button class="btn btn-sm btn-link text-muted" @onclick="ToggleActivity">
+                            <i class="bi @(_activityExpanded ? "bi-chevron-up" : "bi-chevron-down")"></i>
+                        </button>
+                    </div>
+                    @if (_activityExpanded)
+                    {
+                        <div class="card-body pt-0">
+                            @if (_data.RecentActivities.Any())
+                            {
+                                <div class="activity-feed">
+                                    @foreach (var activity in _data.RecentActivities.Take(8))
+                                    {
+                                        <div class="activity-item d-flex align-items-start gap-3 py-2 border-bottom cursor-pointer"
+                                             @onclick="@(() => NavigateToActivity(activity))">
+                                            <div class="activity-icon rounded-circle bg-light d-flex align-items-center justify-content-center" style="width:32px;height:32px;min-width:32px;">
+                                                <i class="bi @activity.Icon text-muted" style="font-size:0.85rem;"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <small class="fw-medium">@activity.Description</small>
+                                                <br />
+                                                <small class="text-muted">@activity.Timestamp.ToString("MMM dd, h:mm tt")</small>
+                                            </div>
+                                            @if (activity.EntityId.HasValue)
+                                            {
+                                                <i class="bi bi-chevron-right text-muted align-self-center"></i>
+                                            }
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-center py-3 text-muted small">
+                                    <i class="bi bi-clock-history me-1"></i>No recent activity
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private bool _loading = true;
+    private bool _activityExpanded = true;
+    private DashboardData _data = new();
+    private DashboardPeriod _period = DashboardPeriod.Today;
+
+    [SupplyParameterFromQuery(Name = "period")]
+    public string? Period { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _period = (Period?.ToLowerInvariant()) switch
+        {
+            "week" => DashboardPeriod.ThisWeek,
+            "month" => DashboardPeriod.ThisMonth,
+            _ => DashboardPeriod.Today
+        };
+        await LoadDataAsync();
+    }
+
+    private async Task SetPeriod(DashboardPeriod period)
+    {
+        _period = period;
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+        StateHasChanged();
+        _data = await DashboardService.GetDashboardDataAsync(_period);
+        _loading = false;
+    }
+
+    private void GoTo(string url) => Navigation.NavigateTo(url);
+
+    private void NavigateToActivity(ActivityItem activity)
+    {
+        if (activity.EntityId is null) return;
+        var url = activity.EntityType switch
+        {
+            "Job" => "/jobs/" + activity.EntityId,
+            "Invoice" => "/financials/" + activity.EntityId,
+            "Estimate" => "/estimates/" + activity.EntityId,
+            _ => null
+        };
+        if (url is not null) Navigation.NavigateTo(url);
+    }
+
+    private void ToggleActivity() => _activityExpanded = !_activityExpanded;
+
+    private string GetPriorityBadge(JobPriority priority) => priority switch
+    {
+        JobPriority.Emergency => "bg-danger",
+        JobPriority.High => "bg-warning text-dark",
+        JobPriority.Standard => "bg-info",
+        JobPriority.Low => "bg-secondary",
+        _ => "bg-secondary"
+    };
+}

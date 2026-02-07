@@ -1,0 +1,57 @@
+authentication page for Webui OneManVanFSM
+
+### Authentication/Login Page - Exhaustive Description
+
+**Routes**: `/login` (main login view for user authentication); `/login/forgot` (forgot password/reset view); `/login/register` (optional self-registration view, if enabled for new users like techs—tied to admin approval); `/logout` (simple redirect to clear session and return to login). For contextual handling, the login page could serve as the app's entry gate, with post-login redirects based on role (e.g., to Dashboard or mobile-optimized Jobs/Calendar). If dynamic rendering causes issues (as you've experienced in the past with pages like this), we can design it as a static page—fully rendered on the server without client-side reactivity—while the rest of the app (post-auth) uses dynamic components (e.g., Blazor for web interactivity). This hybrid approach keeps login simple and reliable (no state management headaches during auth), aligning with efficiency for a small contractor: Quick logins for office users starting their day (desktop web) or techs checking schedules on mobile (clean, form-focused UI without heavy loads).
+
+**Purpose & Business Context**:
+- The Authentication/Login page is the secure gateway to the app, ensuring only authorized users (e.g., owners, admins, dispatchers, techs) access sensitive data like customer financials, job details, or employee payroll—while setting the stage for role-based workflows post-login. For a small HVAC contractor, it handles the practical needs of a distributed team: An owner logs in on desktop to review invoices, a dispatcher assigns jobs, and a tech uses mobile for quick clock-in (with GPS tie-in for site verification). By making it static if dynamic pages have caused issues (e.g., rendering loops or state conflicts during auth flows), we prioritize reliability—static pages load fast without client-side scripts, reducing bugs like failed form submissions on poor connections (common for techs in remote sites).
+- HVAC-specific: Post-login, redirect based on certs (e.g., EPA-certified tech to jobs with refrigerant tasks). Generic foundation: Roles customizable for other trades (e.g., "Master Plumber" role limits to pipe-related jobs), with no rework—auth ties to Employees for shared data (e.g., login with username from employee record). This supports territorial companies (e.g., East County tech logs in to see only their jobs/sites) or multi-site landlords (e.g., owner views all, but techs see assigned rentals only).
+- Business value: Promotes user-friendly efficiency by minimizing barriers—e.g., fast static load for login (no dynamic fetches until authenticated), with data transfer post-login (e.g., role from Employees prepopulates Dashboard with role-specific views like techs seeing Calendar first). Industry thinking: Contractors need secure, quick access (e.g., techs log in on mobile at a site to view job docs/assets); static design avoids dynamic pitfalls (e.g., no JavaScript errors on spotty Wi-Fi), while shared data ensures robustness (e.g., failed login attempts log to Audit for security). For small teams, it reduces admin: Self-reset for passwords, optional registration for new hires (admin approves, tying to Employees). Overall robustness: Authentication prevents data leaks (e.g., role-based hiding of financials in Invoices), with connections to Settings for customizable security (e.g., enable 2FA for owners).
+
+**Data Sources & Interconnections**:
+- **Core Entity**: Users table (ID PK, Username/Email/PasswordHash (securely stored), EmployeeID FK – linking to Employees for roles/certs; Role enum: Owner/Admin/Dispatcher/Tech – customizable; LastLogin/Attempts for security; Preferences JSON for post-login defaults like default view). Sessions table (for active logins – Token, Expiry, Device/IP).
+- **Sources**: Prepopulates from Employees (e.g., username from employee name/email – customizable mapping); Settings (security rules like password complexity, 2FA toggle, session timeout).
+- **Interconnections** (App-Wide Flow for Shared User Data):
+  - **Employees**: 1:1 (User EmployeeID FK). Connectivity: Login pulls employee data (e.g., role/certs/territory for post-login filtering – data flow: Tech role redirects to mobile Calendar with their territorial jobs/sites). App flow: New employee create auto-generates user (transfer name/email to username, role to permissions); cert expiry from Employees blocks login if critical (customizable in Settings).
+  - **Jobs/Calendar/Estimates/Service Agreements**: Indirect via roles (post-login, role from Users filters views – e.g., Techs see only assigned jobs in Calendar). Connectivity: Login session ties to territorial assignments (from Employees – data flow to job filters); unauthorized access (e.g., tech trying Invoices) redirects with message.
+  - **Sites/Customers/Companies/Assets**: Role-based filtering (e.g., territorial tech logs in to see only East sites/customers/companies/assets/jobs). Connectivity: Login pulls employee territory (data flow to Dashboard filters, ensuring "My Jobs Only" view).
+  - **Material Lists/Inventory/Products/Financials (Invoices/Expenses/Payments)**: Role permissions control access (e.g., Techs can view material lists for their jobs but not edit inventory costs or void invoices). Connectivity: Post-login, role hides/shows sections (customizable in Settings); audit logs all accesses (transfer to Audit page).
+  - **Service History & Warranty Claims/Documents/Quick Notes**: Role-based (e.g., Techs log history/claims from mobile jobs, upload docs/notes – data flow to their employee record for performance). Connectivity: Login enforces private docs (e.g., employee apps hidden from techs).
+  - **Settings/Notifications/Audit Logs**: Post-login access controlled by role (e.g., only Owner edits Settings; all see own notifications). Connectivity: Login failures log to Audit (data flow for security alerts); Settings changes (e.g., 2FA) apply on next login.
+  - **Shared Data Flow**: Employee create (add role/certs) → Auto-user generation (transfer to Users for login creds) → Login (validate against Users, pull role/territory from Employees) → Post-login redirect/filter (data to Dashboard/Calendar/Jobs with role-based views) → Actions log to Audit (transfer for traceability). For territorial companies, login pulls employee territory (data flow to filter customers/sites/jobs/assets). Robust views: "UserAccessView" (joins logs for audits); "RolePermissionView" (matrix from Settings).
+
+**Layout & Sections** (Desktop Web Focus: Simple Static Form, Responsive for Mobile Full-Screen):
+- **Main Login View (/login)**: Static page (no dynamic components to avoid rendering issues—pure HTML/CSS/JS for form submission).  
+  - **Header**: App logo, "Welcome to OneManVan" (customizable in Settings).  
+  - **Form Section**: Username/Email input (prepopulated if remember-me), Password (secure), "Login" button (submits to auth endpoint).  
+  - **Options**: "Remember Me" checkbox (cookie-based, customizable timeout in Settings); "Forgot Password?" link (to reset view).  
+  - **Footer**: "New User? Register" (if enabled—links to register view); support contact (from Settings).  
+- **Forgot Password View (/login/forgot)**: Static form (email input, "Send Reset Link" – emails token, customizable template in Settings).  
+- **Register View (/login/register)**: Static form (name/email/password/role request – submits for admin approval, ties to Employees).  
+- **Logout (/logout)**: Simple static redirect (clears session, returns to login with "Logged Out" message).  
+
+**UX Interactions & Flows**:
+- **Login Flow**: Enter creds → Submit (static post to server) → Validate (against Users/Employees) → Redirect by role (e.g., Tech to mobile Calendar; Owner to Dashboard) – with session token for app access.
+- **Connectivity Flow**: Post-login, role from Users pulls employee data (e.g., certs for job filters – data transfer to Dashboard).
+- **Forgot Flow**: Enter email → Send link (email from Settings template) → Click link → Reset form (new password, confirm).
+- **User Journey**: Tech on mobile: Open app → Static login (fast load) → Redirect to their Calendar/Jobs (territorial filter applied). Owner: Login → Full Dashboard (with employee oversight).
+- **Efficiency Features**: Prepopulated email (from device if remember-me); customizable "Welcome Message" post-login (e.g., "Check Your Assigned Jobs" for techs).
+
+**Customizations & Configurability**:
+- Admins (Settings > Authentication): Toggle register (on/off), 2FA (email/SMS/app – customizable providers), password rules (length/complexity), session timeout, login page branding (logo/message). Per-role: Techs no register; optional biometric for mobile (fingerprint/face ID – customizable in Mobile Preferences).
+
+**Edge Cases & Robustness**:
+- Failed Logins: Limit attempts (customizable threshold – log to Audit, temp lock); "Too Many Attempts" static message.
+- Multi-Device: Session management (one active per user – customizable; logout all from Settings).
+- No Account: "Contact Admin" message on forgot (ties to support in Settings).
+- Offline: Mobile app allows cached login (if remember-me), but requires online for full sync (warn on load).
+- Security: Hash passwords (server-side); HTTPS only; audit all logins (success/fail – transfer to Audit Logs).
+
+**Integrations & Automation**:
+- Triggers: Successful login → Notification (e.g., "Welcome Back—X Urgent Jobs"); failed → Alert admin if threshold.
+- External: Auth providers (Google/OAuth for simple login – toggle in Integrations); 2FA via Twilio (SMS) or Authy (app).
+- Workflow Ties: Quick post-login redirect (e.g., "From Login to Settings" if first-time – prepopulates company profile). For territorial: Login pulls employee territory (data flow to filter Dashboard/jobs/calendar).
+
+**Mobile Considerations**:
+- Static login as full-screen form (large inputs for touch); biometric toggle (fingerprint for quick tech access). Offline: Cache creds (securely) for local login, sync on connect. Responsive: No issues since static—fits small screens; post-login mobile views (e.g., tech Dashboard as card-based) load dynamically. Ensures techs log in fast at sites without rework.

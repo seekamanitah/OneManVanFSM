@@ -1,0 +1,665 @@
+@page "/estimates"
+@page "/estimates/new"
+@page "/estimates/{Id:int}"
+@page "/estimates/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IEstimateService EstimateSvc
+@inject ICustomerService CustomerSvc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Estimates - OneManVanFSM</PageTitle>
+
+@if (mode == "form")
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-calculator-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Estimate</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="SaveEstimate">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label class="form-label">Title <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.Title" class="form-control" />
+                        <ValidationMessage For="() => form.Title" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Status</label>
+                        <InputSelect @bind-Value="form.Status" class="form-select">
+                            @foreach (var s in Enum.GetValues<EstimateStatus>()) { <option value="@s">@s</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Priority</label>
+                        <InputSelect @bind-Value="form.Priority" class="form-select">
+                            @foreach (var p in Enum.GetValues<JobPriority>()) { <option value="@p">@p</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Trade Type</label>
+                        <InputText @bind-Value="form.TradeType" class="form-control" placeholder="HVAC, Plumbing, Electrical" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Pricing Method</label>
+                        <InputSelect @bind-Value="form.PricingMethod" class="form-select">
+                            @foreach (var m in Enum.GetValues<PricingMethod>()) { <option value="@m">@m</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">System Type</label>
+                        <InputText @bind-Value="form.SystemType" class="form-control" placeholder="e.g. Spider/Trunk" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Expiry Date</label>
+                        <InputDate @bind-Value="form.ExpiryDate" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Customer</label>
+                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Sq Ft</label>
+                        <InputNumber @bind-Value="form.SqFt" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Zones</label>
+                        <InputNumber @bind-Value="form.Zones" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Stories</label>
+                        <InputNumber @bind-Value="form.Stories" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Markup %</label>
+                        <InputNumber @bind-Value="form.MarkupPercent" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Tax %</label>
+                        <InputNumber @bind-Value="form.TaxPercent" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Contingency %</label>
+                        <InputNumber @bind-Value="form.ContingencyPercent" class="form-control" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Deposit Req.</label>
+                        <InputNumber @bind-Value="form.DepositRequired" class="form-control" />
+                    </div>
+                </div>
+
+                <h6 class="mt-4"><i class="bi bi-list-ul me-1"></i>Line Items</h6>
+                <div class="table-responsive mb-2">
+                    <table class="table table-sm table-bordered mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:200px;">Product</th>
+                                <th>Description</th>
+                                <th style="width:100px;">Type</th>
+                                <th style="width:80px;">Unit</th>
+                                <th style="width:80px;" class="text-end">Qty</th>
+                                <th style="width:110px;" class="text-end">Unit Price</th>
+                                <th style="width:100px;" class="text-end">Total</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (int i = 0; i < form.Lines.Count; i++)
+                            {
+                                var idx = i;
+                                var line = form.Lines[idx];
+                                <tr>
+                                    <td>
+                                        <select class="form-select form-select-sm" value="@line.ProductId" @onchange="e => OnProductSelected(idx, e)">
+                                            <option value="">— Custom —</option>
+                                            @foreach (var p in productOptions)
+                                            {
+                                                <option value="@p.Id">@p.Name (@p.Price.ToString("C"))</option>
+                                            }
+                                        </select>
+                                    </td>
+                                    <td><input type="text" class="form-control form-control-sm" @bind="line.Description" /></td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="line.LineType">
+                                            <option value="">—</option>
+                                            <option value="Material">Material</option>
+                                            <option value="Labor">Labor</option>
+                                            <option value="Equipment">Equipment</option>
+                                            <option value="Fee">Fee</option>
+                                            <option value="Discount">Discount</option>
+                                        </select>
+                                    </td>
+                                    <td><input type="text" class="form-control form-control-sm" @bind="line.Unit" placeholder="Each" /></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end" step="0.01" @bind="line.Quantity" @bind:event="oninput" @onchange="RecalcTotals" /></td>
+                                    <td><input type="number" class="form-control form-control-sm text-end" step="0.01" @bind="line.UnitPrice" @bind:event="oninput" @onchange="RecalcTotals" /></td>
+                                    <td class="text-end align-middle">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
+                                    <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveLine(idx)"><i class="bi bi-x"></i></button></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" class="btn btn-outline-primary btn-sm mb-3" @onclick="AddLine"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+
+                <div class="row justify-content-end">
+                    <div class="col-md-4">
+                        <table class="table table-sm mb-0">
+                            <tr><td>Lines Subtotal</td><td class="text-end">@form.Subtotal.ToString("C")</td></tr>
+                            @if (form.MarkupPercent > 0) { <tr><td>Markup (@form.MarkupPercent%)</td><td class="text-end">@((form.Subtotal * form.MarkupPercent / 100).ToString("C"))</td></tr> }
+                            @if (form.TaxPercent > 0) { <tr><td>Tax (@form.TaxPercent%)</td><td class="text-end">@((form.Subtotal * form.TaxPercent / 100).ToString("C"))</td></tr> }
+                            @if (form.ContingencyPercent > 0) { <tr><td>Contingency (@form.ContingencyPercent%)</td><td class="text-end">@((form.Subtotal * form.ContingencyPercent / 100).ToString("C"))</td></tr> }
+                            <tr class="fw-bold"><td>Total</td><td class="text-end">@form.Total.ToString("C")</td></tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="col-12 mt-2">
+                    <label class="form-label">Notes</label>
+                    <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (mode == "detail" && detail is not null)
+{
+    <div class="d-flex align-items-center mb-3 no-print">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-calculator-fill me-2"></i>@detail.EstimateNumber</h4>
+        <span class="badge ms-2 @GetStatusBadge(detail.Status)">@detail.Status</span>
+        <span class="badge ms-1 @GetPriorityBadge(detail.Priority)">@detail.Priority</span>
+        <div class="ms-auto d-flex gap-1">
+            <button class="btn btn-outline-success btn-sm" @onclick="PrintEstimate" title="Print / PDF"><i class="bi bi-printer me-1"></i>Print</button>
+            <button class="btn btn-outline-info btn-sm" @onclick="EmailEstimate" title="Email estimate"><i class="bi bi-envelope me-1"></i>Email</button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            @if (detail.Status == EstimateStatus.Draft)
+            {
+                <button class="btn btn-outline-success btn-sm me-1" @onclick="() => ChangeStatus(EstimateStatus.Sent)"><i class="bi bi-send me-1"></i>Send</button>
+            }
+            @if (detail.Status == EstimateStatus.Sent)
+            {
+                <button class="btn btn-success btn-sm me-1" @onclick="() => ChangeStatus(EstimateStatus.Approved)"><i class="bi bi-check-circle me-1"></i>Approve</button>
+                <button class="btn btn-outline-danger btn-sm me-1" @onclick="() => ChangeStatus(EstimateStatus.Rejected)"><i class="bi bi-x-circle me-1"></i>Reject</button>
+            }
+            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        </div>
+    </div>
+
+    @* ?? Print-Only Professional Estimate Header ?? *@
+    <div class="print-document-header d-none">
+        <h2 class="print-doc-title">Estimate</h2>
+        <p class="print-doc-subtitle">@detail.Title</p>
+        <div class="print-doc-meta">
+            <div class="print-address-block">
+                @if (detail.CompanyName is not null)
+                {
+                    <p class="print-address-label">From</p>
+                    <p class="print-address-name">@detail.CompanyName</p>
+                }
+            </div>
+            <div class="print-address-block">
+                @if (detail.CustomerName is not null)
+                {
+                    <p class="print-address-label">Prepared For</p>
+                    <p class="print-address-name">@detail.CustomerName</p>
+                    @if (!string.IsNullOrWhiteSpace(detail.CustomerEmail))
+                    {
+                        <p class="print-address-value">@detail.CustomerEmail</p>
+                    }
+                }
+                @if (detail.SiteName is not null)
+                {
+                    <p class="print-address-value" style="margin-top:4pt;">Site: @detail.SiteName</p>
+                }
+            </div>
+        </div>
+        <div class="print-doc-details">
+            <div class="print-detail-item">
+                <span class="print-detail-label">Estimate #</span>
+                <span class="print-detail-value">@detail.EstimateNumber</span>
+            </div>
+            <div class="print-detail-item">
+                <span class="print-detail-label">Status</span>
+                <span class="print-detail-value">@detail.Status</span>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(detail.TradeType))
+            {
+                <div class="print-detail-item">
+                    <span class="print-detail-label">Trade</span>
+                    <span class="print-detail-value">@detail.TradeType</span>
+                </div>
+            }
+            <div class="print-detail-item">
+                <span class="print-detail-label">Pricing</span>
+                <span class="print-detail-value">@detail.PricingMethod</span>
+            </div>
+            @if (detail.ExpiryDate.HasValue)
+            {
+                <div class="print-detail-item">
+                    <span class="print-detail-label">Valid Until</span>
+                    <span class="print-detail-value">@detail.ExpiryDate.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            <div class="print-detail-item">
+                <span class="print-detail-label">Version</span>
+                <span class="print-detail-value">@detail.VersionNumber</span>
+            </div>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h5>@detail.Title</h5>
+                    <div class="row g-2 mb-3">
+                        <div class="col-sm-4"><strong>Pricing:</strong> @detail.PricingMethod</div>
+                        @if (!string.IsNullOrWhiteSpace(detail.TradeType)) { <div class="col-sm-4"><strong>Trade:</strong> @detail.TradeType</div> }
+                        <div class="col-sm-4"><strong>System:</strong> @(detail.SystemType ?? "—")</div>
+                        <div class="col-sm-4"><strong>Sq Ft:</strong> @detail.SqFt</div>
+                        <div class="col-sm-4"><strong>Zones:</strong> @detail.Zones</div>
+                        <div class="col-sm-4"><strong>Stories:</strong> @detail.Stories</div>
+                        @if (detail.CustomerName is not null) { <div class="col-sm-4"><strong>Customer:</strong> <a href="javascript:void(0)" @onclick="() => GoToCustomer(detail.CustomerId!.Value)">@detail.CustomerName</a></div> }
+                        @if (detail.CompanyName is not null) { <div class="col-sm-4"><strong>Company:</strong> @detail.CompanyName</div> }
+                        @if (detail.SiteName is not null) { <div class="col-sm-4"><strong>Site:</strong> <a href="javascript:void(0)" @onclick="() => GoToSite(detail.SiteId!.Value)">@detail.SiteName</a></div> }
+                        @if (detail.MaterialListName is not null) { <div class="col-sm-4"><strong>Material List:</strong> @detail.MaterialListName</div> }
+                        @if (detail.ExpiryDate.HasValue)
+                        {
+                            var isExpired = detail.ExpiryDate.Value < DateTime.UtcNow;
+                            <div class="col-sm-4">
+                                <strong>Expires:</strong>
+                                <span class="@(isExpired ? "text-danger fw-semibold" : "")">@detail.ExpiryDate.Value.ToString("MMM dd, yyyy")</span>
+                                @if (isExpired) { <span class="badge bg-danger ms-1">Expired</span> }
+                            </div>
+                        }
+                        <div class="col-sm-4"><strong>Version:</strong> @detail.VersionNumber</div>
+                    </div>
+
+                    <h6>Line Items</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th>Description</th><th>Type</th><th>Product</th><th>Unit</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th></tr></thead>
+                            <tbody>
+                                @if (detail.Lines.Any())
+                                {
+                                    @foreach (var l in detail.Lines.OrderBy(x => x.SortOrder))
+                                    {
+                                        <tr>
+                                            <td>@l.Description</td>
+                                            <td><small class="text-muted">@(l.LineType ?? "—")</small></td>
+                                            <td>@(l.ProductName ?? "—")</td>
+                                            <td><small>@(l.Unit ?? "—")</small></td>
+                                            <td class="text-end">@l.Quantity</td>
+                                            <td class="text-end">@l.UnitPrice.ToString("C")</td>
+                                            <td class="text-end">@l.LineTotal.ToString("C")</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr><td colspan="7" class="text-center text-muted">No line items</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(detail.Notes)) { <hr /><p class="mb-0">@detail.Notes</p> }
+
+                    @* ?? Print-Only Pricing Summary ?? *@
+                    <div class="print-pricing-summary d-none">
+                        <div class="print-pricing-row"><span>Subtotal</span><span>@detail.Subtotal.ToString("C")</span></div>
+                        @if (detail.MarkupPercent > 0) { <div class="print-pricing-row"><span>Markup (@detail.MarkupPercent%)</span><span>@((detail.Subtotal * detail.MarkupPercent / 100).ToString("C"))</span></div> }
+                        @if (detail.TaxPercent > 0) { <div class="print-pricing-row"><span>Tax (@detail.TaxPercent%)</span><span>@((detail.Subtotal * detail.TaxPercent / 100).ToString("C"))</span></div> }
+                        @if (detail.ContingencyPercent > 0) { <div class="print-pricing-row"><span>Contingency (@detail.ContingencyPercent%)</span><span>@((detail.Subtotal * detail.ContingencyPercent / 100).ToString("C"))</span></div> }
+                        <div class="print-pricing-row print-pricing-total"><span>Total</span><span>@detail.Total.ToString("C")</span></div>
+                        @if (detail.DepositRequired.HasValue && detail.DepositRequired.Value > 0)
+                        {
+                            <div class="print-pricing-row"><span>Deposit Required</span><span>@detail.DepositRequired.Value.ToString("C")</span></div>
+                        }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(detail.Notes))
+                    {
+                        <div class="print-document-notes d-none">
+                            <p class="print-notes-label">Notes</p>
+                            <p class="print-notes-text">@detail.Notes</p>
+                        </div>
+                    }
+
+                    <div class="print-document-footer d-none">
+                        <p>This estimate is valid @(detail.ExpiryDate.HasValue ? $"until {detail.ExpiryDate.Value:MMM dd, yyyy}" : "for 30 days"). • Generated @DateTime.Now.ToString("MMM dd, yyyy")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 no-print">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Pricing Summary</h6>
+                    <div class="d-flex justify-content-between mb-1"><span>Subtotal</span><span>@detail.Subtotal.ToString("C")</span></div>
+                    @if (detail.MarkupPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Markup (@detail.MarkupPercent%)</span><span>@((detail.Subtotal * detail.MarkupPercent / 100).ToString("C"))</span></div> }
+                    @if (detail.TaxPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax (@detail.TaxPercent%)</span><span>@((detail.Subtotal * detail.TaxPercent / 100).ToString("C"))</span></div> }
+                    @if (detail.ContingencyPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Contingency (@detail.ContingencyPercent%)</span><span>@((detail.Subtotal * detail.ContingencyPercent / 100).ToString("C"))</span></div> }
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@detail.Total.ToString("C")</span></div>
+                    @if (detail.DepositRequired.HasValue && detail.DepositRequired.Value > 0)
+                    {
+                        <hr />
+                        <div class="d-flex justify-content-between mb-1"><span>Deposit Required</span><span>@detail.DepositRequired.Value.ToString("C")</span></div>
+                        <div class="d-flex justify-content-between mb-1">
+                            <span>Deposit Status</span>
+                            @if (detail.DepositReceived == true)
+                            {
+                                <span class="badge bg-success">Received</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning text-dark">Pending</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-calculator-fill me-2"></i>Estimates</h4>
+        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Estimate</button>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search estimates..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm" @bind="filterStatus">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in Enum.GetValues<EstimateStatus>()) { <option value="@s">@s</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadEstimates"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (estimates is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
+        }
+        else if (!estimates.Any())
+        {
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-calculator" style="font-size: 3rem;"></i>
+                <p class="mt-2">No estimates found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Number</th><th>Title</th><th>Customer</th><th>Status</th><th>Priority</th><th>Method</th><th>Total</th><th>Created</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in estimates)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => GoToDetail(e.Id)">
+                                <td><strong>@e.EstimateNumber</strong></td>
+                                <td>@(e.Title ?? "—")</td>
+                                <td>@(e.CustomerName ?? "—")</td>
+                                <td><span class="badge @GetStatusBadge(e.Status)">@e.Status</span></td>
+                                <td><span class="badge @GetPriorityBadge(e.Priority)">@e.Priority</span></td>
+                                <td>@e.PricingMethod</td>
+                                <td>@e.Total.ToString("C")</td>
+                                <td>@e.CreatedAt.ToString("MMM dd")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private List<EstimateListItem>? estimates;
+    private EstimateFilter filter = new();
+    private string filterStatus = "";
+    private EstimateDetail? detail;
+    private EstimateEditModel form = new();
+    private int? editId;
+    private string? errorMsg;
+    private List<CustomerListItem> _customers = [];
+    private List<ProductOption> productOptions = [];
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (uri.AbsolutePath.Contains("/estimates/new", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = "form"; editId = null; form = new();
+            form.Lines.Add(new EstimateLineEditModel());
+            _customers = await CustomerSvc.GetCustomersAsync();
+            productOptions = await EstimateSvc.GetProductOptionsAsync();
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+        {
+            _customers = await CustomerSvc.GetCustomersAsync();
+            productOptions = await EstimateSvc.GetProductOptionsAsync();
+            await LoadForEdit(Id.Value);
+        }
+        else if (Id.HasValue)
+            await LoadDetail(Id.Value);
+        else
+        {
+            mode = "list"; await LoadEstimates();
+        }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadEstimates()
+    {
+        filter.Status = string.IsNullOrWhiteSpace(filterStatus) ? null : Enum.Parse<EstimateStatus>(filterStatus);
+        estimates = await EstimateSvc.GetEstimatesAsync(filter);
+    }
+
+    private async Task LoadDetail(int id)
+    {
+        detail = await EstimateSvc.GetEstimateAsync(id);
+        mode = detail is not null ? "detail" : "list";
+        if (mode == "list") await LoadEstimates();
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var d = await EstimateSvc.GetEstimateAsync(id);
+        if (d is null) { mode = "list"; await LoadEstimates(); return; }
+        editId = id;
+        form = new EstimateEditModel
+        {
+            EstimateNumber = d.EstimateNumber, Title = d.Title,
+            Status = d.Status, Priority = d.Priority, TradeType = d.TradeType,
+            PricingMethod = d.PricingMethod, ExpiryDate = d.ExpiryDate,
+            DepositRequired = d.DepositRequired, DepositReceived = d.DepositReceived,
+            SqFt = d.SqFt, Zones = d.Zones, Stories = d.Stories, SystemType = d.SystemType,
+            Subtotal = d.Subtotal, MarkupPercent = d.MarkupPercent,
+            TaxPercent = d.TaxPercent, ContingencyPercent = d.ContingencyPercent,
+            Total = d.Total, Notes = d.Notes, CustomerId = d.CustomerId,
+            CompanyId = d.CompanyId, SiteId = d.SiteId, MaterialListId = d.MaterialListId,
+            Lines = d.Lines.Select(l => new EstimateLineEditModel
+            {
+                ProductId = l.ProductId,
+                Description = l.Description,
+                LineType = l.LineType,
+                Unit = l.Unit,
+                Section = l.Section,
+                Quantity = l.Quantity,
+                UnitPrice = l.UnitPrice
+            }).ToList()
+        };
+        if (form.Lines.Count == 0) form.Lines.Add(new EstimateLineEditModel());
+        mode = "form";
+    }
+
+    private void AddLine() => form.Lines.Add(new EstimateLineEditModel());
+
+    private void RemoveLine(int idx)
+    {
+        if (idx >= 0 && idx < form.Lines.Count) form.Lines.RemoveAt(idx);
+        RecalcTotals();
+    }
+
+    private void OnProductSelected(int idx, ChangeEventArgs e)
+    {
+        var line = form.Lines[idx];
+        if (int.TryParse(e.Value?.ToString(), out var pid))
+        {
+            var prod = productOptions.FirstOrDefault(p => p.Id == pid);
+            if (prod is not null)
+            {
+                line.ProductId = pid;
+                line.Description = prod.Name;
+                line.UnitPrice = prod.Price;
+            }
+        }
+        else
+        {
+            line.ProductId = null;
+        }
+        RecalcTotals();
+    }
+
+    private void RecalcTotals()
+    {
+        form.Subtotal = form.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        var markup = form.Subtotal * form.MarkupPercent / 100;
+        var tax = form.Subtotal * form.TaxPercent / 100;
+        var contingency = form.Subtotal * form.ContingencyPercent / 100;
+        form.Total = Math.Round(form.Subtotal + markup + tax + contingency, 2);
+    }
+
+    private async Task SaveEstimate()
+    {
+        try
+        {
+            errorMsg = null;
+            RecalcTotals();
+            if (editId.HasValue) await EstimateSvc.UpdateEstimateAsync(editId.Value, form);
+            else await EstimateSvc.CreateEstimateAsync(form);
+            Nav.NavigateTo("/estimates");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task ChangeStatus(EstimateStatus status)
+    {
+        if (detail is not null) { await EstimateSvc.UpdateStatusAsync(detail.Id, status); await LoadDetail(detail.Id); }
+    }
+
+    private async Task ArchiveDetail()
+    {
+        if (detail is not null) { await EstimateSvc.ArchiveEstimateAsync(detail.Id); Nav.NavigateTo("/estimates"); }
+    }
+
+    private string GetStatusBadge(EstimateStatus s) => s switch
+    {
+        EstimateStatus.Draft => "bg-secondary",
+        EstimateStatus.Sent => "bg-info",
+        EstimateStatus.Approved => "bg-success",
+        EstimateStatus.Rejected => "bg-danger",
+        EstimateStatus.Expired => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private void GoToList() => Nav.NavigateTo("/estimates");
+    private void GoToNew() => Nav.NavigateTo("/estimates/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/estimates/{id}");
+    private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
+    private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");
+    private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/estimates/{detail.Id}/edit"); }
+
+    private static string GetPriorityBadge(JobPriority p) => p switch
+    {
+        JobPriority.Emergency => "bg-danger",
+        JobPriority.High => "bg-warning text-dark",
+        JobPriority.Standard => "bg-info",
+        JobPriority.Low => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadEstimates(); }
+
+    private async Task PrintEstimate()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private async Task EmailEstimate()
+    {
+        if (detail is null) return;
+        var subject = Uri.EscapeDataString($"Estimate {detail.EstimateNumber}: {detail.Title}");
+        var lines = new System.Text.StringBuilder();
+        lines.AppendLine($"Estimate: {detail.EstimateNumber}");
+        lines.AppendLine($"Title: {detail.Title}");
+        if (!string.IsNullOrEmpty(detail.CustomerName)) lines.AppendLine($"Customer: {detail.CustomerName}");
+        lines.AppendLine($"Status: {detail.Status}");
+        lines.AppendLine();
+        foreach (var ln in detail.Lines)
+            lines.AppendLine($"  {ln.Description}  Qty: {ln.Quantity}  Price: {ln.UnitPrice:C}  Total: {ln.LineTotal:C}");
+        lines.AppendLine();
+        lines.AppendLine($"Total: {detail.Total:C}");
+        if (detail.DepositRequired > 0) lines.AppendLine($"Deposit Required: {detail.DepositRequired:C}");
+        var body = Uri.EscapeDataString(lines.ToString());
+        var to = !string.IsNullOrEmpty(detail.CustomerEmail) ? detail.CustomerEmail : "";
+        await JS.InvokeVoidAsync("eval", $"window.location.href='mailto:{to}?subject={subject}&body={body}'");
+    }
+}

@@ -1,0 +1,669 @@
+@page "/servicehistory"
+@rendermode InteractiveServer
+@inject IServiceHistoryService HistoryService
+@inject ICustomerService CustomerSvc
+@inject ISiteService SiteSvc
+@inject IAssetService AssetSvc
+@inject IJobService JobSvc
+@inject IEmployeeService EmployeeSvc
+@inject NavigationManager Navigation
+
+<PageTitle>Service History - OneManVanFSM</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-wrench-adjustable me-2"></i>Warranty Claims & Service History</h4>
+    <button class="btn btn-primary btn-sm" @onclick="ShowCreate"><i class="bi bi-plus-lg me-1"></i>New Record</button>
+</div>
+
+@if (errorMessage is not null)
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        @errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@* ===== VIEW MODES ===== *@
+@if (viewMode == "list")
+{
+    @* KPI Cards *@
+    @if (kpis is not null)
+    {
+        <div class="row g-2 mb-3">
+            <div class="col-md-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="small text-muted">Total Records</div><h5 class="mb-0">@kpis.TotalRecords</h5></div></div></div>
+            <div class="col-md-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="small text-muted">Open Claims</div><h5 class="mb-0 text-warning">@kpis.OpenClaims</h5></div></div></div>
+            <div class="col-md-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="small text-muted">Resolved (Month)</div><h5 class="mb-0 text-success">@kpis.ResolvedThisMonth</h5></div></div></div>
+            <div class="col-md-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="small text-muted">Denied</div><h5 class="mb-0 text-danger">@kpis.DeniedClaims</h5></div></div></div>
+            <div class="col-md-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="small text-muted">Total Cost</div><h5 class="mb-0">@kpis.TotalCost.ToString("C0")</h5></div></div></div>
+            <div class="col-md-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="small text-muted">Reimbursed</div><h5 class="mb-0 text-info">@kpis.TotalReimbursed.ToString("C0")</h5></div></div></div>
+        </div>
+    }
+
+    @* Filters *@
+    <div class="row g-2 mb-3">
+        <div class="col-md-4">
+            <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" placeholder="Search records..." @bind="historyFilter.Search" @bind:event="oninput" @bind:after="LoadRecords" />
+            </div>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="selectedTypeFilter" @bind:after="OnTypeFilterChanged">
+                <option value="">All Types</option>
+                @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>())
+                {
+                    <option value="@t">@FormatType(t)</option>
+                }
+            </select>
+        </div>
+        <div class="col-md-2">
+            <select class="form-select form-select-sm" @bind="selectedStatusFilter" @bind:after="OnStatusFilterChanged">
+                <option value="">All Statuses</option>
+                @foreach (var s in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>())
+                {
+                    <option value="@s">@s</option>
+                }
+            </select>
+        </div>
+    </div>
+
+    @* List Table *@
+    @if (records is null)
+    {
+        <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
+    }
+    else if (records.Count == 0)
+    {
+        <div class="text-center text-muted py-5">
+            <i class="bi bi-wrench-adjustable display-4"></i>
+            <p class="mt-2">No service history records found.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover align-middle">
+                <thead class="table-light">
+                    <tr>
+                        <th>Record #</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Customer</th>
+                        <th>Site</th>
+                        <th>Asset</th>
+                        <th>Tech</th>
+                        <th>Issue</th>
+                        <th>Cost</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var rec in records)
+                    {
+                        <tr class="cursor-pointer" @onclick="() => ShowDetail(rec.Id)">
+                            <td><strong>@rec.RecordNumber</strong></td>
+                            <td><span class="badge @GetTypeBadge(rec.Type)">@FormatType(rec.Type)</span></td>
+                            <td><span class="badge @GetStatusBadge(rec.Status)">@rec.Status</span></td>
+                            <td>@rec.ServiceDate.ToString("MMM dd, yyyy")</td>
+                            <td>@(rec.CustomerName ?? "—")</td>
+                            <td>@(rec.SiteName ?? "—")</td>
+                            <td>@(rec.AssetName ?? "—")</td>
+                            <td><small>@(rec.TechName ?? "—")</small></td>
+                            <td>@(rec.IssueType ?? "—")</td>
+                            <td>@(rec.Cost?.ToString("C") ?? "—")</td>
+                            <td class="text-end" @onclick:stopPropagation="true">
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" title="Edit" @onclick="() => ShowEdit(rec.Id)"><i class="bi bi-pencil"></i></button>
+                                    <button class="btn btn-outline-danger" title="Delete" @onclick="() => DeleteRecord(rec.Id)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+}
+else if (viewMode == "detail" && recordDetail is not null)
+{
+    @* ===== DETAIL VIEW ===== *@
+    <button class="btn btn-sm btn-outline-secondary mb-3" @onclick="BackToList"><i class="bi bi-arrow-left me-1"></i>Back to List</button>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h5 class="mb-1">@recordDetail.RecordNumber</h5>
+                    <span class="badge @GetTypeBadge(recordDetail.Type) me-1">@FormatType(recordDetail.Type)</span>
+                    <span class="badge @GetStatusBadge(recordDetail.Status)">@recordDetail.Status</span>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary" @onclick="() => ShowEdit(recordDetail.Id)"><i class="bi bi-pencil me-1"></i>Edit</button>
+                    @if (recordDetail.Status == ServiceHistoryStatus.Open)
+                    {
+                        <button class="btn btn-outline-info" @onclick="() => ChangeStatus(ServiceHistoryStatus.Submitted)"><i class="bi bi-send me-1"></i>Submit</button>
+                    }
+                    @if (recordDetail.Status == ServiceHistoryStatus.Submitted)
+                    {
+                        <button class="btn btn-outline-warning" @onclick="() => ChangeStatus(ServiceHistoryStatus.InProgress)"><i class="bi bi-hourglass-split me-1"></i>In Progress</button>
+                    }
+                    @if (recordDetail.Status == ServiceHistoryStatus.InProgress || recordDetail.Status == ServiceHistoryStatus.Submitted)
+                    {
+                        <button class="btn btn-outline-success" @onclick="() => ChangeStatus(ServiceHistoryStatus.Approved)"><i class="bi bi-check-circle me-1"></i>Approve</button>
+                        <button class="btn btn-outline-danger" @onclick="() => ChangeStatus(ServiceHistoryStatus.Denied)"><i class="bi bi-x-circle me-1"></i>Deny</button>
+                    }
+                    @if (recordDetail.Status != ServiceHistoryStatus.Resolved)
+                    {
+                        <button class="btn btn-outline-success" @onclick="() => ResolveRecord(recordDetail.Id)"><i class="bi bi-check-lg me-1"></i>Resolve</button>
+                    }
+                </div>
+            </div>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Service Date</small>
+                    <span>@recordDetail.ServiceDate.ToString("MMM dd, yyyy")</span>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Issue Type</small>
+                    <span>@(recordDetail.IssueType ?? "—")</span>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Vendor</small>
+                    <span>@(recordDetail.VendorName ?? "—")</span>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Description</small>
+                    <span>@(recordDetail.Description ?? "—")</span>
+                </div>
+                <div class="col-md-6">
+                    <small class="text-muted d-block">Resolution Notes</small>
+                    <span>@(recordDetail.ResolutionNotes ?? "—")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Linked Entities *@
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong><i class="bi bi-link-45deg me-1"></i>Connections</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Customer</small>
+                    @if (recordDetail.CustomerId.HasValue && recordDetail.CustomerName is not null)
+                    { <a href="javascript:void(0)" @onclick="() => GoToCustomer(recordDetail.CustomerId.Value)">@recordDetail.CustomerName</a> }
+                    else { <span>—</span> }
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Company</small>
+                    <span>@(recordDetail.CompanyName ?? "—")</span>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Site</small>
+                    @if (recordDetail.SiteId.HasValue && recordDetail.SiteName is not null)
+                    { <a href="javascript:void(0)" @onclick="() => GoToSite(recordDetail.SiteId.Value)">@recordDetail.SiteName</a> }
+                    else { <span>—</span> }
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Asset</small>
+                    @if (recordDetail.AssetId.HasValue && recordDetail.AssetName is not null)
+                    { <a href="javascript:void(0)" @onclick="() => GoToAsset(recordDetail.AssetId.Value)">@recordDetail.AssetName</a> }
+                    else { <span>—</span> }
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Job</small>
+                    @if (recordDetail.JobId.HasValue && recordDetail.JobNumber is not null)
+                    { <a href="javascript:void(0)" @onclick="() => GoToJob(recordDetail.JobId.Value)">@recordDetail.JobNumber</a> }
+                    else { <span>—</span> }
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Technician</small>
+                    @if (recordDetail.TechId.HasValue && recordDetail.TechName is not null)
+                    { <a href="javascript:void(0)" @onclick="() => GoToEmployee(recordDetail.TechId.Value)">@recordDetail.TechName</a> }
+                    else { <span>—</span> }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Financials *@
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-white"><strong><i class="bi bi-currency-dollar me-1"></i>Financials</strong></div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Cost</small>
+                    <strong>@(recordDetail.Cost?.ToString("C") ?? "—")</strong>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Reimbursement</small>
+                    <strong class="text-success">@(recordDetail.Reimbursement?.ToString("C") ?? "—")</strong>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted d-block">Net</small>
+                    @{ var net = (recordDetail.Cost ?? 0) - (recordDetail.Reimbursement ?? 0); }
+                    <strong class="@(net > 0 ? "text-danger" : "text-success")">@net.ToString("C")</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Claim Actions Timeline *@
+    @if (recordDetail.ClaimActions.Count > 0)
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white d-flex justify-content-between">
+                <strong><i class="bi bi-clock-history me-1"></i>Claim Actions (@recordDetail.ClaimActions.Count)</strong>
+                <button class="btn btn-sm btn-outline-primary" @onclick="() => showAddAction = !showAddAction"><i class="bi bi-plus-lg"></i></button>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Action</th><th>Response</th><th>Date</th><th>By</th></tr></thead>
+                    <tbody>
+                        @foreach (var act in recordDetail.ClaimActions)
+                        {
+                            <tr>
+                                <td><strong>@act.Action</strong></td>
+                                <td>@(act.Response ?? "—")</td>
+                                <td>@act.ActionDate.ToString("MMM dd, yyyy")</td>
+                                <td>@(act.PerformedBy ?? "—")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <button class="btn btn-sm btn-outline-primary mb-3" @onclick="() => showAddAction = !showAddAction">
+            <i class="bi bi-plus-lg me-1"></i>Add Claim Action
+        </button>
+    }
+
+    @* Add Claim Action Form *@
+    @if (showAddAction)
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white"><strong>Add Claim Action</strong></div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label">Action</label>
+                        <input type="text" class="form-control form-control-sm" @bind="newAction.Action" placeholder="Submitted, Response, Appeal..." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Response</label>
+                        <input type="text" class="form-control form-control-sm" @bind="newAction.Response" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Date</label>
+                        <InputDate class="form-control form-control-sm" @bind-Value="newAction.ActionDate" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">By</label>
+                        <input type="text" class="form-control form-control-sm" @bind="newAction.PerformedBy" />
+                    </div>
+                </div>
+                <button class="btn btn-sm btn-primary mt-2" @onclick="AddClaimAction"><i class="bi bi-check-lg me-1"></i>Add</button>
+                <button class="btn btn-sm btn-outline-secondary mt-2 ms-1" @onclick="() => showAddAction = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(recordDetail.Evidence))
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white"><strong><i class="bi bi-camera me-1"></i>Evidence</strong></div>
+            <div class="card-body"><p class="text-muted small mb-0">@recordDetail.Evidence</p></div>
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(recordDetail.Notes))
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white"><strong><i class="bi bi-journal-text me-1"></i>Notes</strong></div>
+            <div class="card-body"><p class="text-muted small mb-0">@recordDetail.Notes</p></div>
+        </div>
+    }
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+            <p class="mb-1 small"><strong>Created:</strong> @recordDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+            <p class="mb-0 small"><strong>Updated:</strong> @recordDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+        </div>
+    </div>
+}
+else if (viewMode is "create" or "edit")
+{
+    @* ===== CREATE / EDIT FORM ===== *@
+    <button class="btn btn-sm btn-outline-secondary mb-3" @onclick="BackToList"><i class="bi bi-arrow-left me-1"></i>Cancel</button>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white"><strong>@(viewMode == "create" ? "New Service Record" : "Edit Service Record")</strong></div>
+        <div class="card-body">
+            <EditForm Model="editModel" OnValidSubmit="SaveRecord">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-3" />
+
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Record # <span class="text-danger">*</span></label>
+                        <InputText class="form-control" @bind-Value="editModel.RecordNumber" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Type</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.Type">
+                            @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>())
+                            {
+                                <option value="@t">@FormatType(t)</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.Status">
+                            @foreach (var s in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>())
+                            {
+                                <option value="@s">@s</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Service Date</label>
+                        <InputDate class="form-control" @bind-Value="editModel.ServiceDate" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Issue Type</label>
+                        <InputText class="form-control" @bind-Value="editModel.IssueType" placeholder="Leak, Defect, Vibration..." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Vendor</label>
+                        <InputText class="form-control" @bind-Value="editModel.VendorName" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Cost</label>
+                        <InputNumber class="form-control" @bind-Value="editModel.Cost" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Reimbursement</label>
+                        <InputNumber class="form-control" @bind-Value="editModel.Reimbursement" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Description</label>
+                        <InputTextArea class="form-control" rows="3" @bind-Value="editModel.Description" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Resolution Notes</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="editModel.ResolutionNotes" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="editModel.Notes" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Customer</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.CustomerId">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Company</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.CompanyId">
+                            <option value="">— Select Company —</option>
+                            @foreach (var co in _companies)
+                            {
+                                <option value="@co.Id">@co.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Site</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.SiteId">
+                            <option value="">— Select Site —</option>
+                            @foreach (var si in _sites)
+                            {
+                                <option value="@si.Id">@si.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Asset</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.AssetId">
+                            <option value="">— Select Asset —</option>
+                            @foreach (var a in _assets)
+                            {
+                                <option value="@a.Id">@a.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Job</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.JobId">
+                            <option value="">— Select Job —</option>
+                            @foreach (var j in _jobs)
+                            {
+                                <option value="@j.Id">@j.JobNumber — @(j.Title ?? "")</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Technician</label>
+                        <InputSelect class="form-select" @bind-Value="editModel.TechId">
+                            <option value="">— Select Tech —</option>
+                            @foreach (var e in _employees)
+                            {
+                                <option value="@e.Id">@e.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Evidence</label>
+                        <InputTextArea class="form-control" rows="2" @bind-Value="editModel.Evidence" placeholder="Photo URLs, receipt references..." />
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>@(viewMode == "create" ? "Create" : "Save Changes")</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="BackToList">Cancel</button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    private string viewMode = "list";
+    private List<ServiceHistoryListItem>? records;
+    private ServiceHistoryDetail? recordDetail;
+    private ServiceHistoryEditModel editModel = new();
+    private int? editId;
+    private string? errorMessage;
+    private ServiceHistoryKpis? kpis;
+    private bool showAddAction;
+    private ClaimActionEditModel newAction = new();
+
+    private ServiceHistoryFilter historyFilter = new();
+    private string selectedTypeFilter = "";
+    private string selectedStatusFilter = "";
+
+    private List<CustomerListItem> _customers = [];
+    private List<CompanyOption> _companies = [];
+    private List<SiteListItem> _sites = [];
+    private List<AssetListItem> _assets = [];
+    private List<JobListItem> _jobs = [];
+    private List<EmployeeListItem> _employees = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadRecords();
+        await LoadKpis();
+    }
+
+    private async Task LoadRecords()
+    {
+        try { records = await HistoryService.GetRecordsAsync(historyFilter); }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task LoadKpis()
+    {
+        try { kpis = await HistoryService.GetKpisAsync(); }
+        catch { /* non-critical */ }
+    }
+
+    private async Task ShowDetail(int id)
+    {
+        recordDetail = await HistoryService.GetRecordAsync(id);
+        if (recordDetail is not null) { viewMode = "detail"; showAddAction = false; newAction = new(); }
+    }
+
+    private async Task ShowCreate()
+    {
+        await LoadDropdowns();
+        editModel = new() { RecordNumber = $"SH-{DateTime.UtcNow:yyyyMMddHHmm}" };
+        editId = null;
+        viewMode = "create";
+    }
+
+    private async Task ShowEdit(int id)
+    {
+        await LoadDropdowns();
+        var d = await HistoryService.GetRecordAsync(id);
+        if (d is null) return;
+        editId = id;
+        editModel = new()
+        {
+            RecordNumber = d.RecordNumber,
+            Type = d.Type,
+            Status = d.Status,
+            ServiceDate = d.ServiceDate,
+            Description = d.Description,
+            ResolutionNotes = d.ResolutionNotes,
+            Evidence = d.Evidence,
+            Cost = d.Cost,
+            Reimbursement = d.Reimbursement,
+            VendorName = d.VendorName,
+            IssueType = d.IssueType,
+            Notes = d.Notes,
+            CustomerId = d.CustomerId,
+            CompanyId = d.CompanyId,
+            SiteId = d.SiteId,
+            AssetId = d.AssetId,
+            JobId = d.JobId,
+            TechId = d.TechId
+        };
+        viewMode = "edit";
+    }
+
+    private async Task SaveRecord()
+    {
+        try
+        {
+            if (viewMode == "create")
+                await HistoryService.CreateRecordAsync(editModel);
+            else if (editId.HasValue)
+                await HistoryService.UpdateRecordAsync(editId.Value, editModel);
+
+            await LoadRecords();
+            await LoadKpis();
+            viewMode = "list";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task DeleteRecord(int id)
+    {
+        await HistoryService.DeleteRecordAsync(id);
+        await LoadRecords();
+        await LoadKpis();
+    }
+
+    private async Task ResolveRecord(int id)
+    {
+        await HistoryService.UpdateStatusAsync(id, OneManVanFSM.Shared.Models.ServiceHistoryStatus.Resolved);
+        await ShowDetail(id);
+        await LoadKpis();
+    }
+
+    private async Task AddClaimAction()
+    {
+        if (recordDetail is null || string.IsNullOrWhiteSpace(newAction.Action)) return;
+        await HistoryService.AddClaimActionAsync(recordDetail.Id, newAction);
+        newAction = new();
+        showAddAction = false;
+        await ShowDetail(recordDetail.Id);
+    }
+
+    private void BackToList() { viewMode = "list"; }
+
+    private async Task LoadDropdowns()
+    {
+        _customers = await CustomerSvc.GetCustomersAsync();
+        _companies = await SiteSvc.GetCompaniesForDropdownAsync();
+        _sites = await SiteSvc.GetSitesAsync();
+        _assets = await AssetSvc.GetAssetsAsync();
+        _jobs = await JobSvc.GetJobsAsync();
+        _employees = await EmployeeSvc.GetEmployeesAsync();
+    }
+
+    private async Task ChangeStatus(OneManVanFSM.Shared.Models.ServiceHistoryStatus status)
+    {
+        if (recordDetail is null) return;
+        await HistoryService.UpdateStatusAsync(recordDetail.Id, status);
+        await ShowDetail(recordDetail.Id);
+        await LoadKpis();
+    }
+
+    private void GoToCustomer(int id) => Navigation.NavigateTo($"/customers/{id}");
+    private void GoToSite(int id) => Navigation.NavigateTo($"/sites/{id}");
+    private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
+    private void GoToJob(int id) => Navigation.NavigateTo($"/jobs/{id}");
+    private void GoToEmployee(int id) => Navigation.NavigateTo($"/employees/{id}");
+
+    private void OnTypeFilterChanged()
+    {
+        historyFilter.Type = string.IsNullOrEmpty(selectedTypeFilter) ? null : Enum.Parse<OneManVanFSM.Shared.Models.ServiceHistoryType>(selectedTypeFilter);
+        _ = LoadRecords();
+    }
+
+    private void OnStatusFilterChanged()
+    {
+        historyFilter.Status = string.IsNullOrEmpty(selectedStatusFilter) ? null : Enum.Parse<OneManVanFSM.Shared.Models.ServiceHistoryStatus>(selectedStatusFilter);
+        _ = LoadRecords();
+    }
+
+    private static string FormatType(OneManVanFSM.Shared.Models.ServiceHistoryType histType) => histType switch
+    {
+        OneManVanFSM.Shared.Models.ServiceHistoryType.WarrantyClaim => "Warranty Claim",
+        OneManVanFSM.Shared.Models.ServiceHistoryType.NonWarrantyRepair => "Non-Warranty Repair",
+        OneManVanFSM.Shared.Models.ServiceHistoryType.PreventiveMaintenance => "Preventive Maintenance",
+        _ => histType.ToString()
+    };
+
+    private static string GetTypeBadge(OneManVanFSM.Shared.Models.ServiceHistoryType histType) => histType switch
+    {
+        OneManVanFSM.Shared.Models.ServiceHistoryType.WarrantyClaim => "bg-warning text-dark",
+        OneManVanFSM.Shared.Models.ServiceHistoryType.NonWarrantyRepair => "bg-secondary",
+        OneManVanFSM.Shared.Models.ServiceHistoryType.PreventiveMaintenance => "bg-info text-dark",
+        _ => "bg-light text-dark"
+    };
+
+    private static string GetStatusBadge(OneManVanFSM.Shared.Models.ServiceHistoryStatus histStatus) => histStatus switch
+    {
+        OneManVanFSM.Shared.Models.ServiceHistoryStatus.Open => "bg-primary",
+        OneManVanFSM.Shared.Models.ServiceHistoryStatus.Submitted => "bg-info text-dark",
+        OneManVanFSM.Shared.Models.ServiceHistoryStatus.InProgress => "bg-warning text-dark",
+        OneManVanFSM.Shared.Models.ServiceHistoryStatus.Approved => "bg-success",
+        OneManVanFSM.Shared.Models.ServiceHistoryStatus.Denied => "bg-danger",
+        OneManVanFSM.Shared.Models.ServiceHistoryStatus.Resolved => "bg-dark",
+        _ => "bg-secondary"
+    };
+}

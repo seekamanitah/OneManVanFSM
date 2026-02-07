@@ -1,0 +1,408 @@
+/* ===== PRINT STYLESHEET — OneManVanFSM ===== */
+/* Professional document output for invoices, estimates, material lists */
+
+@media print {
+
+    /* ?? Hide non-printable UI ??????????????????????????? */
+    .app-sidebar,
+    .app-header,
+    .app-footer,
+    .no-print,
+    .btn,
+    button,
+    .form-control,
+    .form-select,
+    .input-group,
+    .sidebar-toggle,
+    .nav-tabs,
+    .nav-link,
+    .alert,
+    .form-check,
+    .spinner-border,
+    #blazor-error-ui,
+    .blazor-error-boundary {
+        display: none !important;
+    }
+
+    /* ?? Page setup ?????????????????????????????????????? */
+    @page {
+        margin: 1.8cm 2cm;
+        size: letter;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* ?? Full-width content reset ???????????????????????? */
+    body,
+    .app-layout,
+    .app-main,
+    .app-content {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        display: block !important;
+        background: #fff !important;
+        color: #1a1a1a !important;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+        font-size: 10pt !important;
+        line-height: 1.5 !important;
+    }
+
+    /* ?? Typography ?????????????????????????????????????? */
+    h1, h2, h3, h4, h5, h6 {
+        color: #1a1a1a !important;
+        margin-top: 0;
+    }
+
+    h2 {
+        font-size: 18pt !important;
+        font-weight: 700 !important;
+    }
+
+    h5, h6 {
+        font-size: 11pt !important;
+        font-weight: 600 !important;
+    }
+
+    p, span, td, th, div, li {
+        color: #1a1a1a !important;
+    }
+
+    .text-muted {
+        color: #555 !important;
+    }
+
+    .text-primary,
+    .text-danger,
+    .text-success,
+    .text-info,
+    .text-warning {
+        color: #1a1a1a !important;
+    }
+
+    a {
+        color: #1a1a1a !important;
+        text-decoration: none !important;
+    }
+
+    /* ?? Reset dark theme ???????????????????????????????? */
+    .card,
+    .card-body,
+    .card-header,
+    .table,
+    .table th,
+    .table td,
+    .list-group-item {
+        background: #fff !important;
+        color: #1a1a1a !important;
+    }
+
+    /* ?? Card / shadow cleanup ??????????????????????????? */
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+    }
+
+    .shadow-sm,
+    .shadow {
+        box-shadow: none !important;
+    }
+
+    .card-body {
+        padding: 0 !important;
+    }
+
+    .card-header {
+        padding: 0 0 8pt 0 !important;
+        border-bottom: none !important;
+    }
+
+    /* ?? Grid layout — single column for print ??????????? */
+    .row {
+        display: block !important;
+    }
+
+    .col-md-4,
+    .col-md-8,
+    .col-md-6,
+    .col-sm-4,
+    .col-sm-6 {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: none !important;
+    }
+
+    /* ?? Tables — professional styling ??????????????????? */
+    .table {
+        --bs-table-bg: transparent !important;
+        --bs-table-color: #1a1a1a !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin-bottom: 12pt !important;
+    }
+
+    .table-responsive {
+        overflow: visible !important;
+    }
+
+    .table th {
+        font-weight: 700 !important;
+        font-size: 9pt !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.3pt !important;
+        color: #333 !important;
+        background: #f5f5f5 !important;
+        border-bottom: 2pt solid #333 !important;
+        border-top: 1pt solid #ccc !important;
+        padding: 6pt 8pt !important;
+    }
+
+    .table td {
+        padding: 5pt 8pt !important;
+        border-bottom: 0.5pt solid #ddd !important;
+        font-size: 10pt !important;
+        vertical-align: top !important;
+    }
+
+    .table-light {
+        background: #f5f5f5 !important;
+    }
+
+    .table-bordered th,
+    .table-bordered td {
+        border: 0.5pt solid #ccc !important;
+    }
+
+    tr {
+        break-inside: avoid;
+    }
+
+    /* ?? Badges — subtle print treatment ????????????????? */
+    .badge {
+        border: 1pt solid #888 !important;
+        color: #333 !important;
+        background: #f0f0f0 !important;
+        font-weight: 600 !important;
+        font-size: 8pt !important;
+        padding: 2pt 6pt !important;
+        border-radius: 2pt !important;
+    }
+
+    /* ?? Responsive columns — force visible ?????????????? */
+    .d-none.d-md-table-cell,
+    .d-none.d-lg-table-cell {
+        display: table-cell !important;
+    }
+
+    /* ??????????????????????????????????????????????????????
+       PRINT DOCUMENT HEADER — Professional document layout
+       Hidden on screen (d-none), revealed here for print
+       ?????????????????????????????????????????????????????? */
+
+    .print-document-header {
+        display: block !important;
+        margin-bottom: 16pt;
+    }
+
+    .print-document-header .print-doc-title {
+        font-size: 22pt;
+        font-weight: 800;
+        color: #1a1a1a !important;
+        letter-spacing: 1pt;
+        text-transform: uppercase;
+        margin: 0 0 4pt 0;
+        padding-bottom: 6pt;
+        border-bottom: 3pt solid #333;
+    }
+
+    .print-document-header .print-doc-subtitle {
+        font-size: 11pt;
+        color: #555 !important;
+        margin: 4pt 0 0 0;
+    }
+
+    .print-document-header .print-doc-meta {
+        display: flex !important;
+        justify-content: space-between;
+        margin-top: 12pt;
+        padding-top: 8pt;
+    }
+
+    .print-document-header .print-address-block {
+        flex: 1;
+        padding-right: 16pt;
+    }
+
+    .print-document-header .print-address-block:last-child {
+        padding-right: 0;
+        text-align: right;
+    }
+
+    .print-document-header .print-address-label {
+        font-size: 8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #888 !important;
+        margin: 0 0 3pt 0;
+    }
+
+    .print-document-header .print-address-value {
+        font-size: 10pt;
+        line-height: 1.4;
+        color: #1a1a1a !important;
+        margin: 0;
+    }
+
+    .print-document-header .print-address-name {
+        font-weight: 700;
+        font-size: 11pt;
+        margin: 0 0 2pt 0;
+    }
+
+    .print-document-header .print-doc-details {
+        margin-top: 12pt;
+        padding: 8pt 0;
+        border-top: 0.5pt solid #ddd;
+        border-bottom: 0.5pt solid #ddd;
+        display: flex !important;
+        gap: 24pt;
+        flex-wrap: wrap;
+    }
+
+    .print-document-header .print-detail-item {
+        display: inline-block;
+    }
+
+    .print-document-header .print-detail-label {
+        font-size: 8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #888 !important;
+        display: block;
+    }
+
+    .print-document-header .print-detail-value {
+        font-size: 10pt;
+        font-weight: 600;
+        color: #1a1a1a !important;
+    }
+
+    /* ?? Document notes section ?????????????????????????? */
+    .print-document-notes {
+        display: block !important;
+        margin-top: 12pt;
+        padding: 8pt 10pt;
+        border: 0.5pt solid #ddd;
+        border-radius: 3pt;
+        background: #fafafa !important;
+    }
+
+    .print-document-notes .print-notes-label {
+        font-size: 8pt;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #888 !important;
+        margin: 0 0 4pt 0;
+    }
+
+    .print-document-notes .print-notes-text {
+        font-size: 10pt;
+        color: #333 !important;
+        white-space: pre-wrap;
+        margin: 0;
+    }
+
+    /* ?? Pricing summary — right-aligned totals block ???? */
+    .print-pricing-summary {
+        margin-top: 12pt;
+        margin-left: auto;
+        width: 50%;
+    }
+
+    .print-pricing-summary .print-pricing-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 3pt 0;
+        font-size: 10pt;
+    }
+
+    .print-pricing-summary .print-pricing-row.print-pricing-total {
+        border-top: 2pt solid #333;
+        margin-top: 4pt;
+        padding-top: 6pt;
+        font-weight: 800;
+        font-size: 12pt;
+    }
+
+    .print-pricing-summary .print-pricing-row.print-pricing-balance {
+        border-top: 1pt solid #aaa;
+        margin-top: 4pt;
+        padding-top: 6pt;
+        font-weight: 700;
+        font-size: 11pt;
+    }
+
+    /* ?? Footer on documents ????????????????????????????? */
+    .print-document-footer {
+        display: block !important;
+        margin-top: 24pt;
+        padding-top: 8pt;
+        border-top: 0.5pt solid #ddd;
+        font-size: 8pt;
+        color: #999 !important;
+        text-align: center;
+    }
+
+    /* ?? Supply house mode — hide price columns ?????????? */
+    body.print-supply-house .print-price-col {
+        display: none !important;
+    }
+
+    /* ?? Page break controls ????????????????????????????? */
+    .print-page-break {
+        break-before: page;
+    }
+
+    h5, h6 {
+        break-after: avoid;
+    }
+
+    .table {
+        break-inside: auto;
+    }
+
+    /* ?? Material list section headers ??????????????????? */
+    .print-section-header {
+        font-size: 11pt;
+        font-weight: 700;
+        color: #333 !important;
+        border-bottom: 1pt solid #aaa;
+        padding-bottom: 3pt;
+        margin: 12pt 0 6pt 0;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+    }
+
+    /* ?? Payments table — compact ???????????????????????? */
+    .print-payments-section {
+        margin-top: 16pt;
+    }
+
+    .print-payments-section h6 {
+        font-size: 10pt;
+        margin-bottom: 6pt;
+    }
+
+    /* ?? Horizontal rules ???????????????????????????????? */
+    hr {
+        border-color: #ddd !important;
+        margin: 8pt 0 !important;
+    }
+}

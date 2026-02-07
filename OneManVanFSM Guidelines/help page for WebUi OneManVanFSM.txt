@@ -1,0 +1,58 @@
+help page for WebUi OneManVanFSM
+
+### Help Page - Exhaustive Description
+
+**Routes**: `/help` (main help dashboard view for browsing all documentation categories and pages); sub-routes for focused topics like `/help/jobs` (detailed guide for the Jobs page), `/help/customers` (guide for Customers page), etc. For contextual integration, embeddable as a tooltip, popover, or side panel throughout the app (e.g., question mark icon in page headers opens `/help/{currentPage}` as a modal, providing page-specific guidance without leaving the workflow). This ensures seamless user support—e.g., while building a material list in Estimates, click the help icon for a quick popover on "How to Add Flex Duct Sizes," with data references (e.g., prepopulated examples from your settings) transferring to illustrate, reducing frustration for the contractor learning the app mid-task.
+
+**Purpose & Business Context**:
+- The Help page is envisioned as the app's built-in "knowledge base," a comprehensive, always-accessible resource that empowers users to self-consult detailed guides for every page and feature, minimizing downtime and support tickets while promoting efficient adoption. For a small HVAC contractor, it addresses the learning curve: E.g., a new dispatcher consulting "How to Schedule a Multi-Zone Job" gets step-by-step with screenshots, workflow tips (e.g., "Prepopulated System Type dropdown pulls from Settings—customize there for your common setups like Spider vs. Trunk"), and interconnections (e.g., "Data from Sites (sq ft/zones) auto-transfers to Material Lists for accurate bidding"). Depth ensures exhaustiveness: Not just "Click here," but industry-contextual advice (e.g., "For emergency priorities, use the Urgency dropdown to flag heatwave AC repairs—this auto-notifies techs via integrated alerts").
+- HVAC-specific defaults: Guides reference HVAC examples (e.g., "Logging Refrigerant Claims in Service History: Include EPA cert details from Employees page"), but with trade mode awareness (from Settings)—e.g., toggle to Plumbing shows "Pipe Leak Claims" instead. Generic foundation: Guides are modular/adaptable for other trades without rework—e.g., repurpose "Ductwork Bidding" section for "Piping Layout" in plumbing (customizable via Settings to add/edit guide content), ensuring the app scales (e.g., electrical users see "Circuit Overload History" tips). This supports varied users: Office admins consult deep customizations, techs on mobile get quick, visual tips for field tasks (e.g., "Swipe to Update Job Status—Data Syncs to Invoices Automatically").
+- Business value: Promotes user-friendly efficiency by reducing guesswork—e.g., a guide on "Transferring Data from Estimates to Jobs" explains "Material Lists sections (e.g., Flex Duct counts/boxes) auto-populate in the job form, deducting from Inventory and creating Assets on close—no re-entry needed." Industry thinking: Contractors learn on-the-job (e.g., a tech at a multi-rental site consults "Batch Logging Non-Warranty Repairs" for efficiency); the page supports this with searchable, prepopulated customizable content (e.g., dropdowns in guides mirror app's, editable in Settings to add trade-specific tips like "For Plumbing: Customize 'Pipe Sizes' in Products to Avoid Mismatches"). For territorial companies or multi-site landlords, guides include "Filtering by Contact/Site" examples. Overall robustness: As an exhaustive consulting resource, it ties into shared data/workflows—e.g., guides reference interconnections (Customers ? Sites ? Assets ? Jobs ? Invoices), with tips for efficiency (e.g., "Use Quick Notes to capture site access, then import to Job Notes"), preventing misuse and enhancing the app's logical connections from the start.
+
+**Data Sources & Interconnections**:
+- **Core Entity**: HelpContent table (ID PK, Page/Section (e.g., "Jobs/Scheduling"), Title/Description/Text (with placeholders for dynamic examples), Screenshots JSON (image IDs/URLs – customizable), Version/Timestamp for updates). Related to Settings (pulls custom dropdowns/enums for guide examples – e.g., "Priority: Emergency" shown as in-app); Users/Roles (role-based filtering, e.g., techs see simplified guides).
+- **Sources**: Prepopulates from app metadata (e.g., auto-generate base guides from page structures – customizable in Settings to add/edit/remove sections like "Plumbing-Specific Tips"); Settings (trade mode adapts content, e.g., HVAC: "Refrigerant Handling in Claims"; Plumbing: "Pipe Corrosion Logging").
+- **Interconnections** (App-Wide Flow for Shared Guidance):
+  - **All Pages**: Help embeds contextually (e.g., icon on Jobs page opens `/help/jobs` with focus on current section like "Assignment"—data transfer: Prepopulate examples with user's custom dropdowns from Settings).
+  - **Customers/Companies/Sites**: Guides explain relationships (e.g., "Linking Multi-Sites to Agreements: Data from Sites (sq ft/zones) transfers to Material Lists for bidding efficiency").
+  - **Assets/Products/Inventory/Material Lists**: Sections on lifecycle (e.g., "From Products Template to Asset Install: Transfer Specs to Inventory, Deduct in Jobs, Log in History").
+  - **Jobs/Estimates/Calendar**: Workflow guides (e.g., "Converting Estimate to Job: Material Sections Transfer, Auto-Schedule in Calendar with Tech Cert Check").
+  - **Financials (Invoices/Expenses/Payments)**: Billing tips (e.g., "Generating from Job: Labor from Employee Time Transfers to Invoice Lines").
+  - **Service Agreements/History & Claims**: Separate but linked guides (e.g., "Logging Warranty from Agreements: Transfer Visit Data to History for Claim Submission").
+  - **Quick Notes/Notifications/Employees**: Cross-cutting (e.g., "Importing Notes to Jobs: Data Flows to History/Invoices").
+  - **Shared Data Flow**: Settings change (e.g., add dropdown option) → Auto-updates help examples (transfer to guides – e.g., "New 'Plumbing Fixture' in Products: Use in Estimates Like This"); user role → Filters guides (techs see "Mobile Time Clock Tips"); search query → Pulls relevant sections (e.g., "How to Batch Multi-Site Jobs" from calendar guide). Robust views: "HelpSearchView" (full-text index for quick results).
+
+**Layout & Sections** (Desktop Web Focus: Searchable Knowledge Base with Tabs, Responsive for Mobile Accordion-Stacking):
+- **Main Dashboard View (/help)**: Search bar at top (full-text across all guides – e.g., "How to Log Warranty Claim"); tabbed categories (horizontal desktop; vertical mobile: All Pages/Workflows/FAQs/Tips – customizable add sections like "Trade-Specific").
+  - **All Pages Tab**: Accordion list of app pages (e.g., "Customers: Purpose (Manage clients/companies with sites/assets), How to Use (Add Multi-Contact for Territorial, Quick Links to Estimates/Jobs), Interconnections (Data to Sites/Assets Flows to Bids/Scheduling), Tips (Customize Dropdowns in Settings for Prepopulated Territory) – with screenshots/previews").
+  - **Workflows Tab**: Step-by-step guides (e.g., "Full Bid to Payment: Estimate (Build Materials) ? Job (Schedule/Execute) ? Invoice (Auto-Generate) ? Payment (Partial Update Balance)" – with data transfer tips).
+  - **FAQs Tab**: Q&A list (e.g., "How to Handle Multi-Site Landlord Agreements? Batch in Calendar, Share Material Lists" – expandable answers with links to pages).
+  - **Tips Tab**: Bite-sized advice (e.g., "Efficiency: Use Quick Notes on Mobile for Site Access, Import to Job/History" – categorized by role/trade).
+- **Focused Guide View (/help/{page})**: Single-page deep dive (e.g., /help/jobs: Sections like Purpose, Layout, UX Flows, Interconnections, Custom Tips – with embedded screenshots, searchable sub-headings).
+- **Create/Edit View**: Not user-facing (admin-only in Settings to customize guides – e.g., add trade-specific content).
+
+**UX Interactions & Flows**:
+- **Consulting Flow**: Search "How to Assign Tech by Cert" → Results jump to Employees guide section (with previews); contextual help icon on page → Modal with focused content (data transfer: Show examples with your custom certs from Settings).
+- **Connectivity Flow**: Guide link (e.g., "See Jobs Interconnections") → Navigates to related guide (transfer search term for continuity).
+- **Main to Focused**: Filter tabs (e.g., "HVAC Tips Only") → Click guide → Focused view with expand/collapse.
+- **User Journey**: New user: Help dashboard search "Start with Customer" → Guide walks through adding sites/assets, linking to estimates/jobs (with tips on data transfer). Tech on mobile: Contextual modal "How to Log Repair" (simplified, with screenshots).
+- **Efficiency Features**: Prepopulated examples (pull from your Settings – customizable); auto-adapt to trade mode (e.g., Plumbing: "Pipe Install Tips" instead of "Ductwork"); search with suggestions (e.g., "Did you mean 'Multi-Site Scheduling'?").
+
+**Customizations & Configurability**:
+- Admins (Settings > Help): Add/edit/remove sections/guides (e.g., add "Plumbing FAQs"); customize content (e.g., insert app-specific screenshots); toggle depth (e.g., "Tech View: Simplified Only"). Per-role: Techs see filtered guides (mobile/work-focused); owners full.
+- Quick Notes: Not directly, but guides explain integration (e.g., "Use Quick Notes for Site Details, Import to Jobs").
+
+**Edge Cases & Robustness**:
+- Trade Mode: Guides auto-switch content (warning on mode change: "Help Updated for Plumbing—Review?").
+- No Matches: Search suggests "Ask Support" or "Related Guides."
+- Large Content: Pagination in long guides; collapse sections.
+- Permissions: Role-based (techs see operational guides only; admins edit).
+- Offline: Mobile caches frequently accessed guides (view local, sync updates).
+
+**Integrations & Automation**:
+- Triggers: App update → Alert (e.g., "New Guide Available—View Changes?"); user search → Log for common queries (improve future guides).
+- External: Link to external docs (e.g., "EPA Guide" for HVAC certs); PDF export for printable manual.
+- Workflow Ties: Quick links in guides (e.g., "Try It: Go to Jobs" – navigates with prepopulated example). For companies: Guides include "Territorial Tips" (e.g., "Filter by Contact in Calendar").
+
+**Mobile Considerations**:
+- Dashboard tabs as swipeable; guides as vertical scroll with accordions (tap expand sections). Mobile-first: Shorter, visual tips (more screenshots); offline cache all guides (techs consult "How to Log Claim" without net). Responsive layouts stack tabs to lists; contextual modals as bottom sheets, ensuring techs get help on-site without rework.

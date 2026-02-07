@@ -1,0 +1,61 @@
+Quick Notes for WebUi OneManVanFSM
+
+
+### Quick Notes Integration - Exhaustive Description
+
+**Purpose & Business Context**:
+- Quick Notes serves as a lightweight, always-accessible tool for capturing ad-hoc information during daily operations, acting as a "digital notepad" to bridge the gap between fieldwork and structured records. For a small HVAC contractor, it's designed to handle the chaotic reality of on-site work: Techs quickly jot (or voice-record) details like "Customer prefers low-noise AC unit" during a site visit, or "Furnace model shows rust – photo attached" mid-repair, without disrupting their flow. Office users can add notes like "Tax exemption docs needed" during invoicing. This prevents data loss and supports efficient workflows by allowing notes to be imported into formal entities (e.g., a material note becomes part of a job's material list, reducing re-entry and errors).
+- In the HVAC focus: Notes often capture equipment specifics (e.g., refrigerant levels, warranty observations) or customer prefs (e.g., "Allergies to certain filters"), which are critical for repeat visits or compliance. Generic foundation: Customizable for other trades (e.g., note categories like "Wiring Gauge" for electrical), ensuring the app adapts without rework.
+- Business value: Enhances efficiency by minimizing app-switching—notes are created in seconds and flow into workflows (e.g., a quick note on a job site auto-tags to the customer/site/asset/job, triggering alerts like "Review Note Before Scheduling"). It supports industry thinking: Techs work hands-free (voice on mobile), while office reviews consolidate notes into reports or agreements. Overall, it promotes data continuity: No more "forgotten verbal details" leading to rework; everything ties back to shared entities for a robust audit trail.
+
+**Data Sources & Interconnections**:
+- **Core Entity**: QuickNotes table (ID PK, EntityType/EntityID polymorphic for linking to any module—e.g., JobID, CustomerID, AssetID, InvoiceID; Text/Photo/Audio fields; Category enum; Timestamp; UserID for creator; Status enum like Draft/Imported/Archived).
+- **Sources**: Pulls context from current page (e.g., on Job Detail, auto-prepopulates EntityType=Job and EntityID=CurrentJobID). Imports from/reverse-links to: Customers (e.g., site access notes), Sites/Assets (e.g., equipment photos), Jobs/Estimates (e.g., material needs), Invoices/Expenses (e.g., payment adjustments), Employees (e.g., certification reminders), Inventory/MaterialLists (e.g., stock observations), ServiceAgreements (e.g., renewal discussions).
+- **Interconnections**: Polymorphic design ensures seamless data flow—e.g., create note on mobile linked to a job → it appears in Job Detail's "Associated Notes" section; "Import" button transfers note text/photo to job's description/material list/invoice notes, updating the note's Status to Imported. Shared data: Note IDs propagate (e.g., imported note embeds as a read-only field in the target entity). Connections to Dashboard: Recent notes feed in sidebar; urgent notes (flagged via category) bubble up as alerts. AuditLogs track creations/imports (e.g., "Note Imported to Job #123 by User X"). CustomFields extend notes (e.g., add "Refrigerant Type" field for HVAC-specific capture).
+- **Robustness**: Full-text index on Text for global search; soft-delete preserves history; relationships enforce integrity (e.g., deleting a job archives linked notes, not deletes). Views like "UnimportedNotesView" (filter by creator/date/category) for Dashboard integration.
+
+**Layout & Sections** (Desktop Web Focus: Modal/Popover for Quick Access, Full Page for Management – Responsive for Mobile Stacking):
+- **Access Modes**: Floating action button (FAB) on every page (bottom-right, icon: notepad)—opens creation modal/popover without leaving context. Dedicated full page at `/quicknotes` for browsing/managing (list view with filters).
+- **Creation Modal/Popover** (Compact, Overlay – Ensures Quick Entry; Responsive: Full-Screen on Mobile for Touch Ease):
+  - **Header**: "New Quick Note" with auto-context (e.g., "Linked to Job #123"), close button.
+  - **Entity Link Section**: Prepopulated dropdown (e.g., "Link to: Job/Customer/Asset/Invoice" – customizable options, auto-selected based on current page). Searchable for specific ID (e.g., type customer name to link).
+  - **Category Section**: Prepopulated dropdown (defaults: Material/Customer/Equipment/Safety/Other – customizable add/edit/remove in Settings; HVAC examples: "Refrigerant Issue"/"Filter Replacement Needed").
+  - **Content Input**: Multi-input area – Textarea for notes (auto-grow, voice-to-text button), Photo/Audio upload (drag-drop or camera integration), optional Title field.
+  - **Tags/Flags**: Checkbox for "Urgent" (triggers Dashboard alert), custom tags dropdown (prepopulated but editable, e.g., "Follow-Up Needed").
+  - **Actions Footer**: "Save" (creates and links), "Save & Import" (saves then opens import dialog to target fields), "Cancel".
+- **Full Management Page (/quicknotes)**: 
+  - **Header**: Search bar (full-text across text/title/category), filters (by date/creator/category/linked entity – dropdowns prepopulated/customizable), sort dropdown (Newest/Oldest/Urgency).
+  - **Notes List Section**: Responsive table/cards (columns: Title/Category/Text Snippet/Linked Entity (clickable link)/Creator/Date/Actions – e.g., Edit/Delete/Import/Export). Cards stack on mobile with expand for full text/photo.
+  - **Bulk Actions**: Select multiple → "Import to [Entity]" (batch transfer), "Archive", "Export to PDF/CSV".
+  - **Sidebar**: Recent imports log (e.g., "Note X Imported to Invoice Y"), customizable quick filters (e.g., "My Notes Only").
+- **Visual Style**: Clean, modern (e.g., cards with shadows, color-coded categories – red for Urgent). Responsive: On narrower screens (mobile simulation), modal becomes bottom sheet; lists use infinite scroll.
+
+**UX Interactions & Flows**:
+- **Creation Flow**: Click FAB anywhere → Modal opens with context (e.g., on Customer Detail, auto-links to that customer). Enter category (dropdown suggests based on page, e.g., "Equipment" on Asset page), type/voice note, attach photo (mobile camera prompt), save – auto-closes, toast: "Note Saved & Linked". Efficiency: Minimal fields (category/text required only); voice for hands-free techs.
+- **Import Flow**: On target page (e.g., Job Edit), "Import Notes" button → Modal lists relevant unimported notes (filtered by linked entity or search) → Select one/multiple → Map to fields (e.g., text to Job Description, photo to Attachments) – prepopulated suggestions based on category (e.g., Material category maps to Material List). Confirm → Data transfers, note status updates to Imported, target page refreshes.
+- **Browsing/Management Flow**: On /quicknotes, search "rusty furnace" → Results show with previews; click note → Detail view (edit mode if owner). Bulk import: Select HVAC-related notes → "Import to Assets" → Batch assign to matching serials.
+- **Search & Discovery**: Global search includes notes (e.g., type "AC noise" → shows notes with links to jobs/assets). On linked pages, "Associated Notes" accordion lists them inline (click to view/import).
+- **User Journey**: Tech on mobile: Mid-job, tap FAB → Voice "Customer wants SEER 16" → Save (auto-links to job/customer) → Later, office imports to estimate for bidding. Dispatcher: Reviews unscheduled job → Sees linked note "Urgent: Leak Detected" → Prioritizes scheduling.
+- **Efficiency Features**: Auto-tagging (e.g., photo OCR extracts serial # for asset link); prepopulated templates (e.g., "Standard Inspection Note" with checkboxes); one-click import from Dashboard feed.
+- **Industry Thinking**: HVAC techs capture ephemeral details (e.g., "Thermostat Calibration Needed") without full job entry; office consolidates for billing/compliance. Generic: Categories adapt (e.g., add "Circuit Breaker Type" for electrical).
+
+**Customizations & Configurability**:
+- Admins (Settings > Quick Notes): Add/edit/remove categories (e.g., default "Material" editable to "HVAC Duct Material"); set required fields (e.g., mandate photo for Equipment notes); customize import mappings (e.g., auto-map "Safety" notes to Employee records); toggle voice/audio/photo features per role (e.g., disable audio for office).
+- Per-user: Default category (e.g., techs default to "Equipment"); hidden archived notes; custom tag lists (prepopulated but editable, e.g., add "Warranty Claim" for HVAC).
+- Robustness: Changes audit-logged; validations ensure links (e.g., can't save without category if required).
+
+**Edge Cases & Robustness**:
+- No Linked Entity: Allow "Standalone" notes (later linkable via edit); prompt "Link Now?" on save.
+- Large Notes/Attachments: Limit text (e.g., 2000 chars with "Expand" button); compress photos; infinite scroll in lists for 1000+ notes.
+- Permissions: Techs create/view own notes + linked to their jobs; Managers view/edit all; Owners delete/archive. Role-based hiding (e.g., hide financial notes from techs).
+- Offline (Mobile Carry-Over Prep): Local cache creation (SQLite); sync on reconnect with conflict resolution (timestamp-based, user prompt for merges). Edge: Duplicate notes during offline → Auto-merge on sync.
+- Errors: Validation (e.g., "Category Required" inline); graceful upload fails (e.g., "Photo Failed – Retry?"); search no-results: "No Matches – Create New?".
+- Performance: Index on Category/EntityType for fast filters; lazy-load photos (thumbnails first).
+
+**Integrations & Automation**:
+- Triggers: Urgent note creation → Notification (e.g., "New Safety Note on Job #123" to manager via in-app/email/SMS – configurable in Settings).
+- External: Photo upload to cloud storage (e.g., AWS S3 via API); voice-to-text (integrate browser API or service like Google Speech); export notes to PDF (bundle with linked entity docs).
+- Workflow Ties: Auto-import prompts (e.g., on Job Completion: "Import Pending Notes?"); search integration with global app search.
+
+**Mobile Considerations (For Seamless Carry-Over)**:
+- Design ensures desktop responsiveness translates: FAB as persistent bottom button (easy thumb access); creation as full-screen sheet (large textarea for touch); lists as vertical scroll with swipe-to-edit/import (e.g., swipe left: Import/Delete). Voice button prominent (hands-free for techs on ladders); photo from camera/gallery. Offline emphasis: Queue unsynced notes with "Pending Sync" badge; minimal data load (e.g., fetch only user's notes initially). Touch optimizations: Larger tappable areas, no hover (use tap-hold for menus); categories as searchable picker. This desktop-first layout (grids to stacks) avoids mobile rework—e.g., use media queries for card resizing.

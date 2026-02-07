@@ -1,0 +1,596 @@
+@page "/help"
+@rendermode InteractiveServer
+@inject NavigationManager Nav
+
+<PageTitle>Help & Support - OneManVanFSM</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-question-circle-fill me-2"></i>Help & Support</h4>
+    <small class="text-muted">Your built-in knowledge base for every feature</small>
+</div>
+
+@* Global search across all tabs *@
+<div class="input-group mb-3 shadow-sm">
+    <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+    <input type="text" class="form-control border-start-0" placeholder="Search all help topics, workflows, FAQs, and tips..."
+           @bind="_search" @bind:event="oninput" />
+    @if (!string.IsNullOrWhiteSpace(_search))
+    {
+        <button class="btn btn-outline-secondary" @onclick='() => _search = ""'><i class="bi bi-x-lg"></i></button>
+    }
+</div>
+@if (!string.IsNullOrWhiteSpace(_search))
+{
+    <div class="mb-3">
+        <span class="badge bg-secondary">@TotalSearchHits result(s) for "@_search"</span>
+    </div>
+}
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+        <a class="nav-link @(_tab == "start" ? "active" : "")" href="javascript:void(0)" @onclick='() => _tab = "start"'>
+            <i class="bi bi-rocket-takeoff me-1"></i>Getting Started
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(_tab == "pages" ? "active" : "")" href="javascript:void(0)" @onclick='() => _tab = "pages"'>
+            <i class="bi bi-book me-1"></i>All Pages
+            @if (!string.IsNullOrWhiteSpace(_search) && FilteredPages.Count > 0)
+            {
+                <span class="badge bg-primary ms-1">@FilteredPages.Count</span>
+            }
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(_tab == "workflows" ? "active" : "")" href="javascript:void(0)" @onclick='() => _tab = "workflows"'>
+            <i class="bi bi-diagram-3 me-1"></i>Workflows
+            @if (!string.IsNullOrWhiteSpace(_search) && FilteredWorkflows.Length > 0)
+            {
+                <span class="badge bg-primary ms-1">@FilteredWorkflows.Length</span>
+            }
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(_tab == "faq" ? "active" : "")" href="javascript:void(0)" @onclick='() => _tab = "faq"'>
+            <i class="bi bi-chat-dots me-1"></i>FAQ
+            @if (!string.IsNullOrWhiteSpace(_search) && FilteredFaqs.Length > 0)
+            {
+                <span class="badge bg-primary ms-1">@FilteredFaqs.Length</span>
+            }
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link @(_tab == "tips" ? "active" : "")" href="javascript:void(0)" @onclick='() => _tab = "tips"'>
+            <i class="bi bi-lightbulb me-1"></i>Tips & Tricks
+            @if (!string.IsNullOrWhiteSpace(_search) && FilteredTips.Length > 0)
+            {
+                <span class="badge bg-primary ms-1">@FilteredTips.Length</span>
+            }
+        </a>
+    </li>
+</ul>
+
+@* ===================== GETTING STARTED ===================== *@
+@if (_tab == "start")
+{
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h5><i class="bi bi-rocket-takeoff me-2 text-primary"></i>Welcome to OneManVanFSM</h5>
+            <p class="text-muted">Follow these steps to get your business set up and running quickly.</p>
+            <div class="row g-3 mt-1">
+                @{ var idx = 0; }
+                @foreach (var step in _gettingStarted)
+                {
+                    idx++;
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card border-0 bg-light h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-center mb-2">
+                                    <span class="badge bg-primary rounded-circle me-2" style="width:28px;height:28px;line-height:20px;font-size:.85rem;">@idx</span>
+                                    <h6 class="mb-0">@step.Title</h6>
+                                </div>
+                                <p class="text-muted small mb-2">@step.Description</p>
+                                <button class="btn btn-sm btn-outline-primary" @onclick="@(() => Nav.NavigateTo(step.Route))">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Go to @step.Title
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h5><i class="bi bi-diagram-3 me-2 text-success"></i>How Data Flows</h5>
+            <p class="text-muted small">Understanding how entities connect is key to efficient operation.</p>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <span class="badge bg-light text-dark border px-3 py-2">Customers</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Sites</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Assets</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Jobs</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Invoices</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Payments</span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <span class="badge bg-light text-dark border px-3 py-2">Products</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Material Lists</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Estimates</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Jobs</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Inventory Deduction</span>
+            </div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                <span class="badge bg-light text-dark border px-3 py-2">Agreements</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Scheduled Visits</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Service History</span>
+                <i class="bi bi-arrow-right text-muted"></i>
+                <span class="badge bg-light text-dark border px-3 py-2">Warranty Claims</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5><i class="bi bi-signpost-split me-2 text-info"></i>Quick Navigation Reference</h5>
+            <div class="row g-2 mt-1">
+                @foreach (var p in _helpPages)
+                {
+                    <div class="col-6 col-md-3">
+                        <button class="btn btn-outline-secondary btn-sm w-100 text-start" @onclick="@(() => Nav.NavigateTo(p.Route))">
+                            <i class="bi @p.Icon me-1 text-primary"></i>@p.Key
+                        </button>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@* ===================== ALL PAGES ===================== *@
+else if (_tab == "pages")
+{
+    @if (FilteredPages.Count == 0 && !string.IsNullOrWhiteSpace(_search))
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-emoji-frown" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">No page guides match "<strong>@_search</strong>". Try different keywords.</p>
+        </div>
+    }
+    else
+    {
+        <div class="accordion" id="helpAccordion">
+            @foreach (var pg in FilteredPages)
+            {
+                var collapseId = "collapse-" + pg.Key.Replace(" ", "").Replace("/", "");
+                <div class="accordion-item border-0 shadow-sm mb-2">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId">
+                            <i class="bi @pg.Icon me-2 text-primary"></i><strong>@pg.Key</strong>
+                            <span class="badge bg-light text-muted ms-2 fw-normal small">@pg.Route</span>
+                        </button>
+                    </h2>
+                    <div id="@collapseId" class="accordion-collapse collapse" data-bs-parent="#helpAccordion">
+                        <div class="accordion-body">
+                            <div class="row">
+                                <div class="col-md-8">
+                                    <h6 class="text-primary"><i class="bi bi-info-circle me-1"></i>Purpose</h6>
+                                    <p>@pg.Purpose</p>
+
+                                    <h6 class="text-success"><i class="bi bi-hand-index me-1"></i>How to Use</h6>
+                                    <p>@pg.HowTo</p>
+
+                                    <h6 class="text-warning"><i class="bi bi-link-45deg me-1"></i>Data Connections</h6>
+                                    <p class="mb-2">@pg.Connections</p>
+
+                                    @if (pg.ProTips.Length > 0)
+                                    {
+                                        <h6 class="text-info"><i class="bi bi-star me-1"></i>Pro Tips</h6>
+                                        <ul class="small mb-0">
+                                            @foreach (var tip in pg.ProTips)
+                                            {
+                                                <li>@tip</li>
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                                <div class="col-md-4 d-flex flex-column gap-2 mt-3 mt-md-0">
+                                    <button class="btn btn-primary btn-sm" @onclick="@(() => Nav.NavigateTo(pg.Route))">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i>Open @pg.Key
+                                    </button>
+                                    @foreach (var link in pg.RelatedPages)
+                                    {
+                                        <button class="btn btn-outline-secondary btn-sm" @onclick="@(() => Nav.NavigateTo(link.Route))">
+                                            <i class="bi @link.Icon me-1"></i>@link.Label
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@* ===================== WORKFLOWS ===================== *@
+else if (_tab == "workflows")
+{
+    @if (FilteredWorkflows.Length == 0 && !string.IsNullOrWhiteSpace(_search))
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-emoji-frown" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">No workflows match "<strong>@_search</strong>".</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var wf in FilteredWorkflows)
+            {
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                            <h6 class="mb-0"><i class="bi @wf.Icon me-2 text-primary"></i>@wf.Title</h6>
+                            <span class="badge bg-light text-muted">@wf.Steps.Length steps</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-2">@wf.Description</p>
+                            <ol class="small mb-3">
+                                @foreach (var step in wf.Steps)
+                                {
+                                    <li class="mb-1">@step</li>
+                                }
+                            </ol>
+                            @if (wf.RelatedRoutes.Length > 0)
+                            {
+                                <div class="d-flex flex-wrap gap-1">
+                                    @foreach (var r in wf.RelatedRoutes)
+                                    {
+                                        <button class="btn btn-outline-primary btn-sm" @onclick="@(() => Nav.NavigateTo(r.Route))">
+                                            <i class="bi @r.Icon me-1"></i>@r.Label
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@* ===================== FAQ ===================== *@
+else if (_tab == "faq")
+{
+    @if (FilteredFaqs.Length == 0 && !string.IsNullOrWhiteSpace(_search))
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-emoji-frown" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">No FAQs match "<strong>@_search</strong>".</p>
+        </div>
+    }
+    else
+    {
+        <div class="accordion" id="faqAccordion">
+            @{ var faqIdx = 0; }
+            @foreach (var faq in FilteredFaqs)
+            {
+                var faqId = "faq-" + faqIdx;
+                faqIdx++;
+                <div class="accordion-item border-0 shadow-sm mb-2">
+                    <h2 class="accordion-header">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@faqId">
+                            <i class="bi bi-question-circle me-2 text-info"></i>@faq.Question
+                            <span class="badge bg-light text-muted ms-auto me-2 small">@faq.Category</span>
+                        </button>
+                    </h2>
+                    <div id="@faqId" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                        <div class="accordion-body">
+                            <p class="mb-2">@faq.Answer</p>
+                            @if (!string.IsNullOrEmpty(faq.RelatedRoute))
+                            {
+                                <button class="btn btn-sm btn-outline-primary" @onclick="@(() => Nav.NavigateTo(faq.RelatedRoute))">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i>Try It
+                                </button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+}
+
+@* ===================== TIPS ===================== *@
+else
+{
+    @if (FilteredTips.Length == 0 && !string.IsNullOrWhiteSpace(_search))
+    {
+        <div class="text-center py-4 text-muted">
+            <i class="bi bi-emoji-frown" style="font-size:2rem;"></i>
+            <p class="mt-2 mb-0">No tips match "<strong>@_search</strong>".</p>
+        </div>
+    }
+    else
+    {
+        var categories = FilteredTips.Select(t => t.Category).Distinct().ToArray();
+        @foreach (var cat in categories)
+        {
+            <h6 class="text-muted mt-3 mb-2"><i class="bi @GetTipCategoryIcon(cat) me-1"></i>@cat</h6>
+            <div class="row g-3 mb-2">
+                @foreach (var tip in FilteredTips.Where(t => t.Category == cat))
+                {
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="d-flex align-items-start mb-1">
+                                    <i class="bi bi-lightbulb text-warning me-2 mt-1"></i>
+                                    <h6 class="mb-0">@tip.Title</h6>
+                                </div>
+                                <p class="text-muted small mb-2">@tip.Description</p>
+                                @if (!string.IsNullOrEmpty(tip.RelatedRoute))
+                                {
+                                    <button class="btn btn-sm btn-outline-primary" @onclick="@(() => Nav.NavigateTo(tip.RelatedRoute))">
+                                        <i class="bi bi-box-arrow-up-right me-1"></i>Try It
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+}
+
+@code {
+    private string _tab = "start";
+    private string _search = "";
+
+    private bool MatchSearch(params string[] fields) =>
+        string.IsNullOrWhiteSpace(_search) ||
+        fields.Any(f => f.Contains(_search, StringComparison.OrdinalIgnoreCase));
+
+    private List<HelpPage> FilteredPages => string.IsNullOrWhiteSpace(_search) ? _helpPages
+        : _helpPages.Where(p => MatchSearch(p.Key, p.Purpose, p.HowTo, p.Connections, string.Join(" ", p.ProTips))).ToList();
+
+    private WorkflowGuide[] FilteredWorkflows => string.IsNullOrWhiteSpace(_search) ? _workflows
+        : _workflows.Where(w => MatchSearch(w.Title, w.Description, string.Join(" ", w.Steps))).ToArray();
+
+    private FaqItem[] FilteredFaqs => string.IsNullOrWhiteSpace(_search) ? _faqs
+        : _faqs.Where(f => MatchSearch(f.Question, f.Answer, f.Category)).ToArray();
+
+    private TipItem[] FilteredTips => string.IsNullOrWhiteSpace(_search) ? _tips
+        : _tips.Where(t => MatchSearch(t.Title, t.Description, t.Category)).ToArray();
+
+    private int TotalSearchHits => FilteredPages.Count + FilteredWorkflows.Length + FilteredFaqs.Length + FilteredTips.Length;
+
+    private string GetTipCategoryIcon(string cat) => cat switch
+    {
+        "Efficiency" => "bi-lightning-charge",
+        "Mobile" => "bi-phone",
+        "Data Management" => "bi-database",
+        "Scheduling" => "bi-calendar-check",
+        "Financial" => "bi-currency-dollar",
+        "Field Work" => "bi-tools",
+        _ => "bi-lightbulb"
+    };
+
+    record RelatedLink(string Label, string Icon, string Route);
+    record HelpPage(string Key, string Icon, string Route, string Purpose, string HowTo, string Connections, string[] ProTips, RelatedLink[] RelatedPages);
+    record WorkflowGuide(string Title, string Icon, string Description, string[] Steps, RelatedLink[] RelatedRoutes);
+    record FaqItem(string Question, string Answer, string Category, string? RelatedRoute = null);
+    record TipItem(string Title, string Description, string Category, string? RelatedRoute = null);
+    record GettingStartedStep(string Title, string Description, string Route);
+
+    private GettingStartedStep[] _gettingStarted =
+    [
+        new("Settings", "Configure your company profile, user accounts, dropdown options, and notification preferences.", "/settings"),
+        new("Customers", "Add your clients and companies. Each customer can have multiple sites, contacts, and linked agreements.", "/customers"),
+        new("Sites", "Add property locations with addresses, zones, access notes, and link to customers.", "/sites"),
+        new("Products", "Set up your product catalog with equipment, parts, and materials for use in bids and jobs.", "/products"),
+        new("Employees", "Add your team members with roles, certifications, territories, and hourly rates.", "/employees"),
+        new("Jobs", "Create your first work order \u2014 assign techs, schedule dates, and track through completion.", "/jobs"),
+    ];
+
+    private List<HelpPage> _helpPages =
+    [
+        new("Dashboard", "bi-speedometer2", "/",
+            "Overview of urgent concerns: unscheduled jobs, overdue invoices, low inventory, expiring agreements, and recent activity.",
+            "KPI cards are clickable \u2014 tap any metric to navigate directly to the relevant page. Charts show trends over time. The activity feed shows the latest changes across all modules.",
+            "Links to Jobs, Financials, Inventory, Service Agreements, Calendar.",
+            ["Start your day here to see what needs immediate attention.", "Unscheduled and overdue items are highlighted with urgency badges."],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Financials", "bi-receipt", "/financials"), new("Inventory", "bi-boxes", "/inventory")]),
+        new("Customers", "bi-people-fill", "/customers",
+            "Manage clients, companies, contacts, and multi-site landlords with territorial tracking.",
+            "Add customers with multiple contacts, link sites and assets, and navigate to estimates/jobs from the detail view. Use type filtering to separate residential, commercial, and property management clients.",
+            "Data flows to Sites, Assets, Jobs, Estimates, Invoices, Service Agreements.",
+            ["Use the search bar to find customers by name, phone, or email.", "Territorial customers can have sites across multiple locations."],
+            [new("Sites", "bi-geo-alt", "/sites"), new("Jobs", "bi-briefcase", "/jobs"), new("Estimates", "bi-calculator", "/estimates")]),
+        new("Sites", "bi-geo-alt-fill", "/sites",
+            "Manage property details, access info, zones, and linked assets per customer.",
+            "Add sites with square footage, zone counts, access notes, and property type. Site data prepopulates material lists and job forms automatically.",
+            "Links to Customers, Assets, Jobs, Material Lists.",
+            ["Add detailed access instructions so techs know gate codes and entry points.", "Zone and square footage data helps generate accurate material estimates."],
+            [new("Customers", "bi-people", "/customers"), new("Assets", "bi-cpu", "/assets"), new("Material Lists", "bi-list-check", "/materiallists")]),
+        new("Jobs", "bi-briefcase-fill", "/jobs",
+            "Track work orders from creation to completion with status, priority, tech assignment, and time logging.",
+            "Create jobs from estimates or directly. Assign technicians by certification, track time entries, update status through the full workflow (New \u2192 Scheduled \u2192 En Route \u2192 On Site \u2192 In Progress \u2192 Paused \u2192 Completed \u2192 Closed).",
+            "Links to Customers, Sites, Employees, Calendar, Invoices, Material Lists, Service History.",
+            ["Use quick filters (status, priority, date range) to focus on what matters.", "Jobs created from estimates carry over material lists and customer data automatically.", "The status workflow drives notifications \u2014 techs are alerted on assignment."],
+            [new("Calendar", "bi-calendar3", "/calendar"), new("Employees", "bi-person-badge", "/employees"), new("Financials", "bi-receipt", "/financials")]),
+        new("Products", "bi-box-seam", "/products",
+            "Catalog of equipment, parts, and materials with specs, pricing, and supplier tracking.",
+            "Browse by category, search by name or part number, and manage product details for use in material lists and inventory.",
+            "Links to Inventory, Material Lists, Assets, Suppliers.",
+            ["Keep part numbers and pricing up to date for accurate estimates.", "Products linked to suppliers streamline reordering."],
+            [new("Inventory", "bi-boxes", "/inventory"), new("Material Lists", "bi-list-check", "/materiallists")]),
+        new("Inventory", "bi-boxes", "/inventory",
+            "Track stock levels, locations, reorder points, and expiration dates with KPI dashboards.",
+            "Monitor the KPI dashboard for low stock and expiring items. Add and adjust stock with location tracking. Set reorder points for automatic alerts.",
+            "Links to Products, Material Lists, Jobs.",
+            ["Set reorder thresholds to get notified before you run out.", "Use batch adjustments for stocktaking."],
+            [new("Products", "bi-box-seam", "/products"), new("Material Lists", "bi-list-check", "/materiallists")]),
+        new("Estimates", "bi-calculator", "/estimates",
+            "Create and manage bids with status workflow (Draft \u2192 Sent \u2192 Approved / Rejected) and pricing summaries.",
+            "Build estimates with material line items, labor, and markup. Convert approved estimates to jobs with a single click \u2014 all data transfers automatically.",
+            "Links to Customers, Jobs, Material Lists, Invoices.",
+            ["Use the pricing summary to review margins before sending.", "Approved estimates convert to jobs with materials and customer data intact."],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Material Lists", "bi-list-check", "/materiallists"), new("Customers", "bi-people", "/customers")]),
+        new("Assets", "bi-cpu", "/assets",
+            "Equipment tracking with specs (tonnage, SEER, model), warranty status, and maintenance history.",
+            "Add assets linked to customers and sites. Track warranty dates, maintenance schedules, and full service history. Monitor status (Active, Maintenance Needed, Retired, Decommissioned).",
+            "Links to Customers, Sites, Products, Jobs, Service Agreements, Service History.",
+            ["Track warranty expiration to avoid missed claims.", "Assets created from job completion automatically link service history."],
+            [new("Service History", "bi-wrench-adjustable", "/servicehistory"), new("Sites", "bi-geo-alt", "/sites"), new("Agreements", "bi-file-earmark-check", "/serviceagreements")]),
+        new("Employees", "bi-person-badge-fill", "/employees",
+            "Team management with roles, certifications, territories, hourly rates, and time tracking.",
+            "Add employees, assign roles and certifications, view assigned jobs and time entries. Use certification tracking to ensure qualified techs are dispatched.",
+            "Links to Jobs, Calendar, Time Entries, Financials.",
+            ["Keep certifications (EPA, NATE) up to date for compliance.", "Territory assignment helps with efficient dispatching."],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Calendar", "bi-calendar3", "/calendar"), new("Financials", "bi-receipt", "/financials")]),
+        new("Financials", "bi-receipt", "/financials",
+            "Manage invoices, expenses, and payments with dashboard KPIs and aging reports.",
+            "Create invoices from completed jobs. Record expenses and track partial/full payments. Dashboard shows outstanding balance, overdue items, and revenue trends.",
+            "Links to Jobs, Customers, Employees, Payments.",
+            ["Generate invoices from jobs to avoid re-entry.", "Track partial payments and outstanding balances per customer."],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Customers", "bi-people", "/customers")]),
+        new("Service Agreements", "bi-file-earmark-check", "/serviceagreements",
+            "Track coverage levels, visit counts, renewal dates, fees, and linked assets.",
+            "Create agreements linked to customers with coverage levels (Basic, Standard, Premium). Monitor visits used vs. included and set renewal alerts.",
+            "Links to Customers, Assets, Calendar, Jobs.",
+            ["Set renewal alerts to proactively engage customers before expiry.", "Track visits used to avoid exceeding coverage limits."],
+            [new("Customers", "bi-people", "/customers"), new("Calendar", "bi-calendar3", "/calendar"), new("Assets", "bi-cpu", "/assets")]),
+        new("Calendar", "bi-calendar3", "/calendar",
+            "Schedule and dispatch events with date, employee, and job filtering.",
+            "Create events linked to jobs and employees. Filter by date range and technician for dispatch planning. View daily, weekly, or monthly layouts.",
+            "Links to Jobs, Employees, Service Agreements.",
+            ["Use employee filtering to check tech availability before assigning.", "Calendar events auto-sync with job status changes."],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Employees", "bi-person-badge", "/employees")]),
+        new("Material Lists", "bi-list-check", "/materiallists",
+            "Build structured itemized lists with sections, pricing methods, and reusable templates.",
+            "Create lists with items grouped by section (e.g., Ductwork, Electrical, Equipment). Use templates for common job kits. Link to products for pricing.",
+            "Links to Products, Jobs, Estimates, Inventory.",
+            ["Create templates for common job types to speed up bidding.", "Pricing methods (time-based, flat rate) are configurable per section."],
+            [new("Products", "bi-box-seam", "/products"), new("Estimates", "bi-calculator", "/estimates"), new("Templates", "bi-copy", "/templates")]),
+        new("Documents", "bi-folder-fill", "/documents",
+            "Centralized vault for manuals, warranties, permits, photos, and business files.",
+            "Upload documents linked to customers, jobs, or assets with category tags and access control (Public, Private, Role-Based, Customer Only).",
+            "Links to all entities via polymorphic relationships.",
+            ["Use access levels to control who sees sensitive documents.", "Link warranty documents to assets for easy claim reference."],
+            [new("Assets", "bi-cpu", "/assets"), new("Customers", "bi-people", "/customers")]),
+        new("Quick Notes", "bi-sticky-fill", "/quicknotes",
+            "Fast capture of ad-hoc information linked to any entity with urgency flags.",
+            "Create notes with categories, urgency flags, and entity links. Browse via card-based layout with filtering. Import note content into job descriptions.",
+            "Links to Jobs, Customers, Assets, and all entities.",
+            ["Use urgency flags for time-sensitive site observations.", "Import notes into jobs or estimates to avoid retyping."],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Customers", "bi-people", "/customers")]),
+        new("Reports", "bi-graph-up", "/reports",
+            "Analytics dashboards, standard report templates, audit logs, and KPI tracking.",
+            "Browse report templates, view KPI analytics (revenue, jobs, efficiency), and review audit trails for compliance. Filter by date range and category.",
+            "Aggregates data from all modules.",
+            ["Use the Analytics tab for real-time KPIs.", "Audit logs track every data change for accountability."],
+            [new("Financials", "bi-receipt", "/financials"), new("Jobs", "bi-briefcase", "/jobs")]),
+        new("Settings", "bi-gear-fill", "/settings",
+            "Company profile, user roles, customizations, dropdown editor, notifications, templates, and data management.",
+            "Configure company details, manage user accounts and roles, customize dropdowns for all pages, toggle notification preferences, and export/import/backup data.",
+            "Propagates to all pages and dropdowns.",
+            ["Customize dropdowns first \u2014 they appear across all forms.", "Use Data Management to export CSV backups regularly."],
+            [new("Reports", "bi-graph-up", "/reports")]),
+        new("Templates", "bi-copy", "/templates",
+            "Reusable blueprint library for material lists, job checklists, estimate formats, and product variants.",
+            "Create templates with structured content. Clone for site-specific variants. Apply to estimates, jobs, and agreements for consistent setup.",
+            "Links to Material Lists, Products, Jobs, Estimates, Inventory.",
+            ["Templates eliminate repetitive setup for common job types.", "Clone and customize per customer for personalized bids."],
+            [new("Material Lists", "bi-list-check", "/materiallists"), new("Products", "bi-box-seam", "/products")]),
+        new("Service History", "bi-wrench-adjustable", "/servicehistory",
+            "Track warranty claims and non-warranty repairs with evidence, resolutions, cost tracking, and claim actions.",
+            "Log records from jobs or assets. File warranty claims with evidence. Track claim status (Filed, Under Review, Approved, Denied) and reimbursements.",
+            "Links to Customers, Sites, Assets, Jobs, Financials.",
+            ["Attach photos and documents as evidence for warranty claims.", "Track reimbursements to ensure manufacturers pay on time."],
+            [new("Assets", "bi-cpu", "/assets"), new("Jobs", "bi-briefcase", "/jobs"), new("Documents", "bi-folder", "/documents")]),
+        new("Search", "bi-search", "/search",
+            "Universal cross-entity search across all 10 entity types with category filtering.",
+            "Type in the header search bar to find jobs, customers, sites, assets, invoices, and more. Results are grouped by category with counts and filter chips.",
+            "Searches across Jobs, Customers, Sites, Estimates, Assets, Employees, Invoices, Documents, Agreements, Products.",
+            ["Use the header search bar from any page \u2014 results open in the Search page.", "Filter by category to narrow down results."],
+            []),
+    ];
+
+    private WorkflowGuide[] _workflows =
+    [
+        new("Estimate to Invoice", "bi-arrow-right-circle",
+            "The complete bid-to-payment lifecycle \u2014 from customer request through material estimation, job execution, and final payment collection.",
+            ["Create Customer and add Site with property details", "Build Material List with sections and pricing", "Create Estimate from material list with markup", "Send to customer and track approval status", "Convert approved Estimate to Job", "Schedule in Calendar and assign certified tech", "Tech executes work, logs time and materials", "Generate Invoice from completed Job", "Record partial or full Payment"],
+            [new("Estimates", "bi-calculator", "/estimates"), new("Jobs", "bi-briefcase", "/jobs"), new("Financials", "bi-receipt", "/financials")]),
+        new("Emergency Dispatch", "bi-exclamation-triangle",
+            "Rapid response workflow for urgent service calls \u2014 minimize dispatch time with certification-aware scheduling.",
+            ["Receive emergency call from customer", "Quick-create Job with Emergency priority", "Check Calendar for available certified techs", "Assign technician and send notification", "Tech updates status on mobile (En Route \u2192 On Site \u2192 Complete)", "Generate invoice on completion"],
+            [new("Jobs", "bi-briefcase", "/jobs"), new("Calendar", "bi-calendar3", "/calendar"), new("Employees", "bi-person-badge", "/employees")]),
+        new("Service Agreement Lifecycle", "bi-arrow-repeat",
+            "Manage recurring service contracts from creation through scheduled visits, renewals, and warranty tracking.",
+            ["Create Agreement with coverage level and visit count", "Link covered assets to the agreement", "Schedule recurring visit events in Calendar", "Track visits used vs. included per period", "Monitor renewal dates with dashboard alerts", "Generate renewal estimates before expiry"],
+            [new("Agreements", "bi-file-earmark-check", "/serviceagreements"), new("Calendar", "bi-calendar3", "/calendar"), new("Assets", "bi-cpu", "/assets")]),
+        new("Asset Lifecycle", "bi-recycle",
+            "From product catalog to installation, maintenance, warranty tracking, and eventual decommissioning.",
+            ["Add Product to catalog with specs and pricing", "Install at Site via Job (creates Asset record)", "Track warranty dates and maintenance schedules", "Log repairs and service calls in Service History", "Schedule agreement-based tune-ups in Calendar", "File warranty claims with evidence if needed", "Retire or decommission when end-of-life"],
+            [new("Products", "bi-box-seam", "/products"), new("Assets", "bi-cpu", "/assets"), new("Service History", "bi-wrench-adjustable", "/servicehistory")]),
+        new("Inventory Restocking", "bi-box-seam",
+            "Monitor stock levels, identify items below reorder points, and replenish from suppliers.",
+            ["Dashboard shows low-stock items below reorder threshold", "Review inventory KPIs for expiring or depleted items", "Create purchase list from low-stock products", "Receive shipment and update stock quantities", "Verify counts with batch adjustment"],
+            [new("Inventory", "bi-boxes", "/inventory"), new("Products", "bi-box-seam", "/products")]),
+        new("Multi-Site Customer Setup", "bi-buildings",
+            "Configure landlord or property management customers with multiple sites, assets, and agreements.",
+            ["Create Customer as Commercial/Property Management type", "Add multiple Sites with addresses and property details", "Link Assets to each site (HVAC units, equipment)", "Create Service Agreements covering all sites", "Schedule batch maintenance visits in Calendar", "Use territorial filtering for dispatch optimization"],
+            [new("Customers", "bi-people", "/customers"), new("Sites", "bi-geo-alt", "/sites"), new("Agreements", "bi-file-earmark-check", "/serviceagreements")]),
+    ];
+
+    private FaqItem[] _faqs =
+    [
+        new("How do I handle multi-site landlord customers?", "Create the customer with a Commercial or Property Management type, then add multiple sites under them. Each site has its own address, zones, access notes, and assets. Use territorial filtering in Calendar for efficient dispatch to grouped locations.", "Customers", "/customers"),
+        new("How do data transfers work between pages?", "When you convert an estimate to a job, material lists, customer info, and site data carry over automatically. Invoice generation pulls job materials and labor hours for billing. Asset creation from jobs links service history. This eliminates re-entry across the workflow.", "Data Flow"),
+        new("Can I customize dropdown options?", "Yes \u2014 go to Settings > Customizations to add, edit, or remove dropdown entries like job priorities, equipment types, property types, and more. Changes apply across all pages immediately.", "Settings", "/settings"),
+        new("How do Quick Notes integrate with other pages?", "Notes auto-link to the entity they were created from (job, customer, asset, etc.). You can import note content into job descriptions, material lists, or other fields. Use urgency flags for time-sensitive observations.", "Quick Notes", "/quicknotes"),
+        new("What is the difference between time-based and flat rate pricing?", "Time-based pricing calculates materials cost plus labor hours multiplied by hourly rate. Flat rate uses a fixed price per item or section. You can switch methods in Material Lists and Estimates per section.", "Estimates", "/estimates"),
+        new("How do I track warranty claims?", "Go to Service History and create a Warranty record linked to the asset and job. Attach evidence (photos, documents), set the claim status, and track manufacturer responses. Reimbursement amounts are logged for financial reporting.", "Service History", "/servicehistory"),
+        new("How do I export my data?", "Go to Settings > Data Management. You can export all tables as a combined CSV, export individual tables, or download a full database backup file. Use CSV imports to bulk-load data from other systems.", "Data Management", "/settings"),
+        new("How do I add a new user?", "Navigate to Settings > Users and Roles and click Add User. Fill in username, email, password, and assign a role (Owner, Admin, Dispatcher, Tech, Manager). Users can be activated, deactivated, or locked from the same screen.", "Users", "/settings"),
+        new("Can I schedule recurring service visits?", "Create a Service Agreement with included visit counts, then schedule individual events in the Calendar linked to that agreement. Track visits used vs. included to stay within coverage limits.", "Agreements", "/serviceagreements"),
+        new("How do I generate an invoice from a completed job?", "Once a job is marked Completed or Closed, go to Financials and create an invoice. Job materials, labor time entries, and customer data auto-populate the invoice lines.", "Financial", "/financials"),
+        new("What happens when inventory runs low?", "Items below their reorder point trigger a Low Inventory alert on the Dashboard and in Notifications (if enabled in Settings). The Inventory KPI dashboard highlights critical items for restocking.", "Inventory", "/inventory"),
+        new("How do document access levels work?", "Documents can be set to Public (everyone), Private (owner only), Role-Based (specific roles), or Customer Only (shared with customer portal). Set access when uploading or edit later.", "Documents", "/documents"),
+    ];
+
+    private TipItem[] _tips =
+    [
+        new("Use Global Search", "The header search bar finds customers, jobs, invoices, assets, and more across all 10 entity types instantly. Results are grouped by category with filter chips.", "Efficiency", "/search"),
+        new("Dashboard First", "Start your day on the Dashboard \u2014 it surfaces urgent items like unscheduled jobs, overdue invoices, expiring agreements, and low inventory.", "Efficiency", "/"),
+        new("Templates Save Time", "Create material list and job templates for common work types (installations, tune-ups, repairs). Clone them when building new estimates.", "Efficiency", "/templates"),
+        new("Quick Notes on Mobile", "Use the floating action button to capture site details, photos, and voice notes in the field without leaving your current task.", "Mobile"),
+        new("Offline Access", "The mobile app caches job details, site info, and documents for offline use. Changes sync automatically when connectivity returns.", "Mobile"),
+        new("Mobile Time Clock", "Clock in/out from the mobile app with GPS tracking. Time entries auto-link to the assigned job for accurate labor billing.", "Mobile"),
+        new("Batch Scheduling", "For multi-site customers, schedule sequential jobs in the Calendar to optimize tech travel routes and minimize windshield time.", "Scheduling", "/calendar"),
+        new("Certification Dispatching", "When assigning techs, check their certifications (EPA, NATE) in the Employee profile to ensure qualified dispatch.", "Scheduling", "/employees"),
+        new("Track Warranties", "Link warranty documents to assets for easy reference during service calls. Set expiration alerts to file claims before deadlines.", "Field Work", "/assets"),
+        new("Photo Evidence", "Attach before/after photos to jobs and service history records. These support warranty claims and customer communication.", "Field Work", "/documents"),
+        new("Regular Backups", "Use Settings > Data Management to download database backups weekly. Store offsite for disaster recovery.", "Data Management", "/settings"),
+        new("CSV Import/Export", "Bulk-load customers, products, and inventory from CSV files. Export data for reporting in Excel or other tools.", "Data Management", "/settings"),
+        new("Partial Payments", "Record partial payments against invoices to track outstanding balances. The aging report shows overdue amounts by customer.", "Financial", "/financials"),
+        new("Expense Tracking", "Log business expenses (materials, fuel, tools) against jobs or as general overhead. Reports aggregate for tax preparation.", "Financial", "/financials"),
+        new("Dropdown Customization", "Customize dropdown options in Settings > Customizations before creating data. This ensures consistent categorization across all pages.", "Efficiency", "/settings"),
+    ];
+}

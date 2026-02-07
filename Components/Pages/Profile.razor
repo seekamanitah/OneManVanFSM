@@ -1,0 +1,266 @@
+@page "/profile"
+@inject IMobileTimeService TimeService
+@inject IMobileDashboardService DashboardService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <!-- Profile Header -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="card-subtitle" style="font-size:0.7rem;">Updated @_lastUpdated.ToString("h:mm tt")</span>
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:2px 10px;" @onclick="RefreshProfile">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
+    </div>
+    <div class="mobile-card text-center">
+        <div class="mb-2">
+            <i class="bi bi-person-circle" style="font-size:3.5rem; color:var(--primary);"></i>
+        </div>
+        <h5 class="fw-bold mb-0">@(_profile?.Name ?? "Technician")</h5>
+        <p class="text-muted mb-1" style="font-size:0.85rem;">@(_profile?.Role ?? "Tech") Technician</p>
+        @if (_profile?.Territory != null)
+        {
+            <p class="text-muted mb-0" style="font-size:0.8rem;">
+                <i class="bi bi-geo-alt me-1"></i>@_profile.Territory
+            </p>
+        }
+    </div>
+
+    <!-- Contact & Details -->
+    @if (_profile != null)
+    {
+        <div class="section-header">Details</div>
+        <div class="mobile-card">
+            <div class="d-flex flex-column gap-2">
+                @if (_profile.Phone != null)
+                {
+                    <div class="d-flex align-items-center" style="font-size:0.85rem;">
+                        <i class="bi bi-telephone me-2 text-muted"></i>
+                        <a href="tel:@_profile.Phone" style="text-decoration:none;">@_profile.Phone</a>
+                    </div>
+                }
+                @if (_profile.Email != null)
+                {
+                    <div class="d-flex align-items-center" style="font-size:0.85rem;">
+                        <i class="bi bi-envelope me-2 text-muted"></i>
+                        <a href="mailto:@_profile.Email" style="text-decoration:none;">@_profile.Email</a>
+                    </div>
+                }
+                <div class="d-flex align-items-center" style="font-size:0.85rem;">
+                    <i class="bi bi-calendar-event me-2 text-muted"></i>
+                    <span>Hired @_profile.HireDate.ToString("MMM dd, yyyy")</span>
+                </div>
+                @if (_profile.VehicleAssigned != null)
+                {
+                    <div class="d-flex align-items-center" style="font-size:0.85rem;">
+                        <i class="bi bi-truck me-2 text-muted"></i>
+                        <span>@_profile.VehicleAssigned</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Certifications -->
+        @if (_profile.Certifications.Any())
+        {
+            <div class="section-header">Certifications</div>
+            <div class="mobile-card">
+                <div class="d-flex flex-wrap gap-2">
+                    @foreach (var cert in _profile.Certifications)
+                    {
+                        <span class="badge bg-primary-subtle text-primary" style="font-size:0.75rem; padding:5px 10px; border-radius:20px;">
+                            <i class="bi bi-patch-check me-1"></i>@cert
+                        </span>
+                    }
+                </div>
+                @if (_profile.LicenseNumber != null)
+                {
+                    <div class="mt-2 pt-2 border-top" style="font-size:0.8rem;">
+                        <i class="bi bi-card-heading me-1 text-muted"></i>
+                        License: @_profile.LicenseNumber
+                        @if (_profile.LicenseExpiry.HasValue)
+                        {
+                            var isExpired = _profile.LicenseExpiry.Value < DateTime.UtcNow;
+                            <span class="@(isExpired ? "text-danger" : "text-muted")">
+                                (@(isExpired ? "Expired" : $"Exp: {_profile.LicenseExpiry.Value:MMM yyyy}"))
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    <!-- Time Summary Stats -->
+    <div class="section-header">Time Summary</div>
+    <div class="mobile-card">
+        <div class="profile-stat-row">
+            <div class="stat">
+                <div class="stat-num">@_timeSummary.HoursToday.ToString("0.#")</div>
+                <div class="stat-lbl">Today</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">@_timeSummary.HoursThisWeek.ToString("0.#")</div>
+                <div class="stat-lbl">This Week</div>
+            </div>
+            <div class="stat">
+                <div class="stat-num">@_timeSummary.HoursThisMonth.ToString("0.#")</div>
+                <div class="stat-lbl">This Month</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Performance KPIs -->
+    <div class="section-header">Performance</div>
+    <div class="gap-grid">
+        <div class="stat-card">
+            <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-value">@_timeSummary.JobsCompletedThisWeek</div>
+            <div class="stat-label">Jobs This Week</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-primary"><i class="bi bi-clock"></i></div>
+            <div class="stat-value">@(_timeSummary.IsClockedIn ? "Active" : "Off")</div>
+            <div class="stat-label">Clock Status</div>
+        </div>
+    </div>
+
+    <!-- Time Clock Control -->
+    <div class="section-header">Time Clock</div>
+    <div class="time-clock-card">
+        @if (_timeSummary.IsClockedIn)
+        {
+            <div class="clock-label">Clocked In Since</div>
+            <div class="clock-time">@(_timeSummary.CurrentClockInTime?.ToString("h:mm tt") ?? "--:--")</div>
+            <button class="btn btn-outline-light btn-sm mt-2 px-4" @onclick="ClockOut">
+                <i class="bi bi-stop-circle me-1"></i>Clock Out
+            </button>
+        }
+        else
+        {
+            <div class="clock-label">Not Clocked In</div>
+            <div class="clock-time">--:--</div>
+            <button class="btn btn-light btn-sm mt-2 px-4" @onclick="ClockIn">
+                <i class="bi bi-play-circle me-1"></i>Clock In
+            </button>
+        }
+    </div>
+
+    <!-- Recent Time Entries -->
+    @if (_recentEntries.Any())
+    {
+        <div class="section-header">Recent Time Entries</div>
+        @foreach (var entry in _recentEntries)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-0" style="font-size:0.85rem;">
+                            @entry.StartTime.ToString("MMM dd") ·
+                            @entry.StartTime.ToString("h:mm tt")
+                            @if (entry.EndTime.HasValue)
+                            {
+                                <span>– @entry.EndTime.Value.ToString("h:mm tt")</span>
+                            }
+                            else
+                            {
+                                <span class="text-success">(active)</span>
+                            }
+                        </p>
+                        @if (entry.Notes != null)
+                        {
+                            <p class="card-subtitle mb-0">@entry.Notes</p>
+                        }
+                    </div>
+                    <span class="fw-bold" style="font-size:0.85rem;">@entry.Hours.ToString("0.#")h</span>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Quick Links -->
+    <div class="section-header">Quick Links</div>
+    <div class="mobile-card">
+        <div class="d-flex flex-column gap-1">
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/reports")'>
+                <span style="font-size:0.9rem;"><i class="bi bi-bar-chart me-2 text-primary"></i>My Reports & KPIs</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/agreements")'>
+                <span style="font-size:0.9rem;"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Service Agreements</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/customers")'>
+                <span style="font-size:0.9rem;"><i class="bi bi-people me-2 text-primary"></i>Customers</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/settings")'>
+                <span style="font-size:0.9rem;"><i class="bi bi-gear me-2 text-primary"></i>Settings</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="Logout">
+                <span style="font-size:0.9rem;"><i class="bi bi-box-arrow-right me-2 text-danger"></i>Sign Out</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+private int _employeeId;
+private MobileTimeSummary _timeSummary = new();
+private List<MobileTimeEntrySummary> _recentEntries = [];
+private MobileEmployeeProfile? _profile;
+private bool _loading = true;
+private DateTime _lastUpdated = DateTime.Now;
+
+protected override async Task OnInitializedAsync()
+{
+    _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    await LoadProfile();
+}
+
+private async Task LoadProfile()
+{
+    _loading = true;
+    _profile = await TimeService.GetEmployeeProfileAsync(_employeeId);
+    _timeSummary = await TimeService.GetTimeSummaryAsync(_employeeId);
+    _recentEntries = await TimeService.GetRecentEntriesAsync(_employeeId, 5);
+    _lastUpdated = DateTime.Now;
+    _loading = false;
+}
+
+private async Task RefreshProfile()
+{
+    await LoadProfile();
+}
+
+private async Task Logout()
+{
+    await AuthService.LogoutAsync();
+    Nav.NavigateTo("/login", forceLoad: true);
+}
+
+    private async Task ClockIn()
+    {
+        await TimeService.ClockInAsync(_employeeId);
+        await LoadProfile();
+    }
+
+    private async Task ClockOut()
+    {
+        await TimeService.ClockOutAsync(_employeeId);
+        await LoadProfile();
+    }
+}

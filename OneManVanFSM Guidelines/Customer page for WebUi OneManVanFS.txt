@@ -1,0 +1,61 @@
+Customer page for WebUi OneManVanFSM
+
+### Customers Page - Exhaustive Description
+
+**Routes**: `/customers` (list view); `/customers/{id}` (detail view); `/customers/new` or `/customers/{id}/edit` (create/edit view). For companies, integrated as a subtype or linked entity (e.g., `/customers/{id}/companies` for managing linked companies, but primarily handled within customer workflows to avoid silos).
+
+**Purpose & Business Context**:
+- The Customers page is the foundational hub for managing all client-related data, designed to holistically integrate individuals (residential customers, landlords) and organizations (companies, commercial entities) in a way that reflects real-world complexity. For a small HVAC contractor, it centralizes everything needed to serve clients efficiently: From a landlord with multiple rental properties (each as a site with potentially multiple assets like furnaces per unit) to a company with dispersed locations (e.g., a chain of stores, each with its own AC systems). This prevents fragmented data—e.g., a customer might not be a company but owns multiple estates (sites) with varying assets (one site with multiple boilers), while companies always require at least one (and optionally multiple) customer contacts for territorial or departmental handling (e.g., John Doe handles East County sites, Jill Dane handles West—ensuring the right person gets job notifications).
+- HVAC-specific: Emphasizes asset-heavy tracking (e.g., refrigerant compliance across sites), seasonal service needs (e.g., quick glance at recent furnace repairs before winter scheduling), and agreement linkages (e.g., multi-site maintenance contracts). Generic foundation: Adaptable for trades like plumbing (e.g., track water heaters as assets across landlord rentals) or electrical (e.g., panel upgrades per company location). The page supports workflow progression: Quick links to create/schedule jobs, estimates, or invoices directly from here, with data transfer (e.g., selected site's assets prepopulate in a new estimate's material list).
+- Business value: Promotes efficiency by providing a "one-stop summary" for any client—e.g., glance at assets (current status, recent repairs), jobs (upcoming/recent, with locations), and financials (outstanding invoices)—reducing time spent navigating. Industry thinking: Contractors deal with fragmented client structures (e.g., a company contact changes per site); this page streamlines by allowing multi-contact linking under companies, auto-routing communications (e.g., email job confirm to the right territorial contact). For users: Office staff quickly assesses client health before calls; dispatchers see site-specific notes/assets for better job prep. Overall robustness: Data shared here flows to all modules (e.g., customer ID auto-links to jobs/invoices), minimizing re-entry and ensuring consistency (e.g., update a company's contact → propagates to all linked sites/jobs).
+
+**Data Sources & Interconnections**:
+- **Core Entities**: Customers table (ID PK, Name, Type enum: Individual/Company—customizable, e.g., add "Landlord" subtype; Contact Info multi-array for phones/emails; Since Date, Credit Limit, Notes). Companies integrated as a flag or linked subtype (e.g., CompanyID FK self-referential or separate Companies table with CustomerID as contacts—prefer separate for scalability, with Many-to-Many junction for multi-contacts per company).
+- **Interconnections**:
+  - **Sites/Assets**: One-to-Many (CustomerID/CompanyID FK to Sites; Sites FK to Assets). Summary pulls aggregates (e.g., count sites/assets, recent repairs from Job history joined on Assets). Data flow: Select customer → auto-load linked sites/assets; quick links create new site/asset with customer pre-linked.
+  - **Jobs/Estimates**: One-to-Many (CustomerID/CompanyID FK). Glances: Recent/upcoming jobs (joins Jobs on Status/Date, with Site location). Data transfer: "Schedule New Job" → opens scheduler with customer/sites/assets prepopulated (e.g., suggest materials from asset history).
+  - **Invoices/Expenses/ServiceAgreements**: Joins for financial summary (e.g., outstanding balance from Invoices; agreements due for renewal). Quick links: "New Invoice" → prepopulates from recent jobs.
+  - **QuickNotes/Documents**: Polymorphic links (EntityType=Customer/Company). Summary shows recent notes (filtered by category, e.g., "Site Access"); import button transfers to customer notes or linked entities (e.g., material note to asset repair history).
+  - **Employees**: Indirect via jobs (e.g., assigned techs in job glances); for companies, territorial contacts link to customer records with Employee-like fields (e.g., "Contact Role" dropdown).
+  - **Shared Data Flow**: Customer/Company ID as universal key—e.g., update address → cascades to linked sites (optional override per site); new company contact → auto-adds as a customer record with back-link. Robust views: "CustomerSummaryView" (joins all above for quick loads); "MultiSiteAssetsView" for landlords/companies.
+- **Robustness**: Indexes on Name/Type/CompanyID for fast searches; soft-delete preserves history (e.g., archived customer still shows past jobs); constraints ensure integrity (e.g., company must have at least one contact; sites require customer/company link). AuditLogs track changes (e.g., "Added Site to Customer X").
+
+**Layout & Sections** (Desktop Web Focus: Tabbed/Accordion for Density, Responsive Grids for Mobile Stacking):
+- **List View (/customers)**: Searchable table (columns: Name/Type (Individual/Company badge), Primary Contact/Phone/Email, Sites Count, Assets Count, Open Jobs, Outstanding Balance—sortable/prepopulated filters like "Type: Company" dropdown customizable). Responsive: Cards on narrower screens with expand for details.
+- **Detail View (/customers/{id})**: Single-page summary with tabs/accordions for organization (collapsible for mobile vertical flow).
+  - **Header**: Name (editable inline), Type badge, Primary Photo/Avatar, Quick Actions dropdown ("New Job/Estimate/Invoice/Site/Asset/Note/Contact" – prepopulated links with data transfer).
+  - **Contact Info Section**: Editable fields (multi-emails/phones with "Add More" button); for companies: Multi-contact table (columns: Name/Role/Territory/Phone – "Add Existing Customer" search or "Create New" form, with territorial dropdown customizable e.g., "East County").
+  - **Sites & Locations Accordion**: Table (columns: Site Name/Address/GeoLink (maps integration)/Assets Count/Notes – clickable to site detail). Summary: "X Sites (Y with Multiple Assets)". Add button creates new with customer pre-linked.
+  - **Assets Summary Accordion**: Aggregated table (grouped by site: Asset Name/Type (prepopulated dropdown like "Furnace"/customizable), Install Date, Warranty Status, Recent Repairs (links to job history)). Quick glance: "Most Recent Repair: Furnace at Site A (2 weeks ago, Location: Basement)".
+  - **Jobs & Repairs Accordion**: Split tabs – Recent (table: Job #/Date/Site/Status/Technician), Upcoming (similar). Quick glance: "Most Recent: AC Repair at Site B (Filter Replaced)"; "Upcoming: Maintenance at Site C (Tomorrow)".
+  - **Financials & Agreements Accordion**: Outstanding invoices table (links to details), agreements summary (e.g., "2 Active, Next Visit Due: Site A"). Quick links: "New Invoice" (prepopulates from open jobs).
+  - **Notes & Documents Accordion**: Quick Notes feed (recent with import button), documents list (e.g., tax forms/manuals – upload/view). Summary: Filterable by category.
+  - **Footer**: Related links (e.g., "View All Jobs" filtered by customer), export button (PDF/CSV of summary).
+- **Edit/Create View**: Form mirroring detail (tabs for sections), with validation (e.g., company requires contact).
+
+**UX Interactions & Flows**:
+- **List to Detail**: Search/filter (e.g., "Landlords with >2 Sites") → Click row → Detail loads with tabs open to urgents (e.g., if outstanding balance, Financials expanded).
+- **Multi-Entity Handling**: For companies: "Add Contact" → Search existing customers (prepopulates matches) or create new (form with territorial/role dropdowns – e.g., select "John Doe" → auto-links, ensuring notifications route correctly). For individuals: "Add Site" → Form with asset multi-add (e.g., checkbox "Multiple Assets Here?" → Dynamic fields for each).
+- **Quick Glances & Links**: Hover/click summaries (e.g., "Recent Repair" → Jumps to job detail with site/asset highlighted). "Schedule New Job" → Opens scheduler with customer/sites/assets prepopulated (e.g., select site → auto-suggest assets needing service based on history).
+- **Data Transfer**: Edit contact → Saves and propagates (e.g., to linked jobs/invoices); create site/asset → Auto-adds to summary without refresh.
+- **User Journey**: Search "ABC Rentals" (landlord) → Detail shows sites/assets/jobs → Spot expiring warranty → Quick note "Schedule Inspection" → "New Job" link prepopulates site/asset/note. For company: Add territorial contact → Future jobs auto-assign notifications to right person.
+- **Efficiency Features**: Prepopulated dropdowns (e.g., Type/Role/Territory – customizable add/edit/remove); global search integrates (e.g., from header, "John Doe Contact" → Jumps to company detail with contact highlighted). Inline editing for quick updates (e.g., phone number).
+
+**Customizations & Configurability**:
+- Admins (Settings > Customers): Add/edit/remove dropdowns (e.g., Type: Add "Non-Profit"; Role: Add "Facilities Manager"); toggle fields (e.g., hide Credit Limit for residential); customize summaries (e.g., add "Total Assets Value" column). Per-role: Techs see read-only summaries (hide financials); dispatchers see enhanced job glances.
+- Quick Notes/Documents: Custom categories for customer-specific (e.g., add "Rental Agreement Details" for landlords).
+
+**Edge Cases & Robustness**:
+- Complex Structures: Handle "Customer as Company Contact" loop (e.g., validation prevents infinite links); multi-assets per site (grouped tables with expand/collapse).
+- No Data: Empty states actionable (e.g., "No Sites – Add One?" button opens form prepopulated).
+- Large Portfolios: Pagination in tables (e.g., "Show More Sites"); virtual scrolling for 100+ assets.
+- Permissions: View-only for techs (their assigned customers); edit restricted to managers. Hidden sections per role (e.g., financials for owners only).
+- Offline Prep: Cache customer summaries for mobile (e.g., tech views assigned customers without net); sync changes with conflict resolution (e.g., address update merges).
+
+**Integrations & Automation**:
+- Triggers: New site/asset → Notification (e.g., "New Site Added for Customer X – Schedule Inspection?"); warranty glance near expiry → Auto-create draft job.
+- External: Maps for site addresses (Google Maps click-to-navigate); QuickBooks sync button (export customer data); email for contact updates.
+- Workflow Ties: Quick links ensure progression (e.g., "New Estimate" from here → Prepopulates customer/sites/assets, transferring data like recent repairs to notes).
+
+**Mobile Considerations (For Seamless Carry-Over)**:
+- Responsive design translates: List as searchable cards (swipe to view detail); detail as vertical scroll with accordions (tap to expand, e.g., Sites first for techs). Quick actions as bottom sheet; add contact/site as full-screen forms with voice input. Touch: Larger buttons for "Add More" (e.g., contacts); offline cache prioritizes assigned customers/sites (techs see their workload without net). No rework needed: Use flexible layouts (e.g., grids to lists) for clean display on small screens.

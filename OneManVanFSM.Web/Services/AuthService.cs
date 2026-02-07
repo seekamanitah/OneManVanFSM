@@ -1,0 +1,213 @@
+using System.Security.Claims;
+using System.Security.Cryptography;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
+using OneManVanFSM.Shared.Data;
+using OneManVanFSM.Shared.Models;
+
+namespace OneManVanFSM.Web.Services;
+
+public class AuthService : IAuthService
+{
+    private readonly AppDbContext _db;
+    private readonly IHttpContextAccessor _httpContextAccessor;
+    private const int MaxLoginAttempts = 5;
+
+    public AuthService(AppDbContext db, IHttpContextAccessor httpContextAccessor)
+    {
+        _db = db;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    public async Task<AuthResult> LoginAsync(string usernameOrEmail, string password)
+    {
+        var user = await _db.Users
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(u =>
+                u.Username == usernameOrEmail || u.Email == usernameOrEmail);
+
+        if (user is null)
+            return AuthResult.Failure("Invalid username or password.");
+
+        if (user.IsLocked)
+            return AuthResult.Failure("Account is locked. Contact your administrator.");
+
+        if (!user.IsActive)
+            return AuthResult.Failure("Account is inactive. Contact your administrator.");
+
+        if (!VerifyPassword(password, user.PasswordHash))
+        {
+            user.LoginAttempts++;
+            if (user.LoginAttempts >= MaxLoginAttempts)
+                user.IsLocked = true;
+
+            await _db.SaveChangesAsync();
+            return AuthResult.Failure("Invalid username or password.");
+        }
+
+        // Successful login — reset attempts, update last login
+        user.LoginAttempts = 0;
+        user.LastLogin = DateTime.UtcNow;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        // Create claims and sign in with cookie
+        var claims = new List<Claim>
+        {
+            new(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new(ClaimTypes.Name, user.Username),
+            new(ClaimTypes.Email, user.Email),
+            new(ClaimTypes.Role, user.Role.ToString()),
+        };
+
+        if (user.Employee is not null)
+        {
+            claims.Add(new Claim("EmployeeId", user.Employee.Id.ToString()));
+            claims.Add(new Claim("EmployeeName", user.Employee.Name));
+            if (user.Employee.Territory is not null)
+                claims.Add(new Claim("Territory", user.Employee.Territory));
+        }
+
+        var identity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var principal = new ClaimsPrincipal(identity);
+
+        var httpContext = _httpContextAccessor.HttpContext!;
+        await httpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            principal,
+            new AuthenticationProperties
+            {
+                IsPersistent = true,
+                ExpiresUtc = DateTimeOffset.UtcNow.AddHours(12),
+            });
+
+        return AuthResult.Success(user);
+    }
+
+    public async Task LogoutAsync()
+    {
+        var httpContext = _httpContextAccessor.HttpContext!;
+        await httpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+    }
+
+    public async Task<AuthResult> RegisterAsync(RegisterRequest request)
+    {
+        if (request.Password != request.ConfirmPassword)
+            return AuthResult.Failure("Passwords do not match.");
+
+        if (request.Password.Length < 6)
+            return AuthResult.Failure("Password must be at least 6 characters.");
+
+        var exists = await _db.Users.AnyAsync(u =>
+            u.Username == request.Username || u.Email == request.Email);
+
+        if (exists)
+            return AuthResult.Failure("Username or email already exists.");
+
+        var user = new AppUser
+        {
+            Username = request.Username,
+            Email = request.Email,
+            PasswordHash = HashPassword(request.Password),
+            Role = request.RequestedRole,
+            IsActive = false, // Requires admin approval per guideline
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        return AuthResult.Success(user);
+    }
+
+    public async Task<AppUser?> GetCurrentUserAsync()
+    {
+        var httpContext = _httpContextAccessor.HttpContext;
+        var userIdClaim = httpContext?.User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim is null || !int.TryParse(userIdClaim.Value, out var userId))
+            return null;
+
+        return await _db.Users
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+    }
+
+    public async Task<bool> RequestPasswordResetAsync(string email)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == email);
+        // Always return true to prevent email enumeration
+        // In production, send reset email here
+        return true;
+    }
+
+    public async Task<List<UserListItem>> GetUsersAsync()
+    {
+        return await _db.Users
+            .Include(u => u.Employee)
+            .OrderBy(u => u.Username)
+            .Select(u => new UserListItem
+            {
+                Id = u.Id,
+                Username = u.Username,
+                Email = u.Email,
+                Role = u.Role,
+                IsActive = u.IsActive,
+                IsLocked = u.IsLocked,
+                LastLogin = u.LastLogin,
+                EmployeeName = u.Employee != null ? u.Employee.Name : null,
+                CreatedAt = u.CreatedAt
+            })
+            .ToListAsync();
+    }
+
+    public async Task<bool> ToggleUserActiveAsync(int userId)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return false;
+        user.IsActive = !user.IsActive;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> UpdateUserRoleAsync(int userId, UserRole role)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return false;
+        user.Role = role;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> ToggleLockAsync(int userId)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return false;
+        user.IsLocked = !user.IsLocked;
+        if (!user.IsLocked) user.LoginAttempts = 0;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    // --- Password hashing with PBKDF2 ---
+    public static string HashPassword(string password)
+    {
+        var salt = RandomNumberGenerator.GetBytes(16);
+        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
+        var combined = new byte[48];
+        salt.CopyTo(combined, 0);
+        hash.CopyTo(combined, 16);
+        return Convert.ToBase64String(combined);
+    }
+
+    private static bool VerifyPassword(string password, string storedHash)
+    {
+        var combined = Convert.FromBase64String(storedHash);
+        var salt = combined[..16];
+        var storedKey = combined[16..];
+        var hash = Rfc2898DeriveBytes.Pbkdf2(password, salt, 100_000, HashAlgorithmName.SHA256, 32);
+        return CryptographicOperations.FixedTimeEquals(hash, storedKey);
+    }
+}

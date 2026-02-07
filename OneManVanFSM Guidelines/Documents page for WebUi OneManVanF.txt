@@ -1,0 +1,153 @@
+Documents page for WebUi OneManVanFSM
+
+### Documents Page - Exhaustive Description
+
+**Routes**:  
+- `/documents` — main list and dashboard view for browsing, searching, uploading, and organizing all documents across the app.  
+- `/documents/{id}` — detail view for a specific document (preview, annotations, edit metadata, share options).  
+- `/documents/new` or `/documents/{id}/edit` — upload/create or edit view.  
+- Contextual embeds: `/assets/{assetId}/documents`, `/customers/{customerId}/documents`, `/jobs/{jobId}/documents`, `/employees/{employeeId}/documents`, etc.  
+
+These contextual routes allow the page to feel native inside other sections (e.g., on an asset detail page you see only documents related to that asset, but you can still upload a new one that gets linked automatically).
+
+**Purpose & Business Context**  
+The Documents page is the centralized, searchable vault for every recurring or reference file the business deals with daily: instruction manuals, parts literature, setup/install guides, warranty printouts, product brochures, employee applications, certifications, business tax documents, permits, subcontractor agreements, safety sheets, supplier catalogs, etc.
+
+For a small HVAC (or plumbing/electrical) contractor, this solves a very real pain point:  
+- Techs on-site need quick access to the exact manual or setup guide for the unit they're working on (especially when it's a warranty job or a model they don't see every day).  
+- Office staff need to pull warranty printouts for claims, brochures for customer presentations, or tax documents for bookkeeping without digging through email or folders.  
+- Owners need a secure, organized place for employee applications, certs, and business paperwork that can be searched or exported quickly.  
+
+The page is deliberately **not** a general file dump. Every document should have at least one meaningful relationship (customer, site, company, asset, job, employee, product) so that it shows up exactly where it's needed, and the system can suggest relevant documents automatically.
+
+**Key Design Goals**  
+- Always accessible (global search, FAB in mobile, header icon in desktop)  
+- Contextual visibility (embedded views show only relevant docs)  
+- Fast upload & linking (especially from mobile: camera → upload → auto-link to current job/asset)  
+- Strong search & filtering (by name, category, linked entity, date, tags)  
+- Versioning & audit trail (who uploaded/edited, when)  
+- Secure access control (role-based, private by default for employee records)  
+- Easy export (single doc or bulk by customer/site/asset for audits/tax)  
+- Trade-agnostic foundation (custom categories/tags allow plumbing/electrical without changing structure)
+
+**Data Sources & Interconnections**  
+Core table: Documents  
+- ID (PK)  
+- Name  
+- Category (enum, customizable: Manual, Warranty Printout, Product Brochure, Setup Guide, Parts Literature, Employee Application, Certification, Tax Document, Permit, Safety Sheet, Other)  
+- FilePath / StorageURL (cloud or local)  
+- FileType (PDF, Image, DOCX, etc.)  
+- FileSize, UploadDate, UploadedBy (EmployeeID)  
+- Version (incremented on edit)  
+- AccessLevel (Public, Private, Role-Based, Customer-Only)  
+- Notes / Annotations (JSON for highlights, comments, drawn marks)  
+- CustomTags (array, customizable)  
+- Polymorphic relationships (one document can link to multiple entities):  
+  - CustomerID  
+  - CompanyID  
+  - SiteID  
+  - AssetID  
+  - JobID  
+  - EmployeeID  
+  - ProductID  
+  - MaterialListID  
+  - EstimateID  
+  - InvoiceID  
+  - ServiceAgreementID  
+
+**Interconnections & Data Flows**  
+- **Assets** ←→ Documents (strongest relationship)  
+  - Upload manual/warranty printout → auto-link to matching asset (by serial/model from product)  
+  - Asset detail shows "Related Documents" section (e.g., setup guide, warranty, recent repair photos)  
+  - When logging history/claim on asset → suggest existing docs (e.g., "Attach existing warranty printout?")  
+
+- **Jobs** ←→ Documents  
+  - During job execution (mobile): Upload photos/receipts → auto-link to job  
+  - Job detail shows "Job Documents" tab (photos, receipts, permits, setup guides used)  
+  - On close: Option to "Archive to Asset" (transfer key docs to the installed asset)  
+
+- **Customers / Companies / Sites** ←→ Documents  
+  - Customer detail: "Documents" accordion shows all linked docs (across sites/assets/jobs)  
+  - Companies: Territorial filtering (East County docs visible only to John Doe)  
+  - Sites: Access codes, blueprints, permits often site-specific  
+
+- **Employees** ←→ Documents  
+  - Employee applications, certifications, background checks, training certs stored here  
+  - Linked to employee profile; expiring certs trigger notifications  
+
+- **Products / Material Lists** ←→ Documents  
+  - Product brochures, spec sheets, installation guides linked to product template  
+  - When adding product to material list → suggest related docs (e.g., "Show setup guide?")  
+
+- **Service Agreements / History & Claims** ←→ Documents  
+  - Agreements: Signed contract PDF, coverage add-on brochures  
+  - History/Claims: Evidence (photos, receipts, manufacturer response letters)  
+
+- **Financials (Invoices/Expenses)** ←→ Documents  
+  - Receipts attached to expenses  
+  - Invoices can include selected docs (e.g., warranty printout for customer)  
+
+**Layout & Sections** (Desktop Web Focus)  
+- **Main List View (/documents)**  
+  - Search bar (full-text + advanced: by linked entity, category, tag, date range)  
+  - Filters sidebar (collapsible on mobile):  
+    - Category (multi-select, customizable list)  
+    - Linked Entity (dropdown: Customer / Site / Asset / Job / Employee / Product)  
+    - Access Level  
+    - Uploaded By / Date  
+  - Grid / List toggle (grid shows thumbnails/previews)  
+  - Bulk actions: Download ZIP, Change category/access, Delete, Archive  
+
+- **Detail View (/documents/{id})**  
+  - Header: Name, Category badge, Access level indicator, Actions dropdown (Edit, Download, Share, Link to Entity, Delete)  
+  - Preview pane (PDF viewer, image zoom, DOCX render if supported)  
+  - Metadata section: Uploaded by/date, File size/type, Version history (click to view older)  
+  - Annotations / Notes: In-view markup (highlight, draw, text notes), saved per version  
+  - Linked Entities table: Shows all relationships (click to jump to customer/site/asset/job/etc.)  
+  - Related Documents carousel: "Other docs for this asset" or "Similar warranties"  
+
+- **Upload / Edit View**  
+  - Drag-drop or camera/gallery upload (mobile priority)  
+  - Auto-suggest name/category from filename or content (basic OCR/metadata read)  
+  - Multi-entity linker (search/select customer/site/asset/job/employee/product)  
+  - Tags field (prepopulated from Settings, customizable)  
+  - Access level selector  
+  - Optional: "Set as Default for this Product/Asset" (future uploads auto-link)
+
+**UX Interactions & Flows**  
+- Global FAB or header icon → Quick upload (camera/gallery) → Auto-suggest link to current context (job/asset/site)  
+- From asset detail: "Attach Manual/Warranty" → Opens uploader with asset pre-linked  
+- From job close: "Attach Photos/Receipts" → Auto-links to job and asset(s) used  
+- Search "compressor warranty" → Results grouped by asset/customer/site  
+- Bulk link: Select 5 docs → "Link to Customer X" (applies to all)  
+
+**Customizations & Configurability** (via Settings)  
+- Categories (add/edit/remove: Manual, Warranty Printout, Brochure, Employee App, Tax Doc, Permit, etc.)  
+- Default access level per category (e.g., Employee Apps = Private)  
+- Tags (prepopulated list per trade)  
+- Auto-categorization rules (filename patterns, content keywords)  
+- Mobile upload defaults (camera resolution, auto-GPS tag)  
+
+**Mobile Considerations**  
+- List: Card stack with thumbnail + entity badges  
+- Detail: Full-screen PDF/image viewer with pinch-zoom, annotation tools (draw/highlight)  
+- Upload: Camera first, then gallery; quick entity selector (current job/asset pre-selected)  
+- Offline: Cache recently viewed docs + queue uploads (sync on reconnect)  
+
+**Edge Cases & Robustness**  
+- Large files: Compress on upload (configurable threshold)  
+- Duplicate detection: Warn on similar filename/content  
+- Access control: Enforce private docs (employee records hidden from techs)  
+- Multi-entity linking: Allow 1 doc to be linked to multiple assets/sites/jobs (e.g., shared manual)  
+- Search performance: Indexed on name/category/tags/linked entity IDs  
+
+**Integrations & Automation**  
+- Cloud storage (S3/Google Drive/Dropbox) for actual files  
+- OCR on upload (extract text for search)  
+- Auto-link on upload (match serial/model to assets, job ID if in filename)  
+- Expiration alerts if doc has expiry date (e.g., certs)  
+- PDF watermark/branding on export (company logo)  
+
+This Documents page becomes the single source of truth for reference files, tightly woven into every part of the app via relationships and contextual embeds, while remaining simple enough for daily use.  
+
+Would you like to adjust any part of this vision (e.g., more emphasis on mobile upload, stronger OCR, different category defaults, or tighter integration with Quick Notes)? Or are you ready to move to the next major page?

@@ -1,0 +1,343 @@
+@page "/sites/{Id:int}"
+@inject IMobileJobService JobService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_site == null)
+{
+    <div class="empty-state">
+        <i class="bi bi-exclamation-circle d-block"></i>
+        <p>Site not found</p>
+    </div>
+}
+else
+{
+    <!-- Back Button -->
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </button>
+    </div>
+
+    <!-- Site Header -->
+    <div class="mobile-card">
+        <div class="mobile-card-header">
+            <span class="card-title">@_site.Name</span>
+            <span class="badge-status badge bg-info">@_site.PropertyType</span>
+        </div>
+        @if (_site.CustomerName != null)
+        {
+            <p class="card-subtitle mb-1" style="cursor:pointer;" @onclick="GoToCustomer">
+                <i class="bi bi-person me-2"></i><span class="text-primary">@_site.CustomerName</span>
+            </p>
+        }
+        @if (_site.Address != null)
+        {
+            <div class="d-flex align-items-center gap-2 mb-0">
+                <p class="card-subtitle mb-0" style="flex:1;"><i class="bi bi-geo-alt me-2"></i>@_site.Address, @_site.City, @_site.State @_site.Zip</p>
+                <a href="@GetMapsUrl()" target="_blank" class="btn btn-sm btn-outline-primary" style="min-height:30px; padding:2px 8px; font-size:0.75rem; white-space:nowrap;">
+                    <i class="bi bi-map me-1"></i>Map
+                </a>
+            </div>
+        }
+    </div>
+
+    <!-- Property Details -->
+    <div class="section-header">Property Details</div>
+    <div class="mobile-card">
+        <div class="site-detail-grid">
+            @if (_site.SqFt.HasValue)
+            {
+                <div class="site-detail-item">
+                    <span class="detail-label">Sq Ft</span>
+                    <span class="detail-value">@_site.SqFt.Value.ToString("N0")</span>
+                </div>
+            }
+            @if (_site.Zones.HasValue)
+            {
+                <div class="site-detail-item">
+                    <span class="detail-label">Zones</span>
+                    <span class="detail-value">@_site.Zones</span>
+                </div>
+            }
+            @if (_site.Stories.HasValue)
+            {
+                <div class="site-detail-item">
+                    <span class="detail-label">Stories</span>
+                    <span class="detail-value">@_site.Stories</span>
+                </div>
+            }
+            @if (_site.YearBuilt.HasValue)
+            {
+                <div class="site-detail-item">
+                    <span class="detail-label">Year Built</span>
+                    <span class="detail-value">@_site.YearBuilt</span>
+                </div>
+            }
+            @if (_site.HeatingFuelSource != null)
+            {
+                <div class="site-detail-item">
+                    <span class="detail-label">Fuel Source</span>
+                    <span class="detail-value">@_site.HeatingFuelSource</span>
+                </div>
+            }
+        </div>
+
+        @if (_site.HasAtticAccess == true || _site.HasCrawlSpace == true || _site.HasBasement == true)
+        {
+            <div class="d-flex flex-wrap gap-2 mt-2">
+                @if (_site.HasAtticAccess == true)
+                {
+                    <span class="badge bg-light text-dark"><i class="bi bi-arrow-up-square me-1"></i>Attic</span>
+                }
+                @if (_site.HasCrawlSpace == true)
+                {
+                    <span class="badge bg-light text-dark"><i class="bi bi-box me-1"></i>Crawl Space</span>
+                }
+                @if (_site.HasBasement == true)
+                {
+                    <span class="badge bg-light text-dark"><i class="bi bi-arrow-down-square me-1"></i>Basement</span>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Access & Equipment -->
+    @if (_site.AccessCodes != null || _site.EquipmentLocation != null || _site.Parking != null
+        || _site.GasLineLocation != null || _site.ElectricalPanelLocation != null
+        || _site.WaterShutoffLocation != null || _site.Instructions != null)
+    {
+        <div class="section-header">Access & Equipment</div>
+        <div class="mobile-card">
+            @if (_site.AccessCodes != null)
+            {
+                <p class="mb-2" style="font-size:0.85rem;"><i class="bi bi-key me-2"></i><strong>Access:</strong> @_site.AccessCodes</p>
+            }
+            @if (_site.EquipmentLocation != null)
+            {
+                <p class="mb-2" style="font-size:0.85rem;"><i class="bi bi-geo me-2"></i><strong>Equipment:</strong> @_site.EquipmentLocation</p>
+            }
+            @if (_site.Parking != null)
+            {
+                <p class="mb-2" style="font-size:0.85rem;"><i class="bi bi-p-circle me-2"></i><strong>Parking:</strong> @_site.Parking</p>
+            }
+            @if (_site.GasLineLocation != null)
+            {
+                <p class="mb-2" style="font-size:0.85rem;"><i class="bi bi-fire me-2"></i><strong>Gas Line:</strong> @_site.GasLineLocation</p>
+            }
+            @if (_site.ElectricalPanelLocation != null)
+            {
+                <p class="mb-2" style="font-size:0.85rem;"><i class="bi bi-lightning me-2"></i><strong>Electrical Panel:</strong> @_site.ElectricalPanelLocation</p>
+            }
+            @if (_site.WaterShutoffLocation != null)
+            {
+                <p class="mb-2" style="font-size:0.85rem;"><i class="bi bi-droplet me-2"></i><strong>Water Shutoff:</strong> @_site.WaterShutoffLocation</p>
+            }
+            @if (_site.Instructions != null)
+            {
+                <p class="mb-0" style="font-size:0.85rem;"><i class="bi bi-info-circle me-2"></i><strong>Instructions:</strong> @_site.Instructions</p>
+            }
+        </div>
+    }
+
+    <!-- Service Agreements -->
+    @if (_site.Agreements.Any())
+    {
+        <div class="section-header">Service Agreements</div>
+        @foreach (var sa in _site.Agreements)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="mobile-card-header">
+                    <div style="min-width:0; flex:1;">
+                        <span class="card-title">@(sa.Title ?? sa.AgreementNumber)</span>
+                    </div>
+                    <span class="badge bg-@AgreementStatusColor(sa.Status)" style="font-size:0.65rem;">@sa.Status</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <span class="badge bg-light text-dark" style="font-size:0.65rem;">@sa.CoverageLevel</span>
+                    <span class="card-subtitle">
+                        @sa.VisitsUsed/@sa.VisitsIncluded visits
+                        @if (sa.VisitsRemaining <= 0)
+                        {
+                            <span class="text-danger fw-semibold"> · No visits left</span>
+                        }
+                    </span>
+                    <span class="card-subtitle ms-auto">
+                        Exp @sa.EndDate.ToString("MMM dd, yyyy")
+                    </span>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Assets at Site -->
+    @if (_site.Assets.Any())
+    {
+        <div class="section-header">Assets (@_site.Assets.Count)</div>
+        @foreach (var asset in _site.Assets)
+        {
+            <div class="mobile-card" style="cursor:pointer;" @onclick="() => GoToAsset(asset.Id)">
+                <div class="mobile-card-header">
+                    <span class="card-title">@asset.Name</span>
+                    <span class="badge-status badge bg-@AssetStatusColor(asset.Status)">@asset.Status</span>
+                </div>
+                @if (asset.AssetType != null)
+                {
+                    <p class="card-subtitle mb-1">@asset.AssetType</p>
+                }
+                @if (asset.Model != null)
+                {
+                    <p class="card-subtitle mb-1">Model: @asset.Model</p>
+                }
+                @if (asset.SerialNumber != null)
+                {
+                    <p class="card-subtitle mb-1">S/N: @asset.SerialNumber</p>
+                }
+                @if (asset.WarrantyExpiry.HasValue)
+                {
+                    var isExpired = asset.WarrantyExpiry.Value < DateTime.UtcNow;
+                    var isExpiringSoon = asset.WarrantyExpiry.Value < DateTime.UtcNow.AddMonths(3);
+                    <p class="card-subtitle mb-0 @(isExpired ? "text-danger" : isExpiringSoon ? "text-warning" : "")">
+                        <i class="bi bi-shield-check me-1"></i>Warranty:
+                        @(isExpired ? "Expired" : asset.WarrantyExpiry.Value.ToString("MMM dd, yyyy"))
+                    </p>
+                }
+            </div>
+        }
+    }
+
+    <!-- Recent Jobs at Site -->
+    @if (_site.RecentJobs.Any())
+    {
+        <div class="section-header">Recent Jobs</div>
+        @foreach (var job in _site.RecentJobs)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;" @onclick="() => GoToJob(job.Id)">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-0" style="font-size:0.85rem; font-weight:600;">@job.JobNumber</p>
+                        @if (job.Title != null)
+                        {
+                            <p class="card-subtitle mb-0">@job.Title</p>
+                        }
+                    </div>
+                    <div class="text-end">
+                        <span class="badge-status badge bg-@JobStatusColor(job.Status)" style="font-size:0.6rem;">@job.Status</span>
+                        @if (job.ScheduledDate.HasValue)
+                        {
+                            <div class="text-muted" style="font-size:0.7rem;">@job.ScheduledDate.Value.ToString("MMM dd")</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Notes -->
+    @if (_site.Notes != null)
+    {
+        <div class="section-header">Notes</div>
+        <div class="mobile-card">
+            <p class="mb-0" style="font-size:0.85rem; white-space:pre-wrap;">@_site.Notes</p>
+        </div>
+    }
+
+    <!-- Quick Links -->
+    <div class="section-header">Quick Links</div>
+    <div class="mobile-card">
+        <div class="d-flex flex-column gap-1">
+            @if (_site.CustomerId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToCustomer">
+                    <span style="font-size:0.9rem;"><i class="bi bi-person me-2 text-primary"></i>View Customer</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
+                <span style="font-size:0.9rem;"><i class="bi bi-wrench-adjustable me-2 text-primary"></i>All Jobs</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/agreements")'>
+                <span style="font-size:0.9rem;"><i class="bi bi-file-earmark-text me-2 text-primary"></i>Service Agreements</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            @if (_site.Address != null)
+            {
+                <hr class="my-0" />
+                <a href="@GetMapsUrl()" target="_blank" class="d-flex justify-content-between align-items-center py-2 text-decoration-none" style="color:inherit;">
+                    <span style="font-size:0.9rem;"><i class="bi bi-map me-2 text-primary"></i>Open in Maps</span>
+                    <i class="bi bi-box-arrow-up-right text-muted" style="font-size:0.75rem;"></i>
+                </a>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private MobileSiteDetail? _site;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _loading = true;
+        _site = await JobService.GetSiteDetailAsync(Id);
+        _loading = false;
+    }
+
+    private void GoBack() => Nav.NavigateTo("/jobs");
+
+    private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);
+
+    private void GoToAsset(int assetId) => Nav.NavigateTo("/assets/" + assetId);
+
+    private void GoToCustomer()
+    {
+        if (_site?.CustomerId.HasValue == true)
+            Nav.NavigateTo("/customers/" + _site.CustomerId.Value);
+    }
+
+    private static string AgreementStatusColor(AgreementStatus status) => status switch
+    {
+        AgreementStatus.Active => "success",
+        AgreementStatus.Expiring => "warning",
+        AgreementStatus.Expired => "secondary",
+        AgreementStatus.Cancelled => "danger",
+        AgreementStatus.Renewed => "info",
+        _ => "secondary"
+    };
+
+    private static string AssetStatusColor(AssetStatus status) => status switch
+    {
+        AssetStatus.Active => "success",
+        AssetStatus.MaintenanceNeeded => "warning",
+        AssetStatus.Retired => "secondary",
+        AssetStatus.Decommissioned => "dark",
+        _ => "secondary"
+    };
+
+    private static string JobStatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite or JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        JobStatus.Cancelled => "secondary",
+        _ => "secondary"
+    };
+
+    private string GetMapsUrl()
+    {
+        if (_site == null) return "#";
+        var addr = Uri.EscapeDataString(_site.Address + ", " + _site.City + ", " + _site.State + " " + _site.Zip);
+        return "https://maps.google.com/maps?q=" + addr;
+    }
+}

@@ -1,0 +1,366 @@
+@page "/products"
+@page "/products/new"
+@page "/products/{Id:int}"
+@page "/products/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IProductService ProductSvc
+@inject NavigationManager Nav
+
+<PageTitle>Products - OneManVanFSM</PageTitle>
+
+@if (mode == "form")
+{
+    <!-- CREATE / EDIT FORM -->
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Product</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="SaveProduct">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.Name" class="form-control" />
+                        <ValidationMessage For="() => form.Name" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Category</label>
+                        <InputText @bind-Value="form.Category" class="form-control" placeholder="e.g. Ductwork, Equipment" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Brand</label>
+                        <InputText @bind-Value="form.Brand" class="form-control" placeholder="e.g. Carrier, Honeywell" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Part Number</label>
+                        <InputText @bind-Value="form.PartNumber" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Barcode</label>
+                        <InputText @bind-Value="form.Barcode" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Cost</label>
+                        <InputNumber @bind-Value="form.Cost" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Price</label>
+                        <InputNumber @bind-Value="form.Price" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Markup %</label>
+                        <InputNumber @bind-Value="form.MarkupPercent" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Unit</label>
+                        <InputText @bind-Value="form.Unit" class="form-control" placeholder="e.g. Count, Boxes, Ft" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Supplier</label>
+                        <InputText @bind-Value="form.SupplierName" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Specs (JSON)</label>
+                        <InputText @bind-Value="form.Specs" class="form-control" placeholder='e.g. {"sizes":"5-18 in"}' />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check mt-4">
+                            <InputCheckbox @bind-Value="form.IsTemplate" class="form-check-input" id="isTemplate" />
+                            <label class="form-check-label" for="isTemplate">Is Template</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMsg))
+                {
+                    <div class="alert alert-danger mt-2 mb-0">@errorMsg</div>
+                }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (mode == "detail" && detail is not null)
+{
+    <!-- DETAIL VIEW -->
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@detail.Name</h4>
+        @if (!string.IsNullOrWhiteSpace(detail.Category))
+        {
+            <span class="badge bg-info ms-2">@detail.Category</span>
+        }
+        @if (detail.IsTemplate)
+        {
+            <span class="badge bg-secondary ms-1">Template</span>
+        }
+        <div class="ms-auto">
+            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6><i class="bi bi-box-seam me-1"></i>Product Details</h6>
+                    <div class="row g-2 mt-2">
+                        <div class="col-sm-4"><small class="text-muted d-block">Cost</small><span>@detail.Cost.ToString("C")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Price</small><span>@detail.Price.ToString("C")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Markup</small><span>@detail.MarkupPercent%</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Unit</small><span>@(detail.Unit ?? "\u2014")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Supplier</small><span>@(detail.SupplierName ?? "\u2014")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Template</small><span>@(detail.IsTemplate ? "Yes" : "No")</span></div>
+                        @if (!string.IsNullOrWhiteSpace(detail.Brand)) { <div class="col-sm-4"><small class="text-muted d-block">Brand</small><span>@detail.Brand</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.PartNumber)) { <div class="col-sm-4"><small class="text-muted d-block">Part Number</small><span>@detail.PartNumber</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.Barcode)) { <div class="col-sm-4"><small class="text-muted d-block">Barcode</small><span>@detail.Barcode</span></div> }
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(detail.Specs))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong><i class="bi bi-gear me-1"></i>Specs</strong></div>
+                    <div class="card-body"><pre class="bg-light p-3 rounded small mb-0">@detail.Specs</pre></div>
+                </div>
+            }
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-white"><strong><i class="bi bi-link-45deg me-1"></i>Connections</strong></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Inventory Items</small>
+                            <a href="javascript:void(0)" @onclick="GoToInventory">@detail.InventoryCount in stock</a>
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Installed Assets</small>
+                            <a href="javascript:void(0)" @onclick="GoToAssets">@detail.AssetCount assets</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(detail.Notes))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-white"><strong><i class="bi bi-journal-text me-1"></i>Notes</strong></div>
+                    <div class="card-body"><p class="text-muted small mb-0">@detail.Notes</p></div>
+                </div>
+            }
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Quick Actions</h6>
+                    <a href="/inventory" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-boxes me-1"></i>View Inventory</a>
+                    <a href="/assets" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-cpu me-1"></i>View Assets</a>
+                    <a href="/materiallists" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-list-check me-1"></i>Material Lists</a>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <!-- LIST VIEW -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>Products</h4>
+        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Product</button>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search products..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                </div>
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Filter by category..." @bind="filter.Category" @bind:event="oninput" />
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadProducts"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (products is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
+        }
+        else if (!products.Any())
+        {
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-box-seam" style="font-size: 3rem;"></i>
+                <p class="mt-2">No products found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Brand</th>
+                            <th>Category</th>
+                            <th>Cost</th>
+                            <th>Price</th>
+                            <th>Markup</th>
+                            <th>Unit</th>
+                            <th>Supplier</th>
+                            <th>Stock</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in products)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => GoToDetail(p.Id)">
+                                <td>
+                                    <strong>@p.Name</strong>
+                                    @if (p.IsTemplate) { <span class="badge bg-secondary ms-1">T</span> }
+                                </td>
+                                <td>@(p.Brand ?? "—")</td>
+                                <td>@(p.Category ?? "—")</td>
+                                <td>@p.Cost.ToString("C")</td>
+                                <td>@p.Price.ToString("C")</td>
+                                <td>@p.MarkupPercent%</td>
+                                <td>@(p.Unit ?? "—")</td>
+                                <td>@(p.SupplierName ?? "—")</td>
+                                <td>@p.InventoryCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [SupplyParameterFromQuery] public string? View { get; set; }
+
+    private string mode = "list";
+    private List<ProductListItem>? products;
+    private ProductFilter filter = new();
+    private ProductDetail? detail;
+    private ProductEditModel form = new();
+    private int? editId;
+    private string? errorMsg;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (uri.AbsolutePath.Contains("/products/new", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = "form"; editId = null; form = new ProductEditModel { IsTemplate = true };
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadForEdit(Id.Value);
+        }
+        else if (Id.HasValue)
+        {
+            await LoadDetail(Id.Value);
+        }
+        else
+        {
+            mode = "list"; await LoadProducts();
+        }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadProducts() => products = await ProductSvc.GetProductsAsync(filter);
+
+    private async Task LoadDetail(int id)
+    {
+        detail = await ProductSvc.GetProductAsync(id);
+        mode = detail is not null ? "detail" : "list";
+        if (mode == "list") await LoadProducts();
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var p = await ProductSvc.GetProductAsync(id);
+        if (p is null) { mode = "list"; await LoadProducts(); return; }
+        editId = id;
+        form = new ProductEditModel
+        {
+            Name = p.Name, Brand = p.Brand, PartNumber = p.PartNumber, Barcode = p.Barcode,
+            Category = p.Category, Cost = p.Cost, Price = p.Price,
+            MarkupPercent = p.MarkupPercent, Unit = p.Unit, Specs = p.Specs,
+            SupplierName = p.SupplierName, IsTemplate = p.IsTemplate, Notes = p.Notes
+        };
+        mode = "form";
+    }
+
+    private async Task SaveProduct()
+    {
+        try
+        {
+            errorMsg = null;
+            if (editId.HasValue)
+                await ProductSvc.UpdateProductAsync(editId.Value, form);
+            else
+                await ProductSvc.CreateProductAsync(form);
+            Nav.NavigateTo("/products");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task ArchiveDetail()
+    {
+        if (detail is not null)
+        {
+            await ProductSvc.ArchiveProductAsync(detail.Id);
+            Nav.NavigateTo("/products");
+        }
+    }
+
+    private void GoToList() => Nav.NavigateTo("/products");
+    private void GoToNew() => Nav.NavigateTo("/products/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/products/{id}");
+    private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/products/{detail.Id}/edit"); }
+    private void GoToInventory() => Nav.NavigateTo("/inventory");
+    private void GoToAssets() => Nav.NavigateTo("/assets");
+
+    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadProducts(); }
+}

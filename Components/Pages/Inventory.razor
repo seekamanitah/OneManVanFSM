@@ -1,0 +1,233 @@
+@page "/inventory"
+@inject IMobileInventoryService InventoryService
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <!-- Stats Row -->
+    <div class="gap-grid mb-2">
+        <div class="stat-card">
+            <div class="stat-icon text-primary"><i class="bi bi-box-seam"></i></div>
+            <div class="stat-value">@_stats.TotalItems</div>
+            <div class="stat-label">Total Items</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-value">@_stats.LowStockCount</div>
+            <div class="stat-label">Low Stock</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-info"><i class="bi bi-truck"></i></div>
+            <div class="stat-value">@_stats.TruckItems</div>
+            <div class="stat-label">On Truck</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+            <div class="stat-value">@_stats.TotalValue.ToString("C0")</div>
+            <div class="stat-label">Total Value</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="d-flex gap-2 mb-3">
+        <select class="form-select" style="max-width:130px;" @bind="_locationFilter" @bind:after="LoadInventory">
+            <option value="">All Locations</option>
+            @foreach (var loc in Enum.GetValues<InventoryLocation>())
+            {
+                <option value="@loc">@loc</option>
+            }
+        </select>
+        <input type="search" class="form-control" placeholder="Search inventory…" @bind="_search"
+               @bind:event="oninput" @bind:after="LoadInventory" />
+        <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadInventory" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+
+    <!-- Low Stock Toggle -->
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="lowStockToggle" @bind="_lowStockOnly" @bind:after="LoadInventory" />
+            <label class="form-check-label" for="lowStockToggle" style="font-size:0.8rem; font-weight:600;">
+                <i class="bi bi-exclamation-triangle text-danger me-1"></i>Low Stock Only
+            </label>
+        </div>
+        <span class="text-muted ms-auto" style="font-size:0.75rem;">@_items.Count item@(_items.Count != 1 ? "s" : "")</span>
+    </div>
+
+    @if (_items.Any())
+    {
+        @foreach (var group in GroupedItems)
+        {
+            @if (string.IsNullOrEmpty(_locationFilter))
+            {
+                <div class="section-header">
+                    <span><i class="bi @LocationIcon(group.Key) me-1"></i>@group.Key (@group.Count())</span>
+                </div>
+            }
+            @foreach (var item in group)
+            {
+            <div class="mobile-card">
+                <div class="mobile-card-header">
+                    <div style="min-width:0;">
+                        <span class="card-title">@item.Name</span>
+                        @if (item.SKU != null)
+                        {
+                            <span class="text-muted ms-1" style="font-size:0.7rem;">(@item.SKU)</span>
+                        }
+                    </div>
+                    <span class="badge bg-@LocationColor(item.Location)" style="font-size:0.65rem; white-space:nowrap;">
+                        @item.Location
+                    </span>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="d-flex align-items-center gap-1">
+                                <button class="btn btn-sm btn-outline-secondary" style="width:28px; height:28px; padding:0; min-height:auto; border-radius:6px; font-size:0.85rem; line-height:1;"
+                                        @onclick="() => AdjustQuantity(item.Id, -1)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                <span class="fw-bold @(item.IsLowStock ? "text-danger" : "")" style="font-size:0.95rem; min-width:24px; text-align:center;">
+                                    @item.Quantity
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary" style="width:28px; height:28px; padding:0; min-height:auto; border-radius:6px; font-size:0.85rem; line-height:1;"
+                                        @onclick="() => AdjustQuantity(item.Id, 1)" @onclick:stopPropagation="true">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                            @if (item.MinThreshold > 0)
+                            {
+                                <div style="width:60px; height:6px; background:#e9ecef; border-radius:3px; overflow:hidden;">
+                                    <div style="width:@StockBarPct(item)%; height:100%; background:@StockBarColor(item); border-radius:3px;"></div>
+                                </div>
+                                <span class="text-muted" style="font-size:0.7rem;">min: @item.MinThreshold</span>
+                            }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:0.85rem; font-weight:600;">@item.Price.ToString("C")</div>
+                        <div class="text-muted" style="font-size:0.7rem;">cost: @item.Cost.ToString("C")</div>
+                    </div>
+                </div>
+
+                @if (item.ShelfBin != null)
+                {
+                    <p class="card-subtitle mb-0 mt-1">
+                        <i class="bi bi-geo-alt me-1"></i>@item.ShelfBin
+                    </p>
+                }
+
+                @if (item.IsExpired)
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-danger" style="font-size:0.65rem;">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Expired @item.ExpiryDate!.Value.ToString("MMM dd")
+                        </span>
+                    </div>
+                }
+                else if (item.IsExpiringSoon)
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-warning text-dark" style="font-size:0.65rem;">
+                            <i class="bi bi-clock me-1"></i>Expires @item.ExpiryDate!.Value.ToString("MMM dd")
+                        </span>
+                    </div>
+                }
+
+                @if (item.IsLowStock)
+                {
+                    <div class="mt-1">
+                        <span class="badge bg-danger" style="font-size:0.65rem;">
+                            <i class="bi bi-arrow-down me-1"></i>Low Stock
+                        </span>
+                    </div>
+                }
+            </div>
+            }
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-box-seam d-block"></i>
+            <p>No inventory items found</p>
+        </div>
+    }
+}
+
+@code {
+    private List<MobileInventoryItem> _items = [];
+    private MobileInventoryStats _stats = new();
+    private bool _loading = true;
+    private string _search = string.Empty;
+    private string _locationFilter = string.Empty;
+    private bool _lowStockOnly;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await InventoryService.GetStatsAsync();
+        await LoadInventory();
+    }
+
+    private async Task LoadInventory()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        InventoryLocation? loc = Enum.TryParse<InventoryLocation>(_locationFilter, out var parsed) ? parsed : null;
+
+        var filter = new MobileInventoryFilter
+        {
+            Search = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Location = loc,
+            LowStockOnly = _lowStockOnly ? true : null,
+        };
+
+        _items = await InventoryService.GetInventoryAsync(filter);
+        _loading = false;
+    }
+
+    private static string LocationColor(InventoryLocation loc) => loc switch
+    {
+        InventoryLocation.Truck => "primary",
+        InventoryLocation.Warehouse => "info",
+        InventoryLocation.Site => "success",
+        _ => "secondary"
+    };
+
+    private static string LocationIcon(InventoryLocation loc) => loc switch
+    {
+        InventoryLocation.Truck => "bi-truck",
+        InventoryLocation.Warehouse => "bi-building",
+        InventoryLocation.Site => "bi-geo-alt",
+        _ => "bi-box-seam"
+    };
+
+    private IEnumerable<IGrouping<InventoryLocation, MobileInventoryItem>> GroupedItems =>
+        _items.GroupBy(i => i.Location).OrderBy(g => g.Key);
+
+    private static int StockBarPct(MobileInventoryItem item) =>
+        item.MinThreshold > 0 ? Math.Min(100, (int)(item.Quantity / item.MinThreshold * 100)) : 100;
+
+    private static string StockBarColor(MobileInventoryItem item)
+    {
+        var pct = StockBarPct(item);
+        if (pct <= 50) return "#dc3545";
+        if (pct <= 100) return "#ffc107";
+        return "#198754";
+    }
+
+    private async Task AdjustQuantity(int itemId, decimal delta)
+    {
+        await InventoryService.AdjustQuantityAsync(itemId, delta);
+        _stats = await InventoryService.GetStatsAsync();
+        await LoadInventory();
+    }
+}

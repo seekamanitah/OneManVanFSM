@@ -1,0 +1,610 @@
+@page "/materiallists"
+@page "/materiallists/new"
+@page "/materiallists/{Id:int}"
+@page "/materiallists/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IMaterialListService ListSvc
+@inject ICustomerService CustomerSvc
+@inject ISiteService SiteSvc
+@inject NavigationManager Nav
+
+@inject IJSRuntime JS
+
+<PageTitle>Material Lists - OneManVanFSM</PageTitle>
+
+@if (mode == "form")
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>@(editId.HasValue ? "Edit" : "New") Material List</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="SaveList">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.Name" class="form-control" />
+                        <ValidationMessage For="() => form.Name" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Pricing Method</label>
+                        <InputSelect @bind-Value="form.PricingMethod" class="form-select">
+                            @foreach (var p in Enum.GetValues<PricingMethod>()) { <option value="@p">@p</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Template</label>
+                        <div class="form-check mt-2">
+                            <InputCheckbox @bind-Value="form.IsTemplate" class="form-check-input" />
+                            <label class="form-check-label">Is Template</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">PO Number</label>
+                        <InputText @bind-Value="form.PONumber" class="form-control" placeholder="Supply house PO / reference" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Customer</label>
+                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Site</label>
+                        <InputSelect @bind-Value="form.SiteId" class="form-select">
+                            <option value="">— Select Site —</option>
+                            @foreach (var s in _sites)
+                            {
+                                <option value="@s.Id">@s.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Internal Notes <small class="text-muted">(not shown on customer printouts)</small></label>
+                        <InputTextArea @bind-Value="form.InternalNotes" class="form-control" rows="2" placeholder="Internal reference, supplier contacts, etc." />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">External Notes <small class="text-muted">(included on customer/supply house printouts)</small></label>
+                        <InputTextArea @bind-Value="form.ExternalNotes" class="form-control" rows="2" placeholder="Delivery instructions, special requirements, etc." />
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (mode == "detail" && detail is not null)
+{
+    <div class="d-flex align-items-center mb-3 no-print">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>@detail.Name</h4>
+        @if (detail.IsTemplate) { <span class="badge bg-info ms-2">Template</span> }
+        <span class="badge bg-secondary ms-1">@detail.PricingMethod</span>
+        <div class="ms-auto d-flex gap-1">
+            <button class="btn btn-outline-success btn-sm" @onclick="() => PrintList(false)" title="Print for Customer (with prices)"><i class="bi bi-printer me-1"></i>Customer PDF</button>
+            <button class="btn btn-outline-warning btn-sm" @onclick="() => PrintList(true)" title="Print for Supply House (no prices)"><i class="bi bi-box-seam me-1"></i>Supply PDF</button>
+            @if (!string.IsNullOrEmpty(detail.CustomerName))
+            {
+                <button class="btn btn-outline-info btn-sm" @onclick="EmailList" title="Email material list"><i class="bi bi-envelope me-1"></i>Email</button>
+            }
+            <button class="btn btn-outline-primary btn-sm" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        </div>
+    </div>
+
+    @* Print options — visible only on screen *@
+    <div class="card border-0 shadow-sm mb-3 no-print">
+        <div class="card-body py-2">
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+                <strong class="small"><i class="bi bi-sliders me-1"></i>Print Options:</strong>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" id="printExtNotes" @bind="_printExternalNotes" />
+                    <label class="form-check-label small" for="printExtNotes">Include External Notes</label>
+                </div>
+                <div class="form-check form-check-inline mb-0">
+                    <input class="form-check-input" type="checkbox" id="printIntNotes" @bind="_printInternalNotes" />
+                    <label class="form-check-label small" for="printIntNotes">Include Internal Notes</label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Print-only document header *@
+    <div class="print-document-header d-none">
+        <div class="print-doc-title">
+            <h2 style="margin:0;font-size:1.5rem;">Material List: @detail.Name</h2>
+            @if (!string.IsNullOrEmpty(detail.PONumber)) { <p style="margin:4px 0 0;font-size:0.95rem;"><strong>PO #:</strong> @detail.PONumber</p> }
+            <p style="margin:2px 0 0;font-size:0.85rem;color:#555;">@detail.CreatedAt.ToString("MMMM dd, yyyy")</p>
+        </div>
+        <div style="display:flex;gap:2rem;margin-top:12px;">
+            @if (!string.IsNullOrEmpty(detail.CustomerName))
+            {
+                <div>
+                    <strong style="font-size:0.8rem;color:#666;text-transform:uppercase;">Customer</strong>
+                    <p style="margin:2px 0 0;">@detail.CustomerName</p>
+                    @if (!string.IsNullOrEmpty(detail.CustomerAddress)) { <p style="margin:0;font-size:0.85rem;color:#555;">@detail.CustomerAddress</p> }
+                </div>
+            }
+            @if (!string.IsNullOrEmpty(detail.SiteName))
+            {
+                <div>
+                    <strong style="font-size:0.8rem;color:#666;text-transform:uppercase;">Deliver To / Site</strong>
+                    <p style="margin:2px 0 0;">@detail.SiteName</p>
+                    @if (!string.IsNullOrEmpty(detail.SiteAddress)) { <p style="margin:0;font-size:0.85rem;color:#555;">@detail.SiteAddress</p> }
+                </div>
+            }
+        </div>
+        @if (_printExternalNotes && !string.IsNullOrWhiteSpace(detail.ExternalNotes))
+        {
+            <div style="margin-top:10px;padding:8px;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;">
+                <strong style="font-size:0.8rem;color:#666;">NOTES:</strong>
+                <p style="margin:2px 0 0;font-size:0.9rem;">@detail.ExternalNotes</p>
+            </div>
+        }
+        @if (_printInternalNotes && !string.IsNullOrWhiteSpace(detail.InternalNotes))
+        {
+            <div style="margin-top:6px;padding:8px;border:1px dashed #999;border-radius:4px;">
+                <strong style="font-size:0.8rem;color:#999;">INTERNAL:</strong>
+                <p style="margin:2px 0 0;font-size:0.85rem;color:#666;">@detail.InternalNotes</p>
+            </div>
+        }
+        <hr style="margin:12px 0;border-color:#000;" />
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Items (@detail.Items.Count)</h6>
+                        <button class="btn btn-primary btn-sm" @onclick="ShowAddItem"><i class="bi bi-plus-lg me-1"></i>Add Item</button>
+                    </div>
+
+                    @* Inline add/edit form *@
+                    @if (_showItemForm)
+                    {
+                        <div class="card bg-light border mb-3">
+                            <div class="card-body py-2">
+                                <h6 class="mb-2">@(_editingItemId.HasValue ? "Edit" : "Add") Item</h6>
+                                <div class="row g-2">
+                                    <div class="col-md-4">
+                                        <label class="form-label small">Item Name <span class="text-danger">*</span></label>
+                                        <input type="text" class="form-control form-control-sm" @bind="_itemForm.ItemName" @bind:event="oninput" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Section</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="_itemForm.Section" @bind:event="oninput" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Qty</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="_itemForm.Quantity" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Unit</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="_itemForm.Unit" @bind:event="oninput" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Cost</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="_itemForm.BaseCost" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Labor Hrs</label>
+                                        <input type="number" step="0.25" class="form-control form-control-sm" @bind="_itemForm.LaborHours" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Flat Price</label>
+                                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="_itemForm.FlatPrice" />
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label small">Markup %</label>
+                                        <input type="number" step="0.5" class="form-control form-control-sm" @bind="_itemForm.MarkupPercent" />
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label small">Notes</label>
+                                        <input type="text" class="form-control form-control-sm" @bind="_itemForm.Notes" @bind:event="oninput" />
+                                    </div>
+                                </div>
+                                <div class="mt-2">
+                                    <button class="btn btn-primary btn-sm" @onclick="SaveItem"><i class="bi bi-check-lg me-1"></i>@(_editingItemId.HasValue ? "Update" : "Add")</button>
+                                    <button class="btn btn-outline-secondary btn-sm ms-1" @onclick="CancelItemForm">Cancel</button>
+                                </div>
+                                @if (!string.IsNullOrEmpty(_itemError)) { <div class="text-danger small mt-1">@_itemError</div> }
+                            </div>
+                        </div>
+                    }
+
+                    @if (!detail.Items.Any())
+                    {
+                        <p class="text-muted">No items yet. Click <strong>Add Item</strong> to get started.</p>
+                    }
+                    else
+                    {
+                        @foreach (var grp in detail.Items.GroupBy(i => i.Section ?? "General"))
+                        {
+                            <h6 class="mt-3 text-primary"><i class="bi bi-folder me-1"></i>@grp.Key</h6>
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light"><tr><th>Item</th><th>Qty</th><th>Unit</th><th class="print-price-col">Cost</th><th>Labor</th><th class="print-price-col">Flat</th><th class="print-price-col">Markup</th><th style="width:80px"></th></tr></thead>
+                                    <tbody>
+                                        @foreach (var item in grp)
+                                        {
+                                            <tr>
+                                                <td>@item.ItemName @if (item.ProductName is not null) { <small class="text-muted">(@item.ProductName)</small> }</td>
+                                                <td>@item.Quantity</td>
+                                                <td>@(item.Unit ?? "—")</td>
+                                                <td class="print-price-col">@item.BaseCost.ToString("C")</td>
+                                                <td>@item.LaborHours hrs</td>
+                                                <td class="print-price-col">@item.FlatPrice.ToString("C")</td>
+                                                <td class="print-price-col">@item.MarkupPercent%</td>
+                                                <td class="text-end no-print">
+                                                    <button class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="() => EditItem(item)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn btn-sm btn-outline-danger py-0 px-1 ms-1" @onclick="() => RemoveItem(item.Id)" title="Remove"><i class="bi bi-trash"></i></button>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        }
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.Notes)) { <hr /><p class="mb-0">@detail.Notes</p> }
+                    @if (!string.IsNullOrWhiteSpace(detail.ExternalNotes))
+                    {
+                        <hr />
+                        <h6 class="text-muted small mb-1"><i class="bi bi-chat-left-text me-1"></i>External Notes</h6>
+                        <p class="mb-0 small">@detail.ExternalNotes</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.InternalNotes))
+                    {
+                        <hr />
+                        <h6 class="text-muted small mb-1"><i class="bi bi-lock me-1"></i>Internal Notes <span class="badge bg-secondary">Internal Only</span></h6>
+                        <p class="mb-0 small text-muted">@detail.InternalNotes</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 no-print">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Financial Summary</h6>
+                    <div class="d-flex justify-content-between mb-1"><span>Materials:</span><strong>@detail.TotalMaterialCost.ToString("C")</strong></div>
+                    <div class="d-flex justify-content-between mb-1"><span>Labor:</span><strong>@detail.TotalLaborCost.ToString("C")</strong></div>
+                    @if (detail.MarkupPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Markup:</span><strong>@detail.MarkupPercent%</strong></div> }
+                    @if (detail.TaxPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax:</span><strong>@detail.TaxPercent%</strong></div> }
+                    @if (detail.ContingencyPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Contingency:</span><strong>@detail.ContingencyPercent%</strong></div> }
+                    <hr />
+                    <div class="d-flex justify-content-between"><span class="fw-bold">Grand Total:</span><strong class="text-primary fs-5">@detail.GrandTotal.ToString("C")</strong></div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-white"><strong><i class="bi bi-link-45deg me-1"></i>Connections</strong></div>
+                <div class="card-body">
+                    <div class="row g-2">
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Customer</small>
+                            @if (detail.CustomerId.HasValue && detail.CustomerName is not null)
+                            { <a href="javascript:void(0)" @onclick="() => GoToCustomer(detail.CustomerId.Value)">@detail.CustomerName</a> }
+                            else { <span>—</span> }
+                            @if (!string.IsNullOrEmpty(detail.CustomerAddress)) { <small class="text-muted d-block">@detail.CustomerAddress</small> }
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Site</small>
+                            @if (detail.SiteId.HasValue && detail.SiteName is not null)
+                            { <a href="javascript:void(0)" @onclick="() => GoToSite(detail.SiteId.Value)">@detail.SiteName</a> }
+                            else { <span>—</span> }
+                            @if (!string.IsNullOrEmpty(detail.SiteAddress)) { <small class="text-muted d-block">@detail.SiteAddress</small> }
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(detail.PONumber))
+                    {
+                        <hr class="my-2" />
+                        <small class="text-muted d-block">PO Number</small>
+                        <strong>@detail.PONumber</strong>
+                    }
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Method:</strong> @detail.PricingMethod</p>
+                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>Material Lists</h4>
+        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New List</button>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search lists..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filterTemplate">
+                        <option value="">All</option>
+                        <option value="true">Templates Only</option>
+                        <option value="false">Non-Templates</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadLists"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (lists is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        }
+        else if (!lists.Any())
+        {
+            <div class="card-body text-center py-5 text-muted"><i class="bi bi-list-check" style="font-size:3rem;"></i><p class="mt-2">No material lists. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>Name</th><th>Method</th><th>Customer</th><th>Site</th><th>Items</th><th>Materials</th><th>Labor</th><th>Total</th><th>Created</th></tr></thead>
+                    <tbody>
+                        @foreach (var ml in lists)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => GoToDetail(ml.Id)">
+                                <td><strong>@ml.Name</strong> @if (ml.IsTemplate) { <span class="badge bg-info ms-1">Template</span> }</td>
+                                <td><span class="badge bg-secondary">@ml.PricingMethod</span></td>
+                                <td>@(ml.CustomerName ?? "—")</td>
+                                <td>@(ml.SiteName ?? "—")</td>
+                                <td>@ml.ItemCount</td>
+                                <td>@ml.TotalMaterialCost.ToString("C")</td>
+                                <td>@ml.TotalLaborCost.ToString("C")</td>
+                                <td><strong>@ml.GrandTotal.ToString("C")</strong></td>
+                                <td>@ml.CreatedAt.ToString("MMM dd, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private List<MaterialListListItem>? lists;
+    private MaterialListFilter filter = new();
+    private string filterTemplate = "";
+    private MaterialListDetail? detail;
+    private MaterialListEditModel form = new();
+    private int? editId;
+    private string? errorMsg;
+
+    private List<CustomerListItem> _customers = [];
+    private List<SiteListItem> _sites = [];
+
+    // Item management
+    private bool _showItemForm;
+    private int? _editingItemId;
+    private MaterialListItemEditModel _itemForm = new();
+    private string? _itemError;
+
+    // Print options
+    private bool _printExternalNotes = true;
+    private bool _printInternalNotes;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (uri.AbsolutePath.Contains("/materiallists/new", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadDropdowns();
+            mode = "form"; editId = null; form = new();
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+        {
+            await LoadDropdowns();
+            await LoadForEdit(Id.Value);
+        }
+        else if (Id.HasValue)
+            await LoadDetailView(Id.Value);
+        else { mode = "list"; await LoadLists(); }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadLists()
+    {
+        filter.IsTemplate = string.IsNullOrWhiteSpace(filterTemplate) ? null : bool.Parse(filterTemplate);
+        lists = await ListSvc.GetListsAsync(filter);
+    }
+
+    private async Task LoadDetailView(int id)
+    {
+        detail = await ListSvc.GetListAsync(id);
+        mode = detail is not null ? "detail" : "list";
+        if (mode == "list") await LoadLists();
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var d = await ListSvc.GetListAsync(id);
+        if (d is null) { mode = "list"; await LoadLists(); return; }
+        editId = id;
+        form = new MaterialListEditModel
+        {
+            Name = d.Name, IsTemplate = d.IsTemplate,
+            PricingMethod = d.PricingMethod, Notes = d.Notes,
+            InternalNotes = d.InternalNotes, ExternalNotes = d.ExternalNotes,
+            PONumber = d.PONumber,
+            CustomerId = d.CustomerId, SiteId = d.SiteId
+        };
+        mode = "form";
+    }
+
+    private async Task SaveList()
+    {
+        try
+        {
+            errorMsg = null;
+            if (editId.HasValue) await ListSvc.UpdateListAsync(editId.Value, form);
+            else await ListSvc.CreateListAsync(form);
+            Nav.NavigateTo("/materiallists");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task ArchiveDetail()
+    {
+        if (detail is not null) { await ListSvc.ArchiveListAsync(detail.Id); Nav.NavigateTo("/materiallists"); }
+    }
+
+    private void GoToList() => Nav.NavigateTo("/materiallists");
+    private void GoToNew() => Nav.NavigateTo("/materiallists/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/materiallists/{id}");
+    private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/materiallists/{detail.Id}/edit"); }
+    private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
+    private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");
+    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadLists(); }
+
+    private async Task LoadDropdowns()
+    {
+        _customers = await CustomerSvc.GetCustomersAsync();
+        _sites = await SiteSvc.GetSitesAsync();
+    }
+
+    // --- Item management ---
+    private void ShowAddItem()
+    {
+        _editingItemId = null;
+        _itemForm = new MaterialListItemEditModel();
+        _showItemForm = true;
+        _itemError = null;
+    }
+
+    private void EditItem(MaterialListItemDto item)
+    {
+        _editingItemId = item.Id;
+        _itemForm = new MaterialListItemEditModel
+        {
+            ItemName = item.ItemName, Section = item.Section ?? "General",
+            Quantity = item.Quantity, Unit = item.Unit,
+            BaseCost = item.BaseCost, LaborHours = item.LaborHours,
+            FlatPrice = item.FlatPrice, MarkupPercent = item.MarkupPercent,
+            ProductId = item.ProductId,
+        };
+        _showItemForm = true;
+        _itemError = null;
+    }
+
+    private void CancelItemForm()
+    {
+        _showItemForm = false;
+        _editingItemId = null;
+        _itemError = null;
+    }
+
+    private async Task SaveItem()
+    {
+        if (string.IsNullOrWhiteSpace(_itemForm.ItemName))
+        {
+            _itemError = "Item name is required.";
+            return;
+        }
+        try
+        {
+            if (_editingItemId.HasValue)
+                await ListSvc.UpdateItemAsync(detail!.Id, _editingItemId.Value, _itemForm);
+            else
+                await ListSvc.AddItemAsync(detail!.Id, _itemForm);
+
+            _showItemForm = false;
+            _editingItemId = null;
+            _itemError = null;
+            await LoadDetailView(detail!.Id);
+        }
+        catch (Exception ex) { _itemError = ex.Message; }
+    }
+
+    private async Task RemoveItem(int itemId)
+    {
+        if (detail is null) return;
+        await ListSvc.RemoveItemAsync(detail.Id, itemId);
+        await LoadDetailView(detail.Id);
+    }
+
+    // --- Print / PDF ---
+    private async Task PrintList(bool supplyHouseMode)
+    {
+        // Toggle CSS class to hide prices for supply house printout
+        if (supplyHouseMode)
+            await JS.InvokeVoidAsync("eval", "document.body.classList.add('print-supply-house')");
+        else
+            await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-supply-house')");
+
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    // --- Email ---
+    private async Task EmailList()
+    {
+        if (detail is null) return;
+        var subject = Uri.EscapeDataString($"Material List: {detail.Name}");
+        var lines = new System.Text.StringBuilder();
+        lines.AppendLine($"Material List: {detail.Name}");
+        if (!string.IsNullOrEmpty(detail.CustomerName)) lines.AppendLine($"Customer: {detail.CustomerName}");
+        if (!string.IsNullOrEmpty(detail.SiteName)) lines.AppendLine($"Site: {detail.SiteName}");
+        lines.AppendLine();
+        foreach (var grp in detail.Items.GroupBy(i => i.Section ?? "General"))
+        {
+            lines.AppendLine($"--- {grp.Key} ---");
+            foreach (var item in grp)
+                lines.AppendLine($"  {item.ItemName}  Qty: {item.Quantity} {item.Unit}  Cost: {item.BaseCost:C}");
+            lines.AppendLine();
+        }
+        lines.AppendLine($"Total: {detail.GrandTotal:C}");
+        var body = Uri.EscapeDataString(lines.ToString());
+        await JS.InvokeVoidAsync("eval", $"window.location.href='mailto:?subject={subject}&body={body}'");
+    }
+}

@@ -1,0 +1,14 @@
+/* Customers page scoped styles */
+
+table tbody tr[role="button"]:hover {
+    cursor: pointer;
+    background-color: rgba(var(--bs-primary-rgb), 0.04);
+}
+
+.nav-tabs .nav-link {
+    font-size: 0.875rem;
+}
+
+.nav-tabs .badge {
+    font-size: 0.7rem;
+}

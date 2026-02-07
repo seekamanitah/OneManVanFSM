@@ -1,0 +1,567 @@
+@page "/assets/{Id:int}"
+@inject IMobileAssetService AssetService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_asset == null)
+{
+    <div class="empty-state">
+        <i class="bi bi-cpu d-block"></i>
+        <p>Asset not found</p>
+    </div>
+}
+else
+{
+    <!-- Back Button -->
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </button>
+    </div>
+
+    <!-- Asset Header Card -->
+    <div class="mobile-card">
+        <div class="mobile-card-header">
+            <div>
+                <span class="card-title">@_asset.Name</span>
+            </div>
+            <span class="badge-status badge bg-@AssetStatusColor(_asset.Status)">@_asset.Status</span>
+        </div>
+        @if (_asset.AssetType != null)
+        {
+            <p class="card-subtitle mb-1">@_asset.AssetType</p>
+        }
+        @if (_asset.Brand != null || _asset.Model != null)
+        {
+            <p class="card-subtitle mb-1">
+                @if (_asset.Brand != null) { <span>@_asset.Brand</span> }
+                @if (_asset.Brand != null && _asset.Model != null) { <span> · </span> }
+                @if (_asset.Model != null) { <span>@_asset.Model</span> }
+            </p>
+        }
+        @if (_asset.SerialNumber != null)
+        {
+            <p class="card-subtitle mb-0"><i class="bi bi-upc-scan me-1"></i>S/N: @_asset.SerialNumber</p>
+        }
+
+        <!-- Warranty Badge -->
+        @if (_asset.WarrantyExpiry.HasValue)
+        {
+            var isExpired = _asset.WarrantyExpiry.Value < DateTime.UtcNow;
+            var isExpiringSoon = !isExpired && _asset.WarrantyExpiry.Value < DateTime.UtcNow.AddMonths(3);
+            <div class="mt-2 warranty-badge @(isExpired ? "warranty-expired" : isExpiringSoon ? "warranty-expiring" : "warranty-active")">
+                <i class="bi @(isExpired ? "bi-shield-x" : isExpiringSoon ? "bi-shield-exclamation" : "bi-shield-check") me-1"></i>
+                @if (isExpired)
+                {
+                    <span>Warranty Expired</span>
+                }
+                else
+                {
+                    var days = (_asset.WarrantyExpiry.Value - DateTime.UtcNow).Days;
+                    <span>Warranty: @days days remaining</span>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Owner & Location -->
+    <div class="section-header">Location</div>
+    <div class="mobile-card">
+        @if (_asset.CustomerName != null)
+        {
+            <p class="mb-1" style="font-size:0.9rem;"><i class="bi bi-person me-2"></i><strong>@_asset.CustomerName</strong></p>
+        }
+        @if (_asset.SiteAddress != null)
+        {
+            <p class="mb-1" style="font-size:0.85rem;">
+                <i class="bi bi-geo-alt me-2"></i>
+                @if (_asset.SiteId.HasValue)
+                {
+                    <a href="/sites/@_asset.SiteId" style="text-decoration:none;">@_asset.SiteName — @_asset.SiteAddress</a>
+                }
+                else
+                {
+                    @_asset.SiteAddress
+                }
+            </p>
+        }
+        @if (_asset.LocationOnSite != null)
+        {
+            <p class="mb-0" style="font-size:0.85rem;"><i class="bi bi-geo me-2"></i><strong>On-Site:</strong> @_asset.LocationOnSite</p>
+        }
+    </div>
+
+    <!-- Specs Grid -->
+    <div class="section-header">Specifications</div>
+    <div class="mobile-card">
+        <div class="asset-specs-grid">
+            @if (_asset.UnitConfiguration != null)
+            {
+                <div class="spec-item"><span class="spec-label">Config</span><span class="spec-value">@_asset.UnitConfiguration</span></div>
+            }
+            @if (_asset.Tonnage.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">Tonnage</span><span class="spec-value">@_asset.Tonnage.Value.ToString("0.#") ton</span></div>
+            }
+            @if (_asset.BTURating.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">BTU</span><span class="spec-value">@_asset.BTURating.Value.ToString("N0")</span></div>
+            }
+            @if (_asset.SEER.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">SEER</span><span class="spec-value">@_asset.SEER.Value.ToString("0.#")</span></div>
+            }
+            @if (_asset.AFUE.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">AFUE</span><span class="spec-value">@_asset.AFUE.Value.ToString("0.#")%</span></div>
+            }
+            @if (_asset.HSPF.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">HSPF</span><span class="spec-value">@_asset.HSPF.Value.ToString("0.#")</span></div>
+            }
+            @if (_asset.RefrigerantType != null)
+            {
+                <div class="spec-item"><span class="spec-label">Refrigerant</span><span class="spec-value">@_asset.RefrigerantType @(_asset.RefrigerantQuantity.HasValue ? $"({_asset.RefrigerantQuantity.Value:0.#} lbs)" : "")</span></div>
+            }
+            @if (_asset.FuelType != null)
+            {
+                <div class="spec-item"><span class="spec-label">Fuel</span><span class="spec-value">@_asset.FuelType</span></div>
+            }
+            @if (_asset.FilterSize != null)
+            {
+                <div class="spec-item"><span class="spec-label">Filter</span><span class="spec-value">@_asset.FilterSize</span></div>
+            }
+            @if (_asset.Voltage != null)
+            {
+                <div class="spec-item"><span class="spec-label">Voltage</span><span class="spec-value">@_asset.Voltage</span></div>
+            }
+            @if (_asset.AmpRating.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">Amps</span><span class="spec-value">@_asset.AmpRating A</span></div>
+            }
+            @if (_asset.PipeMaterial != null)
+            {
+                <div class="spec-item"><span class="spec-label">Pipe</span><span class="spec-value">@_asset.PipeMaterial</span></div>
+            }
+            @if (_asset.GallonCapacity.HasValue)
+            {
+                <div class="spec-item"><span class="spec-label">Capacity</span><span class="spec-value">@_asset.GallonCapacity gal</span></div>
+            }
+        </div>
+    </div>
+
+    <!-- Key Dates -->
+    <div class="section-header">Key Dates</div>
+    <div class="mobile-card">
+        <div class="d-flex flex-column gap-2">
+            @if (_asset.InstallDate.HasValue)
+            {
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted"><i class="bi bi-calendar-plus me-1"></i>Installed</span>
+                    <span class="fw-semibold">@_asset.InstallDate.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            @if (_asset.ManufactureDate.HasValue)
+            {
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted"><i class="bi bi-building me-1"></i>Manufactured</span>
+                    <span class="fw-semibold">@_asset.ManufactureDate.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            @if (_asset.LastServiceDate.HasValue)
+            {
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted"><i class="bi bi-wrench me-1"></i>Last Service</span>
+                    <span class="fw-semibold">@_asset.LastServiceDate.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            @if (_asset.NextServiceDue.HasValue)
+            {
+                var overdue = _asset.NextServiceDue.Value < DateTime.UtcNow;
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted"><i class="bi bi-clock-history me-1"></i>Next Service</span>
+                    <span class="fw-semibold @(overdue ? "text-danger" : "")">
+                        @_asset.NextServiceDue.Value.ToString("MMM dd, yyyy")
+                        @if (overdue) { <span>(Overdue)</span> }
+                    </span>
+                </div>
+            }
+            @if (_asset.WarrantyExpiry.HasValue)
+            {
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted"><i class="bi bi-shield-check me-1"></i>Warranty Exp</span>
+                    <span class="fw-semibold">@_asset.WarrantyExpiry.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            @if (_asset.Value.HasValue)
+            {
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted"><i class="bi bi-tag me-1"></i>Value</span>
+                    <span class="fw-semibold">@_asset.Value.Value.ToString("C")</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Service History Timeline -->
+    @if (_asset.ServiceLogs.Any())
+    {
+        <div class="section-header">Service History</div>
+        @foreach (var log in _asset.ServiceLogs)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="d-flex align-items-start gap-2">
+                    <div class="service-log-icon">
+                        <i class="bi @ServiceIcon(log.ServiceType)"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <p class="mb-0 fw-semibold" style="font-size:0.85rem;">@log.ServiceType</p>
+                            @if (log.Cost.HasValue)
+                            {
+                                <span class="text-muted" style="font-size:0.8rem;">@log.Cost.Value.ToString("C")</span>
+                            }
+                        </div>
+                        <p class="card-subtitle mb-0">@log.ServiceDate.ToString("MMM dd, yyyy")</p>
+                        @if (log.PerformedBy != null)
+                        {
+                            <p class="card-subtitle mb-0">By: @log.PerformedBy</p>
+                        }
+                        @if (log.Notes != null)
+                        {
+                            <p class="card-subtitle mb-0 mt-1">@log.Notes</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Linked Jobs -->
+    @if (_asset.LinkedJobs.Any())
+    {
+        <div class="section-header">Linked Jobs</div>
+        @foreach (var job in _asset.LinkedJobs)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem; cursor:pointer;" @onclick="() => GoToJob(job.JobId)">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-0" style="font-size:0.85rem; font-weight:600;">@(job.Title ?? job.JobNumber)</p>
+                        <p class="card-subtitle mb-0">
+                            @job.JobNumber
+                            @if (job.Role != null) { <span> · @job.Role</span> }
+                            @if (job.ScheduledDate.HasValue) { <span> · @job.ScheduledDate.Value.ToString("MMM dd")</span> }
+                        </p>
+                    </div>
+                    <span class="badge-status badge bg-@JobStatusColor(job.Status)" style="white-space:nowrap;">@job.Status</span>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Documents -->
+    @if (_asset.Documents.Any())
+    {
+        <div class="section-header">Documents</div>
+        @foreach (var doc in _asset.Documents)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi @DocIcon(doc.FileType)" style="font-size:1.1rem; color:var(--primary);"></i>
+                    <div style="flex:1; min-width:0;">
+                        <p class="mb-0" style="font-size:0.85rem;">@doc.Name</p>
+                        <p class="card-subtitle mb-0">@doc.Category · @doc.UploadDate.ToString("MMM dd")</p>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Notes -->
+    @if (_asset.Notes != null)
+    {
+        <div class="section-header">Notes</div>
+        <div class="mobile-card">
+            <p class="mb-0" style="font-size:0.85rem; white-space:pre-wrap;">@_asset.Notes</p>
+        </div>
+    }
+
+    <!-- Quick Links -->
+    <div class="section-header">Quick Links</div>
+    <div class="mobile-card">
+        <div class="d-flex flex-column gap-1">
+            @if (_asset.SiteId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToSite">
+                    <span style="font-size:0.85rem;"><i class="bi bi-building me-2 text-primary"></i>View Site Details</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
+            @if (_asset.CustomerId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToCustomer">
+                    <span style="font-size:0.85rem;"><i class="bi bi-person me-2 text-primary"></i>View Customer</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="ShowLogService">
+                <span style="font-size:0.85rem;"><i class="bi bi-wrench me-2 text-primary"></i>Log Service Record</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            @if (_asset.WarrantyExpiry.HasValue && _asset.WarrantyExpiry.Value >= DateTime.UtcNow)
+            {
+                <hr class="my-0" />
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="ShowWarrantyClaim">
+                    <span style="font-size:0.85rem;"><i class="bi bi-shield-exclamation me-2 text-warning"></i>File Warranty Claim</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Log Service Form -->
+    @if (_showLogService)
+    {
+        <div class="section-header">Log Service</div>
+        <div class="mobile-card">
+            <div class="mb-2">
+                <select class="form-select" @bind="_newLog.ServiceType">
+                    <option value="">Service Type</option>
+                    <option value="Filter Change">Filter Change</option>
+                    <option value="Refrigerant Charge">Refrigerant Charge</option>
+                    <option value="Coil Cleaning">Coil Cleaning</option>
+                    <option value="Tune-Up">Tune-Up</option>
+                    <option value="Repair">Repair</option>
+                    <option value="Inspection">Inspection</option>
+                    <option value="Warranty Service">Warranty Service</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="mb-2">
+                <textarea class="form-control" rows="2" placeholder="Notes…" @bind="_newLog.Notes"></textarea>
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary flex-fill" @onclick="SaveServiceLog" disabled="@string.IsNullOrWhiteSpace(_newLog.ServiceType)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="() => _showLogService = false">Cancel</button>
+            </div>
+        </div>
+    }
+
+    <!-- Warranty Claim Form -->
+    @if (_showWarrantyClaim)
+    {
+        <div class="section-header">File Warranty Claim</div>
+        <div class="mobile-card" style="border-left:3px solid #ffc107;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-shield-exclamation text-warning" style="font-size:1.2rem;"></i>
+                <div>
+                    <p class="mb-0 fw-bold" style="font-size:0.85rem;">@_asset.Name</p>
+                    <p class="card-subtitle mb-0">S/N: @(_asset.SerialNumber ?? "N/A") · Exp: @(_asset.WarrantyExpiry?.ToString("MMM dd, yyyy") ?? "N/A")</p>
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" style="font-size:0.75rem;">Issue Type *</label>
+                <select class="form-select" @bind="_claimIssueType">
+                    <option value="">Select issue type</option>
+                    <option value="Compressor Failure">Compressor Failure</option>
+                    <option value="Heat Exchanger Crack">Heat Exchanger Crack</option>
+                    <option value="Refrigerant Leak">Refrigerant Leak</option>
+                    <option value="Control Board Failure">Control Board Failure</option>
+                    <option value="Coil Leak">Coil Leak</option>
+                    <option value="Motor Failure">Motor Failure</option>
+                    <option value="Defective Part">Defective Part</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" style="font-size:0.75rem;">Description *</label>
+                <textarea class="form-control" rows="3" placeholder="Describe the issue in detail…" @bind="_claimDescription"></textarea>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" style="font-size:0.75rem;">Evidence Notes</label>
+                <input type="text" class="form-control" placeholder="Photo reference, serial plate, etc." @bind="_claimEvidenceNotes" />
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-warning flex-fill" @onclick="SubmitWarrantyClaim"
+                        disabled="@(string.IsNullOrWhiteSpace(_claimIssueType) || string.IsNullOrWhiteSpace(_claimDescription))">
+                    <i class="bi bi-shield-check me-1"></i>Submit Claim
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="CancelWarrantyClaim">Cancel</button>
+            </div>
+            @if (_claimSubmitted)
+            {
+                <div class="alert alert-success mt-2 py-1 d-flex align-items-center" style="font-size:0.8rem; border-radius:8px;">
+                    <i class="bi bi-check-circle-fill me-2"></i>Warranty claim submitted successfully
+                </div>
+            }
+        </div>
+    }
+}
+
+<!-- FAB: Log Service -->
+@if (_asset != null && !_showLogService && !_showWarrantyClaim)
+{
+    <button class="fab" title="Log Service" @onclick="ShowLogService">
+        <i class="bi bi-wrench-adjustable-circle"></i>
+    </button>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private MobileAssetDetail? _asset;
+    private bool _loading = true;
+    private bool _showLogService;
+    private MobileServiceLogCreate _newLog = new();
+    private bool _showWarrantyClaim;
+    private string _claimIssueType = string.Empty;
+    private string _claimDescription = string.Empty;
+    private string _claimEvidenceNotes = string.Empty;
+    private bool _claimSubmitted;
+    private string _employeeName = "Technician";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await AuthService.GetCurrentUserAsync();
+        _employeeName = session?.EmployeeName ?? "Technician";
+        await LoadAsset();
+    }
+
+    private async Task LoadAsset()
+    {
+        _loading = true;
+        _asset = await AssetService.GetAssetDetailAsync(Id);
+        _loading = false;
+    }
+
+    private void GoBack()
+    {
+        Nav.NavigateTo("/jobs");
+    }
+
+    private void GoToSite()
+    {
+        if (_asset?.SiteId.HasValue == true)
+            Nav.NavigateTo("/sites/" + _asset.SiteId.Value);
+    }
+
+    private void GoToCustomer()
+    {
+        if (_asset?.CustomerId.HasValue == true)
+            Nav.NavigateTo("/customers/" + _asset.CustomerId.Value);
+    }
+
+    private void GoToJob(int jobId)
+    {
+        Nav.NavigateTo($"/jobs/{jobId}");
+    }
+
+    private void ShowLogService()
+    {
+        _newLog = new MobileServiceLogCreate
+        {
+            AssetId = Id,
+            PerformedBy = _employeeName,
+            ServiceDate = DateTime.UtcNow,
+        };
+        _showLogService = true;
+    }
+
+    private async Task SaveServiceLog()
+    {
+        if (string.IsNullOrWhiteSpace(_newLog.ServiceType)) return;
+
+        _newLog.AssetId = Id;
+        await AssetService.AddServiceLogAsync(_newLog);
+        _showLogService = false;
+        await LoadAsset();
+    }
+
+    private void ShowWarrantyClaim()
+    {
+        _claimIssueType = string.Empty;
+        _claimDescription = string.Empty;
+        _claimEvidenceNotes = string.Empty;
+        _claimSubmitted = false;
+        _showWarrantyClaim = true;
+        _showLogService = false;
+    }
+
+    private async Task SubmitWarrantyClaim()
+    {
+        if (string.IsNullOrWhiteSpace(_claimIssueType) || string.IsNullOrWhiteSpace(_claimDescription)) return;
+
+        var claimNotes = "Warranty Claim: " + _claimIssueType + " - " + _claimDescription;
+        if (!string.IsNullOrWhiteSpace(_claimEvidenceNotes))
+            claimNotes += " | Evidence: " + _claimEvidenceNotes;
+
+        var log = new MobileServiceLogCreate
+        {
+            AssetId = Id,
+            ServiceType = "Warranty Service",
+            Notes = claimNotes,
+            PerformedBy = _employeeName,
+            ServiceDate = DateTime.UtcNow,
+        };
+        await AssetService.AddServiceLogAsync(log);
+        _claimSubmitted = true;
+        StateHasChanged();
+        await Task.Delay(2000);
+        _showWarrantyClaim = false;
+        _claimSubmitted = false;
+        await LoadAsset();
+    }
+
+    private void CancelWarrantyClaim()
+    {
+        _showWarrantyClaim = false;
+    }
+
+    private static string AssetStatusColor(AssetStatus status) => status switch
+    {
+        AssetStatus.Active => "success",
+        AssetStatus.MaintenanceNeeded => "warning",
+        AssetStatus.Retired => "secondary",
+        AssetStatus.Decommissioned => "dark",
+        _ => "secondary"
+    };
+
+    private static string JobStatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite or JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        _ => "secondary"
+    };
+
+    private static string ServiceIcon(string serviceType) => serviceType.ToLower() switch
+    {
+        "filter change" => "bi-funnel",
+        "refrigerant charge" => "bi-snow2",
+        "coil cleaning" => "bi-droplet-half",
+        "tune-up" => "bi-gear",
+        "repair" => "bi-wrench",
+        "inspection" => "bi-search",
+        "warranty service" => "bi-shield-check",
+        _ => "bi-tools"
+    };
+
+    private static string DocIcon(string? fileType) => fileType?.ToLower() switch
+    {
+        "photo" or "image" => "bi-image",
+        "pdf" => "bi-file-earmark-pdf",
+        "video" => "bi-camera-video",
+        _ => "bi-file-earmark-text"
+    };
+}

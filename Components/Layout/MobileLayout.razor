@@ -1,0 +1,173 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Nav
+@inject IMobileAuthService AuthService
+@inject IMobileDashboardService DashboardService
+@inject IMobileSettingsService SettingsService
+@inject IJSRuntime JS
+
+@if (!IsLoginPage)
+{
+    <!-- Fixed Header -->
+    <header class="mobile-header">
+        <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-snow2" style="font-size:1.3rem;"></i>
+            <span class="header-title">@_pageTitle</span>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <a class="header-icon" href="/search" title="Search">
+                <i class="bi bi-search"></i>
+            </a>
+            <a class="header-icon notification-badge" href="/notifications" title="Notifications" style="position:relative;">
+                <i class="bi bi-bell"></i>
+                @if (_notifCount > 0)
+                {
+                    <span style="position:absolute; top:-4px; right:-4px; background:#dc3545; color:white; border-radius:50%; font-size:0.55rem; min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; font-weight:700;">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</span>
+                }
+            </a>
+            <a href="/profile" class="header-avatar" title="Profile">
+                <i class="bi bi-person-circle"></i>
+            </a>
+        </div>
+    </header>
+}
+
+<!-- Scrollable Content -->
+<div class="@(IsLoginPage ? "mobile-content-login" : "mobile-content")">
+    @Body
+</div>
+
+@if (!IsLoginPage)
+{
+    <!-- Bottom Navigation -->
+    <nav class="bottom-nav">
+        <a href="/" class="@NavClass("/")">
+            <i class="bi bi-house-door-fill"></i>
+            <span>Home</span>
+        </a>
+        <a href="/jobs" class="@NavClass("/jobs")">
+            <i class="bi bi-wrench-adjustable"></i>
+            <span>Jobs</span>
+        </a>
+        <a href="/calendar" class="@NavClass("/calendar")">
+            <i class="bi bi-calendar3"></i>
+            <span>Calendar</span>
+        </a>
+        <a href="/notes" class="@NavClass("/notes", "/documents")">
+            <i class="bi bi-journal-text"></i>
+            <span>Notes</span>
+        </a>
+        <a href="/profile" class="@NavClass("/profile")">
+            <i class="bi bi-person-circle"></i>
+            <span>Me</span>
+        </a>
+    </nav>
+}
+
+<!-- Sync Status Toast -->
+@if (_showSyncToast && !IsLoginPage)
+{
+    <div class="sync-toast" @onclick="() => _showSyncToast = false">
+        <i class="bi bi-check-circle-fill text-success me-1"></i>
+        <span>All data synced</span>
+        <span class="text-muted ms-1">· @_lastSyncTime?.ToString("h:mm tt")</span>
+    </div>
+}
+
+@code {
+private string _pageTitle = "OneManVanFSM";
+private int _notifCount;
+private bool _showSyncToast;
+private DateTime? _lastSyncTime;
+
+private bool IsLoginPage => Nav.ToBaseRelativePath(Nav.Uri)
+    .StartsWith("login", StringComparison.OrdinalIgnoreCase);
+
+private string NavClass(string href, string? altHref = null)
+{
+    var relativePath = Nav.ToBaseRelativePath(Nav.Uri);
+    if (href == "/")
+        return string.IsNullOrEmpty(relativePath) ? "active" : "";
+    if (relativePath.StartsWith(href.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+        return "active";
+    if (altHref != null && relativePath.StartsWith(altHref.TrimStart('/'), StringComparison.OrdinalIgnoreCase))
+        return "active";
+    return "";
+}
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!IsLoginPage)
+        {
+            var isAuth = await AuthService.IsAuthenticatedAsync();
+            if (!isAuth)
+            {
+                Nav.NavigateTo("/login", forceLoad: false);
+                return;
+            }
+        }
+
+        await LoadNotificationCount();
+        await ApplyStoredTheme();
+        _lastSyncTime = DateTime.Now;
+        _showSyncToast = true;
+        StateHasChanged();
+        _ = DismissSyncToast();
+    }
+
+    private async Task ApplyStoredTheme()
+    {
+        try
+        {
+            var settings = await SettingsService.GetSettingsAsync();
+            var value = settings.Theme == "Dark" ? "dark" : "";
+            await JS.InvokeVoidAsync("eval", "document.documentElement.setAttribute('data-theme', '" + value + "')");
+        }
+        catch { }
+    }
+
+    private async Task DismissSyncToast()
+    {
+        await Task.Delay(3000);
+        _showSyncToast = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadNotificationCount()
+    {
+        try
+        {
+            var empId = await AuthService.GetEmployeeIdAsync();
+            if (!empId.HasValue) return;
+            var data = await DashboardService.GetDashboardAsync(empId.Value);
+            _notifCount = data.OverdueJobCount + data.PendingNoteCount + data.LowStockCount + data.ExpiringAgreementCount;
+        }
+        catch { _notifCount = 0; }
+    }
+
+    protected override void OnParametersSet()
+    {
+        var relativePath = Nav.ToBaseRelativePath(Nav.Uri);
+        _pageTitle = relativePath.Split('/')[0].ToLowerInvariant() switch
+        {
+            "" => "Dashboard",
+            "jobs" => "Jobs",
+            "calendar" => "Calendar",
+            "notes" => "Quick Notes",
+            "documents" => "Documents",
+            "notifications" => "Notifications",
+            "sites" => "Site Details",
+            "assets" => "Asset Details",
+            "profile" => "My Profile",
+            "search" => "Search",
+            "inventory" => "Inventory",
+            "estimates" => "Estimates",
+            "customers" => "Customers",
+            "settings" => "Settings",
+            "reports" => "My Reports",
+            "agreements" => "Service Agreements",
+            "not-found" => "Not Found",
+            "login" => "Sign In",
+            _ => "OneManVanFSM"
+        };
+    }
+}

@@ -1,0 +1,45 @@
+.dashboard {
+    max-width: 1600px;
+}
+
+::deep .dashboard-card {
+    transition: box-shadow 0.15s ease;
+}
+
+::deep .dashboard-card:hover {
+    box-shadow: 0 .25rem .75rem rgba(0,0,0,.1) !important;
+}
+
+::deep .cursor-pointer {
+    cursor: pointer;
+}
+
+::deep .cursor-pointer:hover td {
+    background-color: rgba(0,0,0,.02);
+}
+
+::deep .card-header h6 {
+    font-size: 0.9rem;
+}
+
+::deep .table th {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6c757d;
+}
+
+::deep .table td {
+    font-size: 0.85rem;
+    vertical-align: middle;
+}
+
+::deep .badge {
+    font-weight: 500;
+    font-size: 0.72rem;
+}
+
+::deep .activity-item:last-child {
+    border-bottom: none !important;
+}

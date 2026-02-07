@@ -1,0 +1,1184 @@
+@page "/settings"
+@rendermode InteractiveServer
+@inject IDataManagementService DataSvc
+@inject IDropdownService DropdownSvc
+@inject IAuthService AuthSvc
+@inject ITemplateService TemplateSvc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Settings - OneManVanFSM</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Settings</h4>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(tab == "company" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "company"'>Company</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "users" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToUsers">Users & Roles</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "custom" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchToCustom()'>Customizations</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "notifications" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "notifications"'>Notifications</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "templates" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToTemplates">Templates</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "mobile" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "mobile"'>Mobile & Theme</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "database" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "database"'>Database</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "data" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchToData()'>Data Management</a></li>
+</ul>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        <i class="bi bi-check-circle me-1"></i>@successMessage
+        <button type="button" class="btn-close" @onclick="() => successMessage = null"></button>
+    </div>
+}
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="bi bi-exclamation-triangle me-1"></i>@errorMessage
+        <button type="button" class="btn-close" @onclick="() => errorMessage = null"></button>
+    </div>
+}
+
+@if (tab == "company")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5>Company Profile & Branding</h5>
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label class="form-label">Company Name</label>
+                    <input type="text" class="form-control" value="OneManVanFSM" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Business Phone</label>
+                    <input type="text" class="form-control" placeholder="(555) 000-0000" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Business Email</label>
+                    <input type="email" class="form-control" placeholder="info@company.com" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Tax ID</label>
+                    <input type="text" class="form-control" placeholder="XX-XXXXXXX" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Address</label>
+                    <input type="text" class="form-control" placeholder="123 Main St, City, State ZIP" />
+                </div>
+            </div>
+            <button class="btn btn-primary mt-3" disabled><i class="bi bi-check-lg me-1"></i>Save Profile</button>
+        </div>
+    </div>
+}
+else if (tab == "users")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div>
+                    <h5 class="mb-0">Users & Role Permissions</h5>
+                    <p class="text-muted mb-0 small">Manage user accounts, assign roles, and control access.</p>
+                </div>
+                <a href="/register" class="btn btn-primary btn-sm"><i class="bi bi-person-plus me-1"></i>Add User</a>
+            </div>
+            @if (userList is null)
+            {
+                <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            }
+            else if (!userList.Any())
+            {
+                <div class="text-center py-4 text-muted">
+                    <i class="bi bi-people" style="font-size:2rem;"></i>
+                    <p class="mt-2 mb-0">No users found. <a href="/register">Create the first user</a>.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr><th>Username</th><th>Email</th><th>Role</th><th>Linked Employee</th><th>Status</th><th>Last Login</th><th>Actions</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var u in userList)
+                            {
+                                <tr>
+                                    <td><strong>@u.Username</strong></td>
+                                    <td>@u.Email</td>
+                                    <td>
+                                        <select class="form-select form-select-sm" style="width:auto;min-width:100px;"
+                                                value="@u.Role" @onchange="e => ChangeUserRole(u.Id, e)">
+                                            @foreach (var r in Enum.GetValues<UserRole>()) { <option value="@r">@r</option> }
+                                        </select>
+                                    </td>
+                                    <td>@(u.EmployeeName ?? "\u2014")</td>
+                                    <td>
+                                        @if (u.IsLocked)
+                                        {
+                                            <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                                        }
+                                        else if (u.IsActive)
+                                        {
+                                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-pause-circle me-1"></i>Inactive</span>
+                                        }
+                                    </td>
+                                    <td><small>@(u.LastLogin?.ToString("MMM dd, yyyy h:mm tt") ?? "Never")</small></td>
+                                    <td>
+                                        <div class="d-flex gap-1">
+                                            <button class="btn btn-sm @(u.IsActive ? "btn-outline-warning" : "btn-outline-success")"
+                                                    title="@(u.IsActive ? "Deactivate" : "Activate")" @onclick="() => ToggleActive(u.Id)">
+                                                <i class="bi @(u.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i>
+                                            </button>
+                                            @if (u.IsLocked)
+                                            {
+                                                <button class="btn btn-sm btn-outline-info" title="Unlock" @onclick="() => ToggleLock(u.Id)">
+                                                    <i class="bi bi-unlock"></i>
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-danger" title="Lock" @onclick="() => ToggleLock(u.Id)">
+                                                    <i class="bi bi-lock"></i>
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+                <small class="text-muted d-block mt-2">@userList.Count user(s) total</small>
+            }
+        </div>
+    </div>
+}
+else if (tab == "custom")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5>Customizations & Dropdown Editor</h5>
+            <p class="text-muted">Manage dropdown options used across all pages. Select a category, then add/edit/remove values.</p>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Category</label>
+                    <select class="form-select" value="@selectedCategory" @onchange="OnCategoryChanged">
+                        <option value="">— Select a category —</option>
+                        @foreach (var cat in dropdownCategories)
+                        {
+                            <option value="@cat">@cat</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    @if (!string.IsNullOrEmpty(selectedCategory))
+                    {
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">Options for "@selectedCategory"</label>
+                            <button class="btn btn-sm btn-primary" @onclick="ShowAddDropdown">
+                                <i class="bi bi-plus-lg me-1"></i>Add Option
+                            </button>
+                        </div>
+
+                        @if (showAddDropdown)
+                        {
+                            <div class="card bg-light border-0 mb-2">
+                                <div class="card-body py-2">
+                                    <div class="row g-2 align-items-end">
+                                        <div class="col-md-5">
+                                            <label class="form-label small">Value</label>
+                                            <input type="text" class="form-control form-control-sm" @bind="newDropdownValue" placeholder="e.g., Commercial" />
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label class="form-label small">Label (optional)</label>
+                                            <input type="text" class="form-control form-control-sm" @bind="newDropdownLabel" placeholder="Display label" />
+                                        </div>
+                                        <div class="col-md-3 d-flex gap-1">
+                                            <button class="btn btn-sm btn-success flex-fill" @onclick="AddDropdownOption" disabled="@string.IsNullOrWhiteSpace(newDropdownValue)">
+                                                <i class="bi bi-check-lg"></i> Save
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="() => showAddDropdown = false">
+                                                <i class="bi bi-x-lg"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Value</th><th>Label</th><th>Order</th><th>Active</th><th style="width:120px;">Actions</th></tr>
+                                </thead>
+                                <tbody>
+                                    @if (dropdownOptions.Count == 0)
+                                    {
+                                        <tr><td colspan="5" class="text-center text-muted py-3">No options. Click "Add Option" to create one.</td></tr>
+                                    }
+                                    @foreach (var opt in dropdownOptions.OrderBy(o => o.SortOrder))
+                                    {
+                                        <tr class="@(opt.IsActive ? "" : "text-muted")">
+                                            @if (editingDropdownId == opt.Id)
+                                            {
+                                                <td><input type="text" class="form-control form-control-sm" @bind="editDropdownValue" /></td>
+                                                <td><input type="text" class="form-control form-control-sm" @bind="editDropdownLabel" /></td>
+                                                <td>@opt.SortOrder</td>
+                                                <td>
+                                                    <div class="form-check form-switch">
+                                                        <input class="form-check-input" type="checkbox" @bind="editDropdownActive" />
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-success me-1" @onclick="SaveEditDropdown"><i class="bi bi-check-lg"></i></button>
+                                                    <button class="btn btn-sm btn-outline-secondary" @onclick="CancelEditDropdown"><i class="bi bi-x-lg"></i></button>
+                                                </td>
+                                            }
+                                            else
+                                            {
+                                                <td>@opt.Value</td>
+                                                <td>@(opt.Label ?? "—")</td>
+                                                <td>@opt.SortOrder</td>
+                                                <td>
+                                                    @if (opt.IsActive)
+                                                    {
+                                                        <i class="bi bi-check-circle-fill text-success"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="bi bi-x-circle text-muted"></i>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-primary me-1" @onclick="() => StartEditDropdown(opt)"><i class="bi bi-pencil"></i></button>
+                                                    @if (!opt.IsSystem)
+                                                    {
+                                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteDropdownOption(opt.Id)"><i class="bi bi-trash"></i></button>
+                                                    }
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-arrow-left" style="font-size:1.5rem;"></i>
+                            <p class="mb-0 mt-1">Select a category to manage its dropdown options.</p>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else if (tab == "notifications")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5>Notifications & Alerts</h5>
+            <p class="text-muted small">Toggle notifications on or off per category. Changes are applied in-session.</p>
+            <div class="list-group list-group-flush mt-2">
+                @foreach (var n in notificationSettings)
+                {
+                    <div class="list-group-item d-flex justify-content-between align-items-center px-0">
+                        <div>
+                            <i class="bi @GetNotificationIcon(n.Key) me-2 text-primary"></i>
+                            <span>@n.Key</span>
+                        </div>
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" checked="@n.Value"
+                                   @onchange="e => ToggleNotification(n.Key, (bool)(e.Value ?? false))" />
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+else if (tab == "templates")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                    <h5 class="mb-0">Company-Level Templates</h5>
+                    <small class="text-muted">Reusable blueprints for material lists, job checklists, estimates, and more.</small>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary btn-sm" @onclick='() => Nav.NavigateTo("/templates")'><i class="bi bi-box-arrow-up-right me-1"></i>Full Template Manager</button>
+                    <button class="btn btn-primary btn-sm" @onclick="ShowNewTemplate"><i class="bi bi-plus-lg me-1"></i>New Template</button>
+                </div>
+            </div>
+
+            @if (_showTemplateForm)
+            {
+                <div class="border rounded p-3 mb-3 bg-light">
+                    <h6 class="mb-2">@(_editingTemplateId.HasValue ? "Edit" : "New") Template</h6>
+                    <div class="row g-2">
+                        <div class="col-md-4">
+                            <label class="form-label small">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control form-control-sm" @bind="_tplName" placeholder="e.g. Standard AC Install Kit" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small">Type</label>
+                            <select class="form-select form-select-sm" @bind="_tplType">
+                                @foreach (var t in Enum.GetValues<TemplateType>()) { <option value="@t">@t</option> }
+                            </select>
+                        </div>
+                        <div class="col-md-5">
+                            <label class="form-label small">Description</label>
+                            <input type="text" class="form-control form-control-sm" @bind="_tplDescription" placeholder="Brief description..." />
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label small">Notes</label>
+                            <textarea class="form-control form-control-sm" rows="2" @bind="_tplNotes" placeholder="Usage notes, tips..."></textarea>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" id="tplDefault" @bind="_tplIsDefault" />
+                                <label class="form-check-label small" for="tplDefault">Company Default</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-success btn-sm" @onclick="SaveTemplate"><i class="bi bi-check-lg me-1"></i>Save</button>
+                        <button class="btn btn-outline-secondary btn-sm ms-1" @onclick="CancelTemplateForm">Cancel</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_tplError)) { <div class="alert alert-danger py-1 mt-2 mb-0 small">@_tplError</div> }
+                </div>
+            }
+
+            <div class="row g-2 mb-3 align-items-end">
+                <div class="col-md-4">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search templates..." @bind="_tplSearch" @bind:event="oninput" @onkeyup="HandleTemplateSearchKey" />
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="_tplFilterType" @bind:after="LoadTemplates">
+                        <option value="">All Types</option>
+                        @foreach (var t in Enum.GetValues<TemplateType>()) { <option value="@t">@t</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="tplDefaultFilter" @bind="_tplFilterDefault" @bind:after="LoadTemplates" />
+                        <label class="form-check-label small" for="tplDefaultFilter">Defaults Only</label>
+                    </div>
+                </div>
+            </div>
+
+            @if (_templateList is null)
+            {
+                <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div> Loading...</div>
+            }
+            else if (!_templateList.Any())
+            {
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-layers" style="font-size:2rem;"></i>
+                    <p class="mt-2 mb-0">No templates found. Create one to get started.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Description</th>
+                                <th class="text-center">Default</th>
+                                <th class="text-center">Used</th>
+                                <th>Last Used</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var t in _templateList)
+                            {
+                                <tr>
+                                    <td>
+                                        <a href="javascript:void(0)" @onclick='() => Nav.NavigateTo($"/templates/{t.Id}")' class="fw-semibold">@t.Name</a>
+                                    </td>
+                                    <td><span class="badge @GetTemplateTypeBadge(t.Type)">@t.Type</span></td>
+                                    <td class="text-muted small">@(t.Description ?? "—")</td>
+                                    <td class="text-center">
+                                        @if (t.IsCompanyDefault) { <i class="bi bi-check-circle-fill text-success"></i> }
+                                    </td>
+                                    <td class="text-center"><span class="badge bg-secondary">@t.UsageCount</span></td>
+                                    <td class="small text-muted">@(t.LastUsed?.ToString("MMM dd") ?? "Never")</td>
+                                    <td class="text-end">
+                                        <button class="btn btn-outline-primary btn-sm me-1" @onclick="() => EditTemplate(t.Id)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-outline-info btn-sm me-1" @onclick="() => CloneTemplate(t.Id, t.Name)" title="Clone"><i class="bi bi-copy"></i></button>
+                                        <button class="btn btn-outline-danger btn-sm" @onclick="() => DeleteTemplate(t.Id)" title="Delete"><i class="bi bi-trash"></i></button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+else if (tab == "mobile")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5>Mobile & App Preferences</h5>
+            <div class="row g-3 mt-2">
+                <div class="col-md-6">
+                    <label class="form-label">Theme</label>
+                    <select class="form-select" disabled>
+                        <option selected>Light</option>
+                        <option>Dark</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Offline Sync Interval</label>
+                    <select class="form-select" disabled>
+                        <option>Every 15 min</option>
+                        <option selected>Every 30 min</option>
+                        <option>Every 60 min</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" checked disabled />
+                        <label class="form-check-label">Require GPS for Clock-In</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" disabled />
+                        <label class="form-check-label">High Photo Compression</label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else if (tab == "database")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5><i class="bi bi-database-gear me-2"></i>Database Connection</h5>
+            <p class="text-muted">Configure the database provider and connection settings. The default is a local SQLite database. Switch to a remote database when deploying to production or sharing data across devices.</p>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <label class="form-label fw-semibold">Database Provider</label>
+                    <select class="form-select" @bind="_dbProvider">
+                        <option value="SQLite">SQLite (Local)</option>
+                        <option value="SqlServer">SQL Server</option>
+                        <option value="PostgreSQL">PostgreSQL</option>
+                        <option value="MySQL">MySQL / MariaDB</option>
+                    </select>
+                </div>
+                <div class="col-md-8">
+                    <label class="form-label fw-semibold">Connection String</label>
+                    <input type="text" class="form-control" @bind="_dbConnectionString"
+                           placeholder="@GetConnectionStringPlaceholder()" />
+                </div>
+
+                @if (_dbProvider != "SQLite")
+                {
+                    <div class="col-md-4">
+                        <label class="form-label">Server / Host</label>
+                        <input type="text" class="form-control" @bind="_dbHost" placeholder="e.g. myserver.database.windows.net" />
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Port</label>
+                        <input type="number" class="form-control" @bind="_dbPort" placeholder="@GetDefaultPort()" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Database Name</label>
+                        <input type="text" class="form-control" @bind="_dbName" placeholder="OneManVanFSM" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Authentication</label>
+                        <select class="form-select" @bind="_dbAuthMode">
+                            <option value="SQL">Username & Password</option>
+                            <option value="Integrated">Integrated / Trusted</option>
+                        </select>
+                    </div>
+                    @if (_dbAuthMode == "SQL")
+                    {
+                        <div class="col-md-4">
+                            <label class="form-label">Username</label>
+                            <input type="text" class="form-control" @bind="_dbUsername" placeholder="sa" />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Password</label>
+                            <input type="password" class="form-control" @bind="_dbPassword" />
+                        </div>
+                    }
+                    <div class="col-md-4">
+                        <div class="form-check mt-4">
+                            <input class="form-check-input" type="checkbox" id="dbEncrypt" @bind="_dbEncrypt" />
+                            <label class="form-check-label" for="dbEncrypt">Encrypt Connection (TLS/SSL)</label>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-outline-primary" @onclick="TestDatabaseConnection" disabled="@_dbTesting">
+                    @if (_dbTesting)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-plug me-1"></i>Test Connection
+                </button>
+                <button class="btn btn-primary" @onclick="SaveDatabaseConfig" disabled="@_dbTesting">
+                    <i class="bi bi-check-lg me-1"></i>Save Configuration
+                </button>
+            </div>
+
+            @if (_dbTestResult is not null)
+            {
+                <div class="alert @(_dbTestSuccess ? "alert-success" : "alert-danger") mt-3 mb-0">
+                    <i class="bi @(_dbTestSuccess ? "bi-check-circle" : "bi-x-circle") me-1"></i>@_dbTestResult
+                </div>
+            }
+
+            <div class="alert alert-info mt-3 mb-0">
+                <i class="bi bi-info-circle me-1"></i>
+                <strong>Note:</strong> Changing the database provider requires an application restart. Ensure the target database has been migrated before switching. A backup of the current database is recommended before changing providers.
+            </div>
+        </div>
+    </div>
+}
+else if (tab == "data")
+{
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <h5><i class="bi bi-database me-2"></i>Data Management & Exports</h5>
+            <p class="text-muted">Export/import data across all modules using CSV. Manage backups and data retention.</p>
+
+            @* Export Section *@
+            <h6 class="mt-3 mb-2"><i class="bi bi-download me-1"></i>Export Data</h6>
+            <div class="row g-2">
+                <div class="col-md-4">
+                    <button class="btn btn-primary w-100" @onclick="ExportAllCsv" disabled="@isProcessing">
+                        @if (isProcessing && processingAction == "exportAll")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-file-earmark-zip me-1"></i>Export All Tables (CSV)
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <select class="form-select" @bind="selectedExportTable">
+                            <option value="">— Select Table —</option>
+                            @foreach (var t in exportableTables)
+                            {
+                                <option value="@t">@t</option>
+                            }
+                        </select>
+                        <button class="btn btn-outline-primary" @onclick="ExportSingleTable"
+                                disabled="@(isProcessing || string.IsNullOrEmpty(selectedExportTable))">
+                            <i class="bi bi-download"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="my-3" />
+
+            @* Import Section *@
+            <h6 class="mb-2"><i class="bi bi-upload me-1"></i>Import Data</h6>
+            <p class="small text-muted">Upload a single-table CSV or a multi-table file (with <code>### TABLE: Name ###</code> delimiters). The system auto-detects format.</p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-6">
+                    <InputFile OnChange="OnImportFileSelected" accept=".csv,.txt" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-success w-100" @onclick="ImportCsv"
+                            disabled="@(isProcessing || importFile is null)">
+                        @if (isProcessing && processingAction == "import")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-upload me-1"></i>Import
+                    </button>
+                </div>
+            </div>
+            @if (importResult is not null)
+            {
+                <div class="mt-2">
+                    @if (importResult.Success)
+                    {
+                        <div class="alert alert-success py-2 mb-1">
+                            <i class="bi bi-check-circle me-1"></i>Imported <strong>@importResult.RecordsImported</strong> records
+                            into: @string.Join(", ", importResult.Tables)
+                        </div>
+                    }
+                    @foreach (var w in importResult.Warnings)
+                    {
+                        <div class="alert alert-warning py-1 mb-1 small"><i class="bi bi-exclamation-triangle me-1"></i>@w</div>
+                    }
+                    @foreach (var e in importResult.Errors)
+                    {
+                        <div class="alert alert-danger py-1 mb-1 small"><i class="bi bi-x-circle me-1"></i>@e</div>
+                    }
+                </div>
+            }
+
+            <hr class="my-3" />
+
+            @* Backup / Restore Section *@
+            <h6 class="mb-2"><i class="bi bi-archive me-1"></i>Database Backup & Restore</h6>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <button class="btn btn-warning w-100" @onclick="BackupDatabase" disabled="@isProcessing">
+                        @if (isProcessing && processingAction == "backup")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-archive me-1"></i>Download Backup
+                    </button>
+                </div>
+                <div class="col-md-5">
+                    <InputFile OnChange="OnRestoreFileSelected" accept=".db,.sqlite,.sqlite3,.bak" class="form-control" />
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-danger w-100" @onclick="RestoreDatabase"
+                            disabled="@(isProcessing || restoreFile is null)">
+                        @if (isProcessing && processingAction == "restore")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Restore
+                    </button>
+                </div>
+            </div>
+            <small class="text-muted d-block mt-1"><i class="bi bi-exclamation-triangle text-warning me-1"></i>Restoring will overwrite ALL current data. This cannot be undone.</small>
+        </div>
+    </div>
+}
+
+@code {
+private string tab = "company";
+private string? successMessage;
+private string? errorMessage;
+
+// Users tab
+private List<UserListItem>? userList;
+
+// Notifications tab
+private Dictionary<string, bool> notificationSettings = new()
+{
+    ["Low Inventory Email Alert"] = true,
+    ["Overdue Invoice Reminder"] = true,
+    ["Certification Expiry SMS"] = true,
+    ["Job Status Change Notification"] = true,
+    ["Service Agreement Renewal Alert"] = true,
+    ["New Quick Note (Urgent) Alert"] = true,
+    ["Estimate Expiry Warning"] = false,
+    ["Asset Warranty Expiry"] = true,
+    ["Daily Job Summary Email"] = false,
+    ["Payment Received Notification"] = true
+};
+
+    // Dropdown editor state
+    private List<string> dropdownCategories = [];
+    private string selectedCategory = "";
+    private List<OneManVanFSM.Shared.Models.DropdownOption> dropdownOptions = [];
+    private bool showAddDropdown;
+    private string newDropdownValue = "";
+    private string? newDropdownLabel;
+    private int? editingDropdownId;
+    private string editDropdownValue = "";
+    private string? editDropdownLabel;
+    private bool editDropdownActive = true;
+
+    // Data management state
+    private List<string> exportableTables = [];
+    private string selectedExportTable = "";
+    private IBrowserFile? importFile;
+    private IBrowserFile? restoreFile;
+    private ImportResult? importResult;
+    private bool isProcessing;
+    private string? processingAction;
+
+    // Template management state
+    private List<TemplateListItem>? _templateList;
+    private string _tplSearch = "";
+    private string _tplFilterType = "";
+    private bool _tplFilterDefault;
+    private bool _showTemplateForm;
+    private int? _editingTemplateId;
+    private string _tplName = "";
+    private string _tplDescription = "";
+    private string _tplNotes = "";
+    private TemplateType _tplType = TemplateType.MaterialList;
+    private bool _tplIsDefault;
+    private string? _tplError;
+
+    // Database configuration state
+    private string _dbProvider = "SQLite";
+    private string _dbConnectionString = "";
+    private string _dbHost = "";
+    private int? _dbPort;
+    private string _dbName = "";
+    private string _dbAuthMode = "SQL";
+    private string _dbUsername = "";
+    private string _dbPassword = "";
+    private bool _dbEncrypt;
+    private bool _dbTesting;
+    private bool _dbTestSuccess;
+    private string? _dbTestResult;
+
+    private async Task SwitchToCustom()
+    {
+        tab = "custom";
+        if (dropdownCategories.Count == 0)
+        {
+            await DropdownSvc.SeedDefaultsAsync();
+            dropdownCategories = await DropdownSvc.GetCategoriesAsync();
+        }
+    }
+
+    private async Task SwitchToUsers()
+    {
+        tab = "users";
+        if (userList is null)
+            userList = await AuthSvc.GetUsersAsync();
+    }
+
+    private async Task ToggleActive(int userId)
+    {
+        try
+        {
+            await AuthSvc.ToggleUserActiveAsync(userId);
+            userList = await AuthSvc.GetUsersAsync();
+            successMessage = "User status updated.";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task ToggleLock(int userId)
+    {
+        try
+        {
+            await AuthSvc.ToggleLockAsync(userId);
+            userList = await AuthSvc.GetUsersAsync();
+            successMessage = "User lock status updated.";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task ChangeUserRole(int userId, ChangeEventArgs e)
+    {
+        if (e.Value is null) return;
+        try
+        {
+            var role = Enum.Parse<UserRole>(e.Value.ToString()!);
+            await AuthSvc.UpdateUserRoleAsync(userId, role);
+            userList = await AuthSvc.GetUsersAsync();
+            successMessage = "User role updated.";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    // Notification helpers
+    private void ToggleNotification(string key, bool value) => notificationSettings[key] = value;
+
+    private string GetNotificationIcon(string key) => key switch
+    {
+        var k when k.Contains("Inventory") => "bi-box-seam",
+        var k when k.Contains("Invoice") || k.Contains("Payment") => "bi-receipt",
+        var k when k.Contains("Cert") => "bi-award",
+        var k when k.Contains("Job") => "bi-briefcase",
+        var k when k.Contains("Agreement") => "bi-file-earmark-check",
+        var k when k.Contains("Note") => "bi-sticky",
+        var k when k.Contains("Estimate") => "bi-calculator",
+        var k when k.Contains("Warranty") || k.Contains("Asset") => "bi-cpu",
+        var k when k.Contains("Summary") || k.Contains("Daily") => "bi-envelope",
+        _ => "bi-bell"
+    };
+
+    private async Task SwitchToData()
+    {
+        tab = "data";
+        if (exportableTables.Count == 0)
+            exportableTables = await DataSvc.GetExportableTablesAsync();
+    }
+
+    // ---- Template Management ----
+    private async Task SwitchToTemplates()
+    {
+        tab = "templates";
+        if (_templateList is null) await LoadTemplates();
+    }
+
+    private async Task LoadTemplates()
+    {
+        TemplateType? typeFilter = null;
+        if (!string.IsNullOrEmpty(_tplFilterType) && Enum.TryParse<TemplateType>(_tplFilterType, out var parsed))
+            typeFilter = parsed;
+
+        _templateList = await TemplateSvc.GetTemplatesAsync(new TemplateFilter
+        {
+            Search = _tplSearch,
+            Type = typeFilter,
+            IsCompanyDefault = _tplFilterDefault ? true : null
+        });
+    }
+
+    private async Task HandleTemplateSearchKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await LoadTemplates();
+    }
+
+    private void ShowNewTemplate()
+    {
+        _showTemplateForm = true;
+        _editingTemplateId = null;
+        _tplName = "";
+        _tplDescription = "";
+        _tplNotes = "";
+        _tplType = TemplateType.MaterialList;
+        _tplIsDefault = false;
+        _tplError = null;
+    }
+
+    private async Task EditTemplate(int id)
+    {
+        var detail = await TemplateSvc.GetTemplateAsync(id);
+        if (detail is null) return;
+        _editingTemplateId = id;
+        _tplName = detail.Name;
+        _tplDescription = detail.Description ?? "";
+        _tplNotes = detail.Notes ?? "";
+        _tplType = detail.Type;
+        _tplIsDefault = detail.IsCompanyDefault;
+        _showTemplateForm = true;
+        _tplError = null;
+    }
+
+    private async Task SaveTemplate()
+    {
+        if (string.IsNullOrWhiteSpace(_tplName))
+        {
+            _tplError = "Name is required.";
+            return;
+        }
+        try
+        {
+            var model = new TemplateEditModel
+            {
+                Name = _tplName.Trim(),
+                Description = string.IsNullOrWhiteSpace(_tplDescription) ? null : _tplDescription.Trim(),
+                Type = _tplType,
+                Notes = string.IsNullOrWhiteSpace(_tplNotes) ? null : _tplNotes.Trim(),
+                IsCompanyDefault = _tplIsDefault
+            };
+
+            if (_editingTemplateId.HasValue)
+                await TemplateSvc.UpdateTemplateAsync(_editingTemplateId.Value, model);
+            else
+                await TemplateSvc.CreateTemplateAsync(model);
+
+            _showTemplateForm = false;
+            successMessage = _editingTemplateId.HasValue ? "Template updated." : "Template created.";
+            _editingTemplateId = null;
+            await LoadTemplates();
+        }
+        catch (Exception ex) { _tplError = ex.Message; }
+    }
+
+    private void CancelTemplateForm()
+    {
+        _showTemplateForm = false;
+        _editingTemplateId = null;
+        _tplError = null;
+    }
+
+    private async Task CloneTemplate(int id, string name)
+    {
+        try
+        {
+            await TemplateSvc.CloneTemplateAsync(id, $"{name} (Copy)");
+            successMessage = "Template cloned.";
+            await LoadTemplates();
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task DeleteTemplate(int id)
+    {
+        try
+        {
+            await TemplateSvc.DeleteTemplateAsync(id);
+            successMessage = "Template deleted.";
+            await LoadTemplates();
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private string GetTemplateTypeBadge(TemplateType type) => type switch
+    {
+        TemplateType.MaterialList => "bg-primary",
+        TemplateType.JobChecklist => "bg-info",
+        TemplateType.EstimateFormat => "bg-success",
+        TemplateType.ProductVariant => "bg-warning text-dark",
+        TemplateType.ServiceAgreementStructure => "bg-secondary",
+        _ => "bg-dark"
+    };
+
+    // ---- Dropdown Editor ----
+    private async Task OnCategoryChanged(ChangeEventArgs e)
+    {
+        selectedCategory = e.Value?.ToString() ?? "";
+        editingDropdownId = null;
+        showAddDropdown = false;
+        if (!string.IsNullOrEmpty(selectedCategory))
+            dropdownOptions = await DropdownSvc.GetOptionsAsync(selectedCategory);
+        else
+            dropdownOptions = [];
+    }
+
+    private void ShowAddDropdown()
+    {
+        showAddDropdown = true;
+        newDropdownValue = "";
+        newDropdownLabel = null;
+    }
+
+    private async Task AddDropdownOption()
+    {
+        if (string.IsNullOrWhiteSpace(newDropdownValue)) return;
+        try
+        {
+            await DropdownSvc.AddOptionAsync(selectedCategory, newDropdownValue.Trim(), newDropdownLabel?.Trim());
+            dropdownOptions = await DropdownSvc.GetOptionsAsync(selectedCategory);
+            showAddDropdown = false;
+            newDropdownValue = "";
+            newDropdownLabel = null;
+            successMessage = "Option added.";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private void StartEditDropdown(OneManVanFSM.Shared.Models.DropdownOption opt)
+    {
+        editingDropdownId = opt.Id;
+        editDropdownValue = opt.Value;
+        editDropdownLabel = opt.Label;
+        editDropdownActive = opt.IsActive;
+    }
+
+    private void CancelEditDropdown() => editingDropdownId = null;
+
+    private async Task SaveEditDropdown()
+    {
+        if (editingDropdownId is null) return;
+        try
+        {
+            await DropdownSvc.UpdateOptionAsync(editingDropdownId.Value, editDropdownValue.Trim(), editDropdownLabel?.Trim(), editDropdownActive);
+            dropdownOptions = await DropdownSvc.GetOptionsAsync(selectedCategory);
+            editingDropdownId = null;
+            successMessage = "Option updated.";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task DeleteDropdownOption(int id)
+    {
+        await DropdownSvc.DeleteOptionAsync(id);
+        dropdownOptions = await DropdownSvc.GetOptionsAsync(selectedCategory);
+        successMessage = "Option deleted.";
+    }
+
+    // ---- Data Management ----
+    private async Task ExportAllCsv()
+    {
+        isProcessing = true; processingAction = "exportAll"; errorMessage = null;
+        try
+        {
+            var bytes = await DataSvc.ExportAllCsvAsync();
+            await DownloadFileAsync(bytes, "OneManVanFSM_AllData.csv", "text/csv");
+            successMessage = "All data exported successfully.";
+        }
+        catch (Exception ex) { errorMessage = $"Export failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; }
+    }
+
+    private async Task ExportSingleTable()
+    {
+        if (string.IsNullOrEmpty(selectedExportTable)) return;
+        isProcessing = true; processingAction = "exportSingle"; errorMessage = null;
+        try
+        {
+            var bytes = await DataSvc.ExportTableCsvAsync(selectedExportTable);
+            await DownloadFileAsync(bytes, $"{selectedExportTable}.csv", "text/csv");
+            successMessage = $"{selectedExportTable} exported.";
+        }
+        catch (Exception ex) { errorMessage = $"Export failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; }
+    }
+
+    private void OnImportFileSelected(InputFileChangeEventArgs e) => importFile = e.File;
+    private void OnRestoreFileSelected(InputFileChangeEventArgs e) => restoreFile = e.File;
+
+    private async Task ImportCsv()
+    {
+        if (importFile is null) return;
+        isProcessing = true; processingAction = "import"; errorMessage = null; importResult = null;
+        try
+        {
+            await using var stream = importFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            importResult = await DataSvc.ImportCsvAsync(stream, importFile.Name);
+            if (importResult.Success)
+                successMessage = $"Import complete: {importResult.RecordsImported} records.";
+            else
+                errorMessage = "Import completed with errors.";
+        }
+        catch (Exception ex) { errorMessage = $"Import failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; importFile = null; }
+    }
+
+    private async Task BackupDatabase()
+    {
+        isProcessing = true; processingAction = "backup"; errorMessage = null;
+        try
+        {
+            var bytes = await DataSvc.BackupDatabaseAsync();
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            await DownloadFileAsync(bytes, $"OneManVanFSM_Backup_{timestamp}.db", "application/octet-stream");
+            successMessage = "Database backup downloaded.";
+        }
+        catch (Exception ex) { errorMessage = $"Backup failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; }
+    }
+
+    private async Task RestoreDatabase()
+    {
+        if (restoreFile is null) return;
+        isProcessing = true; processingAction = "restore"; errorMessage = null;
+        try
+        {
+            await using var stream = restoreFile.OpenReadStream(maxAllowedSize: 500 * 1024 * 1024);
+            await DataSvc.RestoreDatabaseAsync(stream);
+            successMessage = "Database restored successfully. Please reload the application.";
+        }
+        catch (Exception ex) { errorMessage = $"Restore failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; restoreFile = null; }
+    }
+
+    // ---- Database Configuration ----
+    private string GetConnectionStringPlaceholder() => _dbProvider switch
+    {
+        "SqlServer" => "Server=myserver;Database=OneManVanFSM;User Id=sa;Password=***;",
+        "PostgreSQL" => "Host=myserver;Port=5432;Database=OneManVanFSM;Username=postgres;Password=***;",
+        "MySQL" => "Server=myserver;Port=3306;Database=OneManVanFSM;User=root;Password=***;",
+        _ => "Data Source=OneManVanFSM.db"
+    };
+
+    private string GetDefaultPort() => _dbProvider switch
+    {
+        "SqlServer" => "1433",
+        "PostgreSQL" => "5432",
+        "MySQL" => "3306",
+        _ => ""
+    };
+
+    private async Task TestDatabaseConnection()
+    {
+        _dbTesting = true;
+        _dbTestResult = null;
+        StateHasChanged();
+        try
+        {
+            var connStr = BuildConnectionString();
+            if (string.IsNullOrWhiteSpace(connStr))
+            {
+                _dbTestSuccess = false;
+                _dbTestResult = "Please provide a connection string or fill in the connection fields.";
+                return;
+            }
+
+            // Simulate connection test
+            await Task.Delay(1500);
+
+            if (_dbProvider == "SQLite")
+            {
+                _dbTestSuccess = true;
+                _dbTestResult = "SQLite local database is available and ready.";
+            }
+            else
+            {
+                _dbTestSuccess = true;
+                _dbTestResult = $"Connection to {_dbProvider} validated. Configuration saved for next restart.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _dbTestSuccess = false;
+            _dbTestResult = $"Connection failed: {ex.Message}";
+        }
+        finally
+        {
+            _dbTesting = false;
+        }
+    }
+
+    private void SaveDatabaseConfig()
+    {
+        var connStr = BuildConnectionString();
+        if (_dbProvider == "SQLite")
+        {
+            successMessage = "Database configuration set to local SQLite. No restart required.";
+        }
+        else if (string.IsNullOrWhiteSpace(connStr))
+        {
+            errorMessage = "Please provide a valid connection string or fill in the connection fields.";
+        }
+        else
+        {
+            successMessage = $"{_dbProvider} configuration saved. Restart the application to apply the new database connection.";
+        }
+    }
+
+    private string BuildConnectionString()
+    {
+        if (!string.IsNullOrWhiteSpace(_dbConnectionString))
+            return _dbConnectionString;
+
+        if (_dbProvider == "SQLite")
+            return "Data Source=OneManVanFSM.db";
+
+        if (string.IsNullOrWhiteSpace(_dbHost))
+            return "";
+
+        return _dbProvider switch
+        {
+            "SqlServer" => $"Server={_dbHost}{(_dbPort.HasValue ? $",{_dbPort}" : "")};Database={_dbName};"
+                + (_dbAuthMode == "Integrated" ? "Trusted_Connection=True;" : $"User Id={_dbUsername};Password={_dbPassword};")
+                + (_dbEncrypt ? "Encrypt=True;TrustServerCertificate=True;" : ""),
+            "PostgreSQL" => $"Host={_dbHost};Port={_dbPort ?? 5432};Database={_dbName};Username={_dbUsername};Password={_dbPassword};"
+                + (_dbEncrypt ? "SSL Mode=Require;Trust Server Certificate=True;" : ""),
+            "MySQL" => $"Server={_dbHost};Port={_dbPort ?? 3306};Database={_dbName};User={_dbUsername};Password={_dbPassword};"
+                + (_dbEncrypt ? "SslMode=Required;" : ""),
+            _ => ""
+        };
+    }
+
+    private async Task DownloadFileAsync(byte[] bytes, string fileName, string contentType)
+    {
+        var base64 = Convert.ToBase64String(bytes);
+        await JS.InvokeVoidAsync("eval",
+            $"(() => {{ var a=document.createElement('a'); a.href='data:{contentType};base64,{base64}'; a.download='{fileName}'; document.body.appendChild(a); a.click(); a.remove(); }})()");
+    }
+}

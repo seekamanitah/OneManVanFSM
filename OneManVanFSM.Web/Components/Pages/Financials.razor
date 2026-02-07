@@ -1,0 +1,905 @@
+@page "/financials"
+@page "/financials/invoices/{Id:int}"
+@rendermode InteractiveServer
+@inject IFinancialService FinSvc
+@inject ICustomerService CustomerSvc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Financials - OneManVanFSM</PageTitle>
+
+@if (mode == "invoiceDetail" && invoiceDetail is not null)
+{
+    <div class="d-flex align-items-center mb-3 no-print">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>@invoiceDetail.InvoiceNumber</h4>
+        <span class="badge @GetInvBadge(invoiceDetail.Status) ms-2">@invoiceDetail.Status</span>
+        <div class="ms-auto d-flex gap-1">
+            <button class="btn btn-outline-success btn-sm" @onclick="PrintInvoice" title="Print / PDF"><i class="bi bi-printer me-1"></i>Print</button>
+            <button class="btn btn-outline-info btn-sm" @onclick="EmailInvoice" title="Email invoice"><i class="bi bi-envelope me-1"></i>Email</button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="EditInvoiceFromDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            @if (invoiceDetail.Status == InvoiceStatus.Draft)
+            {
+                <button class="btn btn-outline-info btn-sm me-1" @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Sent)"><i class="bi bi-send me-1"></i>Send</button>
+            }
+            @if (invoiceDetail.Status == InvoiceStatus.Sent || invoiceDetail.Status == InvoiceStatus.Overdue)
+            {
+                <button class="btn btn-success btn-sm me-1" @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Paid)"><i class="bi bi-check-circle me-1"></i>Mark Paid</button>
+            }
+            @if (invoiceDetail.Status != InvoiceStatus.Void)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Void)"><i class="bi bi-x-circle me-1"></i>Void</button>
+            }
+        </div>
+    </div>
+
+    @* ?? Print-Only Professional Invoice Header ?? *@
+    <div class="print-document-header d-none">
+        <h2 class="print-doc-title">Invoice</h2>
+        <div class="print-doc-meta">
+            <div class="print-address-block">
+                @if (invoiceDetail.CompanyName is not null)
+                {
+                    <p class="print-address-label">From</p>
+                    <p class="print-address-name">@invoiceDetail.CompanyName</p>
+                }
+            </div>
+            <div class="print-address-block">
+                @if (invoiceDetail.CustomerName is not null)
+                {
+                    <p class="print-address-label">Bill To</p>
+                    <p class="print-address-name">@invoiceDetail.CustomerName</p>
+                    @if (!string.IsNullOrWhiteSpace(invoiceDetail.CustomerEmail))
+                    {
+                        <p class="print-address-value">@invoiceDetail.CustomerEmail</p>
+                    }
+                }
+                @if (invoiceDetail.SiteName is not null)
+                {
+                    <p class="print-address-value" style="margin-top:4pt;">Site: @invoiceDetail.SiteName</p>
+                }
+            </div>
+        </div>
+        <div class="print-doc-details">
+            <div class="print-detail-item">
+                <span class="print-detail-label">Invoice #</span>
+                <span class="print-detail-value">@invoiceDetail.InvoiceNumber</span>
+            </div>
+            <div class="print-detail-item">
+                <span class="print-detail-label">Status</span>
+                <span class="print-detail-value">@invoiceDetail.Status</span>
+            </div>
+            @if (invoiceDetail.InvoiceDate.HasValue)
+            {
+                <div class="print-detail-item">
+                    <span class="print-detail-label">Invoice Date</span>
+                    <span class="print-detail-value">@invoiceDetail.InvoiceDate.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            @if (invoiceDetail.DueDate.HasValue)
+            {
+                <div class="print-detail-item">
+                    <span class="print-detail-label">Due Date</span>
+                    <span class="print-detail-value">@invoiceDetail.DueDate.Value.ToString("MMM dd, yyyy")</span>
+                </div>
+            }
+            @if (!string.IsNullOrWhiteSpace(invoiceDetail.PaymentTerms))
+            {
+                <div class="print-detail-item">
+                    <span class="print-detail-label">Terms</span>
+                    <span class="print-detail-value">@invoiceDetail.PaymentTerms</span>
+                </div>
+            }
+            @if (invoiceDetail.JobNumber is not null)
+            {
+                <div class="print-detail-item">
+                    <span class="print-detail-label">Job #</span>
+                    <span class="print-detail-value">@invoiceDetail.JobNumber</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        @if (invoiceDetail.CustomerName is not null) { <div class="col-sm-4"><strong>Customer:</strong> <a href="javascript:void(0)" @onclick="() => GoToCustomer(invoiceDetail.CustomerId!.Value)">@invoiceDetail.CustomerName</a></div> }
+                        @if (invoiceDetail.CompanyName is not null) { <div class="col-sm-4"><strong>Company:</strong> @invoiceDetail.CompanyName</div> }
+                        @if (invoiceDetail.SiteName is not null) { <div class="col-sm-4"><strong>Site:</strong> @invoiceDetail.SiteName</div> }
+                        @if (invoiceDetail.JobNumber is not null) { <div class="col-sm-4"><strong>Job:</strong> <a href="javascript:void(0)" @onclick="() => GoToJob(invoiceDetail.JobId!.Value)">@invoiceDetail.JobNumber</a></div> }
+                        @if (invoiceDetail.InvoiceDate.HasValue) { <div class="col-sm-4"><strong>Issued:</strong> @invoiceDetail.InvoiceDate.Value.ToString("MMM dd, yyyy")</div> }
+                        <div class="col-sm-4"><strong>Due:</strong> @(invoiceDetail.DueDate?.ToString("MMM dd, yyyy") ?? "—")</div>
+                        @if (!string.IsNullOrWhiteSpace(invoiceDetail.PaymentTerms)) { <div class="col-sm-4"><strong>Terms:</strong> @invoiceDetail.PaymentTerms</div> }
+                    </div>
+                    <h6>Line Items</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light"><tr><th>Description</th><th>Type</th><th>Product</th><th>Unit</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th></tr></thead>
+                            <tbody>
+                                @if (invoiceDetail.Lines.Any())
+                                {
+                                    @foreach (var l in invoiceDetail.Lines.OrderBy(x => x.SortOrder))
+                                    {
+                                        <tr>
+                                            <td>@l.Description</td>
+                                            <td><small class="text-muted">@(l.LineType ?? "—")</small></td>
+                                            <td>@(l.ProductName ?? "—")</td>
+                                            <td><small>@(l.Unit ?? "—")</small></td>
+                                            <td class="text-end">@l.Quantity</td>
+                                            <td class="text-end">@l.UnitPrice.ToString("C")</td>
+                                            <td class="text-end">@l.LineTotal.ToString("C")</td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr><td colspan="7" class="text-center text-muted">No line items</td></tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    @if (!string.IsNullOrEmpty(invoiceDetail.Notes)) { <hr /><p class="text-muted small mb-0">@invoiceDetail.Notes</p> }
+
+                    @* ?? Print-Only Pricing Summary ?? *@
+                    <div class="print-pricing-summary d-none">
+                        <div class="print-pricing-row"><span>Subtotal</span><span>@invoiceDetail.Subtotal.ToString("C")</span></div>
+                        @if (invoiceDetail.MarkupAmount > 0) { <div class="print-pricing-row"><span>Markup</span><span>@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
+                        @if (invoiceDetail.TaxAmount > 0) { <div class="print-pricing-row"><span>Tax</span><span>@invoiceDetail.TaxAmount.ToString("C")</span></div> }
+                        @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount.Value > 0) { <div class="print-pricing-row"><span>Discount</span><span>-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
+                        <div class="print-pricing-row print-pricing-total"><span>Total</span><span>@invoiceDetail.Total.ToString("C")</span></div>
+                        @if (invoiceDetail.DepositApplied.HasValue && invoiceDetail.DepositApplied.Value > 0) { <div class="print-pricing-row"><span>Deposit Applied</span><span>-@invoiceDetail.DepositApplied.Value.ToString("C")</span></div> }
+                        <div class="print-pricing-row print-pricing-balance"><span>Balance Due</span><span>@invoiceDetail.BalanceDue.ToString("C")</span></div>
+                    </div>
+
+                    @if (invoiceDetail.Payments.Any())
+                    {
+                        <div class="print-payments-section d-none">
+                            <h6>Payment History</h6>
+                            <table class="table table-sm">
+                                <thead><tr><th>Date</th><th>Method</th><th>Reference</th><th>Status</th><th class="text-end">Amount</th></tr></thead>
+                                <tbody>
+                                    @foreach (var p in invoiceDetail.Payments)
+                                    {
+                                        <tr>
+                                            <td>@p.PaymentDate.ToString("MMM dd, yyyy")</td>
+                                            <td>@p.Method</td>
+                                            <td>@(p.Reference ?? "—")</td>
+                                            <td>@p.Status</td>
+                                            <td class="text-end">@p.Amount.ToString("C")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(invoiceDetail.Notes))
+                    {
+                        <div class="print-document-notes d-none">
+                            <p class="print-notes-label">Notes</p>
+                            <p class="print-notes-text">@invoiceDetail.Notes</p>
+                        </div>
+                    }
+
+                    <div class="print-document-footer d-none">
+                        <p>Thank you for your business. • Generated @DateTime.Now.ToString("MMM dd, yyyy")</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 no-print">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Pricing Summary</h6>
+                    <div class="d-flex justify-content-between mb-1"><span>Subtotal</span><span>@invoiceDetail.Subtotal.ToString("C")</span></div>
+                    @if (invoiceDetail.MarkupAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Markup</span><span>@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
+                    @if (invoiceDetail.TaxAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax</span><span>@invoiceDetail.TaxAmount.ToString("C")</span></div> }
+                    @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount.Value > 0) { <div class="d-flex justify-content-between mb-1 text-success"><span>Discount</span><span>-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@invoiceDetail.Total.ToString("C")</span></div>
+                    @if (invoiceDetail.DepositApplied.HasValue && invoiceDetail.DepositApplied.Value > 0)
+                    {
+                        <div class="d-flex justify-content-between mb-1 mt-1"><span>Deposit Applied</span><span>-@invoiceDetail.DepositApplied.Value.ToString("C")</span></div>
+                    }
+                    <hr />
+                    <div class="d-flex justify-content-between fw-bold @(invoiceDetail.BalanceDue > 0 ? "text-danger" : "text-success")"><span>Balance Due</span><span>@invoiceDetail.BalanceDue.ToString("C")</span></div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Payments</h6>
+                    @if (invoiceDetail.Payments.Any())
+                    {
+                        @foreach (var p in invoiceDetail.Payments)
+                        {
+                            <div class="d-flex justify-content-between border-bottom py-1">
+                                <div>
+                                    <span class="badge @(p.Status == PaymentStatus.Completed ? "bg-success" : p.Status == PaymentStatus.Refunded ? "bg-warning text-dark" : "bg-secondary") me-1">@p.Status</span>
+                                    <small>@p.Method — @p.PaymentDate.ToString("MMM dd")</small>
+                                    @if (!string.IsNullOrWhiteSpace(p.Reference)) { <small class="text-muted ms-1">(Ref: @p.Reference)</small> }
+                                </div>
+                                <strong>@p.Amount.ToString("C")</strong>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-0">No payments recorded.</p>
+                    }
+                    @if (invoiceDetail.BalanceDue > 0)
+                    {
+                        <button class="btn btn-outline-success btn-sm w-100 mt-2" @onclick="ShowRecordPayment"><i class="bi bi-plus-lg me-1"></i>Record Payment</button>
+                    }
+                    @if (showPaymentForm)
+                    {
+                        <div class="border rounded p-2 mt-2">
+                            <EditForm Model="paymentForm" OnValidSubmit="SavePayment">
+                                <DataAnnotationsValidator />
+                                <div class="mb-2">
+                                    <label class="form-label small">Amount</label>
+                                    <InputNumber @bind-Value="paymentForm.Amount" class="form-control form-control-sm" />
+                                    <ValidationMessage For="() => paymentForm.Amount" />
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Method</label>
+                                    <InputSelect @bind-Value="paymentForm.Method" class="form-select form-select-sm">
+                                        @foreach (var m in Enum.GetValues<PaymentMethod>()) { <option value="@m">@m</option> }
+                                    </InputSelect>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Reference</label>
+                                    <InputText @bind-Value="paymentForm.Reference" class="form-control form-control-sm" placeholder="Check #, Transaction ID" />
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Date</label>
+                                    <InputDate @bind-Value="paymentForm.PaymentDate" class="form-control form-control-sm" />
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small">Notes</label>
+                                    <InputText @bind-Value="paymentForm.Notes" class="form-control form-control-sm" />
+                                </div>
+                                <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-check-lg me-1"></i>Save</button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm ms-1" @onclick="() => showPaymentForm = false">Cancel</button>
+                            </EditForm>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @invoiceDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @invoiceDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-cash-stack me-2"></i>Financials</h4>
+        <div>
+            <button class="btn btn-primary btn-sm me-1" @onclick="ShowInvoiceForm"><i class="bi bi-receipt me-1"></i>New Invoice</button>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="ShowExpenseForm"><i class="bi bi-plus-lg me-1"></i>Record Expense</button>
+        </div>
+    </div>
+
+    @if (showForm == "invoice")
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-transparent d-flex justify-content-between">
+                <h6 class="mb-0">@(editingInvoiceId.HasValue ? "Edit Invoice" : "New Invoice")</h6>
+                <button class="btn-close" @onclick="CloseForm"></button>
+            </div>
+            <div class="card-body">
+                <EditForm Model="invoiceForm" OnValidSubmit="SaveInvoice">
+                    <div class="row g-3 mb-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <InputSelect @bind-Value="invoiceForm.Status" class="form-select form-select-sm">
+                                @foreach (var s in Enum.GetValues<InvoiceStatus>()) { <option value="@s">@s</option> }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Invoice Date</label>
+                            <InputDate @bind-Value="invoiceForm.InvoiceDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Due Date</label>
+                            <InputDate @bind-Value="invoiceForm.DueDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Payment Terms</label>
+                            <InputText @bind-Value="invoiceForm.PaymentTerms" class="form-control form-control-sm" placeholder="Net 30, Due on Receipt" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Customer</label>
+                            <InputSelect @bind-Value="invoiceForm.CustomerId" class="form-select form-select-sm">
+                                <option value="">— Select Customer —</option>
+                                @foreach (var c in _customers)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Tax Rate (%)</label>
+                            <input type="number" class="form-control form-control-sm" step="0.01" @bind="taxRate" @bind:event="oninput" @onchange="RecalcInvoiceTotals" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Markup</label>
+                            <InputNumber @bind-Value="invoiceForm.MarkupAmount" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label">Discount</label>
+                            <InputNumber @bind-Value="invoiceForm.DiscountAmount" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Deposit Applied</label>
+                            <InputNumber @bind-Value="invoiceForm.DepositApplied" class="form-control form-control-sm" />
+                        </div>
+                    </div>
+
+                    <h6><i class="bi bi-list-ul me-1"></i>Line Items</h6>
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm table-bordered mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width:200px;">Product</th>
+                                    <th>Description</th>
+                                    <th style="width:100px;">Type</th>
+                                    <th style="width:80px;">Unit</th>
+                                    <th style="width:80px;" class="text-end">Qty</th>
+                                    <th style="width:110px;" class="text-end">Unit Price</th>
+                                    <th style="width:100px;" class="text-end">Total</th>
+                                    <th style="width:40px;"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @for (int i = 0; i < invoiceForm.Lines.Count; i++)
+                                {
+                                    var idx = i;
+                                    var line = invoiceForm.Lines[idx];
+                                    <tr>
+                                        <td>
+                                            <select class="form-select form-select-sm" value="@line.ProductId" @onchange="e => OnInvoiceProductSelected(idx, e)">
+                                                <option value="">— Custom —</option>
+                                                @foreach (var p in productOptions)
+                                                {
+                                                    <option value="@p.Id">@p.Name (@p.Price.ToString("C"))</option>
+                                                }
+                                            </select>
+                                        </td>
+                                        <td><input type="text" class="form-control form-control-sm" @bind="line.Description" /></td>
+                                        <td>
+                                            <select class="form-select form-select-sm" @bind="line.LineType">
+                                                <option value="">—</option>
+                                                <option value="Material">Material</option>
+                                                <option value="Labor">Labor</option>
+                                                <option value="Equipment">Equipment</option>
+                                                <option value="Fee">Fee</option>
+                                                <option value="Discount">Discount</option>
+                                            </select>
+                                        </td>
+                                        <td><input type="text" class="form-control form-control-sm" @bind="line.Unit" placeholder="Each" /></td>
+                                        <td><input type="number" class="form-control form-control-sm text-end" step="0.01" @bind="line.Quantity" @bind:event="oninput" @onchange="RecalcInvoiceTotals" /></td>
+                                        <td><input type="number" class="form-control form-control-sm text-end" step="0.01" @bind="line.UnitPrice" @bind:event="oninput" @onchange="RecalcInvoiceTotals" /></td>
+                                        <td class="text-end align-middle">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
+                                        <td><button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => RemoveInvoiceLine(idx)"><i class="bi bi-x"></i></button></td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                    <button type="button" class="btn btn-outline-primary btn-sm mb-3" @onclick="AddInvoiceLine"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+
+                    <div class="row justify-content-end">
+                        <div class="col-md-4">
+                            <table class="table table-sm mb-0">
+                                <tr><td>Subtotal</td><td class="text-end">@invoiceForm.Subtotal.ToString("C")</td></tr>
+                                @if (invoiceForm.MarkupAmount > 0) { <tr><td>Markup</td><td class="text-end">@invoiceForm.MarkupAmount.ToString("C")</td></tr> }
+                                <tr><td>Tax (@taxRate%)</td><td class="text-end">@invoiceForm.TaxAmount.ToString("C")</td></tr>
+                                @if (invoiceForm.DiscountAmount.HasValue && invoiceForm.DiscountAmount.Value > 0) { <tr class="text-success"><td>Discount</td><td class="text-end">-@invoiceForm.DiscountAmount.Value.ToString("C")</td></tr> }
+                                <tr class="fw-bold"><td>Total</td><td class="text-end">@invoiceForm.Total.ToString("C")</td></tr>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="col-12 mt-2">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea @bind-Value="invoiceForm.Notes" class="form-control form-control-sm" rows="2" />
+                    </div>
+                    <div class="mt-2">
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i>Save Invoice</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-1" @onclick="CloseForm">Cancel</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (showForm == "expense")
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-transparent d-flex justify-content-between">
+                <h6 class="mb-0">Record Expense</h6>
+                <button class="btn-close" @onclick="CloseForm"></button>
+            </div>
+            <div class="card-body">
+                <EditForm Model="expenseForm" OnValidSubmit="SaveExpense">
+                    <DataAnnotationsValidator />
+                    <div class="row g-3">
+                        <div class="col-md-3">
+                            <label class="form-label">Category</label>
+                            <InputText @bind-Value="expenseForm.Category" class="form-control form-control-sm" placeholder="e.g. Materials, Travel, Fuel" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Amount</label>
+                            <InputNumber @bind-Value="expenseForm.Amount" class="form-control form-control-sm" />
+                            <ValidationMessage For="() => expenseForm.Amount" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Expense Date</label>
+                            <InputDate @bind-Value="expenseForm.ExpenseDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Status</label>
+                            <InputSelect @bind-Value="expenseForm.Status" class="form-select form-select-sm">
+                                @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Description</label>
+                            <InputText @bind-Value="expenseForm.Description" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-3">
+                            <div class="form-check mt-4">
+                                <InputCheckbox @bind-Value="expenseForm.IsBillable" class="form-check-input" id="billable" />
+                                <label class="form-check-label" for="billable">Billable</label>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Notes</label>
+                            <InputTextArea @bind-Value="expenseForm.Notes" class="form-control form-control-sm" rows="2" />
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-lg me-1"></i>Save Expense</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-1" @onclick="CloseForm">Cancel</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @if (dashboard is not null)
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-sm-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="fs-5 fw-bold text-success">@dashboard.TotalRevenue.ToString("C")</div><small class="text-muted">Revenue</small></div></div></div>
+            <div class="col-sm-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="fs-5 fw-bold text-warning">@dashboard.TotalOutstanding.ToString("C")</div><small class="text-muted">Outstanding</small></div></div></div>
+            <div class="col-sm-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="fs-5 fw-bold text-danger">@dashboard.TotalExpenses.ToString("C")</div><small class="text-muted">Expenses</small></div></div></div>
+            <div class="col-sm-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="fs-5 fw-bold text-danger">@dashboard.OverdueInvoiceCount</div><small class="text-muted">Overdue</small></div></div></div>
+            <div class="col-sm-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="fs-5 fw-bold">@dashboard.DraftInvoiceCount</div><small class="text-muted">Drafts</small></div></div></div>
+            <div class="col-sm-2"><div class="card border-0 shadow-sm"><div class="card-body text-center py-2"><div class="fs-5 fw-bold text-warning">@dashboard.PendingExpenseCount</div><small class="text-muted">Pending Exp.</small></div></div></div>
+        </div>
+    }
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><button class="nav-link @(activeTab == "invoices" ? "active" : "")" @onclick='() => SetTab("invoices")'>Invoices</button></li>
+        <li class="nav-item"><button class="nav-link @(activeTab == "expenses" ? "active" : "")" @onclick='() => SetTab("expenses")'>Expenses</button></li>
+        <li class="nav-item"><button class="nav-link @(activeTab == "payments" ? "active" : "")" @onclick='() => SetTab("payments")'>Payments</button></li>
+    </ul>
+
+    @if (activeTab == "invoices")
+    {
+        <div class="card border-0 shadow-sm mb-2">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control form-control-sm" placeholder="Search invoices..." @bind="invoiceFilter.Search" @bind:event="oninput" @onkeyup="HandleInvoiceSearchKey" />
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" @bind="invoiceFilterStatus">
+                            <option value="">All Statuses</option>
+                            @foreach (var s in Enum.GetValues<InvoiceStatus>()) { <option value="@s">@s</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadInvoices"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            @if (invoices is null)
+            {
+                <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            }
+            else if (!invoices.Any())
+            {
+                <div class="card-body text-center py-5 text-muted"><i class="bi bi-receipt" style="font-size:2rem;"></i><p class="mt-2">No invoices yet.</p></div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light"><tr><th>Number</th><th>Customer</th><th>Status</th><th>Total</th><th>Balance</th><th>Due</th></tr></thead>
+                        <tbody>
+                            @foreach (var i in invoices)
+                            {
+                                <tr style="cursor:pointer" @onclick="() => ViewInvoice(i.Id)">
+                                    <td><strong>@i.InvoiceNumber</strong></td>
+                                    <td>@(i.CustomerName ?? "—")</td>
+                                    <td><span class="badge @GetInvBadge(i.Status)">@i.Status</span></td>
+                                    <td>@i.Total.ToString("C")</td>
+                                    <td>@i.BalanceDue.ToString("C")</td>
+                                    <td>@(i.DueDate?.ToString("MMM dd") ?? "—")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (activeTab == "expenses")
+    {
+        <div class="card border-0 shadow-sm mb-2">
+            <div class="card-body py-2">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-6">
+                        <input type="text" class="form-control form-control-sm" placeholder="Search expenses..." @bind="expenseFilter.Search" @bind:event="oninput" @onkeyup="HandleExpenseSearchKey" />
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select form-select-sm" @bind="expenseFilterStatus">
+                            <option value="">All Statuses</option>
+                            @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadExpenses"><i class="bi bi-search"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            @if (expenses is null)
+            {
+                <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            }
+            else if (!expenses.Any())
+            {
+                <div class="card-body text-center py-5 text-muted"><i class="bi bi-wallet2" style="font-size:2rem;"></i><p class="mt-2">No expenses yet.</p></div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light"><tr><th>Category</th><th>Description</th><th>Amount</th><th>Status</th><th>Employee</th><th>Job</th><th>Billable</th><th>Date</th></tr></thead>
+                        <tbody>
+                            @foreach (var e in expenses)
+                            {
+                                <tr>
+                                    <td>@(e.Category ?? "—")</td>
+                                    <td>@(e.Description ?? "—")</td>
+                                    <td>@e.Amount.ToString("C")</td>
+                                    <td><span class="badge @GetExpBadge(e.Status)">@e.Status</span></td>
+                                    <td>@(e.EmployeeName ?? "—")</td>
+                                    <td>@if (e.JobId.HasValue) { <a href="javascript:void(0)" @onclick="() => GoToJob(e.JobId.Value)">@(e.JobTitle ?? "View")</a> } else { <span>—</span> }</td>
+                                    <td>@(e.IsBillable ? "Yes" : "No")</td>
+                                    <td>@e.ExpenseDate.ToString("MMM dd")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (activeTab == "payments")
+    {
+        <div class="card border-0 shadow-sm">
+            @if (payments is null)
+            {
+                <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            }
+            else if (!payments.Any())
+            {
+                <div class="card-body text-center py-5 text-muted"><i class="bi bi-credit-card" style="font-size:2rem;"></i><p class="mt-2">No payments yet.</p></div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0 align-middle">
+                        <thead class="table-light"><tr><th>Amount</th><th>Method</th><th>Status</th><th>Invoice</th><th>Reference</th><th>Date</th></tr></thead>
+                        <tbody>
+                            @foreach (var p in payments)
+                            {
+                                <tr>
+                                    <td><strong>@p.Amount.ToString("C")</strong></td>
+                                    <td>@p.Method</td>
+                                    <td><span class="badge @GetPayBadge(p.Status)">@p.Status</span></td>
+                                    <td>@if (p.InvoiceId.HasValue) { <a href="javascript:void(0)" @onclick="() => ViewInvoice(p.InvoiceId.Value)">@(p.InvoiceNumber ?? "View")</a> } else { <span>—</span> }</td>
+                                    <td>@(p.Reference ?? "—")</td>
+                                    <td>@p.PaymentDate.ToString("MMM dd")</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private string activeTab = "invoices";
+    private string? showForm;
+    private string? errorMsg;
+    private FinancialDashboard? dashboard;
+    private List<InvoiceListItem>? invoices;
+    private List<ExpenseListItem>? expenses;
+    private List<PaymentListItem>? payments;
+    private InvoiceEditModel invoiceForm = new();
+    private ExpenseEditModel expenseForm = new();
+    private PaymentEditModel paymentForm = new();
+    private List<CustomerListItem> _customers = [];
+    private List<ProductOption> productOptions = [];
+    private InvoiceDetail? invoiceDetail;
+    private int? editingInvoiceId;
+    private decimal taxRate = 0;
+    private bool showPaymentForm;
+    private InvoiceFilter invoiceFilter = new();
+    private string invoiceFilterStatus = "";
+    private ExpenseFilter expenseFilter = new();
+    private string expenseFilterStatus = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customers = await CustomerSvc.GetCustomersAsync();
+        productOptions = await FinSvc.GetProductOptionsAsync();
+        dashboard = await FinSvc.GetDashboardAsync();
+        await LoadTab();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id.HasValue)
+        {
+            invoiceDetail = await FinSvc.GetInvoiceAsync(Id.Value);
+            mode = invoiceDetail is not null ? "invoiceDetail" : "list";
+        }
+        else
+        {
+            mode = "list";
+        }
+    }
+
+    private void BackToList() { mode = "list"; invoiceDetail = null; showPaymentForm = false; Nav.NavigateTo("/financials"); }
+
+    private async Task SetTab(string tab) { activeTab = tab; await LoadTab(); }
+
+    private async Task LoadTab()
+    {
+        if (activeTab == "invoices") await LoadInvoices();
+        else if (activeTab == "expenses") await LoadExpenses();
+        else if (activeTab == "payments") payments = await FinSvc.GetPaymentsAsync();
+    }
+
+    private async Task LoadInvoices()
+    {
+        invoiceFilter.Status = string.IsNullOrWhiteSpace(invoiceFilterStatus) ? null : Enum.Parse<InvoiceStatus>(invoiceFilterStatus);
+        invoices = await FinSvc.GetInvoicesAsync(invoiceFilter);
+    }
+
+    private async Task LoadExpenses()
+    {
+        expenseFilter.Status = string.IsNullOrWhiteSpace(expenseFilterStatus) ? null : Enum.Parse<ExpenseStatus>(expenseFilterStatus);
+        expenses = await FinSvc.GetExpensesAsync(expenseFilter);
+    }
+
+    private void ShowInvoiceForm()
+    {
+        showForm = "invoice";
+        editingInvoiceId = null;
+        taxRate = 0;
+        invoiceForm = new InvoiceEditModel { InvoiceDate = DateTime.UtcNow, DueDate = DateTime.UtcNow.AddDays(30) };
+        invoiceForm.Lines.Add(new InvoiceLineEditModel());
+    }
+
+    private void ShowExpenseForm() { showForm = "expense"; expenseForm = new(); }
+    private void CloseForm() { showForm = null; errorMsg = null; }
+
+    private void EditInvoiceFromDetail()
+    {
+        if (invoiceDetail is null) return;
+        editingInvoiceId = invoiceDetail.Id;
+        invoiceForm = new InvoiceEditModel
+        {
+            InvoiceNumber = invoiceDetail.InvoiceNumber,
+            Status = invoiceDetail.Status,
+            InvoiceDate = invoiceDetail.InvoiceDate,
+            DueDate = invoiceDetail.DueDate,
+            PaymentTerms = invoiceDetail.PaymentTerms,
+            Subtotal = invoiceDetail.Subtotal,
+            TaxAmount = invoiceDetail.TaxAmount,
+            MarkupAmount = invoiceDetail.MarkupAmount,
+            DiscountAmount = invoiceDetail.DiscountAmount,
+            DepositApplied = invoiceDetail.DepositApplied,
+            Total = invoiceDetail.Total,
+            BalanceDue = invoiceDetail.BalanceDue,
+            Notes = invoiceDetail.Notes,
+            CustomerId = invoiceDetail.CustomerId,
+            JobId = invoiceDetail.JobId,
+            Lines = invoiceDetail.Lines.Select(l => new InvoiceLineEditModel
+            {
+                ProductId = l.ProductId,
+                Description = l.Description,
+                LineType = l.LineType,
+                Unit = l.Unit,
+                Quantity = l.Quantity,
+                UnitPrice = l.UnitPrice
+            }).ToList()
+        };
+        if (invoiceForm.Lines.Count == 0) invoiceForm.Lines.Add(new InvoiceLineEditModel());
+        taxRate = invoiceDetail.Subtotal > 0 ? Math.Round(invoiceDetail.TaxAmount / invoiceDetail.Subtotal * 100, 2) : 0;
+        showForm = "invoice";
+        mode = "list";
+    }
+
+    private async Task ChangeInvoiceStatus(InvoiceStatus status)
+    {
+        if (invoiceDetail is not null)
+        {
+            await FinSvc.UpdateInvoiceStatusAsync(invoiceDetail.Id, status);
+            invoiceDetail = await FinSvc.GetInvoiceAsync(invoiceDetail.Id);
+            dashboard = await FinSvc.GetDashboardAsync();
+        }
+    }
+
+    private void ShowRecordPayment()
+    {
+        if (invoiceDetail is null) return;
+        showPaymentForm = true;
+        paymentForm = new PaymentEditModel
+        {
+            InvoiceId = invoiceDetail.Id,
+            Amount = invoiceDetail.BalanceDue,
+            PaymentDate = DateTime.UtcNow
+        };
+    }
+
+    private async Task SavePayment()
+    {
+        await FinSvc.CreatePaymentAsync(paymentForm);
+        showPaymentForm = false;
+        if (invoiceDetail is not null)
+        {
+            invoiceDetail = await FinSvc.GetInvoiceAsync(invoiceDetail.Id);
+        }
+        dashboard = await FinSvc.GetDashboardAsync();
+    }
+
+    private void AddInvoiceLine() => invoiceForm.Lines.Add(new InvoiceLineEditModel());
+
+    private void RemoveInvoiceLine(int idx)
+    {
+        if (idx >= 0 && idx < invoiceForm.Lines.Count) invoiceForm.Lines.RemoveAt(idx);
+        RecalcInvoiceTotals();
+    }
+
+    private void OnInvoiceProductSelected(int idx, ChangeEventArgs e)
+    {
+        var line = invoiceForm.Lines[idx];
+        if (int.TryParse(e.Value?.ToString(), out var pid))
+        {
+            var prod = productOptions.FirstOrDefault(p => p.Id == pid);
+            if (prod is not null)
+            {
+                line.ProductId = pid;
+                line.Description = prod.Name;
+                line.UnitPrice = prod.Price;
+            }
+        }
+        else
+        {
+            line.ProductId = null;
+        }
+        RecalcInvoiceTotals();
+    }
+
+    private void RecalcInvoiceTotals()
+    {
+        invoiceForm.Subtotal = invoiceForm.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        invoiceForm.TaxAmount = Math.Round(invoiceForm.Subtotal * (taxRate / 100m), 2);
+        var discount = invoiceForm.DiscountAmount ?? 0;
+        invoiceForm.Total = Math.Round(invoiceForm.Subtotal + invoiceForm.MarkupAmount + invoiceForm.TaxAmount - discount, 2);
+        invoiceForm.BalanceDue = invoiceForm.Total;
+    }
+
+    private async Task SaveInvoice()
+    {
+        try
+        {
+            errorMsg = null;
+            RecalcInvoiceTotals();
+            if (editingInvoiceId.HasValue)
+                await FinSvc.UpdateInvoiceAsync(editingInvoiceId.Value, invoiceForm);
+            else
+                await FinSvc.CreateInvoiceAsync(invoiceForm);
+            showForm = null;
+            await LoadInvoices();
+            dashboard = await FinSvc.GetDashboardAsync();
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task SaveExpense()
+    {
+        await FinSvc.CreateExpenseAsync(expenseForm);
+        showForm = null;
+        await LoadExpenses();
+        dashboard = await FinSvc.GetDashboardAsync();
+    }
+
+    private void ViewInvoice(int id) => Nav.NavigateTo($"/financials/invoices/{id}");
+    private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
+    private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
+
+    private string GetInvBadge(InvoiceStatus s) => s switch
+    {
+        InvoiceStatus.Draft => "bg-secondary", InvoiceStatus.Sent => "bg-info",
+        InvoiceStatus.Invoiced => "bg-primary", InvoiceStatus.Paid => "bg-success",
+        InvoiceStatus.Overdue => "bg-danger", InvoiceStatus.Void => "bg-dark",
+        _ => "bg-secondary"
+    };
+
+    private string GetExpBadge(ExpenseStatus s) => s switch
+    {
+        ExpenseStatus.Pending => "bg-warning text-dark", ExpenseStatus.Approved => "bg-success",
+        ExpenseStatus.Reimbursed => "bg-info", ExpenseStatus.Denied => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private static string GetPayBadge(PaymentStatus s) => s switch
+    {
+        PaymentStatus.Completed => "bg-success", PaymentStatus.Pending => "bg-warning text-dark",
+        PaymentStatus.Refunded => "bg-info", PaymentStatus.Failed => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private async Task HandleInvoiceSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadInvoices(); }
+    private async Task HandleExpenseSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadExpenses(); }
+
+    private async Task PrintInvoice() => await JS.InvokeVoidAsync("window.print");
+
+    private async Task EmailInvoice()
+    {
+        if (invoiceDetail is null) return;
+        var subject = Uri.EscapeDataString($"Invoice {invoiceDetail.InvoiceNumber}");
+        var lines = new System.Text.StringBuilder();
+        lines.AppendLine($"Invoice: {invoiceDetail.InvoiceNumber}");
+        if (!string.IsNullOrEmpty(invoiceDetail.CustomerName)) lines.AppendLine($"Customer: {invoiceDetail.CustomerName}");
+        if (invoiceDetail.InvoiceDate.HasValue) lines.AppendLine($"Date: {invoiceDetail.InvoiceDate.Value:MMM dd, yyyy}");
+        if (invoiceDetail.DueDate.HasValue) lines.AppendLine($"Due: {invoiceDetail.DueDate.Value:MMM dd, yyyy}");
+        lines.AppendLine();
+        foreach (var l in invoiceDetail.Lines.OrderBy(x => x.SortOrder))
+            lines.AppendLine($"  {l.Description}  Qty: {l.Quantity}  Unit: {l.UnitPrice:C}  Total: {l.LineTotal:C}");
+        lines.AppendLine();
+        lines.AppendLine($"Subtotal: {invoiceDetail.Subtotal:C}");
+        if (invoiceDetail.TaxAmount > 0) lines.AppendLine($"Tax: {invoiceDetail.TaxAmount:C}");
+        if (invoiceDetail.MarkupAmount > 0) lines.AppendLine($"Markup: {invoiceDetail.MarkupAmount:C}");
+        lines.AppendLine($"Total: {invoiceDetail.Total:C}");
+        lines.AppendLine($"Balance Due: {invoiceDetail.BalanceDue:C}");
+        var body = Uri.EscapeDataString(lines.ToString());
+        var to = !string.IsNullOrEmpty(invoiceDetail.CustomerEmail) ? invoiceDetail.CustomerEmail : "";
+        await JS.InvokeVoidAsync("eval", $"window.location.href='mailto:{to}?subject={subject}&body={body}'");
+    }
+}

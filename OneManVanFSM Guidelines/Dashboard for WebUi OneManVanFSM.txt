@@ -1,0 +1,68 @@
+Dashboard for WebUi OneManVanFSM
+
+### Dashboard (Home Page) - Exhaustive Description
+
+**Routes**: `/` or `/dashboard` (desktop web primary; mobile will inherit as home screen via responsive design).
+
+**Purpose & Business Context**:
+- The Dashboard serves as the central command center for the small HVAC contractor's daily operations, prioritizing immediate, actionable concerns over broad aggregates to drive efficiency and quick decision-making. It focuses on highlighting bottlenecks and urgent items (e.g., unscheduled jobs that risk delaying revenue, finished jobs stalled at invoicing, unpaid invoices impacting cash flow, estimates or material lists requiring review to prevent bid errors, and employee hours/expenses to flag overtime or reimbursement needs). This aligns with how HVAC contractors work: Mornings start with reviewing the day's schedule, addressing pending financials to maintain cash flow, and ensuring techs are deployed without delays—especially during peak seasons like summer AC repairs or winter furnace emergencies.
+- In a generic trade foundation, these concerns are adaptable (e.g., "Unscheduled Jobs" could prioritize "Plumbing Leaks" via customizable filters), but HVAC-specific: Alerts for seasonal priorities (e.g., "Unscheduled Emergency Repairs" during heatwaves) or asset-related urgencies (e.g., warranty expirations tied to unscheduled maintenance).
+- Business value: Reduces mental load by surfacing "what needs attention now" (e.g., a finished job without an invoice delays payment), promoting proactive workflows. Data shared here (e.g., job IDs) transfers seamlessly to linked pages, minimizing re-entry and supporting progression (e.g., click unpaid invoice → auto-open edit with prepopulated payment form).
+- User thinking: Office managers/dispatchers use it for oversight (e.g., spot unscheduled estimates before they expire); owners for financial health. Industry efficiency: Quick resolution of concerns frees time for customer service or bidding new work.
+
+**Data Sources & Interconnections**:
+- Pulls real-time or near-real-time data from core entities, focusing on urgency:
+  - **Jobs Table**: Scheduled jobs (by date/priority), finished but uninvoiced (Status=Completed but InvoiceID null), unscheduled (Status=Quoted/Approved but ScheduledDate null).
+  - **Estimates Table**: Pending/needing attention (Status=Sent but no response, or expiring soon via ExpiryDate).
+  - **MaterialLists Table**: Incomplete lists linked to estimates/jobs (e.g., flagged if missing quantities or low-stock items via InventoryItems join).
+  - **Invoices/Payments Tables**: Unpaid/overdue (Status=Sent/Invoiced but BalanceDue >0, filtered by DueDate).
+  - **Employees/TimeEntries/Expenses Tables**: Current hours (sum BillableHours today/this week, flagging overtime thresholds), pending expenses (Status=Pending, sum Amount).
+  - **ServiceAgreements Table**: Upcoming renewals or overdue visits tied to unscheduled jobs.
+  - **QuickNotes Table**: Recent urgent notes (e.g., polymorphic link to jobs/estimates, filtered for "Needs Review" category).
+  - **Assets Table**: Indirect via jobs (e.g., unscheduled maintenance for expiring warranties).
+- Interconnections: Every item (e.g., a specific unpaid invoice) includes its ID for direct linking—e.g., unpaid invoice card shows top 3 overdue with amounts, clicking one navigates to `/invoices/{id}` with context (e.g., query param for "from=dashboard"). Shared data: Job details (CustomerID, SiteID) prepopulate on linked pages. AuditLogs track Dashboard interactions (e.g., "Viewed Urgent Jobs" for compliance). CustomFields (e.g., "Priority Tag") filter concerns (e.g., show only "High Priority" unscheduled jobs).
+- Robustness: Joins/views for efficiency (e.g., "UrgentJobsView" querying Jobs LEFT JOIN Invoices WHERE InvoiceID IS NULL). Data freshness: Timed refresh (every 5-10 min) or SignalR pushes (e.g., tech completes job → instant "Finished Job Waiting Invoice" update).
+
+**Layout & Sections** (Desktop Web Focus: Full-Screen, Responsive Grid for Easy Mobile Carry-Over):
+- **Overall Structure**: Fluid container with Bootstrap-like grid (e.g., 12-column responsive). Top header fixed for navigation; main content scrolls. Sections use cards for modularity (easy stacking on mobile). Visual hierarchy: Urgent concerns (red/orange badges) at top, less critical below. Color scheme: Green for on-track (e.g., scheduled jobs), yellow for pending, red for overdue/urgent.
+- **Header**: Logo, user role/name (e.g., "Dispatcher: John Doe"), global search (fuzzy across jobs/invoices/customers), notification bell (with count for new alerts), date/period selector (dropdown: Today/This Week/Custom—applies to all cards), quick actions button (dropdown: "New Job/Estimate/Customer/Quick Note").
+- **Urgent Concerns Row** (Top Priority, 2-3 Column Grid of Clickable Cards – Responsive to Stack Vertically on Mobile):
+  - **Scheduled Jobs Card**: Shows today's/upcoming (top 5-10 in table: Job #, Customer Name/Site, Time, Technician, Priority—prepopulated status badges). Focus: Immediate dispatch needs. Aggregate: "X Scheduled Today (Y High Priority)".
+  - **Finished Jobs Waiting Invoices Card**: List of completed jobs without invoices (table: Job #, Customer, Completion Date, Total Estimated Revenue). Aggregate: "X Jobs Ready to Bill ($Y Potential Revenue)".
+  - **Unpaid Invoices Card**: Overdue first (table: Invoice #, Customer, Amount Due, Days Overdue). Aggregate: "X Unpaid ($Y Total, Z Overdue)".
+  - **Unscheduled Jobs Card**: Quoted/approved but no date (table: Job #, Customer, Approval Date, Estimated Value). Aggregate: "X Unscheduled (Risking $Y Revenue)".
+  - **Estimates/Material Lists Needing Attention Card**: Pending/expiring estimates or incomplete lists (table: Estimate #, Customer, Expiry Date, Status—flag if material list has low-stock warnings). Aggregate: "X Pending (Y Expiring Soon)".
+  - **Employee Current Hours/Expenses Card**: Per tech (table: Employee Name, Hours Today/This Week, Pending Expenses Amount). Aggregate: "X Techs On Duty (Y Near Overtime, $Z Pending Expenses)".
+- **Secondary Aggregates Row** (Collapsible/Optional, Below Urgents – For Broader Context):
+  - Charts: Simple bar/line (e.g., Revenue Trend, Job Status Pie—click segments to filter lists).
+  - Recent Activity Feed: Mixed list (e.g., "Job #123 Completed", "Invoice #456 Paid"—clickable to details).
+- **Sidebar (Right-Aligned, Collapsible on Desktop; Bottom Sheet on Mobile)**: Quick Notes feed (recent 5, with "Add New" button—categorized dropdown prepopulated but customizable), customizable widgets (e.g., low stock mini-card).
+- **Footer**: Sync status, quick links to Settings/Reports, version/help.
+
+**UX Interactions & Flows**:
+- **Card Clickability**: Entire card clickable, but with specificity—e.g., in Unpaid Invoices card, click aggregate header → `/invoices?filter=unpaid` (overview); click specific row (e.g., Invoice #123) → `/invoices/123` (direct to detail, with context like "Urgent: Overdue by 15 days"). This supports workflow progression: From Dashboard, resolve concern without extra navigation (e.g., open invoice → record payment form prepopulated).
+- **Hide/Show Cards**: Right-click or hover menu on card (e.g., "Hide This Card")—toggles visibility, saved per user/role in Settings. "Restore Hidden Cards" button in footer or sidebar to bring back.
+- **Sorting/Filtering Within Cards**: Inline dropdowns (e.g., "Sort by Priority" in Scheduled Jobs—prepopulated options like Date/Priority/Customer, customizable add/remove). Search mini-bar per card for quick filtering.
+- **Hover/Tooltip Efficiency**: Hover row shows preview (e.g., customer contact info without leaving Dashboard).
+- **Quick Actions Integration**: From card, contextual buttons (e.g., in Unscheduled Jobs: "Schedule Now" → opens calendar with job details prepopulated).
+- **User Journey**: Login → Dashboard loads with personalized view (role-based: Dispatcher sees more scheduling; Owner sees financials). Spot urgent (e.g., red badge on Unpaid) → Click specific → Resolve (e.g., record payment) → Back button returns with refreshed Dashboard.
+- **Industry Efficiency**: HVAC: Cards highlight weather-impacted urgents (e.g., integrate simple API for "Heatwave Alert" to prioritize AC jobs). Generic: Custom tags (e.g., "Electrical Emergency") filter cards.
+
+**Customizations & Configurability**:
+- Admins (via Settings) customize: Add/remove cards (e.g., add "Service Renewals Due"), set thresholds (e.g., "Overdue after X days"), prepopulate/sort dropdowns (add "By Tech Certification" option, edit/remove defaults). Per-user: Hide/show persists; role-based defaults (e.g., Techs hide financial cards).
+- Quick Notes: Custom categories (e.g., add "HVAC Refrigerant Note") for Dashboard feed filtering.
+
+**Edge Cases & Robustness**:
+- No Data: Empty states with actions (e.g., "No Unscheduled Jobs – Great! Create New?").
+- Large Data: Pagination in card tables (e.g., "Show More" button), virtual scrolling for performance.
+- Permissions: Role-filtered (e.g., Techs see only their scheduled jobs/ hours; Managers see all). Hidden cards respect roles (can't hide mandatory like Scheduled for Dispatchers).
+- Offline (for Mobile Carry-Over): Cache last sync data with "Offline Mode" banner; urgent cards show stale indicators.
+- Errors: Graceful (e.g., "Data Load Failed – Retry?" button); validation on customizations (can't hide all cards).
+
+**Integrations & Automation**:
+- Triggers: Job completion → auto-add to "Finished Waiting Invoice" (SignalR push). Overdue invoice → email/SMS alert (Twilio integration, configurable in Settings).
+- External: QuickBooks sync button (e.g., "Sync Unpaid Invoices"); Maps link in Scheduled Jobs (Google Maps for site navigation).
+- Notifications: In-app bell pulls from Dashboard concerns (e.g., "3 New Unscheduled Jobs").
+
+**Mobile Considerations (For Seamless Carry-Over)**:
+- Design ensures responsiveness: Cards stack vertically (e.g., urgent row becomes scrollable carousel); tables become expandable accordions (tap row for details/direct nav). Bottom nav includes "Dashboard" tab; quick actions as floating button. Touch-friendly: Swipe to hide cards (with undo toast); voice input for search. Performance: Lightweight loads (e.g., fetch only top 5 per card initially). Offline priority: Cache urgents for field techs (e.g., their scheduled jobs load without net). This desktop-first but mobile-aware approach avoids refits later—e.g., use flexible grids that collapse gracefully.

@@ -1,0 +1,788 @@
+@page "/employees"
+@page "/employees/new"
+@page "/employees/{Id:int}"
+@page "/employees/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IEmployeeService EmployeeSvc
+@inject IJobService JobSvc
+@inject NavigationManager Nav
+
+<PageTitle>Employees - OneManVanFSM</PageTitle>
+
+@if (mode == "form")
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Employee</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="SaveEmployee">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.Name" class="form-control" />
+                        <ValidationMessage For="() => form.Name" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Role</label>
+                        <InputSelect @bind-Value="form.Role" class="form-select">
+                            @foreach (var r in Enum.GetValues<EmployeeRole>()) { <option value="@r">@r</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect @bind-Value="form.Status" class="form-select">
+                            @foreach (var s in Enum.GetValues<EmployeeStatus>()) { <option value="@s">@s</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Phone</label>
+                        <InputText @bind-Value="form.Phone" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="form.Email" class="form-control" />
+                        <ValidationMessage For="() => form.Email" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Hourly Rate</label>
+                        <InputNumber @bind-Value="form.HourlyRate" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Address</label>
+                        <InputText @bind-Value="form.Address" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Territory</label>
+                        <InputText @bind-Value="form.Territory" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Hire Date</label>
+                        <InputDate @bind-Value="form.HireDate" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Certifications (JSON)</label>
+                        <InputText @bind-Value="form.Certifications" class="form-control" placeholder='e.g. ["EPA 608","NATE"]' />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
+                    </div>
+
+                    <div class="col-12"><hr /></div>
+
+                    <div class="col-md-4">
+                        <label class="form-label">License Number</label>
+                        <InputText @bind-Value="form.LicenseNumber" class="form-control" placeholder="EPA 608, State HVAC, etc." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">License Expiry</label>
+                        <InputDate @bind-Value="form.LicenseExpiry" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Vehicle Assigned</label>
+                        <InputText @bind-Value="form.VehicleAssigned" class="form-control" placeholder="Truck #, plate, etc." />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Overtime Rate</label>
+                        <InputNumber @bind-Value="form.OvertimeRate" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Emergency Contact Name</label>
+                        <InputText @bind-Value="form.EmergencyContactName" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Emergency Contact Phone</label>
+                        <InputText @bind-Value="form.EmergencyContactPhone" class="form-control" placeholder="(555) 123-4567" />
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (mode == "detail" && detail is not null)
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>@detail.Name</h4>
+        <span class="badge ms-2 @(detail.Status == EmployeeStatus.Active ? "bg-success" : "bg-secondary")">@detail.Status</span>
+        <span class="badge bg-info ms-1">@detail.Role</span>
+        <div class="ms-auto">
+            <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Contact Info</h6>
+                    <p class="mb-1"><i class="bi bi-telephone me-1"></i>@(detail.Phone ?? "—")</p>
+                    <p class="mb-1"><i class="bi bi-envelope me-1"></i>@(detail.Email ?? "—")</p>
+                    <p class="mb-1"><i class="bi bi-geo-alt me-1"></i>@(detail.Address ?? "—")</p>
+                    <hr />
+                    <p class="mb-1"><strong>Rate:</strong> @detail.HourlyRate.ToString("C")/hr</p>
+                    @if (detail.OvertimeRate.HasValue)
+                    {
+                        <p class="mb-1"><strong>OT Rate:</strong> @detail.OvertimeRate.Value.ToString("C")/hr</p>
+                    }
+                    <p class="mb-1"><strong>Territory:</strong> @(detail.Territory ?? "—")</p>
+                    <p class="mb-1"><strong>Hired:</strong> @detail.HireDate.ToString("MMM dd, yyyy")</p>
+                    @if (!string.IsNullOrWhiteSpace(detail.Certifications))
+                    {
+                        <hr />
+                        <p class="mb-0"><strong>Certs:</strong> @detail.Certifications</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.LicenseNumber) || detail.LicenseExpiry.HasValue)
+                    {
+                        <hr />
+                        <h6 class="text-muted mb-2"><i class="bi bi-card-text me-1"></i>License</h6>
+                        @if (!string.IsNullOrWhiteSpace(detail.LicenseNumber))
+                        {
+                            <p class="mb-1"><strong>License #:</strong> @detail.LicenseNumber</p>
+                        }
+                        @if (detail.LicenseExpiry.HasValue)
+                        {
+                            var licExpired = detail.LicenseExpiry.Value < DateTime.UtcNow;
+                            <p class="mb-1">
+                                <strong>Expires:</strong>
+                                <span class="@(licExpired ? "text-danger fw-semibold" : "")">@detail.LicenseExpiry.Value.ToString("MMM dd, yyyy")</span>
+                                @if (licExpired) { <span class="badge bg-danger ms-1">Expired</span> }
+                            </p>
+                        }
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.VehicleAssigned))
+                    {
+                        <hr />
+                        <p class="mb-1"><i class="bi bi-truck me-1 text-muted"></i><strong>Vehicle:</strong> @detail.VehicleAssigned</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.EmergencyContactName) || !string.IsNullOrWhiteSpace(detail.EmergencyContactPhone))
+                    {
+                        <hr />
+                        <h6 class="text-muted mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Emergency Contact</h6>
+                        @if (!string.IsNullOrWhiteSpace(detail.EmergencyContactName))
+                        {
+                            <p class="mb-1"><strong>Name:</strong> @detail.EmergencyContactName</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(detail.EmergencyContactPhone))
+                        {
+                            <p class="mb-1"><i class="bi bi-telephone me-1"></i>@detail.EmergencyContactPhone</p>
+                        }
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.Notes))
+                    {
+                        <hr />
+                        <h6 class="text-muted mb-2"><i class="bi bi-sticky me-1"></i>Notes</h6>
+                        <p class="mb-0 small bg-light rounded p-2">@detail.Notes</p>
+                    }
+                </div>
+            </div>
+
+            @* Record Info *@
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+
+            @* Time Clock Panel *@
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3"><i class="bi bi-clock me-1"></i>Time Clock</h6>
+                    @if (activeClock is not null)
+                    {
+                        <div class="alert alert-success py-2 mb-2">
+                            <i class="bi bi-record-circle text-danger me-1"></i>
+                            <strong>Clocked In</strong> since @activeClock.StartTime.ToLocalTime().ToString("h:mm tt")
+                            @if (!string.IsNullOrEmpty(activeClock.JobTitle)) { <br /><small>Job: @activeClock.JobTitle</small> }
+                        </div>
+                        <button class="btn btn-danger w-100" @onclick="ClockOut" disabled="@isClocking">
+                            @if (isClocking) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            <i class="bi bi-stop-circle me-1"></i>Clock Out
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            <label class="form-label small">Job (optional)</label>
+                            <select class="form-select form-select-sm" @bind="clockInJobId">
+                                <option value="">— No Job —</option>
+                                @foreach (var j in jobOptions)
+                                {
+                                    <option value="@j.Id">@j.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Notes (optional)</label>
+                            <input type="text" class="form-control form-control-sm" @bind="clockInNotes" placeholder="e.g., On-site work" />
+                        </div>
+                        <button class="btn btn-success w-100" @onclick="ClockIn" disabled="@isClocking">
+                            @if (isClocking) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                            <i class="bi bi-play-circle me-1"></i>Clock In
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-8">
+            @* Detail Sub-Tabs *@
+            <ul class="nav nav-tabs mb-3">
+                <li class="nav-item"><button class="nav-link @(detailTab == "jobs" ? "active" : "")" @onclick='() => detailTab = "jobs"'>Jobs</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "timesheet" ? "active" : "")" @onclick="LoadTimesheet">Timesheet</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "pay" ? "active" : "")" @onclick="LoadPaySummary">Pay Summary</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "manual" ? "active" : "")" @onclick='() => detailTab = "manual"'>Manual Entry</button></li>
+            </ul>
+
+            @if (detailTab == "jobs")
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-header bg-transparent"><h6 class="mb-0">Assigned Jobs (@detail.RecentJobs.Count)</h6></div>
+                    @if (detail.RecentJobs.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead class="table-light"><tr><th>Job #</th><th>Title</th><th>Status</th><th>Scheduled</th></tr></thead>
+                                <tbody>
+                                    @foreach (var j in detail.RecentJobs)
+                                    {
+                                        <tr style="cursor:pointer" @onclick="() => GoToJob(j.Id)">
+                                            <td>@j.JobNumber</td><td>@(j.Title ?? "—")</td>
+                                            <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
+                                            <td>@(j.ScheduledDate?.ToString("MMM dd") ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else { <div class="card-body text-muted">No assigned jobs.</div> }
+                </div>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent"><h6 class="mb-0">Recent Time Entries (@detail.RecentTimeEntries.Count)</h6></div>
+                    @if (detail.RecentTimeEntries.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead class="table-light"><tr><th>Date</th><th>Hours</th><th>Job</th><th>Billable</th></tr></thead>
+                                <tbody>
+                                    @foreach (var t in detail.RecentTimeEntries)
+                                    {
+                                        <tr>
+                                            <td>@t.StartTime.ToString("MMM dd")</td>
+                                            <td>@t.Hours.ToString("F1")h</td>
+                                            <td>@(t.JobTitle ?? "—")</td>
+                                            <td>@(t.IsBillable ? "Yes" : "No")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else { <div class="card-body text-muted">No time entries.</div> }
+                </div>
+            }
+            else if (detailTab == "timesheet")
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Weekly Timesheet</h6>
+                        <div class="d-flex gap-2 align-items-center">
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="PrevWeek"><i class="bi bi-chevron-left"></i></button>
+                            <span class="small">@timesheetWeekStart.ToString("MMM dd") — @timesheetWeekStart.AddDays(6).ToString("MMM dd, yyyy")</span>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="NextWeek"><i class="bi bi-chevron-right"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (timesheetDays is not null)
+                        {
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Day</th>
+                                            <th class="text-end">Regular</th>
+                                            <th class="text-end">OT</th>
+                                            <th class="text-end">Total</th>
+                                            <th>Entries</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var day in timesheetDays)
+                                        {
+                                            <tr class="@(day.Date.DayOfWeek == DayOfWeek.Sunday || day.Date.DayOfWeek == DayOfWeek.Saturday ? "table-light" : "")">
+                                                <td><strong>@day.Date.ToString("ddd MMM dd")</strong></td>
+                                                <td class="text-end">@((day.TotalHours - day.OvertimeHours).ToString("F1"))h</td>
+                                                <td class="text-end text-danger">@(day.OvertimeHours > 0 ? $"{day.OvertimeHours:F1}h" : "—")</td>
+                                                <td class="text-end fw-bold">@day.TotalHours.ToString("F1")h</td>
+                                                <td>
+                                                    @foreach (var e in day.Entries)
+                                                    {
+                                                        <small class="d-block">@e.StartTime.ToLocalTime().ToString("h:mm tt") - @(e.EndTime?.ToLocalTime().ToString("h:mm tt") ?? "Active") @(e.JobTitle != null ? $"({e.JobTitle})" : "")</small>
+                                                    }
+                                                    @if (!day.Entries.Any()) { <small class="text-muted">No entries</small> }
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                    <tfoot>
+                                        <tr class="fw-bold">
+                                            <td>Total</td>
+                                            <td class="text-end">@timesheetDays.Sum(d => d.TotalHours - d.OvertimeHours).ToString("F1")h</td>
+                                            <td class="text-end text-danger">@timesheetDays.Sum(d => d.OvertimeHours).ToString("F1")h</td>
+                                            <td class="text-end">@timesheetDays.Sum(d => d.TotalHours).ToString("F1")h</td>
+                                            <td></td>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div></div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (detailTab == "pay")
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Pay Summary</h6>
+                        <div class="d-flex gap-2 align-items-center">
+                            <label class="small me-1">From:</label>
+                            <input type="date" class="form-control form-control-sm" style="width:150px;" @bind="payPeriodStart" />
+                            <label class="small me-1">To:</label>
+                            <input type="date" class="form-control form-control-sm" style="width:150px;" @bind="payPeriodEnd" />
+                            <button class="btn btn-outline-primary btn-sm" @onclick="LoadPaySummary"><i class="bi bi-search"></i></button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        @if (paySummary is not null)
+                        {
+                            <div class="row g-3 mb-3">
+                                <div class="col-sm-3">
+                                    <div class="card bg-light border-0 text-center py-2">
+                                        <div class="fs-5 fw-bold">@paySummary.TotalRegularHours.ToString("F1")h</div>
+                                        <small class="text-muted">Regular Hours</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <div class="card bg-light border-0 text-center py-2">
+                                        <div class="fs-5 fw-bold text-danger">@paySummary.TotalOvertimeHours.ToString("F1")h</div>
+                                        <small class="text-muted">Overtime Hours</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <div class="card bg-light border-0 text-center py-2">
+                                        <div class="fs-5 fw-bold text-success">@paySummary.RegularPay.ToString("C")</div>
+                                        <small class="text-muted">Regular Pay</small>
+                                    </div>
+                                </div>
+                                <div class="col-sm-3">
+                                    <div class="card bg-light border-0 text-center py-2">
+                                        <div class="fs-5 fw-bold text-primary">@paySummary.TotalPay.ToString("C")</div>
+                                        <small class="text-muted">Total Pay</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="table-responsive">
+                                <table class="table table-sm mb-0">
+                                    <thead class="table-light"><tr><th>Rate</th><th>OT Pay (1.5x)</th><th>Flat Rate Jobs</th></tr></thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>@paySummary.HourlyRate.ToString("C")/hr</td>
+                                            <td>@paySummary.OvertimePay.ToString("C")</td>
+                                            <td>@paySummary.FlatRateTotal.ToString("C")</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            @if (paySummary.Jobs.Any())
+                            {
+                                <h6 class="mt-3">Job Breakdown</h6>
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-bordered mb-0">
+                                        <thead class="table-light"><tr><th>Job #</th><th>Title</th><th>Hours</th><th>Pay Type</th><th class="text-end">Amount</th></tr></thead>
+                                        <tbody>
+                                            @foreach (var j in paySummary.Jobs)
+                                            {
+                                                <tr>
+                                                    <td>@j.JobNumber</td>
+                                                    <td>@(j.Title ?? "—")</td>
+                                                    <td>@j.Hours.ToString("F1")h</td>
+                                                    <td><span class="badge @(j.PayType == "FlatRate" ? "bg-warning text-dark" : "bg-info")">@j.PayType</span></td>
+                                                    <td class="text-end">@j.Amount.ToString("C")</td>
+                                                </tr>
+                                            }
+                                        </tbody>
+                                    </table>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="text-center py-3 text-muted">Select a date range and click search.</div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (detailTab == "manual")
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-transparent"><h6 class="mb-0">Add Manual Time Entry</h6></div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Job (optional)</label>
+                                <select class="form-select form-select-sm" @bind="manualJobId">
+                                    <option value="">— No Job —</option>
+                                    @foreach (var j in jobOptions)
+                                    {
+                                        <option value="@j.Id">@j.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">Start Time</label>
+                                <input type="datetime-local" class="form-control form-control-sm" @bind="manualStart" />
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label">End Time</label>
+                                <input type="datetime-local" class="form-control form-control-sm" @bind="manualEnd" />
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mt-3">
+                                    <input class="form-check-input" type="checkbox" @bind="manualBillable" id="manualBillable" />
+                                    <label class="form-check-label" for="manualBillable">Billable</label>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label">Notes</label>
+                                <input type="text" class="form-control form-control-sm" @bind="manualNotes" />
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <button class="btn btn-primary btn-sm" @onclick="AddManualEntry" disabled="@isClocking">
+                                <i class="bi bi-plus-lg me-1"></i>Add Entry
+                            </button>
+                        </div>
+                        @if (!string.IsNullOrEmpty(manualMsg))
+                        {
+                            <div class="alert alert-success mt-2 py-2 mb-0">@manualMsg</div>
+                        }
+                        @if (!string.IsNullOrEmpty(manualError))
+                        {
+                            <div class="alert alert-danger mt-2 py-2 mb-0">@manualError</div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>Employees</h4>
+        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Employee</button>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search employees..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filterRole">
+                        <option value="">All Roles</option>
+                        @foreach (var r in Enum.GetValues<EmployeeRole>()) { <option value="@r">@r</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filterStatusStr">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in Enum.GetValues<EmployeeStatus>()) { <option value="@s">@s</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadEmployees"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (employees is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
+        }
+        else if (!employees.Any())
+        {
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-person-badge" style="font-size: 3rem;"></i>
+                <p class="mt-2">No employees found. <a href="javascript:void(0)" @onclick="GoToNew">Add one</a>.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>Name</th><th>Role</th><th>Status</th><th>Phone</th><th>Territory</th><th>Rate</th><th>Active Jobs</th></tr></thead>
+                    <tbody>
+                        @foreach (var e in employees)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => GoToDetail(e.Id)">
+                                <td><strong>@e.Name</strong></td>
+                                <td><span class="badge bg-info">@e.Role</span></td>
+                                <td><span class="badge @(e.Status == EmployeeStatus.Active ? "bg-success" : "bg-secondary")">@e.Status</span></td>
+                                <td>@(e.Phone ?? "—")</td>
+                                <td>@(e.Territory ?? "—")</td>
+                                <td>@e.HourlyRate.ToString("C")/hr</td>
+                                <td>@e.ActiveJobCount</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private string detailTab = "jobs";
+    private List<EmployeeListItem>? employees;
+    private EmployeeFilter filter = new();
+    private string filterRole = "";
+    private string filterStatusStr = "";
+    private EmployeeDetail? detail;
+    private EmployeeEditModel form = new();
+    private int? editId;
+    private string? errorMsg;
+
+    // Time clock state
+    private EmployeeTimeEntry? activeClock;
+    private List<EmployeeOption> jobOptions = [];
+    private string clockInJobId = "";
+    private string clockInNotes = "";
+    private bool isClocking;
+
+    // Timesheet state
+    private DateTime timesheetWeekStart;
+    private List<TimesheetDay>? timesheetDays;
+
+    // Pay summary state
+    private DateTime payPeriodStart;
+    private DateTime payPeriodEnd;
+    private PayPeriodSummary? paySummary;
+
+    // Manual entry state
+    private string manualJobId = "";
+    private DateTime manualStart = DateTime.Now.Date.AddHours(8);
+    private DateTime manualEnd = DateTime.Now.Date.AddHours(17);
+    private bool manualBillable = true;
+    private string manualNotes = "";
+    private string? manualMsg;
+    private string? manualError;
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+        var today = DateTime.UtcNow.Date;
+        var dow = (int)today.DayOfWeek;
+        timesheetWeekStart = today.AddDays(-dow);
+        payPeriodStart = today.AddDays(-13);
+        payPeriodEnd = today;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (uri.AbsolutePath.Contains("/employees/new", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = "form"; editId = null; form = new();
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+            await LoadForEdit(Id.Value);
+        else if (Id.HasValue)
+            await LoadDetail(Id.Value);
+        else { mode = "list"; await LoadEmployees(); }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadEmployees()
+    {
+        filter.Role = string.IsNullOrWhiteSpace(filterRole) ? null : Enum.Parse<EmployeeRole>(filterRole);
+        filter.Status = string.IsNullOrWhiteSpace(filterStatusStr) ? null : Enum.Parse<EmployeeStatus>(filterStatusStr);
+        employees = await EmployeeSvc.GetEmployeesAsync(filter);
+    }
+
+    private async Task LoadDetail(int id)
+    {
+        detail = await EmployeeSvc.GetEmployeeAsync(id);
+        mode = detail is not null ? "detail" : "list";
+        if (mode == "list") { await LoadEmployees(); return; }
+        detailTab = "jobs";
+        jobOptions = await JobSvc.GetTechniciansAsync();
+        var clock = await EmployeeSvc.GetActiveClockAsync(id);
+        activeClock = clock is not null ? new EmployeeTimeEntry
+        {
+            Id = clock.Id,
+            StartTime = clock.StartTime,
+            EndTime = clock.EndTime,
+            Hours = clock.Hours,
+            JobTitle = clock.Job?.Title,
+            IsBillable = clock.IsBillable
+        } : null;
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var d = await EmployeeSvc.GetEmployeeAsync(id);
+        if (d is null) { mode = "list"; await LoadEmployees(); return; }
+        editId = id;
+        form = new EmployeeEditModel
+        {
+            Name = d.Name, Role = d.Role, Phone = d.Phone, Email = d.Email,
+            Address = d.Address, HourlyRate = d.HourlyRate, HireDate = d.HireDate,
+            Status = d.Status, Territory = d.Territory,
+            Certifications = d.Certifications,
+            LicenseNumber = d.LicenseNumber, LicenseExpiry = d.LicenseExpiry,
+            VehicleAssigned = d.VehicleAssigned,
+            EmergencyContactName = d.EmergencyContactName,
+            EmergencyContactPhone = d.EmergencyContactPhone,
+            OvertimeRate = d.OvertimeRate,
+            Notes = d.Notes
+        };
+        mode = "form";
+    }
+
+    private async Task SaveEmployee()
+    {
+        try
+        {
+            errorMsg = null;
+            if (editId.HasValue) await EmployeeSvc.UpdateEmployeeAsync(editId.Value, form);
+            else await EmployeeSvc.CreateEmployeeAsync(form);
+            Nav.NavigateTo("/employees");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task ArchiveDetail()
+    {
+        if (detail is not null) { await EmployeeSvc.ArchiveEmployeeAsync(detail.Id); Nav.NavigateTo("/employees"); }
+    }
+
+    // Time Clock
+    private async Task ClockIn()
+    {
+        if (detail is null) return;
+        isClocking = true;
+        try
+        {
+            int? jobId = int.TryParse(clockInJobId, out var jid) ? jid : null;
+            var entry = await EmployeeSvc.ClockInAsync(detail.Id, jobId, string.IsNullOrWhiteSpace(clockInNotes) ? null : clockInNotes);
+            activeClock = new EmployeeTimeEntry { Id = entry.Id, StartTime = entry.StartTime, Hours = 0, IsBillable = entry.IsBillable };
+            clockInJobId = ""; clockInNotes = "";
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+        finally { isClocking = false; }
+    }
+
+    private async Task ClockOut()
+    {
+        if (detail is null) return;
+        isClocking = true;
+        try
+        {
+            await EmployeeSvc.ClockOutAsync(detail.Id);
+            activeClock = null;
+            detail = await EmployeeSvc.GetEmployeeAsync(detail.Id);
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+        finally { isClocking = false; }
+    }
+
+    // Timesheet
+    private async Task LoadTimesheet()
+    {
+        detailTab = "timesheet";
+        if (detail is null) return;
+        timesheetDays = await EmployeeSvc.GetWeeklyTimesheetAsync(detail.Id, timesheetWeekStart);
+    }
+
+    private async Task PrevWeek() { timesheetWeekStart = timesheetWeekStart.AddDays(-7); await LoadTimesheet(); }
+    private async Task NextWeek() { timesheetWeekStart = timesheetWeekStart.AddDays(7); await LoadTimesheet(); }
+
+    // Pay Summary
+    private async Task LoadPaySummary()
+    {
+        detailTab = "pay";
+        if (detail is null) return;
+        paySummary = await EmployeeSvc.GetPaySummaryAsync(detail.Id, payPeriodStart, payPeriodEnd);
+    }
+
+    // Manual Entry
+    private async Task AddManualEntry()
+    {
+        if (detail is null) return;
+        manualMsg = null; manualError = null;
+        isClocking = true;
+        try
+        {
+            int? jobId = int.TryParse(manualJobId, out var jid) ? jid : null;
+            await EmployeeSvc.AddManualTimeEntryAsync(detail.Id, jobId, manualStart.ToUniversalTime(), manualEnd.ToUniversalTime(), manualBillable, string.IsNullOrWhiteSpace(manualNotes) ? null : manualNotes);
+            manualMsg = "Time entry added successfully.";
+            detail = await EmployeeSvc.GetEmployeeAsync(detail.Id);
+        }
+        catch (Exception ex) { manualError = ex.Message; }
+        finally { isClocking = false; }
+    }
+
+    private void GoToList() => Nav.NavigateTo("/employees");
+    private void GoToNew() => Nav.NavigateTo("/employees/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/employees/{id}");
+    private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
+    private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/employees/{detail.Id}/edit"); }
+    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadEmployees(); }
+
+    private static string JobStatusBadge(JobStatus status) => status switch
+    {
+        JobStatus.Completed => "bg-success",
+        JobStatus.Cancelled => "bg-danger",
+        JobStatus.InProgress or JobStatus.OnSite => "bg-primary",
+        JobStatus.Scheduled or JobStatus.EnRoute => "bg-info",
+        _ => "bg-secondary"
+    };
+}

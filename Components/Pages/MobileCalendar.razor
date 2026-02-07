@@ -1,0 +1,284 @@
+@page "/calendar"
+@inject IMobileCalendarService CalendarService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+<!-- Month Navigation -->
+<div class="d-flex align-items-center justify-content-between mb-2">
+    <button class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;" @onclick="PreviousMonth">
+        <i class="bi bi-chevron-double-left"></i>
+    </button>
+    <span class="fw-bold" style="font-size:0.95rem;">@_selectedDate.ToString("MMMM yyyy")</span>
+    <button class="btn btn-sm btn-outline-secondary" style="padding:2px 8px;" @onclick="NextMonth">
+        <i class="bi bi-chevron-double-right"></i>
+    </button>
+</div>
+
+<!-- Date Navigation -->
+<div class="mobile-card" style="padding:0.65rem 1rem;">
+    <div class="d-flex align-items-center justify-content-between">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="PreviousDay">
+            <i class="bi bi-chevron-left"></i>
+        </button>
+        <div class="text-center">
+            <strong style="font-size:0.95rem;">@_selectedDate.ToString("dddd")</strong>
+            <div class="text-muted" style="font-size:0.8rem;">@_selectedDate.ToString("MMM dd, yyyy")</div>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="NextDay">
+            <i class="bi bi-chevron-right"></i>
+        </button>
+    </div>
+
+    <!-- Mini Date Strip -->
+    <div class="d-flex justify-content-between mt-2 mb-1" style="gap:2px;">
+        @for (var d = 0; d < 7; d++)
+        {
+            var stripDate = _weekStart.AddDays(d);
+            var isSelected = stripDate.Date == _selectedDate.Date;
+            var isToday = stripDate.Date == DateTime.UtcNow.Date;
+            var hasEvents = _weekEventCounts.ContainsKey(stripDate.Date) && _weekEventCounts[stripDate.Date] > 0;
+            <button class="btn btn-sm flex-fill @(isSelected ? "btn-primary" : isToday ? "btn-outline-primary" : "btn-light")"
+                    style="padding:4px 0; font-size:0.65rem; min-width:0; border-radius:8px; position:relative;"
+                    @onclick="() => SelectDate(stripDate)">
+                <div style="font-weight:600;">@stripDate.ToString("ddd")[..2]</div>
+                <div>@stripDate.Day</div>
+                @if (hasEvents)
+                {
+                    <div style="width:5px; height:5px; border-radius:50%; background:@(isSelected ? "white" : "var(--primary)"); margin:1px auto 0;"></div>
+                }
+            </button>
+        }
+    </div>
+
+    <div class="d-flex gap-2 mt-2 justify-content-center">
+        <button class="btn btn-sm @(_viewMode == "day" ? "btn-primary" : "btn-outline-primary")"
+                @onclick='() => SetView("day")'>Day</button>
+        <button class="btn btn-sm @(_viewMode == "week" ? "btn-primary" : "btn-outline-primary")"
+                @onclick='() => SetView("week")'>Week</button>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoToToday">Today</button>
+    </div>
+</div>
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_viewMode == "day")
+{
+    <!-- Day View -->
+    @if (_events.Any())
+    {
+        <div class="section-header">@_events.Count event@(_events.Count != 1 ? "s" : "")</div>
+        @foreach (var evt in _events.OrderBy(e => e.StartDateTime))
+        {
+            <div class="calendar-slot" @onclick="() => NavigateToEvent(evt)">
+                <div class="slot-time">
+                    @evt.StartDateTime.ToString("h:mm tt")
+                </div>
+                <div class="slot-event" style="@(evt.Color != null ? "border-left-color:" + evt.Color + ";" : "")">
+                    <div class="d-flex align-items-center gap-1">
+                        <i class="bi @EventTypeIcon(evt.EventType)" style="font-size:0.75rem; color:@(evt.Color ?? "var(--primary)")"></i>
+                        <span class="fw-semibold">@(evt.Title ?? "Untitled")</span>
+                    </div>
+                    @if (evt.SiteAddress != null)
+                    {
+                        <div class="text-muted" style="font-size:0.75rem;">
+                            <i class="bi bi-geo-alt me-1"></i>@evt.SiteAddress
+                        </div>
+                    }
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <span class="text-muted" style="font-size:0.7rem;">
+                            @evt.StartDateTime.ToString("h:mm") – @evt.EndDateTime.ToString("h:mm tt")
+                        </span>
+                        <span class="badge-status badge bg-@EventStatusColor(evt.Status)" style="font-size:0.6rem;">@evt.Status</span>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-calendar-x d-block"></i>
+            <p>No events for this day</p>
+        </div>
+    }
+}
+else
+{
+    <!-- Week View -->
+    @if (_events.Count > 0)
+    {
+        <div class="mobile-card d-flex justify-content-between align-items-center" style="padding:0.5rem 1rem;">
+            <span style="font-size:0.85rem; font-weight:600;">@_events.Count event@(_events.Count != 1 ? "s" : "") this week</span>
+            <span class="badge bg-primary" style="font-size:0.7rem;">@_weekStart.ToString("MMM dd") – @_weekStart.AddDays(6).ToString("MMM dd")</span>
+        </div>
+    }
+    @for (var i = 0; i < 7; i++)
+    {
+        var day = _weekStart.AddDays(i);
+        var dayEvents = _events.Where(e => e.StartDateTime.Date == day.Date).OrderBy(e => e.StartDateTime).ToList();
+        var isToday = day.Date == DateTime.UtcNow.Date;
+
+        <div class="section-header" style="@(isToday ? "color:var(--primary);" : "")">
+            <span>@day.ToString("ddd, MMM dd") @(isToday ? "· Today" : "")</span>
+            @if (dayEvents.Count > 0)
+            {
+                <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:0.6rem;">@dayEvents.Count</span>
+            }
+        </div>
+
+        @if (dayEvents.Any())
+        {
+            @foreach (var evt in dayEvents)
+            {
+                <div class="calendar-slot" @onclick="() => NavigateToEvent(evt)">
+                    <div class="slot-time">@evt.StartDateTime.ToString("h:mm tt")</div>
+                    <div class="slot-event" style="@(evt.Color != null ? "border-left-color:" + evt.Color + ";" : "")">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi @EventTypeIcon(evt.EventType)" style="font-size:0.7rem; color:@(evt.Color ?? "var(--primary)")"></i>
+                            <span class="fw-semibold" style="font-size:0.8rem;">@(evt.Title ?? "Untitled")</span>
+                        </div>
+                        @if (evt.SiteAddress != null)
+                        {
+                            <div class="text-muted" style="font-size:0.68rem;">
+                                <i class="bi bi-geo-alt me-1"></i>@evt.SiteAddress
+                            </div>
+                        }
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                            <span class="text-muted" style="font-size:0.65rem;">
+                                @evt.StartDateTime.ToString("h:mm") – @evt.EndDateTime.ToString("h:mm tt")
+                            </span>
+                            <span class="badge-status badge bg-@EventStatusColor(evt.Status)" style="font-size:0.55rem;">@evt.Status</span>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-muted text-center py-1" style="font-size:0.75rem;">No events</div>
+        }
+    }
+}
+
+@code {
+private int _employeeId;
+private DateTime _selectedDate = DateTime.UtcNow.Date;
+private DateTime _weekStart;
+private string _viewMode = "day";
+private List<MobileCalendarEvent> _events = [];
+private Dictionary<DateTime, int> _weekEventCounts = [];
+private bool _loading = true;
+
+protected override async Task OnInitializedAsync()
+{
+    _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    _weekStart = GetWeekStart(_selectedDate);
+    await LoadEvents();
+}
+
+    private async Task LoadEvents()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        _weekStart = GetWeekStart(_selectedDate);
+
+        if (_viewMode == "day")
+        {
+            _events = await CalendarService.GetEventsAsync(_selectedDate, _employeeId);
+        }
+        else
+        {
+            _events = await CalendarService.GetWeekEventsAsync(_weekStart, _employeeId);
+        }
+
+        await LoadWeekEventCounts();
+        _loading = false;
+    }
+
+    private async Task LoadWeekEventCounts()
+    {
+        var weekEvents = await CalendarService.GetWeekEventsAsync(_weekStart, _employeeId);
+        _weekEventCounts = weekEvents
+            .GroupBy(e => e.StartDateTime.Date)
+            .ToDictionary(g => g.Key, g => g.Count());
+    }
+
+    private async Task PreviousDay()
+    {
+        _selectedDate = _viewMode == "day" ? _selectedDate.AddDays(-1) : _selectedDate.AddDays(-7);
+        await LoadEvents();
+    }
+
+    private async Task NextDay()
+    {
+        _selectedDate = _viewMode == "day" ? _selectedDate.AddDays(1) : _selectedDate.AddDays(7);
+        await LoadEvents();
+    }
+
+    private async Task GoToToday()
+    {
+        _selectedDate = DateTime.UtcNow.Date;
+        await LoadEvents();
+    }
+
+    private async Task PreviousMonth()
+    {
+        _selectedDate = _selectedDate.AddMonths(-1);
+        await LoadEvents();
+    }
+
+    private async Task NextMonth()
+    {
+        _selectedDate = _selectedDate.AddMonths(1);
+        await LoadEvents();
+    }
+
+    private async Task SetView(string mode)
+    {
+        _viewMode = mode;
+        await LoadEvents();
+    }
+
+    private void NavigateToEvent(MobileCalendarEvent evt)
+    {
+        if (evt.JobId.HasValue)
+        {
+            Nav.NavigateTo("/jobs/" + evt.JobId.Value);
+        }
+    }
+
+    private async Task SelectDate(DateTime date)
+    {
+        _selectedDate = date;
+        await LoadEvents();
+    }
+
+    private static DateTime GetWeekStart(DateTime date)
+    {
+        var diff = (7 + (date.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return date.AddDays(-diff).Date;
+    }
+
+    private static string EventStatusColor(CalendarEventStatus status) => status switch
+    {
+        CalendarEventStatus.Confirmed => "primary",
+        CalendarEventStatus.Tentative => "warning",
+        CalendarEventStatus.Completed => "success",
+        CalendarEventStatus.Cancelled => "secondary",
+        _ => "info"
+    };
+
+    private static string EventTypeIcon(string eventType) => eventType switch
+    {
+        "Job" => "bi-wrench-adjustable",
+        "Meeting" => "bi-people",
+        "Training" => "bi-book",
+        "Personal" => "bi-person",
+        _ => "bi-calendar-event"
+    };
+}

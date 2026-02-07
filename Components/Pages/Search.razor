@@ -1,0 +1,262 @@
+@page "/search"
+@inject IMobileSearchService SearchService
+@inject NavigationManager Nav
+
+<!-- Search Input -->
+<div class="mobile-card" style="padding:0.65rem 1rem;">
+    <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-search text-muted"></i>
+        <input type="search" class="form-control border-0 shadow-none" placeholder="Search jobs, sites, assets, notes…"
+               @bind="_query" @bind:event="oninput" @bind:after="OnSearchChanged"
+               style="font-size:0.95rem; padding:0.4rem 0;" />
+        @if (!string.IsNullOrEmpty(_query))
+        {
+            <button class="btn btn-sm btn-link text-muted p-0" @onclick="ClearSearch">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        }
+    </div>
+</div>
+
+<!-- Category Chips -->
+<div class="d-flex gap-2 mb-3 flex-wrap" style="margin-top:-0.25rem;">
+    @foreach (var cat in _categories)
+    {
+        var isActive = _selectedCategory == cat;
+        <button class="btn btn-sm @(isActive ? "btn-primary" : "btn-outline-secondary")"
+                style="border-radius:20px; font-size:0.75rem; padding:0.25rem 0.75rem;"
+                @onclick="() => SelectCategory(cat)">
+            @cat
+        </button>
+    }
+</div>
+
+@if (_searching)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (string.IsNullOrWhiteSpace(_query))
+{
+    <!-- Quick Access -->
+    <div class="section-header">Quick Access</div>
+    <div class="gap-grid">
+        <div class="mobile-card text-center" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
+            <i class="bi bi-wrench-adjustable text-primary d-block" style="font-size:1.5rem;"></i>
+            <div style="font-size:0.85rem; font-weight:600;" class="mt-1">My Jobs</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/calendar")'>
+            <i class="bi bi-calendar3 text-info d-block" style="font-size:1.5rem;"></i>
+            <div style="font-size:0.85rem; font-weight:600;" class="mt-1">Calendar</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/notes")'>
+            <i class="bi bi-journal-text text-success d-block" style="font-size:1.5rem;"></i>
+            <div style="font-size:0.85rem; font-weight:600;" class="mt-1">Notes</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/documents")'>
+            <i class="bi bi-file-earmark-text text-warning d-block" style="font-size:1.5rem;"></i>
+            <div style="font-size:0.85rem; font-weight:600;" class="mt-1">Documents</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/inventory")'>
+            <i class="bi bi-box-seam text-secondary d-block" style="font-size:1.5rem;"></i>
+            <div style="font-size:0.85rem; font-weight:600;" class="mt-1">Inventory</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/estimates")'>
+            <i class="bi bi-calculator text-primary d-block" style="font-size:1.5rem;"></i>
+            <div style="font-size:0.85rem; font-weight:600;" class="mt-1">Estimates</div>
+        </div>
+    </div>
+
+    <div class="section-header">Recent Searches</div>
+    @if (_recentSearches.Any())
+    {
+        <div class="mobile-card" style="padding:0.5rem 1rem;">
+            <div class="d-flex flex-column">
+                @foreach (var recent in _recentSearches)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;"
+                         @onclick="() => ReplaySearch(recent)">
+                        <span style="font-size:0.85rem;">
+                            <i class="bi bi-clock-history me-2 text-muted"></i>@recent
+                        </span>
+                        <i class="bi bi-arrow-return-left text-muted" style="font-size:0.7rem;"></i>
+                    </div>
+                    @if (recent != _recentSearches.Last())
+                    {
+                        <hr class="my-0" />
+                    }
+                }
+            </div>
+            <div class="text-center mt-2 pt-2 border-top">
+                <button class="btn btn-sm btn-link text-muted" style="font-size:0.75rem;" @onclick="ClearRecentSearches">
+                    <i class="bi bi-trash me-1"></i>Clear Search History
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="empty-state" style="padding:1rem;">
+            <i class="bi bi-clock-history d-block" style="font-size:2rem;"></i>
+            <p>Your recent searches will appear here</p>
+        </div>
+    }
+}
+else if (_results != null && _results.Results.Any())
+{
+    <div class="section-header">@_results.TotalCount result@(_results.TotalCount != 1 ? "s" : "")</div>
+
+    @foreach (var group in _results.Results.GroupBy(r => r.Category))
+    {
+        <div class="d-flex align-items-center justify-content-between mt-2 mb-1">
+            <span style="font-size:0.75rem; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:#6c757d;">
+                @group.Key (@group.Count())
+            </span>
+        </div>
+        @foreach (var result in group)
+        {
+            <div class="mobile-card" style="cursor:pointer; padding:0.65rem 1rem;" @onclick="() => Navigate(result.NavigateTo)">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi @result.Icon text-primary" style="font-size:1.1rem; margin-top:2px;"></i>
+                    <div style="flex:1; min-width:0;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <p class="mb-0 fw-semibold" style="font-size:0.85rem;">@result.Title</p>
+                            @if (result.BadgeText != null)
+                            {
+                                <span class="badge bg-@(result.BadgeColor ?? "secondary")" style="font-size:0.6rem; white-space:nowrap;">
+                                    @result.BadgeText
+                                </span>
+                            }
+                        </div>
+                        @if (result.Subtitle != null)
+                        {
+                            <p class="card-subtitle mb-0">@result.Subtitle</p>
+                        }
+                    </div>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem; margin-top:4px;"></i>
+                </div>
+            </div>
+        }
+    }
+}
+else if (!string.IsNullOrWhiteSpace(_query))
+{
+    <div class="empty-state">
+        <i class="bi bi-search d-block"></i>
+        <p>No results for "@_query"</p>
+    </div>
+}
+
+@code {
+private string _query = string.Empty;
+private string? _selectedCategory;
+private MobileSearchResults? _results;
+private bool _searching;
+private System.Timers.Timer? _debounceTimer;
+
+private List<string> _recentSearches = [];
+private const int MaxRecentSearches = 8;
+private const string RecentSearchesKey = "recent_searches";
+
+private readonly string[] _categories = ["All", "Jobs", "Customers", "Sites", "Assets", "Notes"];
+
+protected override void OnInitialized()
+{
+    LoadRecentSearches();
+}
+
+private void LoadRecentSearches()
+{
+    var stored = Preferences.Default.Get(RecentSearchesKey, string.Empty);
+    _recentSearches = string.IsNullOrEmpty(stored)
+        ? []
+        : stored.Split('|', StringSplitOptions.RemoveEmptyEntries).Take(MaxRecentSearches).ToList();
+}
+
+private void SaveRecentSearches()
+{
+    Preferences.Default.Set(RecentSearchesKey, string.Join('|', _recentSearches));
+}
+
+    private void OnSearchChanged()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            _debounceTimer?.Stop();
+            await InvokeAsync(async () =>
+            {
+                await DoSearch();
+                StateHasChanged();
+            });
+        };
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
+    }
+
+    private async Task DoSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_query))
+        {
+            _results = null;
+            return;
+        }
+
+        _searching = true;
+        StateHasChanged();
+
+        var cat = _selectedCategory == "All" ? null : _selectedCategory;
+        _results = await SearchService.SearchAsync(_query, cat);
+        _searching = false;
+
+        AddToRecentSearches(_query.Trim());
+    }
+
+    private void AddToRecentSearches(string query)
+    {
+        _recentSearches.Remove(query);
+        _recentSearches.Insert(0, query);
+        if (_recentSearches.Count > MaxRecentSearches)
+            _recentSearches.RemoveAt(_recentSearches.Count - 1);
+        SaveRecentSearches();
+    }
+
+    private async Task ReplaySearch(string query)
+    {
+        _query = query;
+        await DoSearch();
+    }
+
+    private void ClearRecentSearches()
+    {
+        _recentSearches.Clear();
+        Preferences.Default.Remove(RecentSearchesKey);
+    }
+
+    private async Task SelectCategory(string cat)
+    {
+        _selectedCategory = _selectedCategory == cat ? null : cat;
+        if (!string.IsNullOrWhiteSpace(_query))
+            await DoSearch();
+    }
+
+    private void ClearSearch()
+    {
+        _query = string.Empty;
+        _results = null;
+        _selectedCategory = null;
+    }
+
+    private void Navigate(string path)
+    {
+        Nav.NavigateTo(path);
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
+    }
+}

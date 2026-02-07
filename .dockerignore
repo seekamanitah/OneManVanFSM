@@ -1,0 +1,15 @@
+**/.vs
+**/bin
+**/obj
+**/.git
+**/.gitignore
+**/node_modules
+**/*.user
+**/*.suo
+**/Thumbs.db
+**/Desktop.ini
+*.md
+!DOCKER.md
+OneManVanFSM/
+OneManVanFSM Guidelines/
+.github/

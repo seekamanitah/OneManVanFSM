@@ -1,0 +1,95 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <PropertyGroup>
+        <TargetFrameworks>net10.0-android</TargetFrameworks>
+        <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('windows'))">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+
+        <!-- Prevent Razor SDK from auto-including child project files -->
+        <DefaultItemExcludes>$(DefaultItemExcludes);OneManVanFSM.Web\**;OneManVanFSM.Shared\**;OneManVanFSM Guidelines\**</DefaultItemExcludes>
+
+        <OutputType>Exe</OutputType>
+        <RootNamespace>OneManVanFSM</RootNamespace>
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <EnableDefaultCssItems>false</EnableDefaultCssItems>
+        <Nullable>enable</Nullable>
+
+        <!-- Display name -->
+        <ApplicationTitle>OneManVanFSM</ApplicationTitle>
+
+        <!-- App Identifier -->
+        <ApplicationId>com.companyname.onemanvanfsm</ApplicationId>
+
+        <!-- Versions -->
+        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+        <ApplicationVersion>1</ApplicationVersion>
+
+        <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
+        <WindowsPackageType>None</WindowsPackageType>
+
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+        <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+        <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
+
+        <!-- Target arm64 for physical devices, x64 for emulators -->
+        <RuntimeIdentifiers Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">android-arm64;android-x64</RuntimeIdentifiers>
+
+        <!-- Embed assemblies into APK to prevent Fast Deployment crashes -->
+        <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!-- App Icon -->
+        <MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
+
+        <!-- Splash Screen -->
+        <MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+
+        <!-- Images -->
+        <MauiImage Include="Resources\Images\*" />
+        <MauiImage Update="Resources\Images\dotnet_bot.svg" BaseSize="168,208" />
+
+        <!-- Custom Fonts -->
+        <MauiFont Include="Resources\Fonts\*" />
+
+        <!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
+        <MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+    </ItemGroup>
+
+    <!-- Exclude sub-project directories so their source files are NOT compiled
+         by the MAUI project. The Shared project is consumed via ProjectReference. -->
+    <ItemGroup>
+        <Compile Remove="OneManVanFSM.Web\**" />
+        <Content Remove="OneManVanFSM.Web\**" />
+        <EmbeddedResource Remove="OneManVanFSM.Web\**" />
+        <None Remove="OneManVanFSM.Web\**" />
+        <RazorComponent Remove="OneManVanFSM.Web\**" />
+
+        <Compile Remove="OneManVanFSM.Shared\**" />
+        <Content Remove="OneManVanFSM.Shared\**" />
+        <EmbeddedResource Remove="OneManVanFSM.Shared\**" />
+        <None Remove="OneManVanFSM.Shared\**" />
+
+        <!-- Also exclude guideline text files and other non-code directories -->
+        <Compile Remove="OneManVanFSM Guidelines\**" />
+        <Content Remove="OneManVanFSM Guidelines\**" />
+        <None Remove="OneManVanFSM Guidelines\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Include=".github\copilot-instructions.md" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-preview.5.25277.114" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="OneManVanFSM.Shared\OneManVanFSM.Shared.csproj" />
+    </ItemGroup>
+
+</Project>

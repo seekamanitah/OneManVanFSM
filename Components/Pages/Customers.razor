@@ -1,0 +1,451 @@
+@page "/customers"
+@page "/customers/{Id:int}"
+@inject IMobileCustomerService CustomerService
+@inject NavigationManager Nav
+
+@if (Id > 0)
+{
+    <!-- Detail View -->
+    @if (_loadingDetail)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_detail == null)
+    {
+        <div class="empty-state">
+            <i class="bi bi-person-x d-block"></i>
+            <p>Customer not found</p>
+            <button class="btn btn-primary btn-sm mt-2" @onclick='() => Nav.NavigateTo("/customers")'>
+                <i class="bi bi-arrow-left me-1"></i>All Customers
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/customers")'>
+                <i class="bi bi-arrow-left me-1"></i>Customers
+            </button>
+        </div>
+
+        <!-- Customer Header -->
+        <div class="mobile-card">
+            <div class="d-flex align-items-start gap-3">
+                <div class="customer-avatar">
+                    <i class="bi @CustomerTypeIcon(_detail.Type)"></i>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    <h6 class="fw-bold mb-1">@_detail.Name</h6>
+                    <div class="d-flex flex-wrap gap-1 mb-1">
+                        <span class="badge bg-light text-dark" style="font-size:0.65rem;">@_detail.Type</span>
+                        @if (_detail.Tags != null)
+                        {
+                            @foreach (var tag in ParseTags(_detail.Tags))
+                            {
+                                <span class="badge bg-primary-subtle text-primary" style="font-size:0.65rem;">@tag</span>
+                            }
+                        }
+                    </div>
+                    <p class="card-subtitle mb-0">Customer since @_detail.SinceDate.ToString("MMM yyyy")</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Actions -->
+        <div class="gap-grid mb-2">
+            @if (_detail.PrimaryPhone != null)
+            {
+                <a href="tel:@_detail.PrimaryPhone" class="mobile-card text-center text-decoration-none" style="padding:0.65rem;">
+                    <i class="bi bi-telephone-fill text-primary d-block" style="font-size:1.2rem;"></i>
+                    <div style="font-size:0.75rem; font-weight:600; color:#212529;" class="mt-1">Call</div>
+                    <div class="card-subtitle">@_detail.PrimaryPhone</div>
+                </a>
+            }
+            @if (_detail.PrimaryEmail != null)
+            {
+                <a href="mailto:@_detail.PrimaryEmail" class="mobile-card text-center text-decoration-none" style="padding:0.65rem;">
+                    <i class="bi bi-envelope-fill text-success d-block" style="font-size:1.2rem;"></i>
+                    <div style="font-size:0.75rem; font-weight:600; color:#212529;" class="mt-1">Email</div>
+                    <div class="card-subtitle text-truncate">@_detail.PrimaryEmail</div>
+                </a>
+            }
+        </div>
+
+        <!-- Details -->
+        <div class="section-header">Details</div>
+        <div class="mobile-card">
+            @if (_detail.Address != null)
+            {
+                <div class="d-flex align-items-center justify-content-between mb-2" style="font-size:0.85rem;">
+                    <div class="d-flex align-items-center" style="min-width:0; flex:1;">
+                        <i class="bi bi-geo-alt me-2 text-muted"></i>
+                        <span>@_detail.Address@(_detail.City != null ? ", " + _detail.City : "")@(_detail.State != null ? " " + _detail.State : "") @_detail.Zip</span>
+                    </div>
+                    <a href="@GetMapsUrl()" target="_blank" class="btn btn-sm btn-outline-primary ms-2" style="font-size:0.7rem; padding:2px 8px; white-space:nowrap;">
+                        <i class="bi bi-map me-1"></i>Map
+                    </a>
+                </div>
+            }
+            @if (_detail.SecondaryPhone != null)
+            {
+                <div class="d-flex align-items-center mb-2" style="font-size:0.85rem;">
+                    <i class="bi bi-phone me-2 text-muted"></i>
+                    <a href="tel:@_detail.SecondaryPhone" style="text-decoration:none;">@_detail.SecondaryPhone (Alt)</a>
+                </div>
+            }
+            @if (_detail.PreferredContactMethod != null)
+            {
+                <div class="d-flex align-items-center mb-2" style="font-size:0.85rem;">
+                    <i class="bi bi-chat-dots me-2 text-muted"></i>
+                    <span>Preferred: @_detail.PreferredContactMethod</span>
+                </div>
+            }
+            @if (_detail.BalanceOwed > 0)
+            {
+                <div class="d-flex align-items-center" style="font-size:0.85rem;">
+                    <i class="bi bi-credit-card me-2 text-warning"></i>
+                    <span class="text-warning fw-semibold">Balance: @_detail.BalanceOwed.ToString("C")</span>
+                </div>
+            }
+        </div>
+
+        <!-- Service Agreements -->
+        @if (_detail.Agreements.Any())
+        {
+            <div class="section-header">Service Agreements</div>
+            @foreach (var sa in _detail.Agreements)
+            {
+                <div class="mobile-card" style="padding:0.65rem 1rem;">
+                    <div class="mobile-card-header">
+                        <div style="min-width:0; flex:1;">
+                            <span class="card-title">@(sa.Title ?? sa.AgreementNumber)</span>
+                        </div>
+                        <span class="badge bg-@AgreementStatusColor(sa.Status)" style="font-size:0.65rem;">@sa.Status</span>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="badge bg-light text-dark" style="font-size:0.65rem;">@sa.CoverageLevel</span>
+                        </div>
+                        <span class="card-subtitle">
+                            @sa.VisitsUsed/@sa.VisitsIncluded visits · Exp @sa.EndDate.ToString("MMM dd, yyyy")
+                        </span>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Sites -->
+        @if (_detail.Sites.Any())
+        {
+            <div class="section-header">Sites (@_detail.Sites.Count)</div>
+            @foreach (var site in _detail.Sites)
+            {
+                <div class="mobile-card" style="cursor:pointer; padding:0.65rem 1rem;" @onclick="() => GoToSite(site.Id)">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div style="min-width:0; flex:1;">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-building text-muted"></i>
+                                <span style="font-size:0.85rem; font-weight:600;">@site.Name</span>
+                            </div>
+                            @if (site.Address != null)
+                            {
+                                <p class="card-subtitle mb-0 ms-4">@site.Address</p>
+                            }
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-light text-dark" style="font-size:0.65rem;">@site.PropertyType</span>
+                            @if (site.AssetCount > 0)
+                            {
+                                <div class="card-subtitle">@site.AssetCount asset@(site.AssetCount != 1 ? "s" : "")</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Activity Timeline -->
+        @if (_detail.RecentJobs.Any() || _detail.Agreements.Any())
+        {
+            <div class="section-header">Activity Timeline</div>
+            @foreach (var item in GetTimelineItems())
+            {
+                <div class="mobile-card" style="padding:0.65rem 1rem; border-left:3px solid @item.Color; cursor:@(item.IsNavigable ? "pointer" : "default");"
+                     @onclick="() => NavigateTimeline(item)">
+                    <div class="d-flex align-items-start gap-2">
+                        <div style="width:28px; height:28px; border-radius:50%; background:@(item.Color)18; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                            <i class="bi @item.Icon" style="font-size:0.75rem; color:@item.Color;"></i>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <p class="mb-0 fw-semibold" style="font-size:0.85rem;">@item.Title</p>
+                                @if (item.Badge != null)
+                                {
+                                    <span class="badge bg-@item.BadgeColor" style="font-size:0.6rem;">@item.Badge</span>
+                                }
+                            </div>
+                            <p class="card-subtitle mb-0">@item.Subtitle</p>
+                            <p class="card-subtitle mb-0" style="font-size:0.7rem;">@item.Date.ToString("MMM dd, yyyy")</p>
+                        </div>
+                        @if (item.IsNavigable)
+                        {
+                            <i class="bi bi-chevron-right text-muted align-self-center" style="font-size:0.7rem;"></i>
+                        }
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Notes -->
+        @if (_detail.Notes != null)
+        {
+            <div class="section-header">Notes</div>
+            <div class="mobile-card">
+                <p class="mb-0" style="font-size:0.85rem; white-space:pre-wrap;">@_detail.Notes</p>
+            </div>
+        }
+    }
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex gap-2 mb-3">
+        <input type="search" class="form-control" placeholder="Search customers…" @bind="_search"
+               @bind:event="oninput" @bind:after="LoadCustomers" />
+        <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadCustomers" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_customers.Any())
+    {
+        @foreach (var cust in _customers)
+        {
+            <div class="mobile-card" style="cursor:pointer;" @onclick="() => GoToCustomer(cust.Id)">
+                <div class="d-flex align-items-start gap-3">
+                    <div class="customer-avatar-sm">
+                        <i class="bi @CustomerTypeIcon(cust.Type)"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div style="min-width:0; flex:1;">
+                                <p class="mb-0 fw-semibold" style="font-size:0.9rem;">@cust.Name</p>
+                                @if (cust.Address != null)
+                                {
+                                    <p class="card-subtitle mb-0 text-truncate">@cust.Address</p>
+                                }
+                            </div>
+                            <i class="bi bi-chevron-right text-muted" style="font-size:0.8rem;"></i>
+                        </div>
+                        <div class="d-flex flex-wrap gap-1 mt-1">
+                            @if (cust.HasActiveAgreement)
+                            {
+                                <span class="badge bg-success-subtle text-success" style="font-size:0.6rem;">
+                                    <i class="bi bi-shield-check me-1"></i>Agreement
+                                </span>
+                            }
+                            @if (cust.OpenJobCount > 0)
+                            {
+                                <span class="badge bg-primary-subtle text-primary" style="font-size:0.6rem;">
+                                    @cust.OpenJobCount open job@(cust.OpenJobCount != 1 ? "s" : "")
+                                </span>
+                            }
+                            @if (cust.SiteCount > 0)
+                            {
+                                <span class="badge bg-light text-dark" style="font-size:0.6rem;">
+                                    @cust.SiteCount site@(cust.SiteCount != 1 ? "s" : "")
+                                </span>
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Contact Actions -->
+                <div class="d-flex gap-2 mt-2 pt-2 border-top">
+                    @if (cust.Phone != null)
+                    {
+                        <a href="tel:@cust.Phone" class="btn btn-sm btn-outline-primary flex-fill" style="font-size:0.75rem;"
+                           @onclick:stopPropagation="true">
+                            <i class="bi bi-telephone me-1"></i>Call
+                        </a>
+                    }
+                    @if (cust.Email != null)
+                    {
+                        <a href="mailto:@cust.Email" class="btn btn-sm btn-outline-success flex-fill" style="font-size:0.75rem;"
+                           @onclick:stopPropagation="true">
+                            <i class="bi bi-envelope me-1"></i>Email
+                        </a>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-people d-block"></i>
+            <p>No customers found</p>
+        </div>
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private List<MobileCustomerCard> _customers = [];
+    private MobileCustomerDetail? _detail;
+    private bool _loading = true;
+    private bool _loadingDetail = true;
+    private string _search = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id > 0)
+        {
+            _loadingDetail = true;
+            _detail = await CustomerService.GetCustomerDetailAsync(Id);
+            _loadingDetail = false;
+        }
+        else
+        {
+            await LoadCustomers();
+        }
+    }
+
+    private async Task LoadCustomers()
+    {
+        _loading = true;
+        StateHasChanged();
+        _customers = await CustomerService.GetCustomersAsync(
+            string.IsNullOrWhiteSpace(_search) ? null : _search);
+        _loading = false;
+    }
+
+    private void GoToCustomer(int id) => Nav.NavigateTo("/customers/" + id);
+    private void GoToSite(int id) => Nav.NavigateTo("/sites/" + id);
+    private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);
+
+    private string GetMapsUrl()
+    {
+        var parts = new[] { _detail?.Address, _detail?.City, _detail?.State, _detail?.Zip };
+        var address = string.Join(" ", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+        return "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address);
+    }
+
+    private static string CustomerTypeIcon(CustomerType type) => type switch
+    {
+        CustomerType.Company => "bi-building",
+        CustomerType.Landlord => "bi-houses",
+        _ => "bi-person"
+    };
+
+    private static string AgreementStatusColor(AgreementStatus status) => status switch
+    {
+        AgreementStatus.Active => "success",
+        AgreementStatus.Expiring => "warning",
+        AgreementStatus.Expired => "secondary",
+        AgreementStatus.Cancelled => "danger",
+        AgreementStatus.Renewed => "info",
+        _ => "secondary"
+    };
+
+    private static string JobStatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite or JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        JobStatus.Cancelled => "secondary",
+        _ => "secondary"
+    };
+
+    private static string[] ParseTags(string tags)
+    {
+        var trimmed = tags.Trim();
+        if (trimmed.StartsWith('['))
+        {
+            return trimmed.Trim('[', ']')
+                .Split(',')
+                .Select(t => t.Trim().Trim('"'))
+                .Where(t => !string.IsNullOrEmpty(t))
+                .ToArray();
+        }
+        return trimmed.Split(',').Select(t => t.Trim()).Where(t => !string.IsNullOrEmpty(t)).ToArray();
+    }
+
+    private record TimelineItem(string Title, string Subtitle, DateTime Date, string Icon, string Color,
+        string? Badge, string? BadgeColor, bool IsNavigable, int? NavigateId, string? NavigateType);
+
+    private List<TimelineItem> GetTimelineItems()
+    {
+        var items = new List<TimelineItem>();
+
+        if (_detail != null)
+        {
+            foreach (var job in _detail.RecentJobs)
+            {
+                var color = JobStatusColor(job.Status) switch
+                {
+                    "info" => "#0dcaf0",
+                    "primary" => "#0d6efd",
+                    "warning" => "#ffc107",
+                    "success" => "#198754",
+                    _ => "#6c757d"
+                };
+                items.Add(new TimelineItem(
+                    job.Title ?? job.JobNumber,
+                    job.SiteAddress ?? "No address",
+                    job.ScheduledDate ?? DateTime.MinValue,
+                    job.Status == JobStatus.Completed ? "bi-check-circle-fill" : "bi-wrench",
+                    color,
+                    job.Status.ToString(),
+                    JobStatusColor(job.Status),
+                    true,
+                    job.Id,
+                    "job"
+                ));
+            }
+
+            foreach (var agr in _detail.Agreements)
+            {
+                var color = AgreementStatusColor(agr.Status) switch
+                {
+                    "success" => "#198754",
+                    "warning" => "#ffc107",
+                    "danger" => "#dc3545",
+                    "info" => "#0dcaf0",
+                    _ => "#6c757d"
+                };
+                items.Add(new TimelineItem(
+                    agr.Title ?? agr.AgreementNumber,
+                    agr.CoverageLevel + " coverage",
+                    agr.EndDate,
+                    "bi-shield-check",
+                    color,
+                    agr.Status.ToString(),
+                    AgreementStatusColor(agr.Status),
+                    true,
+                    agr.Id,
+                    "agreement"
+                ));
+            }
+        }
+
+        return items.OrderByDescending(i => i.Date).ToList();
+    }
+
+    private void NavigateTimeline(TimelineItem item)
+    {
+        if (!item.IsNavigable || item.NavigateId == null) return;
+        if (item.NavigateType == "job") Nav.NavigateTo("/jobs/" + item.NavigateId);
+        else if (item.NavigateType == "agreement") Nav.NavigateTo("/agreements/" + item.NavigateId);
+    }
+}

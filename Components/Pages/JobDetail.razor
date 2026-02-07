@@ -1,0 +1,544 @@
+@page "/jobs/{Id:int}"
+@inject IMobileJobService JobService
+@inject IMobileTimeService TimeService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_job == null)
+{
+    <div class="empty-state">
+        <i class="bi bi-exclamation-circle d-block"></i>
+        <p>Job not found</p>
+    </div>
+}
+else
+{
+    <!-- Back Button -->
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/jobs")'>
+            <i class="bi bi-arrow-left me-1"></i>Back to Jobs
+        </button>
+    </div>
+
+    <!-- Job Header Card -->
+    <div class="mobile-card">
+        <div class="mobile-card-header">
+            <div>
+                <span class="priority-dot priority-@_job.Priority.ToString().ToLower()"></span>
+                <span class="card-title">@(_job.Title ?? _job.JobNumber)</span>
+            </div>
+            <span class="badge-status badge bg-@StatusColor(_job.Status)">@_job.Status</span>
+        </div>
+        <p class="card-subtitle mb-1"><strong>Job #:</strong> @_job.JobNumber</p>
+        @if (_job.SystemType != null)
+        {
+            <p class="card-subtitle mb-1"><strong>System:</strong> @_job.SystemType</p>
+        }
+        @if (_job.ScheduledDate.HasValue)
+        {
+            <p class="card-subtitle mb-1">
+                <i class="bi bi-calendar3 me-1"></i>@_job.ScheduledDate.Value.ToString("MMM dd, yyyy")
+                @if (_job.ScheduledTime.HasValue)
+                {
+                    <span> at @_job.ScheduledTime.Value.ToString(@"hh\:mm")</span>
+                }
+            </p>
+        }
+        @if (_job.EstimatedDuration.HasValue)
+        {
+            <p class="card-subtitle mb-0"><i class="bi bi-hourglass-split me-1"></i>@_job.EstimatedDuration.Value.ToString("0.#")h estimated</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(_job.Description))
+        {
+            <p class="mt-2 mb-0" style="font-size:0.85rem;">@_job.Description</p>
+        }
+
+        <!-- Status Actions -->
+        <div class="swipe-actions mt-2">
+            @switch (_job.Status)
+            {
+                case JobStatus.Scheduled:
+                    <button class="btn btn-primary" @onclick="() => ChangeStatus(JobStatus.EnRoute)">
+                        <i class="bi bi-truck me-1"></i>En Route
+                    </button>
+                    break;
+                case JobStatus.EnRoute:
+                    <button class="btn btn-warning" @onclick="() => ChangeStatus(JobStatus.OnSite)">
+                        <i class="bi bi-pin-map me-1"></i>On Site
+                    </button>
+                    break;
+                case JobStatus.OnSite:
+                    <button class="btn btn-success" @onclick="() => ChangeStatus(JobStatus.InProgress)">
+                        <i class="bi bi-play-circle me-1"></i>Start Work
+                    </button>
+                    break;
+                case JobStatus.InProgress:
+                    <button class="btn btn-outline-secondary" @onclick="() => ChangeStatus(JobStatus.Paused)">
+                        <i class="bi bi-pause-circle me-1"></i>Pause
+                    </button>
+                    <button class="btn btn-success" @onclick="() => ChangeStatus(JobStatus.Completed)">
+                        <i class="bi bi-check-circle me-1"></i>Complete
+                    </button>
+                    break;
+                case JobStatus.Paused:
+                    <button class="btn btn-warning" @onclick="() => ChangeStatus(JobStatus.InProgress)">
+                        <i class="bi bi-play-circle me-1"></i>Resume
+                    </button>
+                    break;
+            }
+        </div>
+    </div>
+
+    <!-- Customer & Site Info -->
+    <div class="section-header">Customer & Site</div>
+    <div class="mobile-card">
+        @if (_job.CustomerName != null)
+        {
+            <p class="mb-1" style="font-size:0.9rem;"><i class="bi bi-person me-2"></i><strong>@_job.CustomerName</strong></p>
+        }
+        @if (_job.CustomerPhone != null)
+        {
+            <p class="mb-1" style="font-size:0.85rem;">
+                <i class="bi bi-telephone me-2"></i>
+                <a href="tel:@_job.CustomerPhone" style="text-decoration:none;">@_job.CustomerPhone</a>
+            </p>
+        }
+        @if (_job.SiteAddress != null)
+        {
+            <p class="mb-1 d-flex align-items-center" style="font-size:0.85rem;">
+                <i class="bi bi-geo-alt me-2"></i>
+                @if (_job.SiteId.HasValue)
+                {
+                    <a href="/sites/@_job.SiteId" style="text-decoration:none;">@_job.SiteAddress</a>
+                }
+                else
+                {
+                    @_job.SiteAddress
+                }
+                <a href="@GetMapsUrl(_job.SiteAddress)" target="_blank" class="btn btn-sm btn-outline-primary ms-2"
+                   style="font-size:0.65rem; padding:1px 6px; min-height:auto; border-radius:6px;">
+                    <i class="bi bi-map me-1"></i>Map
+                </a>
+            </p>
+        }
+        @if (_job.AccessCodes != null)
+        {
+            <p class="mb-1" style="font-size:0.85rem;"><i class="bi bi-key me-2"></i><strong>Access:</strong> @_job.AccessCodes</p>
+        }
+        @if (_job.EquipmentLocation != null)
+        {
+            <p class="mb-0" style="font-size:0.85rem;"><i class="bi bi-geo me-2"></i><strong>Equipment:</strong> @_job.EquipmentLocation</p>
+        }
+    </div>
+
+    <!-- Assets -->
+    @if (_job.Assets.Any())
+    {
+        <div class="section-header">Assets at Site</div>
+        @foreach (var asset in _job.Assets)
+        {
+            <div class="mobile-card" style="cursor:pointer;" @onclick="() => GoToAsset(asset.Id)">
+                <div class="mobile-card-header">
+                    <span class="card-title">@asset.Name</span>
+                    <span class="badge-status badge bg-@AssetStatusColor(asset.Status)">@asset.Status</span>
+                </div>
+                @if (asset.AssetType != null)
+                {
+                    <p class="card-subtitle mb-1">@asset.AssetType</p>
+                }
+                @if (asset.Model != null)
+                {
+                    <p class="card-subtitle mb-1">Model: @asset.Model</p>
+                }
+                @if (asset.SerialNumber != null)
+                {
+                    <p class="card-subtitle mb-1">S/N: @asset.SerialNumber</p>
+                }
+                @if (asset.WarrantyExpiry.HasValue)
+                {
+                    var isExpiringSoon = asset.WarrantyExpiry.Value < DateTime.UtcNow.AddMonths(3);
+                    var isExpired = asset.WarrantyExpiry.Value < DateTime.UtcNow;
+                    <p class="card-subtitle mb-0 @(isExpired ? "text-danger" : isExpiringSoon ? "text-warning" : "")">
+                        <i class="bi bi-shield-check me-1"></i>Warranty:
+                        @(isExpired ? "Expired" : asset.WarrantyExpiry.Value.ToString("MMM dd, yyyy"))
+                    </p>
+                }
+            </div>
+        }
+    }
+
+    <!-- Time Entries -->
+    @if (_job.TimeEntries.Any())
+    {
+        <div class="section-header">Time Log</div>
+        @foreach (var entry in _job.TimeEntries)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-0" style="font-size:0.85rem;">
+                            @entry.StartTime.ToString("MMM dd, h:mm tt")
+                            @if (entry.EndTime.HasValue)
+                            {
+                                <span> – @entry.EndTime.Value.ToString("h:mm tt")</span>
+                            }
+                            else
+                            {
+                                <span class="text-success"> (active)</span>
+                            }
+                        </p>
+                        @if (entry.Notes != null)
+                        {
+                            <p class="card-subtitle mb-0">@entry.Notes</p>
+                        }
+                    </div>
+                    <span class="fw-bold" style="font-size:0.85rem;">@entry.Hours.ToString("0.#")h</span>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Notes -->
+    @if (_job.Notes != null)
+    {
+        <div class="section-header">Notes</div>
+        <div class="mobile-card">
+            <p class="mb-0" style="font-size:0.85rem; white-space:pre-wrap;">@_job.Notes</p>
+        </div>
+    }
+
+    <!-- Materials -->
+    <div class="section-header d-flex justify-content-between align-items-center">
+        <span>Materials (@_job.Materials.Count)</span>
+        @if (_job.Status != JobStatus.Completed && _job.Status != JobStatus.Cancelled)
+        {
+            <button class="btn btn-sm btn-outline-primary" style="font-size:0.75rem; padding:0.2rem 0.5rem;" @onclick="() => _showAddMaterial = !_showAddMaterial">
+                <i class="bi bi-plus-lg me-1"></i>Add
+            </button>
+        }
+    </div>
+    @if (_showAddMaterial)
+    {
+        <div class="mobile-card" style="border-left:3px solid var(--primary);">
+            <div class="mb-2">
+                <label class="form-label" style="font-size:0.75rem;">Item Name *</label>
+                <input class="form-control" @bind="_newMaterial.ItemName" placeholder="e.g. R-410A Refrigerant" />
+            </div>
+            <div class="d-flex gap-2 mb-2">
+                <div style="flex:1;">
+                    <label class="form-label" style="font-size:0.75rem;">Section</label>
+                    <select class="form-select" @bind="_newMaterial.Section">
+                        <option value="General">General</option>
+                        <option value="Ductwork">Ductwork</option>
+                        <option value="Grills & Registers">Grills & Registers</option>
+                        <option value="Sealing">Sealing</option>
+                        <option value="Refrigerant">Refrigerant</option>
+                        <option value="Electrical">Electrical</option>
+                        <option value="Plumbing">Plumbing</option>
+                        <option value="Filters">Filters</option>
+                        <option value="Parts">Parts</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label class="form-label" style="font-size:0.75rem;">Qty</label>
+                    <input type="number" class="form-control" @bind="_newMaterial.Quantity" min="0.1" step="0.5" />
+                </div>
+            </div>
+            <div class="d-flex gap-2 mb-2">
+                <div style="flex:1;">
+                    <label class="form-label" style="font-size:0.75rem;">Unit</label>
+                    <select class="form-select" @bind="_newMaterial.Unit">
+                        <option value="ea">ea</option>
+                        <option value="ft">ft</option>
+                        <option value="lb">lb</option>
+                        <option value="gal">gal</option>
+                        <option value="roll">roll</option>
+                        <option value="box">box</option>
+                    </select>
+                </div>
+                <div style="flex:1;">
+                    <label class="form-label" style="font-size:0.75rem;">Cost</label>
+                    <input type="number" class="form-control" @bind="_newMaterial.BaseCost" min="0" step="0.01" placeholder="0.00" />
+                </div>
+            </div>
+            <div class="mb-2">
+                <label class="form-label" style="font-size:0.75rem;">Notes</label>
+                <input class="form-control" @bind="_newMaterial.Notes" placeholder="Optional notes" />
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-primary flex-fill" @onclick="SaveMaterial" disabled="@(string.IsNullOrWhiteSpace(_newMaterial.ItemName))">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" @onclick="() => _showAddMaterial = false">
+                    Cancel
+                </button>
+            </div>
+        </div>
+    }
+    @if (_job.Materials.Any())
+    {
+        @foreach (var group in _job.Materials.GroupBy(m => m.Section))
+        {
+            <div class="mobile-card">
+                <div class="fw-semibold mb-2" style="font-size:0.85rem; color:var(--primary);">@group.Key</div>
+                @foreach (var item in group)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-1 material-row">
+                        <div style="flex:1; min-width:0;">
+                            <p class="mb-0" style="font-size:0.85rem;">@item.ItemName</p>
+                            @if (item.Notes != null)
+                            {
+                                <p class="card-subtitle mb-0">@item.Notes</p>
+                            }
+                        </div>
+                        <div class="text-end" style="white-space:nowrap;">
+                            <span style="font-size:0.85rem; font-weight:600;">@item.Quantity @(item.Unit ?? "ea")</span>
+                            @if (item.BaseCost > 0)
+                            {
+                                <div class="text-muted" style="font-size:0.7rem;">@item.BaseCost.ToString("C")</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        @if (MaterialTotal > 0)
+        {
+            <div class="mobile-card d-flex justify-content-between align-items-center" style="background:rgba(13,110,253,.06); border-left:3px solid var(--primary);">
+                <span style="font-size:0.85rem; font-weight:600;">Material Total</span>
+                <span style="font-size:1rem; font-weight:700; color:var(--primary);">@MaterialTotal.ToString("C")</span>
+            </div>
+        }
+    }
+    else if (!_showAddMaterial)
+    {
+        <div class="mobile-card text-center" style="color:#6c757d; font-size:0.85rem;">
+            <i class="bi bi-box-seam d-block" style="font-size:1.5rem;"></i>
+            No materials logged yet
+        </div>
+    }
+
+    <!-- Documents -->
+    @if (_job.Documents.Any())
+    {
+        <div class="section-header">Documents</div>
+        @foreach (var doc in _job.Documents)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi @DocIcon(doc.FileType)" style="font-size:1.1rem; color:var(--primary);"></i>
+                    <div style="flex:1; min-width:0;">
+                        <p class="mb-0" style="font-size:0.85rem;">@doc.Name</p>
+                        <p class="card-subtitle mb-0">
+                            @doc.Category · @doc.UploadDate.ToString("MMM dd")
+                        </p>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Invoice Preview (Completed Jobs) -->
+    @if (_job.Status == JobStatus.Completed)
+    {
+        <div class="section-header">Invoice Preview</div>
+        <div class="mobile-card" style="border-left:3px solid #198754;">
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-receipt text-success" style="font-size:1.2rem;"></i>
+                <span class="fw-bold" style="font-size:0.9rem;">Job #@_job.JobNumber</span>
+                <span class="badge bg-success-subtle text-success" style="font-size:0.65rem;">Completed</span>
+            </div>
+            <div class="d-flex justify-content-between py-1" style="font-size:0.85rem;">
+                <span class="text-muted">Labor (@_job.TimeEntries.Count entries)</span>
+                <span class="fw-semibold">@TotalLaborHours.ToString("0.#")h</span>
+            </div>
+            <div class="d-flex justify-content-between py-1" style="font-size:0.85rem;">
+                <span class="text-muted">Materials (@_job.Materials.Count items)</span>
+                <span class="fw-semibold">@MaterialTotal.ToString("C")</span>
+            </div>
+            @if (_job.EstimatedTotal.HasValue)
+            {
+                <hr class="my-1" />
+                <div class="d-flex justify-content-between py-1" style="font-size:0.85rem;">
+                    <span class="text-muted">Estimated Total</span>
+                    <span class="fw-semibold">@_job.EstimatedTotal.Value.ToString("C")</span>
+                </div>
+            }
+            <hr class="my-1" />
+            <div class="d-flex justify-content-between py-1">
+                <span class="fw-bold" style="font-size:0.9rem;">Material Cost</span>
+                <span class="fw-bold text-success" style="font-size:1rem;">@MaterialTotal.ToString("C")</span>
+            </div>
+            @if (_job.CompletedDate.HasValue)
+            {
+                <div class="text-muted text-end" style="font-size:0.7rem;">
+                    Completed @_job.CompletedDate.Value.ToString("MMM dd, yyyy")
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Quick Links -->
+    <div class="section-header">Quick Links</div>
+    <div class="mobile-card">
+        <div class="d-flex flex-column gap-1">
+            @if (_job.SiteId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToSite">
+                    <span style="font-size:0.85rem;"><i class="bi bi-building me-2 text-primary"></i>View Site Details</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
+            @if (_job.CustomerId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToCustomer">
+                    <span style="font-size:0.85rem;"><i class="bi bi-person me-2 text-primary"></i>View Customer</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToNotes">
+                <span style="font-size:0.85rem;"><i class="bi bi-journal-text me-2 text-primary"></i>Related Notes</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            @if (_job.ScheduledDate.HasValue)
+            {
+                <hr class="my-0" />
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/calendar")'>
+                    <span style="font-size:0.85rem;"><i class="bi bi-calendar3 me-2 text-primary"></i>View Calendar</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+            }
+        </div>
+    </div>
+}
+@if (_job != null && _job.Status != JobStatus.Completed && _job.Status != JobStatus.Cancelled)
+{
+    <button class="fab" title="Add Quick Note" @onclick="GoToNotes">
+        <i class="bi bi-journal-plus"></i>
+    </button>
+}
+
+@code {
+[Parameter] public int Id { get; set; }
+
+private int _employeeId;
+private MobileJobDetail? _job;
+private bool _loading = true;
+private bool _showAddMaterial;
+private MobileMaterialCreate _newMaterial = new();
+
+private decimal MaterialTotal => _job?.Materials.Sum(m => m.BaseCost * (decimal)m.Quantity) ?? 0;
+
+private decimal TotalLaborHours => _job?.TimeEntries.Sum(t => t.Hours) ?? 0;
+
+protected override async Task OnInitializedAsync()
+{
+    _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    await LoadJob();
+}
+
+    private async Task LoadJob()
+    {
+        _loading = true;
+        _job = await JobService.GetJobDetailAsync(Id);
+        _loading = false;
+    }
+
+    private async Task ChangeStatus(JobStatus newStatus)
+    {
+        var oldStatus = _job?.Status;
+
+        // Auto-clock: starting travel creates a time entry
+        if (newStatus == JobStatus.EnRoute && oldStatus != JobStatus.EnRoute)
+        {
+            await TimeService.ClockInAsync(_employeeId, Id, "Travel");
+        }
+        // Auto-clock: arriving on site closes travel, opens on-site entry
+        else if (newStatus == JobStatus.OnSite && oldStatus == JobStatus.EnRoute)
+        {
+            await TimeService.ClockOutAsync(_employeeId);
+            await TimeService.ClockInAsync(_employeeId, Id, "On-Site");
+        }
+        // Auto-clock: completing job closes any open entry
+        else if (newStatus == JobStatus.Completed)
+        {
+            await TimeService.ClockOutAsync(_employeeId);
+        }
+
+        await JobService.UpdateJobStatusAsync(Id, newStatus);
+        await LoadJob();
+    }
+
+    private async Task SaveMaterial()
+    {
+        if (string.IsNullOrWhiteSpace(_newMaterial.ItemName)) return;
+        _newMaterial.JobId = Id;
+        await JobService.AddMaterialItemAsync(_newMaterial);
+        _newMaterial = new();
+        _showAddMaterial = false;
+        await LoadJob();
+    }
+
+    private void GoToNotes()
+    {
+        Nav.NavigateTo("/notes?jobId=" + Id);
+    }
+
+    private void GoToSite()
+    {
+        if (_job?.SiteId.HasValue == true)
+            Nav.NavigateTo("/sites/" + _job.SiteId.Value);
+    }
+
+    private void GoToCustomer()
+    {
+        if (_job?.CustomerId.HasValue == true)
+            Nav.NavigateTo("/customers/" + _job.CustomerId.Value);
+    }
+
+    private void GoToAsset(int assetId)
+    {
+        Nav.NavigateTo($"/assets/{assetId}");
+    }
+
+    private static string StatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite => "warning",
+        JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        JobStatus.Cancelled => "secondary",
+        _ => "secondary"
+    };
+
+    private static string AssetStatusColor(AssetStatus status) => status switch
+    {
+        AssetStatus.Active => "success",
+        AssetStatus.MaintenanceNeeded => "warning",
+        AssetStatus.Retired => "secondary",
+        AssetStatus.Decommissioned => "dark",
+        _ => "secondary"
+    };
+
+    private static string DocIcon(string? fileType) => fileType?.ToLower() switch
+    {
+        "photo" or "image" => "bi-image",
+        "pdf" => "bi-file-earmark-pdf",
+        "video" => "bi-camera-video",
+        _ => "bi-file-earmark-text"
+    };
+
+    private static string GetMapsUrl(string address)
+    {
+        return "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address);
+    }
+}

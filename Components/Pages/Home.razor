@@ -1,0 +1,372 @@
+﻿@page "/"
+@inject IMobileDashboardService DashboardService
+@inject IMobileTimeService TimeService
+@inject IMobileJobService JobService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_data != null)
+{
+    <!-- Greeting -->
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <div style="font-size:0.95rem; font-weight:600; color:var(--primary);">
+            <i class="bi @GreetingIcon() me-1"></i>@Greeting(), @(_techName ?? "Technician")
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" style="min-width:34px; padding:2px 6px; font-size:0.75rem;" @onclick="RefreshDashboard" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+    @if (_lastUpdated.HasValue)
+    {
+        <div class="text-muted mb-2" style="font-size:0.65rem;">Updated @_lastUpdated.Value.ToString("h:mm tt")</div>
+    }
+
+    <!-- Time Clock -->
+    <div class="time-clock-card">
+        @if (_data.IsClockedIn)
+        {
+            <div class="clock-label">Clocked In</div>
+            <div class="clock-time">@FormatElapsed()</div>
+            <button class="btn btn-outline-light btn-sm mt-2 px-4" @onclick="ClockOut">
+                <i class="bi bi-stop-circle me-1"></i> Clock Out
+            </button>
+        }
+        else
+        {
+            <div class="clock-label">Not Clocked In</div>
+            <div class="clock-time">00:00</div>
+            <button class="btn btn-light btn-sm mt-2 px-4" @onclick="ClockIn">
+                <i class="bi bi-play-circle me-1"></i> Clock In
+            </button>
+        }
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="gap-grid mb-2">
+        <div class="stat-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
+            <div class="stat-icon text-primary"><i class="bi bi-calendar-check"></i></div>
+            <div class="stat-value">@_data.TodayJobCount</div>
+            <div class="stat-label">Today's Jobs</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
+            <div class="stat-icon text-warning"><i class="bi bi-exclamation-triangle"></i></div>
+            <div class="stat-value">@_data.OpenJobCount</div>
+            <div class="stat-label">Open Jobs</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-info"><i class="bi bi-clock-history"></i></div>
+            <div class="stat-value">@_data.HoursThisWeek.ToString("0.#")h</div>
+            <div class="stat-label">This Week</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-value">@_data.CompletedThisWeek</div>
+            <div class="stat-label">Completed</div>
+        </div>
+    </div>
+
+    <!-- Next Job Countdown -->
+    @if (NextScheduledJob != null)
+    {
+        <div class="mobile-card d-flex align-items-center gap-3" style="padding:0.65rem 1rem; border-left:3px solid var(--primary); cursor:pointer;"
+             @onclick="() => GoToJob(NextScheduledJob.Id)">
+            <div style="width:40px; height:40px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                <i class="bi bi-clock-fill" style="color:white; font-size:1rem;"></i>
+            </div>
+            <div style="flex:1; min-width:0;">
+                <p class="mb-0 fw-bold" style="font-size:0.85rem;">Next: @(NextScheduledJob.Title ?? NextScheduledJob.JobNumber)</p>
+                <p class="card-subtitle mb-0">
+                    @if (NextScheduledJob.ScheduledTime.HasValue)
+                    {
+                        @:at @NextScheduledJob.ScheduledTime.Value.ToString(@"hh\:mm") ·
+                    }
+                    @(NextScheduledJob.SiteAddress ?? NextScheduledJob.CustomerName ?? "")
+                </p>
+            </div>
+            <i class="bi bi-chevron-right text-muted" style="font-size:0.8rem;"></i>
+        </div>
+    }
+
+    <!-- Alerts Row -->
+    @if (_data.OverdueJobCount > 0 || _data.PendingNoteCount > 0 || _data.LowStockCount > 0 || _data.ExpiringAgreementCount > 0)
+    {
+        <div class="d-flex gap-2 flex-wrap mb-2">
+            @if (_data.OverdueJobCount > 0)
+            {
+                <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #dc3545; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
+                    <i class="bi bi-exclamation-circle-fill text-danger"></i>
+                    <span style="font-size:0.8rem; font-weight:600;">@_data.OverdueJobCount Overdue</span>
+                </div>
+            }
+            @if (_data.PendingNoteCount > 0)
+            {
+                <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #ffc107; cursor:pointer;" @onclick='() => Nav.NavigateTo("/notes")'>
+                    <i class="bi bi-journal-text text-warning"></i>
+                    <span style="font-size:0.8rem; font-weight:600;">@_data.PendingNoteCount Urgent Notes</span>
+                </div>
+            }
+            @if (_data.LowStockCount > 0)
+            {
+                <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #fd7e14; cursor:pointer;" @onclick='() => Nav.NavigateTo("/inventory")'>
+                    <i class="bi bi-box-seam text-warning"></i>
+                    <span style="font-size:0.8rem; font-weight:600;">@_data.LowStockCount Low Stock</span>
+                </div>
+            }
+            @if (_data.ExpiringAgreementCount > 0)
+            {
+                <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #6f42c1; cursor:pointer;" @onclick='() => Nav.NavigateTo("/agreements")'>
+                    <i class="bi bi-file-earmark-lock text-purple" style="color:#6f42c1;"></i>
+                    <span style="font-size:0.8rem; font-weight:600;">@_data.ExpiringAgreementCount Expiring</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Today's Jobs -->
+    <div class="section-header">Today's Jobs</div>
+
+    @if (_data.TodayJobs.Any())
+    {
+        @foreach (var job in _data.TodayJobs)
+        {
+            <div class="mobile-card" @onclick="() => GoToJob(job.Id)">
+                <div class="mobile-card-header">
+                    <div>
+                        <span class="priority-dot priority-@job.Priority.ToString().ToLower()"></span>
+                        <span class="card-title">@(job.Title ?? job.JobNumber)</span>
+                    </div>
+                    <span class="badge-status badge bg-@StatusColor(job.Status)">@job.Status</span>
+                </div>
+                <p class="card-subtitle mb-1">
+                    <i class="bi bi-person me-1"></i>@(job.CustomerName ?? "—")
+                </p>
+                <p class="card-subtitle mb-0">
+                    <i class="bi bi-geo-alt me-1"></i>@(job.SiteAddress ?? "No address")
+                </p>
+                @if (job.ScheduledTime.HasValue)
+                {
+                    <p class="card-subtitle mt-1 mb-0">
+                        <i class="bi bi-clock me-1"></i>@job.ScheduledTime.Value.ToString(@"hh\:mm")
+                        @if (job.EstimatedDuration.HasValue)
+                        {
+                            <span> · @job.EstimatedDuration.Value.ToString("0.#")h est.</span>
+                        }
+                    </p>
+                }
+
+                <div class="swipe-actions">
+                    @if (job.Status == JobStatus.Scheduled)
+                    {
+                        <button class="btn btn-outline-primary" @onclick:stopPropagation="true"
+                                @onclick="() => UpdateStatus(job, JobStatus.EnRoute)">
+                            <i class="bi bi-truck me-1"></i>En Route
+                        </button>
+                    }
+                    else if (job.Status == JobStatus.EnRoute)
+                    {
+                        <button class="btn btn-outline-success" @onclick:stopPropagation="true"
+                                @onclick="() => UpdateStatus(job, JobStatus.OnSite)">
+                            <i class="bi bi-pin-map me-1"></i>On Site
+                        </button>
+                    }
+                    else if (job.Status == JobStatus.OnSite || job.Status == JobStatus.InProgress)
+                    {
+                        <button class="btn btn-outline-success" @onclick:stopPropagation="true"
+                                @onclick="() => UpdateStatus(job, JobStatus.Completed)">
+                            <i class="bi bi-check-circle me-1"></i>Complete
+                        </button>
+                    }
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-calendar-check d-block"></i>
+            <p>No jobs scheduled for today</p>
+        </div>
+    }
+
+    <!-- Upcoming Jobs (next 3 days) -->
+    @if (_data.UpcomingJobs.Any())
+    {
+        <div class="section-header">Upcoming (Next 3 Days)</div>
+        @foreach (var job in _data.UpcomingJobs)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem; cursor:pointer;" @onclick="() => GoToJob(job.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <span class="priority-dot priority-@job.Priority.ToString().ToLower()"></span>
+                            <span style="font-size:0.85rem; font-weight:600;">@(job.Title ?? job.JobNumber)</span>
+                        </div>
+                        <p class="card-subtitle mb-0">
+                            <i class="bi bi-person me-1"></i>@(job.CustomerName ?? "—")
+                        </p>
+                    </div>
+                    <div class="text-end">
+                        <span class="badge bg-light text-dark" style="font-size:0.65rem;">
+                            @job.ScheduledDate?.ToString("MMM dd")
+                        </span>
+                        @if (job.ScheduledTime.HasValue)
+                        {
+                            <div class="text-muted" style="font-size:0.7rem;">@job.ScheduledTime.Value.ToString(@"hh\:mm")</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Recent Activity -->
+    @if (_data.RecentActivity.Any())
+    {
+        <div class="section-header">Recent Activity</div>
+        @foreach (var item in _data.RecentActivity)
+        {
+            <div class="mobile-card" style="padding:0.65rem 1rem;">
+                <div class="d-flex align-items-start gap-2">
+                    <i class="bi @item.Icon text-muted" style="font-size:1.1rem; margin-top:2px;"></i>
+                    <div style="flex:1; min-width:0;">
+                        <p class="mb-0" style="font-size:0.85rem;">@item.Description</p>
+                        <p class="mb-0 text-muted" style="font-size:0.7rem;">@item.Timestamp.ToString("MMM dd, h:mm tt")</p>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+
+    <!-- Quick Actions -->
+    <div class="section-header">Quick Actions</div>
+    <div class="gap-grid mb-1">
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/notes")'>
+            <i class="bi bi-journal-plus text-primary" style="font-size:1.3rem;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">New Note</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/documents")'>
+            <i class="bi bi-camera text-success" style="font-size:1.3rem;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Upload Doc</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/inventory")'>
+            <i class="bi bi-box-seam text-info" style="font-size:1.3rem;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Inventory</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/estimates")'>
+            <i class="bi bi-calculator text-warning" style="font-size:1.3rem;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Estimates</div>
+        </div>
+    </div>
+    <div class="gap-grid mb-2">
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/customers")'>
+            <i class="bi bi-people" style="font-size:1.3rem; color:#6f42c1;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Customers</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/agreements")'>
+            <i class="bi bi-file-earmark-text" style="font-size:1.3rem; color:#20c997;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Agreements</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/reports")'>
+            <i class="bi bi-bar-chart" style="font-size:1.3rem; color:#fd7e14;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">My Reports</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/search")'>
+            <i class="bi bi-search text-secondary" style="font-size:1.3rem;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Search</div>
+        </div>
+    </div>
+}
+
+@code {
+private int _employeeId;
+private MobileDashboardData? _data;
+private bool _loading = true;
+private string? _techName;
+private DateTime? _lastUpdated;
+
+protected override async Task OnInitializedAsync()
+{
+    _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    await LoadDashboard();
+}
+
+    private async Task LoadDashboard()
+    {
+        _loading = true;
+        _data = await DashboardService.GetDashboardAsync(_employeeId);
+        var profile = await TimeService.GetEmployeeProfileAsync(_employeeId);
+        _techName = profile?.Name?.Split(' ')[0];
+        _lastUpdated = DateTime.Now;
+        _loading = false;
+    }
+
+    private async Task RefreshDashboard()
+    {
+        await LoadDashboard();
+    }
+
+    private static string Greeting()
+    {
+        var hour = DateTime.Now.Hour;
+        if (hour < 12) return "Good morning";
+        if (hour < 17) return "Good afternoon";
+        return "Good evening";
+    }
+
+    private static string GreetingIcon()
+    {
+        var hour = DateTime.Now.Hour;
+        if (hour < 12) return "bi-sunrise";
+        if (hour < 17) return "bi-sun";
+        return "bi-moon-stars";
+    }
+
+    private string FormatElapsed()
+    {
+        if (_data?.ClockInTime == null) return "00:00";
+        var elapsed = DateTime.Now - _data.ClockInTime.Value;
+        return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}";
+    }
+
+    private async Task ClockIn()
+    {
+        await TimeService.ClockInAsync(_employeeId);
+        await LoadDashboard();
+    }
+
+    private async Task ClockOut()
+    {
+        await TimeService.ClockOutAsync(_employeeId);
+        await LoadDashboard();
+    }
+
+    private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);
+
+    private MobileJobCard? NextScheduledJob => _data?.TodayJobs
+        .Where(j => j.Status == JobStatus.Scheduled && j.ScheduledTime.HasValue)
+        .OrderBy(j => j.ScheduledTime)
+        .FirstOrDefault();
+
+    private async Task UpdateStatus(MobileJobCard job, JobStatus newStatus)
+    {
+        await JobService.UpdateJobStatusAsync(job.Id, newStatus);
+        await LoadDashboard();
+    }
+
+    private static string StatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite => "warning",
+        JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        JobStatus.Cancelled => "secondary",
+        _ => "secondary"
+    };
+}

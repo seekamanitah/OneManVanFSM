@@ -1,0 +1,64 @@
+﻿Inventory for WebUi OneManVanFSM
+
+### Inventory Page - Exhaustive Description
+
+**Routes**: `/inventory` (main list/dashboard view for browsing and managing stock); `/inventory/{id}` (detail view for a specific inventory item, including history and adjustments); `/inventory/new` or `/inventory/{id}/edit` (create/edit view for adding or updating items). For contextual access, embeddable components or quick modals in related pages like Material Lists Builder (e.g., `/materiallists/{listId}/inventory` to check/add stock during bidding) or Jobs (e.g., `/jobs/{jobId}/inventory` for on-job usage logging and deductions). This ensures seamless workflow without full navigation—e.g., a tech on a job page can scan/add inventory without leaving, with data transferring back to the job's material list.
+
+**Purpose & Business Context**:
+- The Inventory page is the central hub for tracking and managing physical stock of parts, supplies, and service items, designed to provide real-time visibility and control over what's available for jobs, bids, and repairs. In a small HVAC contractor's operations, it prevents costly delays (e.g., arriving at a site without enough 6" Flex Duct boxes for a trunk system install) by tying directly into bidding and execution workflows—e.g., low stock alerts during material list building, or auto-deductions when a tech marks items used on a job. It differentiates "generic" stock (e.g., rolls of UL 181A foil tape in the warehouse) from assigned instances, ensuring efficiency: Office monitors overall levels for reordering, while techs log usage from truck stock on mobile without overcommitting.
+- HVAC-specific: Emphasizes regulated items (e.g., refrigerant cans with quantity limits for EPA compliance, tracked by lot numbers), bundled kits (e.g., "Sealing & Taping Pack" with mastic and cork tape), and seasonal forecasting (e.g., higher thresholds for insulation wrap in winter). Generic foundation: Built to adapt for other trades without rework—e.g., repurpose "Ductwork" categories for "Piping Supplies" in plumbing (copper fittings by size) or "Wiring" in electrical (conduit by gauge), with customizable thresholds and units (e.g., switch from "boxes" to "coils"). Connections to Products (as templates for stock items) and Assets (as installed/assigned versions of products) create a lifecycle: A product template (e.g., "10" Collar") becomes inventory stock → Used in a job → Assigned as an asset to a customer's site for repair history tracking.
+- Business value: Drives user-friendly efficiency by minimizing manual tracking—e.g., scan a barcode on mobile to deduct stock during job execution, with data transferring to the job's material list, invoice, and asset record (no re-entry). Industry thinking: Contractors work with limited space (e.g., truck vs. warehouse locations); the page supports multi-location tracking, auto-reorders (e.g., when mastic sealant drops below threshold), and variance alerts (e.g., "Used more zip ties than estimated—update bid?"). For multi-site customers/companies (e.g., a landlord with rentals or a chain store), inventory can be "allocated" per territory/contact (e.g., reserve stock for East County jobs), tying into customer summaries for quick glances like "Stock Reserved for ABC Rentals' Sites". Overall robustness: Ensures data continuity (e.g., product price changes propagate to inventory costs, affecting material list totals and asset valuations), with shared connections preventing silos—e.g., low inventory blocks job scheduling until resolved.
+
+**Data Sources & Interconnections** (Focus on Connections to Assets and Products):
+- **Core Entity**: InventoryItems table (ID PK, ProductID FK – linking to generic templates; Location enum: Warehouse/Truck/Site/Other – customizable; Quantity (decimal for partial units like ft of wire), MinThreshold/MaxCapacity, LotNumber/ExpiryDate for perishables like sealants; Cost/Price/Markup; Notes). One-to-Many with InventoryLogs (adjustments history: Type enum like Purchase/Usage/Return/Adjustment, QuantityChange, Reason, UserID, Timestamp).
+- **Sources**: Prepopulates from Products (templates define defaults like "UL 181A Foil Tape: Rolls" with base cost/unit – customizable categories like "Sealing & Taping"); pulls real-time from Suppliers/Vendors table (if integrated, for reorder links/prices).
+- **Interconnections** (Emphasizing Assets/Products for Lifecycle Flow):
+  - **Products (Templates/Generics)**: Many-to-One (InventoryItem ProductID FK). Data flow: Product template (e.g., "4x10x5 Floor Boot") defines attributes (size, cost, unit like "Count") → Creating inventory item clones these (e.g., add 10 units to warehouse stock); updates to product (e.g., price increase) prompt "Propagate to Inventory?" (bulk update costs). Efficiency: In builder, search products to add as inventory-tracked items; low stock in inventory flags product templates in material lists (e.g., "14" Reducers unavailable—suggest alternative size").
+  - **Assets (Installed/Assigned Instances)**: One-to-Many from Products (Asset ProductID FK), indirect via Jobs/Inventory (e.g., usage log creates asset record). Data flow: Inventory item used in job (e.g., deduct "16x20 Return Grille") → Auto-creates/updates asset at customer's site (e.g., assign serial/install date from log, transfer history like "Installed from Stock Batch #ABC"); asset repairs pull back to inventory (e.g., warranty return adds stock, logs as adjustment). For multi-assets/sites: Inventory "reserves" quantities per asset/job (e.g., allocate 5 "20x20 Filter Slots" for a landlord's rentals); customer detail summaries show "Assets from Inventory: X Installed This Month". Robustness: Views like "ProductToAssetLifecycleView" track from template → stock → install (for reports on usage patterns).
+  - **Estimates/Jobs/MaterialLists**: Many-to-Many (via MaterialListItems linking to InventoryItemID). Data flow: Builder checks inventory (e.g., warn "Only 2 boxes of 12" Flex Duct available—adjust quantity?"); job completion deducts (real-time update Quantity, log in InventoryLogs); variances (actual > estimated) trigger expense creation or reorder. For multi-site: Batch deductions across sites (e.g., company-wide filter replacement deducts from central warehouse).
+  - **Invoices/Expenses/Permits**: Joins for costing (e.g., inventory price + markup to invoice lines); returns/ disposals create expense records (e.g., "Refrigerant Reclaim Fee" from pasted-text).
+  - **Customers/Companies/Sites**: Polymorphic for allocation (e.g., reserve stock per territorial contact/site); quick glances in customer detail: "Reserved Inventory: X Items for This Customer's Assets".
+  - **QuickNotes/Documents/Employees**: Notes per item (import from quick notes, e.g., "Spray Foam: Gaps Noted"); employee logs usage (tech ID in InventoryLogs for accountability).
+  - **ServiceAgreements**: Auto-deduct recurring items (e.g., filters from agreements trigger monthly reservations).
+  - **Shared Data Flow**: Product template → Inventory stock (clone attributes) → Material list usage (quantity check/deduct) → Job execution (log actuals) → Asset creation (assign installed instance) → Invoice billing (cost transfer) → Reorder if low (back to inventory). For companies/landlords: "Bulk Allocation" reserves across multi-sites/assets, with shared logs. Robust views: "InventoryUsageView" (by product/asset for trends); "LowStockAlertView" (joins thresholds for notifications).
+
+**Layout & Sections** (Desktop Web Focus: Dashboard-Style Overview with Grids, Responsive for Mobile Card-Stacking):
+- **List/Dashboard View (/inventory)**: Hybrid dashboard (top: KPI cards like "Low Stock Items: X", "Total Value: $Y", "Expiring Lots: Z"; bottom: searchable table – columns: Item Name/Product Link (click to product template), Location (dropdown filter – customizable), Quantity/Threshold (progress bar for levels), Cost/Price, Expiry/Lot, Actions – sortable/prepopulated categories like "Ductwork" dropdown). Responsive: Cards with color-coded levels (green/full, red/low).
+- **Detail View (/inventory/{id})**: Item-focused summary.
+  - **Header**: Name (from product), Stock Level Gauge (Quantity vs. Threshold/Max), Quick Actions dropdown ("Adjust Stock/Purchase/Return/Transfer Location" – forms with reason/notes; "Link to Asset/Job" for assignment).
+  - **Core Info Section**: Product Template Link (view/edit base attributes), Location (editable dropdown), Quantity (with history chart from logs), Cost/Price/Markup (time-based: Materials + Labor est.; flat rate: Fixed – switchable if integrated from material lists).
+  - **Connections Accordion**: "Linked Products/Assets" (table: Product Template Details; Assigned Assets – e.g., "Installed at Site A for Customer B"); "Usage in Jobs/Material Lists" (recent logs with links).
+  - **Logs & History Accordion**: Table (adjustments: Type/Change/Reason/User/Date – filterable).
+  - **Notes & Attachments Accordion**: Quick notes feed (import for item-specific, e.g., "Batch Expiry Warning"), documents (e.g., supplier invoice).
+  - **Footer**: "Reorder Now" (generates expense/PO), export logs (CSV/PDF).
+- **Edit/Create View**: Form with connections.
+  - **Header**: Name/Search from Products (prepopulate template), Method Toggle if pricing (time/flat from material lists integration).
+  - **Stock Details Section**: Location/Quantity/Threshold inputs (prepopulated dropdowns customizable), Expiry/Lot for HVAC perishables.
+  - **Connections Builder**: "Link to Product Template" (search – transfers attributes), "Assign to Asset" (search customers/sites – creates installed instance).
+  - **Actions Footer**: "Save & Deduct for Job" (if contextual), "Cancel".
+
+**UX Interactions & Flows**:
+- **Stock Management Flow**: On detail, "Adjust" button → Modal (type dropdown: Purchase/Usage – prepopulated/customizable; quantity change, reason note – auto-logs, updates levels). For assets: "Assign from Stock" → Search sites/assets → Deduct quantity, create asset record (transfer product details like model).
+- **Connections Flow**: Create inventory from product template → "Link to Job" → Transfers to material list (quantities to sections); usage in job deducts (real-time refresh if open).
+- **List to Detail**: Filter "Low Stock in Trucks" → Click item → Detail with usage history (e.g., "Used in 5 Assets This Month" – links to asset details).
+- **User Journey**: Office reordering: Dashboard low alert → Inventory list → Detail "Mastic Sealant" → "Reorder" creates expense. Tech on mobile: Job execution → Embedded inventory modal → Scan deduct "Zip Ties" → Updates stock, creates asset if install (e.g., new grille), flows to invoice.
+- **Efficiency Features**: Prepopulated dropdowns (locations/types – customizable add/edit/remove); auto-suggestions (e.g., "Similar Products Used in Past Assets"); bulk actions (e.g., "Transfer Multiple to Truck").
+
+**Customizations & Configurability**:
+- Admins: Add/edit/remove enums (e.g., Locations: Add "Supplier Holding"; Types: Add "Electrical Wire"); set default thresholds per category; toggle pricing methods if integrated. Per-role: Techs deduct only (no cost views); office adjusts all.
+- Quick Notes: Import to item notes (e.g., "Support & Hanging: From Note – Heavy-Duty Zip Ties Needed").
+
+**Edge Cases & Robustness**:
+- Multi-Connections: Handle "One Product, Multiple Inventory Locations" (e.g., warehouse + trucks – aggregated views); "Asset from Partial Stock" (deduct fractions like ft of wire).
+- Low/No Stock: Prevent deductions (e.g., "Can't Assign – Reorder First?"); empty states actionable (e.g., "No Inventory – Import from Products?").
+- Large Inventories: Pagination/filters (e.g., "By Category"); search with wildcards.
+- Permissions: Techs view truck stock only; managers all locations. Hidden costs for non-financial roles.
+- Offline: Mobile caches personal truck stock (deduct local, sync with conflict resolution – e.g., "Over-Deducted? Adjust Log").
+
+**Integrations & Automation**:
+- Triggers: Low threshold → Alert (e.g., "Reorder 10" Collars? – email supplier); deduction → Update asset/job (e.g., create repair history entry).
+- External: Barcode scan (for add/deduct); vendor API (auto-reorder quotes); PDF export for stock reports.
+- Workflow Ties: Quick links ensure flow (e.g., "Use in Material List" from detail → Prepopulates builder section, transferring quantities). For companies: Location filters by territory (e.g., East County truck stock only for John Doe).
+
+**Mobile Considerations**:
+- List as filterable cards (swipe to adjust/deduct); detail as vertical scroll with accordions (tap expand connections). Deduct via scan button (hands-free); offline cache prioritizes truck stock (techs deduct without net, sync creates logs/assets). Responsive grids stack to lists; embedded modals as bottom sheets for job-context building, ensuring field efficiency without rework.

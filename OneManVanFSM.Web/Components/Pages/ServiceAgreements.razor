@@ -1,0 +1,479 @@
+@page "/serviceagreements"
+@page "/serviceagreements/new"
+@page "/serviceagreements/{Id:int}"
+@page "/serviceagreements/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IServiceAgreementService AgreementSvc
+@inject ICustomerService CustomerSvc
+@inject ISiteService SiteSvc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>Service Agreements - OneManVanFSM</PageTitle>
+
+@if (mode == "form")
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Agreement</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="form" OnValidSubmit="SaveAgreement">
+                <DataAnnotationsValidator />
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Title <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.Title" class="form-control" />
+                        <ValidationMessage For="() => form.Title" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Coverage</label>
+                        <InputSelect @bind-Value="form.CoverageLevel" class="form-select">
+                            @foreach (var c in Enum.GetValues<CoverageLevel>()) { <option value="@c">@c</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect @bind-Value="form.Status" class="form-select">
+                            @foreach (var s in Enum.GetValues<AgreementStatus>()) { <option value="@s">@s</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Start Date</label>
+                        <InputDate @bind-Value="form.StartDate" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">End Date</label>
+                        <InputDate @bind-Value="form.EndDate" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fee</label>
+                        <InputNumber @bind-Value="form.Fee" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Billing Frequency</label>
+                        <InputSelect @bind-Value="form.BillingFrequency" class="form-select">
+                            <option value="">—</option>
+                            <option value="Monthly">Monthly</option>
+                            <option value="Quarterly">Quarterly</option>
+                            <option value="Annual">Annual</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Visits Included</label>
+                        <InputNumber @bind-Value="form.VisitsIncluded" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Visits Used</label>
+                        <InputNumber @bind-Value="form.VisitsUsed" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Trade Type</label>
+                        <InputSelect @bind-Value="form.TradeType" class="form-select">
+                            <option value="">—</option>
+                            <option value="HVAC">HVAC</option>
+                            <option value="Plumbing">Plumbing</option>
+                            <option value="Electrical">Electrical</option>
+                            <option value="General">General</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Discount %</label>
+                        <InputNumber @bind-Value="form.DiscountPercent" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Customer</label>
+                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Company</label>
+                        <InputSelect @bind-Value="form.CompanyId" class="form-select">
+                            <option value="">— Select Company —</option>
+                            @foreach (var co in _companies)
+                            {
+                                <option value="@co.Id">@co.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Site</label>
+                        <InputSelect @bind-Value="form.SiteId" class="form-select">
+                            <option value="">— Select Site —</option>
+                            @foreach (var si in _sites)
+                            {
+                                <option value="@si.Id">@si.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Renewal Date</label>
+                        <InputDate @bind-Value="form.RenewalDate" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <div class="form-check mt-4">
+                            <InputCheckbox @bind-Value="form.AutoRenew" class="form-check-input" id="autoRenew" />
+                            <label class="form-check-label" for="autoRenew">Auto-Renew</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Add-Ons</label>
+                        <InputText @bind-Value="form.AddOns" class="form-control" placeholder="e.g. UV Light, Humidifier" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+                </div>
+                @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (mode == "detail" && detail is not null)
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>@detail.AgreementNumber</h4>
+        <span class="badge ms-2 @GetStatusBadge(detail.Status)">@detail.Status</span>
+        <span class="badge @GetCoverageBadge(detail.CoverageLevel) ms-1">@detail.CoverageLevel</span>
+        <div class="ms-auto d-flex gap-1">
+            <button class="btn btn-outline-success btn-sm" @onclick="PrintAgreement" title="Print / PDF"><i class="bi bi-printer me-1"></i>Print</button>
+            <button class="btn btn-outline-info btn-sm" @onclick="EmailAgreement" title="Email agreement"><i class="bi bi-envelope me-1"></i>Email</button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            @if (detail.Status == AgreementStatus.Active || detail.Status == AgreementStatus.Expiring)
+            {
+                <button class="btn btn-outline-info btn-sm me-1" @onclick="() => ChangeStatus(AgreementStatus.Renewed)"><i class="bi bi-arrow-repeat me-1"></i>Renew</button>
+            }
+            @if (detail.Status != AgreementStatus.Cancelled && detail.Status != AgreementStatus.Expired)
+            {
+                <button class="btn btn-outline-warning btn-sm me-1" @onclick="() => ChangeStatus(AgreementStatus.Cancelled)"><i class="bi bi-x-circle me-1"></i>Cancel</button>
+            }
+            <button class="btn btn-outline-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-archive me-1"></i>Archive</button>
+        </div>
+    </div>
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h5>@detail.Title</h5>
+                    <div class="row g-2 mt-2">
+                        @if (detail.CustomerName is not null) { <div class="col-sm-4"><strong>Customer:</strong> <a href="javascript:void(0)" @onclick="() => GoToCustomer(detail.CustomerId!.Value)">@detail.CustomerName</a></div> }
+                        @if (detail.CompanyName is not null) { <div class="col-sm-4"><strong>Company:</strong> @detail.CompanyName</div> }
+                        @if (detail.SiteName is not null) { <div class="col-sm-4"><strong>Site:</strong> <a href="javascript:void(0)" @onclick="() => GoToSite(detail.SiteId!.Value)">@detail.SiteName</a></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.TradeType)) { <div class="col-sm-4"><strong>Trade:</strong> @detail.TradeType</div> }
+                        <div class="col-sm-4"><strong>Start:</strong> @detail.StartDate.ToString("MMM dd, yyyy")</div>
+                        <div class="col-sm-4"><strong>End:</strong> @detail.EndDate.ToString("MMM dd, yyyy")</div>
+                        <div class="col-sm-4"><strong>Fee:</strong> @detail.Fee.ToString("C")</div>
+                        @if (!string.IsNullOrWhiteSpace(detail.BillingFrequency)) { <div class="col-sm-4"><strong>Billing:</strong> @detail.BillingFrequency</div> }
+                        @if (detail.DiscountPercent.HasValue && detail.DiscountPercent.Value > 0) { <div class="col-sm-4"><strong>Discount:</strong> @detail.DiscountPercent.Value.ToString("0.##")%</div> }
+                        @if (detail.RenewalDate.HasValue) { <div class="col-sm-4"><strong>Renewal:</strong> @detail.RenewalDate.Value.ToString("MMM dd, yyyy")</div> }
+                        <div class="col-sm-4"><strong>Auto-Renew:</strong> @(detail.AutoRenew ? "Yes" : "No")</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(detail.AddOns))
+                    {
+                        <hr />
+                        <h6><i class="bi bi-puzzle me-1"></i>Add-Ons</h6>
+                        <p class="text-muted small mb-0">@detail.AddOns</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(detail.Notes)) { <hr /><h6><i class="bi bi-journal-text me-1"></i>Notes</h6><p class="text-muted small mb-0">@detail.Notes</p> }
+                </div>
+            </div>
+            @if (detail.CoveredAssets.Any())
+            {
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <h6><i class="bi bi-box-seam me-1"></i>Covered Assets (@detail.CoveredAssets.Count)</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead class="table-light"><tr><th>Asset</th><th>Coverage Notes</th></tr></thead>
+                                <tbody>
+                                    @foreach (var ca in detail.CoveredAssets)
+                                    {
+                                        <tr>
+                                            <td><a href="javascript:void(0)" @onclick="() => GoToAsset(ca.AssetId)">@(ca.AssetName ?? $"Asset #{ca.AssetId}")</a></td>
+                                            <td><small class="text-muted">@(ca.CoverageNotes ?? "—")</small></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Visit Tracker</h6>
+                    @{ var visitPct = detail.VisitsIncluded > 0 ? (int)((double)detail.VisitsUsed / detail.VisitsIncluded * 100) : 0; }
+                    <div class="progress mb-2" style="height: 20px;">
+                        <div class="progress-bar @(visitPct > 80 ? "bg-danger" : "bg-success")" style="width: @visitPct%">@detail.VisitsUsed / @detail.VisitsIncluded</div>
+                    </div>
+                    <small class="text-muted">@(detail.VisitsIncluded - detail.VisitsUsed) visits remaining</small>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>Service Agreements</h4>
+        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Agreement</button>
+    </div>
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-5">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search agreements..." @bind="filter.Search" @bind:event="oninput" @onkeyup="HandleSearchKey" />
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="filterStatus">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in Enum.GetValues<AgreementStatus>()) { <option value="@s">@s</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="filterCoverage">
+                        <option value="">All Levels</option>
+                        @foreach (var c in Enum.GetValues<CoverageLevel>()) { <option value="@c">@c</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadAgreements"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (agreements is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        }
+        else if (!agreements.Any())
+        {
+            <div class="card-body text-center py-5 text-muted"><i class="bi bi-file-earmark-check" style="font-size:3rem;"></i><p class="mt-2">No agreements. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light"><tr><th>Number</th><th>Title</th><th>Customer</th><th>Company</th><th>Trade</th><th>Coverage</th><th>Status</th><th>Visits</th><th>Fee</th><th>End</th></tr></thead>
+                    <tbody>
+                        @foreach (var a in agreements)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => GoToDetail(a.Id)">
+                                <td><strong>@a.AgreementNumber</strong></td>
+                                <td>@(a.Title ?? "—")</td>
+                                <td>@(a.CustomerName ?? "—")</td>
+                                <td>@(a.CompanyName ?? "—")</td>
+                                <td><small>@(a.TradeType ?? "—")</small></td>
+                                <td><span class="badge @GetCoverageBadge(a.CoverageLevel)">@a.CoverageLevel</span></td>
+                                <td><span class="badge @GetStatusBadge(a.Status)">@a.Status</span></td>
+                                <td>@a.VisitsUsed/@a.VisitsIncluded</td>
+                                <td>@a.Fee.ToString("C")</td>
+                                <td>@a.EndDate.ToString("MMM dd, yyyy")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private List<AgreementListItem>? agreements;
+    private AgreementFilter filter = new();
+    private string filterStatus = "";
+    private string filterCoverage = "";
+    private AgreementFullDetail? detail;
+    private AgreementEditModel form = new();
+    private int? editId;
+    private string? errorMsg;
+    private List<CustomerListItem> _customers = [];
+    private List<CompanyOption> _companies = [];
+    private List<SiteListItem> _sites = [];
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        var uri = Nav.ToAbsoluteUri(Nav.Uri);
+        if (uri.AbsolutePath.Contains("/serviceagreements/new", StringComparison.OrdinalIgnoreCase))
+        {
+            mode = "form"; editId = null; form = new();
+            _customers = await CustomerSvc.GetCustomersAsync();
+            _companies = await SiteSvc.GetCompaniesForDropdownAsync();
+            _sites = await SiteSvc.GetSitesAsync();
+        }
+        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
+        {
+            _customers = await CustomerSvc.GetCustomersAsync();
+            _companies = await SiteSvc.GetCompaniesForDropdownAsync();
+            _sites = await SiteSvc.GetSitesAsync();
+            await LoadForEdit(Id.Value);
+        }
+        else if (Id.HasValue)
+            await LoadDetail(Id.Value);
+        else { mode = "list"; await LoadAgreements(); }
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadAgreements()
+    {
+        filter.Status = string.IsNullOrWhiteSpace(filterStatus) ? null : Enum.Parse<AgreementStatus>(filterStatus);
+        filter.CoverageLevel = string.IsNullOrWhiteSpace(filterCoverage) ? null : Enum.Parse<CoverageLevel>(filterCoverage);
+        agreements = await AgreementSvc.GetAgreementsAsync(filter);
+    }
+
+    private async Task LoadDetail(int id)
+    {
+        detail = await AgreementSvc.GetAgreementAsync(id);
+        mode = detail is not null ? "detail" : "list";
+        if (mode == "list") await LoadAgreements();
+    }
+
+    private async Task LoadForEdit(int id)
+    {
+        var d = await AgreementSvc.GetAgreementAsync(id);
+        if (d is null) { mode = "list"; await LoadAgreements(); return; }
+        editId = id;
+        form = new AgreementEditModel
+        {
+            AgreementNumber = d.AgreementNumber, Title = d.Title,
+            CoverageLevel = d.CoverageLevel, Status = d.Status,
+            StartDate = d.StartDate, EndDate = d.EndDate,
+            VisitsIncluded = d.VisitsIncluded, VisitsUsed = d.VisitsUsed,
+            Fee = d.Fee, TradeType = d.TradeType, BillingFrequency = d.BillingFrequency,
+            DiscountPercent = d.DiscountPercent, RenewalDate = d.RenewalDate, AutoRenew = d.AutoRenew,
+            AddOns = d.AddOns, Notes = d.Notes,
+            CustomerId = d.CustomerId, CompanyId = d.CompanyId, SiteId = d.SiteId
+        };
+        mode = "form";
+    }
+
+    private async Task SaveAgreement()
+    {
+        try
+        {
+            errorMsg = null;
+            if (editId.HasValue) await AgreementSvc.UpdateAgreementAsync(editId.Value, form);
+            else await AgreementSvc.CreateAgreementAsync(form);
+            Nav.NavigateTo("/serviceagreements");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private async Task ArchiveDetail()
+    {
+        if (detail is not null) { await AgreementSvc.ArchiveAgreementAsync(detail.Id); Nav.NavigateTo("/serviceagreements"); }
+    }
+
+    private string GetStatusBadge(AgreementStatus s) => s switch
+    {
+        AgreementStatus.Active => "bg-success", AgreementStatus.Expiring => "bg-warning text-dark",
+        AgreementStatus.Expired => "bg-danger", AgreementStatus.Cancelled => "bg-dark",
+        AgreementStatus.Renewed => "bg-info", _ => "bg-secondary"
+    };
+
+    private void GoToList() => Nav.NavigateTo("/serviceagreements");
+    private void GoToNew() => Nav.NavigateTo("/serviceagreements/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/serviceagreements/{id}");
+    private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/serviceagreements/{detail.Id}/edit"); }
+    private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
+    private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");
+    private void GoToAsset(int id) => Nav.NavigateTo($"/assets/{id}");
+    private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadAgreements(); }
+
+    private async Task ChangeStatus(AgreementStatus status)
+    {
+        if (detail is null) return;
+        var editModel = new AgreementEditModel
+        {
+            AgreementNumber = detail.AgreementNumber, Title = detail.Title,
+            CoverageLevel = detail.CoverageLevel, Status = status,
+            StartDate = detail.StartDate, EndDate = detail.EndDate,
+            VisitsIncluded = detail.VisitsIncluded, VisitsUsed = detail.VisitsUsed,
+            Fee = detail.Fee, TradeType = detail.TradeType, BillingFrequency = detail.BillingFrequency,
+            DiscountPercent = detail.DiscountPercent, RenewalDate = detail.RenewalDate, AutoRenew = detail.AutoRenew,
+            AddOns = detail.AddOns, Notes = detail.Notes,
+            CustomerId = detail.CustomerId, CompanyId = detail.CompanyId, SiteId = detail.SiteId
+        };
+        await AgreementSvc.UpdateAgreementAsync(detail.Id, editModel);
+        detail = await AgreementSvc.GetAgreementAsync(detail.Id);
+    }
+
+    private static string GetCoverageBadge(CoverageLevel c) => c switch
+    {
+        CoverageLevel.Basic => "bg-secondary",
+        CoverageLevel.Premium => "bg-info",
+        CoverageLevel.Gold => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private async Task PrintAgreement() => await JS.InvokeVoidAsync("window.print");
+
+    private async Task EmailAgreement()
+    {
+        if (detail is null) return;
+        var subject = Uri.EscapeDataString($"Service Agreement {detail.AgreementNumber}: {detail.Title}");
+        var lines = new System.Text.StringBuilder();
+        lines.AppendLine($"Service Agreement: {detail.AgreementNumber}");
+        if (!string.IsNullOrEmpty(detail.Title)) lines.AppendLine($"Title: {detail.Title}");
+        lines.AppendLine($"Status: {detail.Status}  Coverage: {detail.CoverageLevel}");
+        if (!string.IsNullOrEmpty(detail.CustomerName)) lines.AppendLine($"Customer: {detail.CustomerName}");
+        if (!string.IsNullOrEmpty(detail.CompanyName)) lines.AppendLine($"Company: {detail.CompanyName}");
+        if (!string.IsNullOrEmpty(detail.SiteName)) lines.AppendLine($"Site: {detail.SiteName}");
+        lines.AppendLine($"Period: {detail.StartDate:MMM dd, yyyy} – {detail.EndDate:MMM dd, yyyy}");
+        lines.AppendLine($"Fee: {detail.Fee:C}");
+        if (!string.IsNullOrEmpty(detail.BillingFrequency)) lines.AppendLine($"Billing: {detail.BillingFrequency}");
+        lines.AppendLine($"Visits: {detail.VisitsUsed} / {detail.VisitsIncluded}");
+        if (!string.IsNullOrEmpty(detail.TradeType)) lines.AppendLine($"Trade: {detail.TradeType}");
+        if (detail.AutoRenew) lines.AppendLine("Auto-Renew: Yes");
+        if (detail.RenewalDate.HasValue) lines.AppendLine($"Renewal Date: {detail.RenewalDate.Value:MMM dd, yyyy}");
+        if (!string.IsNullOrEmpty(detail.Notes)) { lines.AppendLine(); lines.AppendLine($"Notes: {detail.Notes}"); }
+        var body = Uri.EscapeDataString(lines.ToString());
+        await JS.InvokeVoidAsync("eval", $"window.location.href='mailto:?subject={subject}&body={body}'");
+    }
+}

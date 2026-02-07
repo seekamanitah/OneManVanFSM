@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="OneManVanFSM.csproj" />
+  <Project Path="OneManVanFSM.Shared/OneManVanFSM.Shared.csproj" />
+  <Project Path="OneManVanFSM.Web/OneManVanFSM.Web.csproj" />
+</Solution>

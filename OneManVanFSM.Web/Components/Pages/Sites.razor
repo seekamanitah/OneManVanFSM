@@ -1,0 +1,582 @@
+@page "/sites"
+@page "/sites/new"
+@page "/sites/{Id:int}"
+@page "/sites/{Id:int}/edit"
+@inject ISiteService SiteService
+@inject ICustomerService CustomerSvc
+@inject NavigationManager Navigation
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>@(_pageTitle) - OneManVanFSM</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Loading...</p>
+    </div>
+}
+else if (_view == View.List)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>Sites</h4>
+        <a href="sites/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Site</a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Search name, address..."
+                               @bind="_filter.Search" @bind:event="oninput" @bind:after="ReloadList" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="_filterType" @bind:after="OnTypeFilterChanged">
+                        <option value="">All Types</option>
+                        <option value="Residential">Residential</option>
+                        <option value="Commercial">Commercial</option>
+                        <option value="Industrial">Industrial</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-end text-muted small">@_sites.Count site@(_sites.Count != 1 ? "s" : "")</div>
+            </div>
+        </div>
+    </div>
+
+    @if (_sites.Count == 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-geo-alt" style="font-size: 3rem;"></i>
+                <p class="mt-2 mb-1">No sites found.</p>
+                <a href="sites/new" class="btn btn-outline-primary btn-sm mt-2">Add Your First Site</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Address</th>
+                            <th>Type</th>
+                            <th class="d-none d-md-table-cell">Owner</th>
+                            <th class="text-center d-none d-md-table-cell">Sq Ft</th>
+                            <th class="text-center d-none d-lg-table-cell">Assets</th>
+                            <th class="text-center d-none d-lg-table-cell">Open Jobs</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in _sites)
+                        {
+                            <tr role="button" @onclick="() => GoToDetail(s.Id)">
+                                <td class="fw-semibold">@s.Name</td>
+                                <td><small class="text-muted">@FormatAddr(s)</small></td>
+                                <td><span class="badge @PropTypeBadge(s.PropertyType)">@s.PropertyType</span></td>
+                                <td class="d-none d-md-table-cell"><small>@(s.OwnerName ?? "—")</small></td>
+                                <td class="text-center d-none d-md-table-cell"><small>@(s.SqFt?.ToString("N0") ?? "—")</small></td>
+                                <td class="text-center d-none d-lg-table-cell">@s.AssetCount</td>
+                                <td class="text-center d-none d-lg-table-cell">
+                                    @if (s.OpenJobCount > 0) { <span class="badge bg-primary">@s.OpenJobCount</span> }
+                                    else { <span class="text-muted">0</span> }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+else if (_view == View.Detail && _detail is not null)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+            <h4 class="mb-0">
+                <i class="bi bi-geo-alt-fill me-2"></i>@_detail.Name
+                <span class="badge @PropTypeBadge(_detail.PropertyType) ms-2 fs-6">@_detail.PropertyType</span>
+            </h4>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg me-1"></i>Actions</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="sites/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Site</a></li>
+                <li><a class="dropdown-item" href="jobs/new?siteId=@_detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                <li><a class="dropdown-item" href="assets/new?siteId=@_detail.Id"><i class="bi bi-cpu me-2"></i>Add Asset</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><button class="dropdown-item text-danger" @onclick="ArchiveSite"><i class="bi bi-archive me-2"></i>Archive</button></li>
+            </ul>
+        </div>
+    </div>
+
+    @* Site Info *@
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Location</h6>
+                    @{ var addr = FormatDetailAddr(_detail); }
+                    @if (!string.IsNullOrEmpty(addr)) { <div class="mb-2"><i class="bi bi-geo-alt me-2 text-muted"></i>@addr</div> }
+                    @if (_detail.SqFt.HasValue) { <div class="mb-2"><i class="bi bi-rulers me-2 text-muted"></i>@_detail.SqFt?.ToString("N0") sq ft</div> }
+                    @if (_detail.Zones.HasValue) { <div class="mb-2"><i class="bi bi-grid me-2 text-muted"></i>@_detail.Zones zones</div> }
+                    @if (_detail.Stories.HasValue) { <div class="mb-2"><i class="bi bi-building me-2 text-muted"></i>@_detail.Stories stories</div> }
+                    @if (!string.IsNullOrEmpty(_detail.CustomerName))
+                    {
+                        <div class="mb-2"><i class="bi bi-person me-2 text-muted"></i>
+                            <a href="customers/@_detail.CustomerId">@_detail.CustomerName</a>
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detail.CompanyName))
+                    {
+                        <div class="mb-2"><i class="bi bi-building me-2 text-muted"></i>@_detail.CompanyName</div>
+                    }
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted"><i class="bi bi-key me-1"></i>Access & Notes</h6>
+                    @if (!string.IsNullOrEmpty(_detail.AccessCodes)) { <div class="mb-2"><strong>Access:</strong> @_detail.AccessCodes</div> }
+                    @if (!string.IsNullOrEmpty(_detail.Parking)) { <div class="mb-2"><strong>Parking:</strong> @_detail.Parking</div> }
+                    @if (!string.IsNullOrEmpty(_detail.EquipmentLocation)) { <div class="mb-2"><strong>Equipment:</strong> @_detail.EquipmentLocation</div> }
+                    @if (!string.IsNullOrEmpty(_detail.Instructions)) { <div class="mb-2"><strong>Instructions:</strong> @_detail.Instructions</div> }
+                    @if (!string.IsNullOrEmpty(_detail.Notes)) { <div class="mt-2 p-2 bg-light rounded small">@_detail.Notes</div> }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrEmpty(_detail.GasLineLocation) || !string.IsNullOrEmpty(_detail.ElectricalPanelLocation)
+                || !string.IsNullOrEmpty(_detail.WaterShutoffLocation) || !string.IsNullOrEmpty(_detail.HeatingFuelSource))
+            {
+                <hr />
+                <h6 class="text-muted"><i class="bi bi-lightning-charge me-1"></i>Utility & Infrastructure</h6>
+                <div class="row g-2">
+                    @if (!string.IsNullOrEmpty(_detail.GasLineLocation))
+                    { <div class="col-sm-6 mb-1"><strong>Gas Line:</strong> @_detail.GasLineLocation</div> }
+                    @if (!string.IsNullOrEmpty(_detail.ElectricalPanelLocation))
+                    { <div class="col-sm-6 mb-1"><strong>Electrical Panel:</strong> @_detail.ElectricalPanelLocation</div> }
+                    @if (!string.IsNullOrEmpty(_detail.WaterShutoffLocation))
+                    { <div class="col-sm-6 mb-1"><strong>Water Shutoff:</strong> @_detail.WaterShutoffLocation</div> }
+                    @if (!string.IsNullOrEmpty(_detail.HeatingFuelSource))
+                    { <div class="col-sm-6 mb-1"><strong>Heating Fuel:</strong> <span class="badge bg-info text-dark">@_detail.HeatingFuelSource</span></div> }
+                </div>
+            }
+
+            @if (_detail.YearBuilt.HasValue || _detail.HasAtticAccess == true || _detail.HasCrawlSpace == true || _detail.HasBasement == true)
+            {
+                <hr />
+                <h6 class="text-muted"><i class="bi bi-house-door me-1"></i>Building Characteristics</h6>
+                <div class="row g-2">
+                    @if (_detail.YearBuilt.HasValue)
+                    { <div class="col-sm-4 mb-1"><strong>Year Built:</strong> @_detail.YearBuilt</div> }
+                    @if (_detail.HasAtticAccess == true)
+                    { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>Attic Access</div> }
+                    @if (_detail.HasCrawlSpace == true)
+                    { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>Crawl Space</div> }
+                    @if (_detail.HasBasement == true)
+                    { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>Basement</div> }
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Tabs *@
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "assets" ? "active" : "")" @onclick='() => _activeTab = "assets"'>
+                Assets <span class="badge bg-secondary ms-1">@_detail.Assets.Count</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "jobs" ? "active" : "")" @onclick='() => _activeTab = "jobs"'>
+                Jobs <span class="badge bg-secondary ms-1">@(_detail.UpcomingJobs.Count + _detail.RecentJobs.Count)</span>
+            </button>
+        </li>
+    </ul>
+
+    @if (_activeTab == "assets")
+    {
+        <div class="card border-0 shadow-sm">
+            @if (_detail.Assets.Count == 0)
+            {
+                <div class="card-body text-center py-4 text-muted">
+                    <i class="bi bi-cpu" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">No assets at this site. <a href="assets/new?siteId=@_detail.Id">Add one?</a></p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Asset</th><th>Type</th><th>Installed</th><th>Warranty</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in _detail.Assets)
+                            {
+                                <tr role="button" @onclick="() => GoToAsset(a.Id)">
+                                    <td class="fw-semibold">@a.Name</td>
+                                    <td><small class="text-muted">@(a.AssetType ?? "—")</small></td>
+                                    <td><small>@(a.InstallDate?.ToString("MMM yyyy") ?? "—")</small></td>
+                                    <td>
+                                        @if (a.WarrantyExpiry.HasValue)
+                                        {
+                                            var exp = a.WarrantyExpiry.Value < DateTime.UtcNow;
+                                            <span class="badge @(exp ? "bg-danger" : "bg-success")">@(exp ? "Expired" : a.WarrantyExpiry.Value.ToString("MMM yyyy"))</span>
+                                        }
+                                        else { <small class="text-muted">—</small> }
+                                    </td>
+                                    <td><span class="badge @AssetBadge(a.Status)">@a.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (_activeTab == "jobs")
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-clock me-1"></i>Upcoming</h6></div>
+            @if (_detail.UpcomingJobs.Count == 0) { <div class="card-body text-center py-3 text-muted small">No upcoming jobs.</div> }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light"><tr><th>Job #</th><th>Title</th><th>Date</th><th>Tech</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var j in _detail.UpcomingJobs)
+                            {
+                                <tr role="button" @onclick="() => GoToJob(j.Id)">
+                                     <td class="fw-semibold">@j.JobNumber</td><td>@(j.Title ?? "—")</td>
+                                     <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "TBD")</small></td>
+                                     <td><small>@(j.TechnicianName ?? "Unassigned")</small></td>
+                                     <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
+                                 </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white"><h6 class="mb-0"><i class="bi bi-check-circle me-1"></i>Recent</h6></div>
+            @if (_detail.RecentJobs.Count == 0) { <div class="card-body text-center py-3 text-muted small">No past jobs.</div> }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light"><tr><th>Job #</th><th>Title</th><th>Date</th><th>Tech</th><th>Status</th></tr></thead>
+                        <tbody>
+                            @foreach (var j in _detail.RecentJobs)
+                            {
+                                <tr role="button" @onclick="() => GoToJob(j.Id)">
+                                     <td class="fw-semibold">@j.JobNumber</td><td>@(j.Title ?? "—")</td>
+                                     <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "—")</small></td>
+                                     <td><small>@(j.TechnicianName ?? "—")</small></td>
+                                     <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
+                                 </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+}
+else if (_view == View.Form)
+{
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>@(Id.HasValue ? "Edit" : "New") Site</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="_editModel" OnValidSubmit="SaveSite">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger small" />
+                @if (!string.IsNullOrEmpty(_formError)) { <div class="alert alert-danger py-2 small">@_formError</div> }
+
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="_editModel.Name" class="form-control" placeholder="Site name" />
+                        <ValidationMessage For="() => _editModel.Name" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Property Type</label>
+                        <InputSelect @bind-Value="_editModel.PropertyType" class="form-select">
+                            <option value="@PropertyType.Residential">Residential</option>
+                            <option value="@PropertyType.Commercial">Commercial</option>
+                            <option value="@PropertyType.Industrial">Industrial</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Address</label>
+                    <InputText @bind-Value="_editModel.Address" class="form-control" placeholder="Street address" />
+                </div>
+                <div class="row">
+                    <div class="col-md-5 mb-3"><label class="form-label">City</label><InputText @bind-Value="_editModel.City" class="form-control" /></div>
+                    <div class="col-md-3 mb-3"><label class="form-label">State</label><InputText @bind-Value="_editModel.State" class="form-control" /></div>
+                    <div class="col-md-4 mb-3"><label class="form-label">Zip</label><InputText @bind-Value="_editModel.Zip" class="form-control" /></div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Customer</label>
+                        <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Company</label>
+                        <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
+                            <option value="">— No Company —</option>
+                            @foreach (var co in _companies)
+                            {
+                                <option value="@co.Id">@co.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <hr />
+                <h6 class="text-muted">Property Details</h6>
+                <div class="row">
+                    <div class="col-md-3 mb-3"><label class="form-label">Sq Ft</label><InputNumber @bind-Value="_editModel.SqFt" class="form-control" /></div>
+                    <div class="col-md-3 mb-3"><label class="form-label">Zones</label><InputNumber @bind-Value="_editModel.Zones" class="form-control" /></div>
+                    <div class="col-md-3 mb-3"><label class="form-label">Stories</label><InputNumber @bind-Value="_editModel.Stories" class="form-control" /></div>
+                    <div class="col-md-3 mb-3"><label class="form-label">Year Built</label><InputNumber @bind-Value="_editModel.YearBuilt" class="form-control" /></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_hasAtticAccess" class="form-check-input" id="atticCheck" />
+                            <label class="form-check-label" for="atticCheck">Attic Access</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_hasCrawlSpace" class="form-check-input" id="crawlCheck" />
+                            <label class="form-check-label" for="crawlCheck">Crawl Space</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_hasBasement" class="form-check-input" id="basementCheck" />
+                            <label class="form-check-label" for="basementCheck">Basement</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr />
+                <h6 class="text-muted">Access Information</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Access Codes</label><InputText @bind-Value="_editModel.AccessCodes" class="form-control" placeholder="Gate codes, lock box..." /></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Parking</label><InputText @bind-Value="_editModel.Parking" class="form-control" placeholder="Parking instructions" /></div>
+                </div>
+                <div class="mb-3"><label class="form-label">Equipment Location</label><InputText @bind-Value="_editModel.EquipmentLocation" class="form-control" placeholder="Attic, basement, rooftop..." /></div>
+                <div class="mb-3"><label class="form-label">Special Instructions</label><InputTextArea @bind-Value="_editModel.Instructions" class="form-control" rows="2" /></div>
+
+                <hr />
+                <h6 class="text-muted">Utility & Infrastructure</h6>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Gas Line Location</label><InputText @bind-Value="_editModel.GasLineLocation" class="form-control" placeholder="Meter location, shutoff..." /></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Electrical Panel Location</label><InputText @bind-Value="_editModel.ElectricalPanelLocation" class="form-control" placeholder="Garage, utility room..." /></div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3"><label class="form-label">Water Shutoff Location</label><InputText @bind-Value="_editModel.WaterShutoffLocation" class="form-control" placeholder="Front yard, basement..." /></div>
+                    <div class="col-md-6 mb-3"><label class="form-label">Heating Fuel Source</label><InputText @bind-Value="_editModel.HeatingFuelSource" class="form-control" placeholder="Natural Gas, Propane, Electric..." /></div>
+                </div>
+
+                <div class="mb-3"><label class="form-label">Notes</label><InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="2" /></div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        @(Id.HasValue ? "Save Changes" : "Create Site")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    private enum View { List, Detail, Form }
+    private View _view = View.List;
+    private bool _loading = true;
+    private string _pageTitle = "Sites";
+    private string _activeTab = "assets";
+
+    private List<SiteListItem> _sites = [];
+    private SiteFilter _filter = new();
+    private string _filterType = "";
+    private SiteDetail? _detail;
+    private SiteEditModel _editModel = new();
+    private List<CustomerListItem> _customers = [];
+    private List<CompanyOption> _companies = [];
+    private string? _formError;
+    private bool _saving;
+    private bool _hasAtticAccess;
+    private bool _hasCrawlSpace;
+    private bool _hasBasement;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        _loading = true;
+        var path = Navigation.ToAbsoluteUri(Navigation.Uri).AbsolutePath.TrimEnd('/').ToLower();
+
+        if (path.EndsWith("/new") || path.EndsWith("/edit"))
+        {
+            _view = View.Form;
+            _pageTitle = Id.HasValue ? "Edit Site" : "New Site";
+            _customers = await CustomerSvc.GetCustomersAsync();
+            _companies = await SiteService.GetCompaniesForDropdownAsync();
+            if (Id.HasValue)
+            {
+                var d = await SiteService.GetSiteAsync(Id.Value);
+                if (d is not null)
+                {
+                    _editModel = new SiteEditModel
+                    {
+                        Name = d.Name, Address = d.Address, City = d.City, State = d.State, Zip = d.Zip,
+                        Latitude = d.Latitude, Longitude = d.Longitude, PropertyType = d.PropertyType,
+                        SqFt = d.SqFt, Zones = d.Zones, Stories = d.Stories,
+                        AccessCodes = d.AccessCodes, Instructions = d.Instructions,
+                        Parking = d.Parking, EquipmentLocation = d.EquipmentLocation,
+                        GasLineLocation = d.GasLineLocation, ElectricalPanelLocation = d.ElectricalPanelLocation,
+                        WaterShutoffLocation = d.WaterShutoffLocation, HeatingFuelSource = d.HeatingFuelSource,
+                        YearBuilt = d.YearBuilt, HasAtticAccess = d.HasAtticAccess,
+                        HasCrawlSpace = d.HasCrawlSpace, HasBasement = d.HasBasement,
+                        Notes = d.Notes, CustomerId = d.CustomerId, CompanyId = d.CompanyId
+                    };
+                    _hasAtticAccess = d.HasAtticAccess == true;
+                    _hasCrawlSpace = d.HasCrawlSpace == true;
+                    _hasBasement = d.HasBasement == true;
+                }
+            }
+            else { _editModel = new SiteEditModel(); _hasAtticAccess = false; _hasCrawlSpace = false; _hasBasement = false; }
+        }
+        else if (Id.HasValue)
+        {
+            _view = View.Detail;
+            _detail = await SiteService.GetSiteAsync(Id.Value);
+            _pageTitle = _detail?.Name ?? "Site";
+            _activeTab = "assets";
+        }
+        else
+        {
+            _view = View.List;
+            _pageTitle = "Sites";
+            await ReloadList();
+        }
+        _loading = false;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task ReloadList() => _sites = await SiteService.GetSitesAsync(_filter);
+
+    private void OnTypeFilterChanged()
+    {
+        _filter.PropertyType = string.IsNullOrEmpty(_filterType) ? null : Enum.Parse<PropertyType>(_filterType);
+        _ = ReloadList();
+    }
+
+    private void GoToDetail(int id) => Navigation.NavigateTo($"sites/{id}");
+    private void GoToList() => Navigation.NavigateTo("sites");
+    private void GoToAsset(int id) => Navigation.NavigateTo($"assets/{id}");
+    private void GoToJob(int id) => Navigation.NavigateTo($"jobs/{id}");
+    private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"sites/{Id.Value}"); else Navigation.NavigateTo("sites"); }
+
+    private async Task SaveSite()
+    {
+        _formError = null; _saving = true;
+        _editModel.HasAtticAccess = _hasAtticAccess ? true : null;
+        _editModel.HasCrawlSpace = _hasCrawlSpace ? true : null;
+        _editModel.HasBasement = _hasBasement ? true : null;
+        try
+        {
+            if (Id.HasValue) { await SiteService.UpdateSiteAsync(Id.Value, _editModel); Navigation.NavigateTo($"sites/{Id.Value}"); }
+            else { var c = await SiteService.CreateSiteAsync(_editModel); Navigation.NavigateTo($"sites/{c.Id}"); }
+        }
+        catch (Exception ex) { _formError = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ArchiveSite()
+    {
+        if (_detail is not null) { await SiteService.ArchiveSiteAsync(_detail.Id); Navigation.NavigateTo("sites"); }
+    }
+
+    private static string PropTypeBadge(PropertyType t) => t switch
+    {
+        PropertyType.Residential => "bg-success",
+        PropertyType.Commercial => "bg-primary",
+        PropertyType.Industrial => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+    private static string AssetBadge(AssetStatus s) => s switch
+    {
+        AssetStatus.Active => "bg-success", AssetStatus.MaintenanceNeeded => "bg-warning text-dark",
+        AssetStatus.Retired => "bg-secondary", _ => "bg-dark"
+    };
+    private static string FormatAddr(SiteListItem s) => string.Join(", ", new[] { s.Address, s.City, s.State }.Where(p => !string.IsNullOrWhiteSpace(p)));
+    private static string FormatDetailAddr(SiteDetail s) => string.Join(", ", new[] { s.Address, s.City, s.State, s.Zip }.Where(p => !string.IsNullOrWhiteSpace(p)));
+
+    private static string JobStatusBadge(JobStatus s) => s switch
+    {
+        JobStatus.Lead or JobStatus.Quoted => "bg-secondary",
+        JobStatus.Approved or JobStatus.Scheduled => "bg-info",
+        JobStatus.EnRoute or JobStatus.OnSite or JobStatus.InProgress => "bg-primary",
+        JobStatus.Paused => "bg-warning text-dark",
+        JobStatus.Completed or JobStatus.Closed => "bg-success",
+        JobStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+}

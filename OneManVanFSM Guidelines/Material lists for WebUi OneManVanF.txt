@@ -1,0 +1,117 @@
+Material lists for WebUi OneManVanFSM
+
+### Material Lists Builder Page - Updated Description (Incorporating PDF Options and Pricing Methods)
+
+**Routes**: `/materiallists` (list view for browsing existing lists/templates); `/materiallists/{id}` (detail view for review/export, including PDF options); `/materiallists/new` or `/materiallists/{id}/edit` (builder view – the core "builder" mode, embeddable as a modal or tab in Estimates/Jobs for contextual creation without leaving those workflows). For job-specific access, routes like `/jobs/{jobId}/materiallist` prepopulate with job details, ensuring seamless data transfer (e.g., job's customer/site/asset info auto-links to the list for supplier PDFs tailored to the job's needs).
+
+**Purpose & Business Context**:
+- The Material Lists Builder remains a structured, section-based tool inspired by the pasted-text template, but updated to emphasize practical HVAC workflows like generating supplier-ready documents and flexible pricing. The new PDF options allow printing a "clean" version without prices (just materials, quantities, units, and notes) for sending to suppliers—e.g., "Need 3 boxes of 6" Flex Duct and 2 rolls of UL 181A foil tape for Job #123"—streamlining procurement without revealing internal costs/markups. This supports efficiency in busy seasons: Office builds the list, exports supplier PDF via email (integrated send button), supplier delivers, tech confirms receipt on mobile without price visibility.
+- Pricing sections across the builder (and by extension, integrated pages like Estimates/Jobs/Invoices) now explicitly include dual methods: Time-based (materials cost + labor hours/rates, with auto-calcs for segments like "Ductwork Installation: 4 hours at $75/hr") and flat rate (pre-set fixed prices per item/section, e.g., "$500 flat for Standard Trunk Line Setup"—overriding granular calcs for simpler bidding). This hybrid approach fits HVAC realities: Time-based for variable jobs (e.g., custom zoning with CFM reductions), flat rate for standard services (e.g., filter replacements), reducing bid complexity while allowing switches mid-build.
+- HVAC-specific: PDFs flag compliance items (e.g., "Fire-rated caulk: 2 qty" without price, for supplier quotes on regulated materials); pricing methods account for industry norms (e.g., time-based includes SEER/Tonnage factors in Equipment section). Generic foundation: Sections customizable for trades (e.g., flat rate "Plumbing Fixture Install: $200" vs. time-based "Pipe Fitting: Materials $50 + 2 hrs labor"), with data transfer ensuring consistency (e.g., supplier PDF quantities flow back to inventory on delivery confirmation).
+- Business value: Enhances user-friendly efficiency—e.g., build list → Toggle pricing method → Generate supplier PDF (data transfers quantities/notes without re-entry) → Import to job/invoice (calcs adapt to method). Industry thinking: Contractors often negotiate supplier prices separately; price-less PDFs protect margins. For multi-site customers/companies (e.g., landlord rentals), PDFs can be "batched" per site with shared quantities for bulk orders. Robustness: Pricing methods ensure flexibility (switch without data loss), with shared calcs flowing to financial summaries (e.g., labor hours link to employee time tracking for payroll).
+
+**Data Sources & Interconnections**:
+- **Core Entity**: MaterialLists table (ID PK, Name, JobID/EstimateID/CustomerID/SiteID/AssetID polymorphic FKs; IsTemplate flag; PricingMethod enum: TimeBased/FlatRate – customizable, e.g., add "Hybrid"; Sections as structured JSON or child table with items like FlexDuct6Inch: Quantity/Unit/CountBoxes/BaseCost/LaborHours/FlatPrice/Markup/Notes). PDF options store export history (e.g., ExportType: Full/SupplierNoPrice).
+- **Sources**: Prepopulates from Products (templates with method-specific pricing, e.g., time-based cost + labor defaults), InventoryItems (quantity validation, e.g., warn if boxes exceed stock), Settings (default method/markup/tax/labor rates – customizable per trade/category).
+- **Interconnections** (Updated for Pricing/PDF Flow):
+  - **Estimates/Jobs**: One-to-Many (MaterialListID FK). Data flow: Builder switches method (e.g., time-based auto-sums materials + labor) → Import transfers (quantities to lines, method to pricing calc); job actuals update list (e.g., adjust labor hours for variances).
+  - **Customers/Companies/Sites/Assets**: Polymorphic for context (e.g., multi-site batch PDFs group by site with shared quantities). Quick glance in customer detail: "Linked Lists" with method/totals (e.g., "Time-Based Install Kit: $1,200").
+  - **Invoices/Expenses/Permits**: Transfers sections (e.g., Misc Materials labor to invoice lines); flat rate overrides granular for simpler billing; supplier PDFs link to expenses (e.g., import delivery quote as expense).
+  - **Inventory/Products**: Joins for method-aware validation (e.g., time-based checks labor stock like "Zip Screws: Qty"); product updates prompt "Recalc List?" (adapts to method).
+  - **QuickNotes/Documents**: Per-section/item notes import (e.g., "Sealing: UL 181A tape – Note from site: Extra rolls needed"); PDFs include optional notes/attachments (e.g., spec sheets without prices).
+  - **Employees/Labor**: Labor section pulls rates (time-based: Hours × Rate; flat: Override); links to time entries (actuals update calcs).
+  - **ServiceAgreements**: Suggest method-based recurring lists (e.g., flat rate "Annual Tune-Up Kit" for multi-sites).
+  - **Shared Data Flow**: List ID pivots methods/PDFs – e.g., build time-based → Switch to flat (auto-converts sums) → Export supplier PDF (strips prices, keeps quantities/notes) → Import to invoice (method dictates lines: Detailed for time-based, lumped for flat). For companies: Territorial filters (e.g., PDF per contact's sites). Robust views: "PricingSummaryView" (by method for reports); "SupplierExportView" (quantity-only for PDFs).
+- **Robustness**: Indexes on PricingMethod/JobID for queries; soft-delete with method history; constraints (e.g., time-based requires labor hours; supplier PDF strips sensitive fields automatically).
+
+**Layout & Sections** (Desktop Web Focus: Workbook-Style with Method Toggle, Responsive for Mobile Stacking):
+- **List View (/materiallists)**: Table (columns: Name/Method (Time/Flat badge), Total (switches display: Detailed sum vs. Fixed), Sections Count, Linked To (badges), Creator/Date – filters like "Time-Based Only" dropdown customizable). Responsive: Cards with method previews.
+- **Detail View (/materiallists/{id})**: Read-only with edit/export buttons; embeddable.
+  - **Header**: Name (template badge), Method Toggle (switch Time/Flat – refreshes calcs), Financial Summary (adaptable: Time shows Materials + Labor breakdown; Flat shows lumped total; includes Contingency/Markup/Tax).
+  - **Sections Accordions** (Pasted-Text Inspired – Expandable; Mobile Stacks):
+    - **Customer/Job Info**: Linked fields (prepopulated); method influences (e.g., time-based adds labor est.).
+    - **System Type/Ductwork/Grills/etc.**: Sub-rows with method calcs (e.g., Flex Duct: Quantity/Boxes + Labor Hours for time; Flat Price override).
+    - **Labor/Financial**: Method-specific inputs (Time: Hours/Rate/Auto-Total; Flat: Fixed Price – both with Contingency %).
+    - **Document Conversion**: PDF buttons ("Full Bid PDF"/"Supplier List PDF – No Prices" – customizable templates; "Generate" saves/exports).
+  - **Footer**: "Send Supplier PDF" (email integration with attach), related warnings (e.g., "Time-Based: Labor Over Est.").
+- **Builder View**: Interactive; method toggle in header (swaps fields: Time adds labor columns; Flat simplifies to overrides).
+
+**UX Interactions & Flows**:
+- **Builder Flow**: Toggle method → Sections adapt (e.g., time-based: Add labor to Ductwork; flat: Set section price); add item (search prepopulated) → Calcs update. For supplier PDF: "Export No Prices" → Preview modal (strips costs, keeps quantities/notes) → Send/Print.
+- **Import/Transfer Flow**: Method carries over (e.g., time-based import details lines; flat lumps).
+- **List to Builder**: Click → Edit with method preserved; for multi-sites: "Batch PDF" generates per-site no-price versions.
+- **User Journey**: Build time-based list → Switch to flat for simple bid → Export supplier PDF (email to vendor) → Import to job (method dictates tracking: Time links to employee hours).
+- **Efficiency Features**: Prepopulated method defaults (customizable); auto-toggle warnings (e.g., "Switch to Flat? Labor High"); bulk PDF for companies.
+
+**Customizations & Configurability**:
+- Admins: Add method types (e.g., "Hybrid"); customize PDF templates (e.g., add company logo, hide sections); set default method per trade/category. Per-role: Techs view no-price PDFs only.
+- Quick Notes: Import to section notes (e.g., "Misc: From Note – Add Cork Tape").
+
+**Edge Cases & Robustness**:
+- Method Switches: Preserve data (e.g., time to flat: Sum as fixed; warn losses).
+- Supplier PDFs: Auto-strip prices/markups; include job ref without sensitive info.
+- Large Lists: Section collapse; search for items.
+- Permissions: Techs add quantities/notes (no prices); office toggles methods.
+- Offline: Cache builder (export PDF local, sync later).
+
+**Integrations & Automation**:
+- Triggers: No-price PDF export → Notification (e.g., "Supplier Order Sent – Track Delivery?"); method change → Recalc alerts.
+- External: PDF generation (QuestPDF-like for sections); email suppliers (SMTP with attach); inventory API for quantity checks.
+- Workflow Ties: Method influences transfers (e.g., time-based to invoice: Detailed lines; flat: Single line). For companies: PDF per territorial contact.
+
+**Mobile Considerations**:
+- Builder as scrollable accordions (tap expand); method toggle as segmented control; PDF export as share sheet (email/print). No-price option prominent for field techs ordering supplies. Responsive grids stack to lists; offline cache supports building/export without net, ensuring seamless supplier coordination on-the-go.
+
+
+### Material Lists Integration - Exhaustive Description
+
+**Purpose & Business Context**:
+- Material Lists integration is conceptualized as a cross-cutting, modular feature that acts as the "inventory blueprint" for the entire app, weaving seamlessly into workflows to ensure contractors can build, customize, and transfer detailed itemized lists without redundant data entry or lost details. Drawing from the pasted-text template, it's not just a standalone page but a dynamic, embeddable tool that captures the structured essence of HVAC bidding—categorized sections (e.g., Ductwork with size-specific flex duct counts/boxes, Sealing & Taping with rolls/qty of tape/mastic) that prepopulate common items while allowing real-time customization for job realities (e.g., adding extra "Fire-rated Caulk" for a site-specific code requirement). This integration promotes efficiency: A list built during an estimate transfers fully to a job for execution (e.g., tech deducts actual quantities on mobile), then to an invoice for billing, deducting from inventory and potentially creating/updating assets—all while maintaining traceability (e.g., "This 10" Take Off came from the original bid list").
+- HVAC-specific: The template's granularity (e.g., Flex Duct sizes 5"-18" with CFM considerations, Trunk reductions by segment) informs integration points like auto-suggestions for compliant materials (e.g., UL 181A tape for sealing) or zoning calcs (e.g., per-story boots/grilles). It supports seasonal workflows (e.g., winter insulation wrap prioritized in lists linked to service agreements). Generic foundation: Sections are modular for other trades—e.g., repurpose "Ductwork" as "Piping" for plumbing (sizes in inches with fittings/counts) or "Conduit" for electrical (gauges with lengths/boxes)—via customizable categories, ensuring the app adapts without fragmenting data (e.g., a plumbing-focused list still transfers quantities to inventory deductions).
+- Business value: Enhances user-friendly efficiency by minimizing workflow breaks—e.g., start a list in Customers (prepopulated from their assets' history), refine in Estimates (with pricing calcs), execute in Jobs (mobile deductions), and finalize in Invoices (auto-totals with tax/markup). Industry thinking: Contractors think in "kits" for jobs (e.g., a landlord's multi-rental filter changes as a shared list forked per site); integration allows batching for companies (e.g., territorial contacts approve site-specific customizations). For small operations, it reduces errors (e.g., prepopulated dropdowns for "Floor Boots: 4x10x5 Count" prevent mismatches), supports quick mobile additions (e.g., tech notes "Need 2 more 14" Reducers" via voice), and ties into financials (e.g., contingency % from template auto-applies to bid totals). Overall robustness: Shared data flows prevent silos—e.g., a list's quantities validate against inventory, update assets on install, and log variances for reports, ensuring compliance (e.g., refrigerant qty tracking) and auditability across the app.
+
+**Data Sources & Interconnections**:
+- **Core Entity**: MaterialLists table (ID PK, Name, JobID/EstimateID/CustomerID/CompanyID/SiteID/AssetID polymorphic FKs for broad linking; IsTemplate flag for reusability; PricingMethod enum: TimeBased/FlatRate – switchable; Sections as structured child table or JSON, e.g., Ductwork with sub-items like FlexDuct6Inch: Quantity/Unit (Count/Boxes)/Cost/LaborHours/FlatPrice/Markup/Notes). ExportType field for PDF history (e.g., Full/SupplierNoPrice).
+- **Sources**: Prepopulates from Products (templates provide item defaults like "UL 181A Foil Tape: Rolls" with cost/unit – customizable categories); InventoryItems (real-time quantity validation, e.g., warn if boxes < needed); Settings (default markup/tax/labor rates/contingency % – customizable per trade/section).
+- **Interconnections** (App-Wide Flow for Shared, Transferable Data):
+  - **Estimates**: Primary entry point (MaterialListID FK). Connectivity: Builder embeds in estimate form (prepopulates sections from template or customer asset history, e.g., suggest "20x25 Return Grilles" based on past installs); estimate approval transfers list (sections to lines, totals to financial summary – data flow: Quantities/prices/notes carry over, with method calcs adapting). App flow: From estimate detail, "Edit Material List" opens builder modal (changes sync back); list variances (e.g., added mastic) flag for estimate revisions.
+  - **Jobs/Work Orders**: One-to-One/Many (Job MaterialListID FK). Connectivity: On job creation from estimate, list transfers fully (sections become editable for actuals, e.g., adjust "4x12x7 Floor Boots: Count" on mobile); job execution deducts inventory (real-time from list quantities), creates/updates assets (e.g., "Equipment: Model/Tonnage" spawns new asset), and logs variances (e.g., extra "Zip Screws: Qty" creates expense). App flow: Job page embeds list as tab (tech scans to deduct, notes per section import from quick notes); completion pushes updated list to invoice (totals with labor calcs).
+  - **Inventory/Products**: Many-to-Many (via MaterialListItems ProductID/InventoryItemID FKs). Connectivity: Product templates seed list items (prepopulates specs/costs); inventory validates/checks during build (e.g., low "16" Flex Duct" warns, suggests alternatives); deductions on job completion update inventory logs (transfer from list quantities). App flow: From inventory detail, "Add to List" transfers to builder (data flow to new section); list save with low stock triggers reorder (links to expenses).
+  - **Assets**: Indirect via jobs/products (Asset from MaterialListItem during install). Connectivity: List "Equipment" section (e.g., "Split System: Tonnage/SEER") creates asset on job completion (transfers specs like copper tubing length/drain details); asset history pulls back list items (e.g., "Repaired with Mastic from List X"). App flow: Asset create embeds list selector (prepopulates compatible items); multi-assets per site (e.g., grilles per zone) group list sections accordingly.
+  - **Customers/Companies/Sites**: Polymorphic FKs for ownership/context. Connectivity: Lists link to customer/company (e.g., "Preferred Kit for ABC Rentals" shared across sites/territorial contacts); customer detail embeds "Linked Lists" with summaries (e.g., "Standard Ductwork Kit: Used for 3 Sites"). App flow: From customer assets tab, "Build List from Assets" prepopulates builder (data transfer: Reverse-engineer sections from installed items, e.g., existing "20x20 Returns" adds to Grills section).
+  - **Invoices/Expenses/Permits/Disposal**: One-to-One (Invoice from updated list on job completion). Connectivity: List sections transfer to invoice lines (e.g., "Sealing & Taping: Rolls" to materials; "Labor Calculation: Hours × Rate" to labor; "Disposal: Refrigerant Reclaim Fee" to expenses; "Permits: Cost" to fees – with markup/tax/contingency applied). App flow: Invoice generate embeds list preview (adjust for actuals); variances create expenses (e.g., extra "Spray Foam: Cans").
+  - **ServiceAgreements/Employees/QuickNotes**: Agreements suggest recurring lists (FK for default kit); employee rates prepopulate labor section (time-based calcs); quick notes import per section (e.g., "Fittings: From Note – Add Dampers"). App flow: From agreement detail, "Generate Recurring List" clones template with agreement-specific adjustments (data transfer to scheduled jobs).
+  - **Shared Data Flow**: Template list creation (prepopulate sections from products/inventory) → Import to estimate (transfer to bid lines) → Carry to job (actual adjustments/deductions) → Update inventory/assets (from used sections) → Flow to invoice (totals/expenses from calcs) → Reports (e.g., variance analysis from original vs. actual). For multi-site: "Fork List" duplicates sections per site/company territory (shared data like totals aggregate for bulk). Robust views: "ListUsageView" (joins jobs/invoices for cost trends); "SectionVarianceView" (compares bid vs. actual for audits).
+
+**Layout & Sections** (Desktop Web Focus: Integrated Builder with Embeddability, Responsive for Mobile Accordion-Stacking):
+- **List View (/materiallists)**: Table (updated with integration links: Columns include "Linked To: Estimates/Jobs/Customers/Assets" badges – clickable to those pages with list pre-filtered). Responsive cards show integration previews (e.g., "Used in 2 Jobs").
+- **Detail View (/materiallists/{id})**: Summary with embedded connections (e.g., "Linked Assets" mini-table clickable to assets page).
+  - **Header/Sections/Financials**: As before, but with integration buttons (e.g., "View in Linked Job" – navigates with list highlighted).
+  - **Connections Accordion** (New): "Integrated With" table (e.g., Estimates/Jobs/Invoices/Assets/Inventory – counts/links; for customers/companies: Grouped by site/territory).
+- **Builder View**: Form with integration selectors (e.g., "Link to Job/Estimate/Customer/Site" multi-dropdown – prepopulates from context; "Pull from Assets" button imports sections from linked customer assets).
+
+**UX Interactions & Flows**:
+- **Integrated Creation Flow**: From estimate/job page, embedded builder → Prepopulates from context (e.g., job's asset suggests "Matching Returns"); save transfers back (updates estimate lines/job materials).
+- **Data Transfer Flow**: Builder "Import to Invoice" → Modal maps sections (e.g., "Equipment" to invoice lines) – confirm syncs totals/methods.
+- **List to Integrated Pages**: Click linked badge (e.g., "Jobs") → Navigates to jobs list filtered by material list ID (shows only those using it).
+- **User Journey**: From customer detail (multi-site landlord) → "Build List from Assets" → Prepopulated builder (sections from existing furnaces) → Save & Transfer to New Job (data to job materials) → Job execution deducts inventory/creates asset updates → Invoice auto-pulls updated list.
+- **Efficiency Features**: Prepopulated integrations (e.g., dropdown suggests open estimates/jobs – customizable favorites); auto-sync on save (e.g., push updates to linked invoice).
+
+**Customizations & Configurability**:
+- Admins: Customize integration mappings (e.g., "Ductwork Section to Job Materials"); toggle auto-transfers (e.g., require confirmation for inventory deductions); add integration points (e.g., for plumbing: Link to "Fixture Schedules").
+- Quick Notes: Category-based auto-import (e.g., "Equipment" note to builder section).
+
+**Edge Cases & Robustness**:
+- Multi-Integration: Handle "One List, Many Jobs" (e.g., template shared across company sites – versioned copies on transfer); "Territorial Conflicts" (e.g., contact-specific views limit to their links).
+- No Links: Prompt "Link Now to Estimate/Job?" on save.
+- Large Integrations: Pagination in connections accordion; lazy-load links.
+- Permissions: Techs view/edit quantities in job-context builder (no full list access); office manages templates/integrations.
+- Offline: Mobile caches linked lists (edit local, sync transfers with merge – e.g., "Quantity Adjusted Offline – Resolve?").
+
+**Integrations & Automation**:
+- Triggers: List transfer to job → Alert (e.g., "Inventory Low for Transferred Items – Reorder?"); update in linked invoice → Recalc totals.
+- External: Supplier email from builder (attach no-price PDF); API for product spec imports (e.g., manufacturer databases).
+- Workflow Ties: Quick links in builder (e.g., "Preview in Invoice" – simulates transfer); for companies: Auto-filter integrations by territorial contact (e.g., show East County jobs only for John Doe).
+
+**Mobile Considerations**:
+- List as cards with integration badges (swipe to link/view); builder embedded as scrollable sheet in job/estimate pages (tap section to edit, voice for notes). Offline cache supports contextual building (e.g., job-linked list edits without net, sync transfers to assets/inventory). Responsive layouts stack sections vertically; touch-friendly dropdowns ensure techs can integrate on-site without rework—e.g., flex for auto-reflow in modals.

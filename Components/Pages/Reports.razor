@@ -1,0 +1,223 @@
+@page "/reports"
+@inject IMobileReportService ReportService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_report != null)
+{
+    <!-- Back -->
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/profile")'>
+            <i class="bi bi-arrow-left me-1"></i>Back to Profile
+        </button>
+    </div>
+
+    <!-- Period Selector -->
+    <div class="sub-tab-bar mb-3">
+        <button class="sub-tab @(_period == "week" ? "active" : "")" @onclick='() => SetPeriod("week")'>This Week</button>
+        <button class="sub-tab @(_period == "month" ? "active" : "")" @onclick='() => SetPeriod("month")'>This Month</button>
+    </div>
+
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted" style="font-size:0.7rem;">Updated @_lastUpdated.ToString("h:mm tt")</span>
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem; padding:2px 8px; min-height:auto;" @onclick="RefreshReport">
+            <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+        </button>
+    </div>
+
+    <!-- Time Summary -->
+    <div class="section-header">Time Tracking</div>
+    <div class="gap-grid mb-2">
+        <div class="stat-card">
+            <div class="stat-icon text-primary"><i class="bi bi-clock"></i></div>
+            <div class="stat-value">@GetHours().ToString("0.#")h</div>
+            <div class="stat-label">Total Hours</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-success"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-value">@_report.BillablePercent%</div>
+            <div class="stat-label">Billable Rate</div>
+        </div>
+    </div>
+
+    <!-- Billable vs Non-Billable Bar -->
+    <div class="mobile-card">
+        <div class="d-flex justify-content-between mb-2" style="font-size:0.8rem;">
+            <span><i class="bi bi-circle-fill text-success me-1" style="font-size:0.5rem; vertical-align:middle;"></i>Billable: @_report.BillableHoursThisMonth.ToString("0.#")h</span>
+            <span><i class="bi bi-circle-fill text-secondary me-1" style="font-size:0.5rem; vertical-align:middle;"></i>Non-Billable: @_report.NonBillableHoursThisMonth.ToString("0.#")h</span>
+        </div>
+        <div class="progress" style="height:10px; border-radius:8px;">
+            <div class="progress-bar bg-success" style="width:@(_report.BillablePercent)%"></div>
+        </div>
+    </div>
+
+    <!-- Daily Hours Chart (CSS bars) -->
+    <div class="section-header">Daily Hours (Last 7 Days)</div>
+    <div class="mobile-card">
+        <div class="d-flex align-items-end justify-content-between" style="height:120px; gap:6px;">
+            @{ var maxHours = _report.DailyBreakdown.Any() ? Math.Max(_report.DailyBreakdown.Max(d => d.Hours), 1) : 1; }
+            @foreach (var day in _report.DailyBreakdown)
+            {
+                var barHeight = maxHours > 0 ? (int)(day.Hours / maxHours * 100) : 0;
+                var isToday = day.DayLabel == "Today";
+                <div class="d-flex flex-column align-items-center" style="flex:1;">
+                    <span style="font-size:0.65rem; font-weight:600; color:#6c757d;">@day.Hours.ToString("0.#")</span>
+                    <div style="width:100%; max-width:28px; height:@(Math.Max(barHeight, 4))px; background:@(isToday ? "var(--primary)" : "#cfe2ff"); border-radius:4px 4px 0 0; transition:height 0.3s;"></div>
+                    <span style="font-size:0.6rem; margin-top:4px; color:@(isToday ? "var(--primary)" : "#6c757d"); font-weight:@(isToday ? "700" : "500");">@day.DayLabel</span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Job Performance -->
+    <div class="section-header">Job Performance</div>
+    <div class="gap-grid mb-2">
+        <div class="stat-card">
+            <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
+            <div class="stat-value">@GetJobsCompleted()</div>
+            <div class="stat-label">Completed</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-primary"><i class="bi bi-clipboard-data"></i></div>
+            <div class="stat-value">@_report.JobsAssignedThisMonth</div>
+            <div class="stat-label">Assigned</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-warning"><i class="bi bi-hourglass-split"></i></div>
+            <div class="stat-value">@_report.AvgJobDurationHours.ToString("0.#")h</div>
+            <div class="stat-label">Avg Duration</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-info"><i class="bi bi-graph-up"></i></div>
+            <div class="stat-value">@_report.CompletionRate%</div>
+            <div class="stat-label">Completion Rate</div>
+        </div>
+    </div>
+
+    <!-- Job Status Distribution -->
+    <div class="mobile-card">
+        <div class="fw-semibold mb-2" style="font-size:0.85rem;">Job Status Distribution</div>
+        @{ var totalJobs = _report.ScheduledJobs + _report.InProgressJobs + _report.CompletedJobs + _report.OverdueJobs; }
+        @if (totalJobs > 0)
+        {
+            <div class="d-flex" style="height:10px; border-radius:8px; overflow:hidden;">
+                @if (_report.ScheduledJobs > 0)
+                {
+                    <div style="width:@((double)_report.ScheduledJobs / totalJobs * 100)%; background:#0d6efd;"></div>
+                }
+                @if (_report.InProgressJobs > 0)
+                {
+                    <div style="width:@((double)_report.InProgressJobs / totalJobs * 100)%; background:#ffc107;"></div>
+                }
+                @if (_report.CompletedJobs > 0)
+                {
+                    <div style="width:@((double)_report.CompletedJobs / totalJobs * 100)%; background:#198754;"></div>
+                }
+                @if (_report.OverdueJobs > 0)
+                {
+                    <div style="width:@((double)_report.OverdueJobs / totalJobs * 100)%; background:#dc3545;"></div>
+                }
+            </div>
+            <div class="d-flex flex-wrap gap-3 mt-2" style="font-size:0.75rem;">
+                <span><i class="bi bi-circle-fill text-primary me-1" style="font-size:0.45rem; vertical-align:middle;"></i>Scheduled (@_report.ScheduledJobs)</span>
+                <span><i class="bi bi-circle-fill text-warning me-1" style="font-size:0.45rem; vertical-align:middle;"></i>In Progress (@_report.InProgressJobs)</span>
+                <span><i class="bi bi-circle-fill text-success me-1" style="font-size:0.45rem; vertical-align:middle;"></i>Completed (@_report.CompletedJobs)</span>
+                @if (_report.OverdueJobs > 0)
+                {
+                    <span><i class="bi bi-circle-fill text-danger me-1" style="font-size:0.45rem; vertical-align:middle;"></i>Overdue (@_report.OverdueJobs)</span>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="text-muted mb-0" style="font-size:0.85rem;">No job data for this period</p>
+        }
+    </div>
+
+    <!-- Time by Category -->
+    @if (_report.TimeCategories.Any())
+    {
+        <div class="section-header">Time by Category</div>
+        <div class="mobile-card">
+            @foreach (var cat in _report.TimeCategories)
+            {
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between mb-1" style="font-size:0.8rem;">
+                        <span>@cat.Category</span>
+                        <span class="fw-semibold">@cat.Hours.ToString("0.#")h (@cat.Percent%)</span>
+                    </div>
+                    <div class="progress" style="height:6px; border-radius:4px;">
+                        <div class="progress-bar" style="width:@cat.Percent%; background:@CategoryColor(cat.Category);"></div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Materials Summary -->
+    <div class="section-header">Materials Used</div>
+    <div class="mobile-card">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <p class="mb-0" style="font-size:0.9rem; font-weight:600;">@_report.MaterialItemsUsed items</p>
+                <p class="card-subtitle mb-0">Used this month</p>
+            </div>
+            <div class="text-end">
+                <p class="mb-0 text-primary" style="font-size:1.1rem; font-weight:700;">@_report.MaterialsCostThisMonth.ToString("C")</p>
+                <p class="card-subtitle mb-0">Total cost</p>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+private int _employeeId;
+private MobileTechReport? _report;
+private bool _loading = true;
+private string _period = "month";
+private DateTime _lastUpdated = DateTime.Now;
+
+protected override async Task OnInitializedAsync()
+{
+    _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    _report = await ReportService.GetTechReportAsync(_employeeId);
+    _lastUpdated = DateTime.Now;
+    _loading = false;
+}
+
+    private async Task SetPeriod(string period)
+    {
+        _period = period;
+        StateHasChanged();
+    }
+
+    private async Task RefreshReport()
+    {
+        _loading = true;
+        StateHasChanged();
+        _report = await ReportService.GetTechReportAsync(_employeeId);
+        _lastUpdated = DateTime.Now;
+        _loading = false;
+    }
+
+    private decimal GetHours() => _period == "week" ? (_report?.HoursThisWeek ?? 0) : (_report?.HoursThisMonth ?? 0);
+    private int GetJobsCompleted() => _period == "week" ? (_report?.JobsCompletedThisWeek ?? 0) : (_report?.JobsCompletedThisMonth ?? 0);
+
+    private string CategoryColor(string category)
+    {
+        return category switch
+        {
+            "On-Site" => "#0d6efd",
+            "Travel" => "#6f42c1",
+            "Break" => "#20c997",
+            "Admin" => "#fd7e14",
+            _ => "#6c757d",
+        };
+    }
+}

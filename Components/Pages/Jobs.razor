@@ -1,0 +1,238 @@
+@page "/jobs"
+@inject IMobileJobService JobService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+<!-- Priority Filter Chips -->
+<div class="d-flex gap-2 mb-2 flex-wrap">
+    @foreach (var p in _priorities)
+    {
+        <button class="btn btn-sm @(p == _priorityFilter ? "btn-primary" : "btn-outline-secondary")"
+                style="border-radius:20px; font-size:0.75rem; padding:4px 12px;"
+                @onclick="() => SetPriority(p)">
+            @p
+        </button>
+    }
+</div>
+
+<!-- Filter Bar -->
+<div class="d-flex gap-2 mb-3">
+    <select class="form-select" style="max-width:140px;" @bind="_statusFilter" @bind:after="LoadJobs">
+        <option value="">All Status</option>
+        @foreach (var s in Enum.GetValues<JobStatus>())
+        {
+            <option value="@s">@s</option>
+        }
+    </select>
+    <input type="search" class="form-control" placeholder="Search jobs…" @bind="_search"
+           @bind:event="oninput" @bind:after="LoadJobs" />
+    <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadJobs" title="Refresh">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+</div>
+
+@if (!_loading)
+{
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted" style="font-size:0.75rem;">@_jobs.Count job@(_jobs.Count != 1 ? "s" : "") found</span>
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem; padding:2px 8px; border-radius:12px;" @onclick="ToggleSort">
+            <i class="bi @(_sortMode == "priority" ? "bi-exclamation-circle" : _sortMode == "newest" ? "bi-sort-down" : "bi-sort-up") me-1"></i>@SortLabel()
+        </button>
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_jobs.Any())
+{
+    @foreach (var job in SortedJobs)
+    {
+        <div class="mobile-card" @onclick="() => GoToJob(job.Id)">
+            <div class="mobile-card-header">
+                <div>
+                    <span class="priority-dot priority-@job.Priority.ToString().ToLower()"></span>
+                    <span class="card-title">@(job.Title ?? job.JobNumber)</span>
+                </div>
+                <div class="d-flex align-items-center gap-1">
+                    @if (job.ScheduledDate.HasValue)
+                    {
+                        <span class="badge bg-@RelativeDateColor(job.ScheduledDate.Value)" style="font-size:0.6rem;">@RelativeDateLabel(job.ScheduledDate.Value)</span>
+                    }
+                    <span class="badge-status badge bg-@StatusColor(job.Status)">@job.Status</span>
+                </div>
+            </div>
+            <p class="card-subtitle mb-1">
+                <i class="bi bi-person me-1"></i>@(job.CustomerName ?? "—")
+            </p>
+            <p class="card-subtitle mb-0">
+                <i class="bi bi-geo-alt me-1"></i>@(job.SiteAddress ?? "No address")
+            </p>
+            @if (job.ScheduledDate.HasValue)
+            {
+                <p class="card-subtitle mt-1 mb-0">
+                    <i class="bi bi-calendar3 me-1"></i>@job.ScheduledDate.Value.ToString("MMM dd")
+                    @if (job.ScheduledTime.HasValue)
+                    {
+                        <span> at @job.ScheduledTime.Value.ToString(@"hh\:mm")</span>
+                    }
+                    @if (job.EstimatedDuration.HasValue)
+                    {
+                        <span class="badge bg-light text-dark ms-2" style="font-size:0.65rem;">@job.EstimatedDuration.Value.ToString("0.#")h est.</span>
+                    }
+                </p>
+            }
+            else if (job.EstimatedDuration.HasValue)
+            {
+                <p class="card-subtitle mt-1 mb-0">
+                    <i class="bi bi-clock me-1"></i>@job.EstimatedDuration.Value.ToString("0.#")h estimated
+                </p>
+            }
+
+            <div class="swipe-actions">
+                @if (job.Status == JobStatus.Scheduled)
+                {
+                    <button class="btn btn-outline-primary" @onclick:stopPropagation="true"
+                            @onclick="() => ChangeStatus(job.Id, JobStatus.EnRoute)">
+                        <i class="bi bi-truck me-1"></i>En Route
+                    </button>
+                }
+                else if (job.Status == JobStatus.EnRoute)
+                {
+                    <button class="btn btn-outline-success" @onclick:stopPropagation="true"
+                            @onclick="() => ChangeStatus(job.Id, JobStatus.OnSite)">
+                        <i class="bi bi-pin-map me-1"></i>On Site
+                    </button>
+                }
+                else if (job.Status == JobStatus.OnSite || job.Status == JobStatus.InProgress)
+                {
+                    <button class="btn btn-outline-success" @onclick:stopPropagation="true"
+                            @onclick="() => ChangeStatus(job.Id, JobStatus.Completed)">
+                        <i class="bi bi-check-circle me-1"></i>Complete
+                    </button>
+                }
+            </div>
+        </div>
+    }
+}
+else
+{
+    <div class="empty-state">
+        <i class="bi bi-wrench-adjustable d-block"></i>
+        <p>No jobs found</p>
+    </div>
+}
+
+@code {
+private int _employeeId;
+private List<MobileJobCard> _jobs = [];
+private bool _loading = true;
+private string _search = string.Empty;
+private string _statusFilter = string.Empty;
+private string _priorityFilter = "All";
+private string _sortMode = "date";
+private readonly string[] _priorities = ["All", "Emergency", "High", "Normal", "Low"];
+
+    private IEnumerable<MobileJobCard> SortedJobs => _sortMode switch
+    {
+        "newest" => _jobs.OrderByDescending(j => j.ScheduledDate).ThenByDescending(j => j.ScheduledTime),
+        "priority" => _jobs.OrderBy(j => j.Priority).ThenBy(j => j.ScheduledDate),
+        _ => _jobs.OrderBy(j => j.ScheduledDate).ThenBy(j => j.ScheduledTime)
+    };
+
+    private void ToggleSort()
+    {
+        _sortMode = _sortMode switch
+        {
+            "date" => "newest",
+            "newest" => "priority",
+            _ => "date"
+        };
+    }
+
+    private string SortLabel() => _sortMode switch
+    {
+        "newest" => "Newest",
+        "priority" => "Priority",
+        _ => "Date"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+        await LoadJobs();
+    }
+
+    private void SetPriority(string priority)
+    {
+        _priorityFilter = priority;
+        _ = LoadJobs();
+    }
+
+    private async Task LoadJobs()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        JobStatus? status = Enum.TryParse<JobStatus>(_statusFilter, out var parsed) ? parsed : null;
+        JobPriority? priority = _priorityFilter != "All" && Enum.TryParse<JobPriority>(_priorityFilter, out var pp) ? pp : null;
+
+        var filter = new MobileJobFilter
+        {
+            Search = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Status = status,
+            Priority = priority
+        };
+
+        _jobs = await JobService.GetAssignedJobsAsync(_employeeId, filter);
+        _loading = false;
+    }
+
+    private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
+
+    private async Task ChangeStatus(int jobId, JobStatus newStatus)
+    {
+        await JobService.UpdateJobStatusAsync(jobId, newStatus);
+        await LoadJobs();
+    }
+
+    private static string StatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite => "warning",
+        JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        JobStatus.Cancelled => "secondary",
+        _ => "secondary"
+    };
+
+    private static string RelativeDateLabel(DateTime date)
+    {
+        var diff = (date.Date - DateTime.UtcNow.Date).Days;
+        return diff switch
+        {
+            0 => "Today",
+            1 => "Tomorrow",
+            -1 => "Yesterday",
+            > 1 => $"In {diff}d",
+            _ => $"{-diff}d ago"
+        };
+    }
+
+    private static string RelativeDateColor(DateTime date)
+    {
+        var diff = (date.Date - DateTime.UtcNow.Date).Days;
+        return diff switch
+        {
+            0 => "primary",
+            1 or 2 or 3 => "info",
+            > 3 => "light text-dark",
+            -1 => "warning",
+            _ => "danger"
+        };
+    }
+}

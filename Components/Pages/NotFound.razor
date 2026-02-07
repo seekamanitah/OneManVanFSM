@@ -1,0 +1,22 @@
+﻿@page "/not-found"
+@inject NavigationManager Nav
+
+<div class="text-center" style="padding:3rem 1rem;">
+    <i class="bi bi-compass" style="font-size:4rem; color:var(--primary); opacity:0.5;"></i>
+    <h5 class="fw-bold mt-3 mb-1">Page Not Found</h5>
+    <p class="text-muted mb-4" style="font-size:0.9rem;">
+        Sorry, the content you're looking for doesn't exist or has been moved.
+    </p>
+
+    <div class="d-flex flex-column gap-2" style="max-width:260px; margin:0 auto;">
+        <button class="btn btn-primary" @onclick='() => Nav.NavigateTo("/")'>
+            <i class="bi bi-house-door me-1"></i>Go to Dashboard
+        </button>
+        <button class="btn btn-outline-secondary" @onclick='() => Nav.NavigateTo("/jobs")'>
+            <i class="bi bi-wrench-adjustable me-1"></i>View Jobs
+        </button>
+        <button class="btn btn-outline-secondary" @onclick='() => Nav.NavigateTo("/search")'>
+            <i class="bi bi-search me-1"></i>Search
+        </button>
+    </div>
+</div>

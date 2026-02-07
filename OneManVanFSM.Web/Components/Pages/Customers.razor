@@ -1,0 +1,891 @@
+@page "/customers"
+@page "/customers/new"
+@page "/customers/{Id:int}"
+@page "/customers/{Id:int}/edit"
+@inject ICustomerService CustomerService
+@inject ISiteService SiteService
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@rendermode InteractiveServer
+@implements IDisposable
+
+<PageTitle>@(_pageTitle) - OneManVanFSM</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Loading...</p>
+    </div>
+}
+else if (_view == View.List)
+{
+    @* ===== LIST VIEW ===== *@
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-people-fill me-2"></i>Customers</h4>
+        <a href="customers/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Customer</a>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-5">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Search name, email, phone..."
+                               @bind="_filter.Search" @bind:event="oninput" @bind:after="ReloadList" />
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select form-select-sm" @bind="_filterType" @bind:after="OnTypeFilterChanged">
+                        <option value="">All Types</option>
+                        <option value="Individual">Individual</option>
+                        <option value="Company">Company</option>
+                        <option value="Landlord">Landlord</option>
+                    </select>
+                </div>
+                <div class="col-md-4 text-end text-muted small">
+                    @_customers.Count customer@(_customers.Count != 1 ? "s" : "")
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (_customers.Count == 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-people" style="font-size: 3rem;"></i>
+                <p class="mt-2 mb-1">No customers found.</p>
+                <a href="customers/new" class="btn btn-outline-primary btn-sm mt-2">Add Your First Customer</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th role="button" @onclick='() => ToggleSort("Name")'>
+                                Name <i class="bi bi-arrow-down-up text-muted small"></i>
+                            </th>
+                            <th>Type</th>
+                            <th class="d-none d-md-table-cell">Contact</th>
+                            <th class="text-center d-none d-lg-table-cell">Sites</th>
+                            <th class="text-center d-none d-lg-table-cell">Assets</th>
+                            <th class="text-center d-none d-md-table-cell">Open Jobs</th>
+                            <th class="text-end d-none d-lg-table-cell">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var c in _customers)
+                        {
+                            <tr role="button" @onclick="() => GoToDetail(c.Id)">
+                                <td>
+                                    <span class="fw-semibold">@c.Name</span>
+                                    @if (!string.IsNullOrEmpty(c.CompanyName))
+                                    {
+                                        <br /><small class="text-muted">@c.CompanyName</small>
+                                    }
+                                </td>
+                                <td>
+                                    <span class="badge @TypeBadgeClass(c.Type)">@c.Type</span>
+                                </td>
+                                <td class="d-none d-md-table-cell">
+                                    <small>
+                                        @if (!string.IsNullOrEmpty(c.PrimaryPhone))
+                                        {
+                                            <span><i class="bi bi-telephone me-1"></i>@c.PrimaryPhone</span><br />
+                                        }
+                                        @if (!string.IsNullOrEmpty(c.PrimaryEmail))
+                                        {
+                                            <span><i class="bi bi-envelope me-1"></i>@c.PrimaryEmail</span>
+                                        }
+                                    </small>
+                                </td>
+                                <td class="text-center d-none d-lg-table-cell">@c.SiteCount</td>
+                                <td class="text-center d-none d-lg-table-cell">@c.AssetCount</td>
+                                <td class="text-center d-none d-md-table-cell">
+                                    @if (c.OpenJobCount > 0)
+                                    {
+                                        <span class="badge bg-primary">@c.OpenJobCount</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">0</span>
+                                    }
+                                </td>
+                                <td class="text-end d-none d-lg-table-cell">
+                                    @if (c.OutstandingBalance > 0)
+                                    {
+                                        <span class="text-danger fw-semibold">@c.OutstandingBalance.ToString("C")</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">$0.00</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+else if (_view == View.Detail && _detail is not null)
+{
+    @* ===== DETAIL VIEW ===== *@
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => Navigation.NavigateTo("customers")'>
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <h4 class="mb-0">
+                <i class="bi bi-person-fill me-2"></i>@_detail.Name
+                <span class="badge @TypeBadgeClass(_detail.Type) ms-2 fs-6">@_detail.Type</span>
+            </h4>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                <i class="bi bi-plus-lg me-1"></i>Actions
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="customers/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Customer</a></li>
+                <li><a class="dropdown-item" href="jobs/new?customerId=@_detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                <li><a class="dropdown-item" href="estimates/new?customerId=@_detail.Id"><i class="bi bi-calculator me-2"></i>New Estimate</a></li>
+                @if (!string.IsNullOrEmpty(_detail.PrimaryEmail))
+                {
+                    <li><button class="dropdown-item" @onclick="EmailCustomer"><i class="bi bi-envelope me-2"></i>Email Customer</button></li>
+                }
+                <li><hr class="dropdown-divider" /></li>
+                <li><button class="dropdown-item text-danger" @onclick="ArchiveCustomer"><i class="bi bi-archive me-2"></i>Archive</button></li>
+            </ul>
+        </div>
+    </div>
+
+    @* Contact Info Card *@
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h6 class="card-title text-muted"><i class="bi bi-person-lines-fill me-1"></i>Contact Information</h6>
+            <div class="row">
+                <div class="col-md-6">
+                    @if (!string.IsNullOrEmpty(_detail.PrimaryPhone))
+                    {
+                        <div class="mb-2"><i class="bi bi-telephone me-2 text-muted"></i>@_detail.PrimaryPhone</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detail.SecondaryPhone))
+                    {
+                        <div class="mb-2"><i class="bi bi-telephone me-2 text-muted"></i>@_detail.SecondaryPhone <small class="text-muted">(secondary)</small></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detail.PrimaryEmail))
+                    {
+                        <div class="mb-2"><i class="bi bi-envelope me-2 text-muted"></i>@_detail.PrimaryEmail</div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detail.PreferredContactMethod))
+                    {
+                        <div class="mb-2"><i class="bi bi-chat-dots me-2 text-muted"></i>Prefers: <span class="badge bg-light text-dark border">@_detail.PreferredContactMethod</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detail.CompanyName))
+                    {
+                        <div class="mb-2"><i class="bi bi-building me-2 text-muted"></i>@_detail.CompanyName</div>
+                    }
+                </div>
+                <div class="col-md-6">
+                    @{ var addr = FormatAddress(_detail); }
+                    @if (!string.IsNullOrEmpty(addr))
+                    {
+                        <div class="mb-2"><i class="bi bi-geo-alt me-2 text-muted"></i>@addr</div>
+                    }
+                    <div class="mb-2"><i class="bi bi-calendar me-2 text-muted"></i>Customer since @_detail.SinceDate.ToString("MMM yyyy")</div>
+                    @if (_detail.CreditLimit > 0)
+                    {
+                        <div class="mb-2"><i class="bi bi-credit-card me-2 text-muted"></i>Credit Limit: @_detail.CreditLimit.ToString("C")</div>
+                    }
+                    @if (_detail.BalanceOwed > 0)
+                    {
+                        <div class="mb-2"><i class="bi bi-cash me-2 text-danger"></i><strong>Balance Owed:</strong> <span class="text-danger">@_detail.BalanceOwed.ToString("C")</span></div>
+                    }
+                    @if (_detail.TaxExempt)
+                    {
+                        <div class="mb-2"><i class="bi bi-shield-check me-2 text-success"></i><span class="badge bg-success">Tax Exempt</span></div>
+                    }
+                    @if (!string.IsNullOrEmpty(_detail.ReferralSource))
+                    {
+                        <div class="mb-2"><i class="bi bi-megaphone me-2 text-muted"></i>Referral: @_detail.ReferralSource</div>
+                    }
+                </div>
+            </div>
+            @if (!string.IsNullOrEmpty(_detail.Notes))
+            {
+                <div class="mt-2 p-2 bg-light rounded small">@_detail.Notes</div>
+            }
+            @if (!string.IsNullOrEmpty(_detail.Tags))
+            {
+                <div class="mt-2">
+                    @foreach (var tag in _detail.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    {
+                        <span class="badge bg-light text-dark border me-1"><i class="bi bi-tag me-1"></i>@tag</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    @* Record Info *@
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
+                    <p class="mb-1 small"><strong>Created:</strong> @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                    <p class="mb-0 small"><strong>Updated:</strong> @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @* Tabbed Sections *@
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "sites" ? "active" : "")" @onclick='() => _activeTab = "sites"'>
+                Sites <span class="badge bg-secondary ms-1">@_detail.Sites.Count</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "assets" ? "active" : "")" @onclick='() => _activeTab = "assets"'>
+                Assets <span class="badge bg-secondary ms-1">@_detail.Assets.Count</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "jobs" ? "active" : "")" @onclick='() => _activeTab = "jobs"'>
+                Jobs <span class="badge bg-secondary ms-1">@(_detail.RecentJobs.Count + _detail.UpcomingJobs.Count)</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "financials" ? "active" : "")" @onclick='() => _activeTab = "financials"'>
+                Financials <span class="badge bg-secondary ms-1">@(_detail.OutstandingInvoices.Count + _detail.ServiceAgreements.Count)</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(_activeTab == "notes" ? "active" : "")" @onclick='() => _activeTab = "notes"'>
+                Notes <span class="badge bg-secondary ms-1">@_detail.RecentNotes.Count</span>
+            </button>
+        </li>
+    </ul>
+
+    @* Tab Content *@
+    @if (_activeTab == "sites")
+    {
+        <div class="card border-0 shadow-sm">
+            @if (_detail.Sites.Count == 0)
+            {
+                <div class="card-body text-center py-4 text-muted">
+                    <i class="bi bi-geo-alt" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">No sites yet. <a href="sites/new?customerId=@_detail.Id">Add one?</a></p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Site</th><th>Address</th><th class="text-center">Assets</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var s in _detail.Sites)
+                            {
+                                <tr role="button" @onclick="() => GoToSite(s.Id)">
+                                    <td class="fw-semibold">@s.Name</td>
+                                    <td><small class="text-muted">@FormatSiteAddress(s)</small></td>
+                                    <td class="text-center">@s.AssetCount</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (_activeTab == "assets")
+    {
+        <div class="card border-0 shadow-sm">
+            @if (_detail.Assets.Count == 0)
+            {
+                <div class="card-body text-center py-4 text-muted">
+                    <i class="bi bi-cpu" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">No assets tracked for this customer.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Asset</th><th>Type</th><th>Site</th><th>Installed</th><th>Warranty</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var a in _detail.Assets)
+                            {
+                                <tr role="button" @onclick="() => GoToAsset(a.Id)">
+                                    <td class="fw-semibold">@a.Name</td>
+                                    <td><small class="text-muted">@(a.AssetType ?? "—")</small></td>
+                                    <td><small>@(a.SiteName ?? "—")</small></td>
+                                    <td><small>@(a.InstallDate?.ToString("MMM yyyy") ?? "—")</small></td>
+                                    <td>
+                                        @if (a.WarrantyExpiry.HasValue)
+                                        {
+                                            var expired = a.WarrantyExpiry.Value < DateTime.UtcNow;
+                                            <span class="badge @(expired ? "bg-danger" : "bg-success")">
+                                                @(expired ? "Expired" : a.WarrantyExpiry.Value.ToString("MMM yyyy"))
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <small class="text-muted">—</small>
+                                        }
+                                    </td>
+                                    <td><span class="badge @AssetStatusBadge(a.Status)">@a.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (_activeTab == "jobs")
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-clock me-1"></i>Upcoming Jobs</h6>
+            </div>
+            @if (_detail.UpcomingJobs.Count == 0)
+            {
+                <div class="card-body text-center py-3 text-muted small">No upcoming jobs.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Job #</th><th>Title</th><th>Site</th><th>Date</th><th>Tech</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var j in _detail.UpcomingJobs)
+                            {
+                                <tr role="button" @onclick="() => GoToJob(j.Id)">
+                                    <td class="fw-semibold">@j.JobNumber</td>
+                                    <td>@(j.Title ?? "—")</td>
+                                    <td><small>@(j.SiteName ?? "—")</small></td>
+                                    <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "TBD")</small></td>
+                                    <td><small>@(j.TechnicianName ?? "Unassigned")</small></td>
+                                    <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-check-circle me-1"></i>Recent Jobs</h6>
+            </div>
+            @if (_detail.RecentJobs.Count == 0)
+            {
+                <div class="card-body text-center py-3 text-muted small">No past jobs.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Job #</th><th>Title</th><th>Site</th><th>Date</th><th>Tech</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var j in _detail.RecentJobs)
+                            {
+                                <tr role="button" @onclick="() => GoToJob(j.Id)">
+                                    <td class="fw-semibold">@j.JobNumber</td>
+                                    <td>@(j.Title ?? "—")</td>
+                                    <td><small>@(j.SiteName ?? "—")</small></td>
+                                    <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "—")</small></td>
+                                    <td><small>@(j.TechnicianName ?? "—")</small></td>
+                                    <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (_activeTab == "financials")
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-receipt me-1"></i>Outstanding Invoices</h6>
+            </div>
+            @if (_detail.OutstandingInvoices.Count == 0)
+            {
+                <div class="card-body text-center py-3 text-muted small">No outstanding invoices.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Invoice #</th><th>Status</th><th class="text-end">Total</th><th class="text-end">Balance Due</th><th>Due Date</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var inv in _detail.OutstandingInvoices)
+                            {
+                                <tr role="button" @onclick="() => GoToInvoice(inv.Id)">
+                                    <td class="fw-semibold">@inv.InvoiceNumber</td>
+                                    <td><span class="badge @InvoiceStatusBadge(inv.Status)">@inv.Status</span></td>
+                                    <td class="text-end">@inv.Total.ToString("C")</td>
+                                    <td class="text-end text-danger fw-semibold">@inv.BalanceDue.ToString("C")</td>
+                                    <td><small>@(inv.DueDate?.ToString("MMM dd, yyyy") ?? "—")</small></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h6 class="mb-0"><i class="bi bi-file-earmark-check me-1"></i>Service Agreements</h6>
+            </div>
+            @if (_detail.ServiceAgreements.Count == 0)
+            {
+                <div class="card-body text-center py-3 text-muted small">No service agreements.</div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr><th>Agreement</th><th>Coverage</th><th>Period</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var sa in _detail.ServiceAgreements)
+                            {
+                                <tr role="button" @onclick="() => GoToAgreement(sa.Id)">
+                                    <td class="fw-semibold">@sa.Title</td>
+                                    <td><small>@(sa.AgreementType ?? "—")</small></td>
+                                    <td><small>@(sa.StartDate?.ToString("MMM yyyy")) – @(sa.EndDate?.ToString("MMM yyyy"))</small></td>
+                                    <td>
+                                        <span class="badge @(sa.IsActive ? "bg-success" : "bg-secondary")">
+                                            @(sa.IsActive ? "Active" : "Inactive")
+                                        </span>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    }
+    else if (_activeTab == "notes")
+    {
+        <div class="card border-0 shadow-sm">
+            @if (_detail.RecentNotes.Count == 0)
+            {
+                <div class="card-body text-center py-4 text-muted">
+                    <i class="bi bi-sticky" style="font-size: 2rem;"></i>
+                    <p class="mt-2 mb-0">No notes yet. <a href="quicknotes/new?customerId=@_detail.Id">Add one?</a></p>
+                </div>
+            }
+            else
+            {
+                <div class="list-group list-group-flush">
+                    @foreach (var n in _detail.RecentNotes)
+                    {
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <small class="text-muted">@(n.Category ?? "General")</small>
+                                <small class="text-muted">@n.CreatedAt.ToString("MMM dd, yyyy")</small>
+                            </div>
+                            <p class="mb-0 mt-1">@n.Content</p>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+}
+else if (_view == View.Form)
+{
+    @* ===== CREATE / EDIT FORM ===== *@
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left"></i>
+        </button>
+        <h4 class="mb-0"><i class="bi bi-person-fill me-2"></i>@(Id.HasValue ? "Edit" : "New") Customer</h4>
+    </div>
+
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="_editModel" OnValidSubmit="SaveCustomer">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger small" />
+
+                @if (!string.IsNullOrEmpty(_formError))
+                {
+                    <div class="alert alert-danger py-2 small">@_formError</div>
+                }
+
+                <div class="row">
+                    <div class="col-md-8 mb-3">
+                        <label class="form-label">Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="_editModel.Name" class="form-control" placeholder="Customer name" />
+                        <ValidationMessage For="() => _editModel.Name" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Type</label>
+                        <InputSelect @bind-Value="_editModel.Type" class="form-select">
+                            <option value="@CustomerType.Individual">Individual</option>
+                            <option value="@CustomerType.Company">Company</option>
+                            <option value="@CustomerType.Landlord">Landlord</option>
+                        </InputSelect>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Phone</label>
+                        <InputText @bind-Value="_editModel.PrimaryPhone" class="form-control" placeholder="(555) 123-4567" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="_editModel.PrimaryEmail" class="form-control" placeholder="email@example.com" />
+                        <ValidationMessage For="() => _editModel.PrimaryEmail" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Secondary Phone</label>
+                        <InputText @bind-Value="_editModel.SecondaryPhone" class="form-control" placeholder="(555) 987-6543" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Preferred Contact</label>
+                        <InputSelect @bind-Value="_editModel.PreferredContactMethod" class="form-select">
+                            <option value="">No Preference</option>
+                            <option value="Phone">Phone</option>
+                            <option value="Email">Email</option>
+                            <option value="Text">Text</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Referral Source</label>
+                        <InputText @bind-Value="_editModel.ReferralSource" class="form-control" placeholder="Word of Mouth, Google..." />
+                    </div>
+                </div>
+
+                <hr />
+
+                <div class="mb-3">
+                    <label class="form-label">Address</label>
+                    <InputText @bind-Value="_editModel.Address" class="form-control" placeholder="Street address" />
+                </div>
+                <div class="row">
+                    <div class="col-md-5 mb-3">
+                        <label class="form-label">City</label>
+                        <InputText @bind-Value="_editModel.City" class="form-control" />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">State</label>
+                        <InputText @bind-Value="_editModel.State" class="form-control" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Zip</label>
+                        <InputText @bind-Value="_editModel.Zip" class="form-control" />
+                    </div>
+                </div>
+
+                <hr />
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Credit Limit</label>
+                        <InputNumber @bind-Value="_editModel.CreditLimit" class="form-control" />
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <label class="form-label">Company</label>
+                        <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
+                            <option value="">— No Company —</option>
+                            @foreach (var co in _companies)
+                            {
+                                <option value="@co.Id">@co.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-3 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_editModel.TaxExempt" class="form-check-input" id="taxExemptCheck" />
+                            <label class="form-check-label" for="taxExemptCheck">Tax Exempt</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Tags</label>
+                    <InputText @bind-Value="_editModel.Tags" class="form-control" placeholder="VIP, Warranty Customer, Propane (comma separated)" />
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Notes</label>
+                    <InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="3" placeholder="Internal notes about this customer..." />
+                </div>
+
+                <div class="d-flex justify-content-end gap-2">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Cancel</button>
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                        @if (_saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        @(Id.HasValue ? "Save Changes" : "Create Customer")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private enum View { List, Detail, Form }
+    private View _view = View.List;
+    private bool _loading = true;
+    private string _pageTitle = "Customers";
+    private string _activeTab = "sites";
+
+    // List
+    private List<CustomerListItem> _customers = [];
+    private CustomerFilter _filter = new();
+    private string _filterType = "";
+
+    // Detail
+    private CustomerDetail? _detail;
+
+    // Form
+    private CustomerEditModel _editModel = new();
+    private List<CompanyOption> _companies = [];
+    private string? _formError;
+    private bool _saving;
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        _loading = true;
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var path = uri.AbsolutePath.TrimEnd('/').ToLower();
+
+        if (path.EndsWith("/new") || path.EndsWith("/edit"))
+        {
+            _view = View.Form;
+            _pageTitle = Id.HasValue ? "Edit Customer" : "New Customer";
+            _companies = await SiteService.GetCompaniesForDropdownAsync();
+            if (Id.HasValue)
+            {
+                var detail = await CustomerService.GetCustomerAsync(Id.Value);
+                if (detail is not null)
+                {
+                    _editModel = new CustomerEditModel
+                    {
+                        Name = detail.Name,
+                        Type = detail.Type,
+                        PrimaryPhone = detail.PrimaryPhone,
+                        SecondaryPhone = detail.SecondaryPhone,
+                        PrimaryEmail = detail.PrimaryEmail,
+                        PreferredContactMethod = detail.PreferredContactMethod,
+                        ReferralSource = detail.ReferralSource,
+                        Address = detail.Address,
+                        City = detail.City,
+                        State = detail.State,
+                        Zip = detail.Zip,
+                        CreditLimit = detail.CreditLimit,
+                        TaxExempt = detail.TaxExempt,
+                        Tags = detail.Tags,
+                        Notes = detail.Notes,
+                        CompanyId = detail.CompanyId
+                    };
+                }
+            }
+            else
+            {
+                _editModel = new CustomerEditModel();
+            }
+        }
+        else if (Id.HasValue)
+        {
+            _view = View.Detail;
+            _detail = await CustomerService.GetCustomerAsync(Id.Value);
+            _pageTitle = _detail?.Name ?? "Customer";
+            _activeTab = "sites";
+        }
+        else
+        {
+            _view = View.List;
+            _pageTitle = "Customers";
+            await ReloadList();
+        }
+
+        _loading = false;
+    }
+
+    public void Dispose()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task ReloadList()
+    {
+        _customers = await CustomerService.GetCustomersAsync(_filter);
+    }
+
+    private void OnTypeFilterChanged()
+    {
+        _filter.Type = string.IsNullOrEmpty(_filterType) ? null : Enum.Parse<CustomerType>(_filterType);
+        _ = ReloadList();
+    }
+
+    private void ToggleSort(string column)
+    {
+        if (_filter.SortBy == column)
+            _filter.SortDescending = !_filter.SortDescending;
+        else
+        {
+            _filter.SortBy = column;
+            _filter.SortDescending = false;
+        }
+        _ = ReloadList();
+    }
+
+    private void GoToDetail(int id) => Navigation.NavigateTo($"customers/{id}");
+    private void GoToSite(int id) => Navigation.NavigateTo($"sites/{id}");
+    private void GoToAsset(int id) => Navigation.NavigateTo($"assets/{id}");
+    private void GoToJob(int id) => Navigation.NavigateTo($"jobs/{id}");
+    private void GoToInvoice(int id) => Navigation.NavigateTo($"financials/{id}");
+    private void GoToAgreement(int id) => Navigation.NavigateTo($"serviceagreements/{id}");
+
+    private void GoBack()
+    {
+        if (Id.HasValue)
+            Navigation.NavigateTo($"customers/{Id.Value}");
+        else
+            Navigation.NavigateTo("customers");
+    }
+
+    private async Task SaveCustomer()
+    {
+        _formError = null;
+        _saving = true;
+
+        try
+        {
+            if (Id.HasValue)
+            {
+                await CustomerService.UpdateCustomerAsync(Id.Value, _editModel);
+                Navigation.NavigateTo($"customers/{Id.Value}");
+            }
+            else
+            {
+                var created = await CustomerService.CreateCustomerAsync(_editModel);
+                Navigation.NavigateTo($"customers/{created.Id}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task ArchiveCustomer()
+    {
+        if (_detail is not null)
+        {
+            await CustomerService.ArchiveCustomerAsync(_detail.Id);
+            Navigation.NavigateTo("customers");
+        }
+    }
+
+    // Helper methods
+    private static string TypeBadgeClass(CustomerType type) => type switch
+    {
+        CustomerType.Individual => "bg-info",
+        CustomerType.Company => "bg-primary",
+        CustomerType.Landlord => "bg-warning text-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string AssetStatusBadge(AssetStatus status) => status switch
+    {
+        AssetStatus.Active => "bg-success",
+        AssetStatus.MaintenanceNeeded => "bg-warning text-dark",
+        AssetStatus.Retired => "bg-secondary",
+        AssetStatus.Decommissioned => "bg-dark",
+        _ => "bg-secondary"
+    };
+
+    private static string JobStatusBadge(JobStatus status) => status switch
+    {
+        JobStatus.Completed => "bg-success",
+        JobStatus.Cancelled => "bg-danger",
+        JobStatus.InProgress or JobStatus.OnSite => "bg-primary",
+        JobStatus.Scheduled or JobStatus.EnRoute => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private static string InvoiceStatusBadge(InvoiceStatus status) => status switch
+    {
+        InvoiceStatus.Overdue => "bg-danger",
+        InvoiceStatus.Sent or InvoiceStatus.Invoiced => "bg-warning text-dark",
+        InvoiceStatus.Draft => "bg-secondary",
+        _ => "bg-secondary"
+    };
+
+    private static string FormatAddress(CustomerDetail d)
+    {
+        var parts = new[] { d.Address, d.City, d.State, d.Zip }.Where(p => !string.IsNullOrWhiteSpace(p));
+        return string.Join(", ", parts);
+    }
+
+    private static string FormatSiteAddress(SiteSummary s)
+    {
+        var parts = new[] { s.Address, s.City, s.State }.Where(p => !string.IsNullOrWhiteSpace(p));
+        return string.Join(", ", parts);
+    }
+
+    private async Task EmailCustomer()
+    {
+        if (_detail is null || string.IsNullOrEmpty(_detail.PrimaryEmail)) return;
+        var subject = Uri.EscapeDataString($"OneManVanFSM — {_detail.Name}");
+        await JS.InvokeVoidAsync("eval", $"window.location.href='mailto:{_detail.PrimaryEmail}?subject={subject}'");
+    }
+}

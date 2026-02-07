@@ -1,0 +1,356 @@
+@page "/reports"
+@rendermode InteractiveServer
+@inject IReportService ReportSvc
+@inject NavigationManager Nav
+
+<PageTitle>Reports & Analytics - OneManVanFSM</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h4 class="mb-0"><i class="bi bi-graph-up me-2"></i>Reports & Analytics</h4>
+    <div class="d-flex gap-2">
+        <select class="form-select form-select-sm" style="width:auto" @bind="selectedPeriod" @bind:after="LoadKPIs">
+            @foreach (var p in Enum.GetValues<ReportPeriod>()) { <option value="@p">@FormatPeriod(p)</option> }
+        </select>
+    </div>
+</div>
+
+<ul class="nav nav-tabs mb-3">
+    <li class="nav-item"><a class="nav-link @(activeTab == "analytics" ? "active" : "")" href="javascript:void(0)" @onclick='() => activeTab = "analytics"'><i class="bi bi-bar-chart me-1"></i>Analytics</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab == "reports" ? "active" : "")" href="javascript:void(0)" @onclick='() => activeTab = "reports"'><i class="bi bi-file-earmark-bar-graph me-1"></i>Reports</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab == "audit" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToAudit"><i class="bi bi-shield-check me-1"></i>Audit Logs</a></li>
+</ul>
+
+@if (activeTab == "analytics")
+{
+    @if (kpis is null)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading analytics...</div>
+    }
+    else
+    {
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Revenue</small>
+                        <h4 class="mb-0 text-success">@kpis.RevenueTotal.ToString("C0")</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Outstanding A/R</small>
+                        <h4 class="mb-0 text-danger">@kpis.OutstandingAR.ToString("C0")</h4>
+                        <small class="text-muted">@kpis.UnpaidInvoiceCount invoices</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Jobs</small>
+                        <h4 class="mb-0 text-primary">@kpis.TotalJobs</h4>
+                        <small class="text-muted">@kpis.CompletedJobs completed · @kpis.OpenJobs open</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Hours Logged</small>
+                        <h4 class="mb-0 text-warning">@kpis.TotalHoursLogged.ToString("F1")</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Active Employees</small>
+                        <h4 class="mb-0">@kpis.ActiveEmployees</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Assets</small>
+                        <h4 class="mb-0">@kpis.TotalAssets</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Active Agreements</small>
+                        <h4 class="mb-0">@kpis.ActiveAgreements</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Pending Estimates</small>
+                        <h4 class="mb-0">@kpis.PendingEstimates</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Customers</small>
+                        <h4 class="mb-0">@kpis.TotalCustomers</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Documents</small>
+                        <h4 class="mb-0">@kpis.DocumentCount</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center">
+                        <small class="text-muted d-block">Inventory Items</small>
+                        <h4 class="mb-0">@kpis.InventoryItemCount</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}
+else if (activeTab == "reports")
+{
+    <div class="row g-3">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-cash-coin me-1 text-success"></i>Job Profitability</h6>
+                    <p class="text-muted small">Breakdown of materials, labor, and margins by job, site, or customer territory.</p>
+                    @if (kpis is not null) { <small class="text-muted">@kpis.CompletedJobs completed jobs available</small> }
+                    <div class="mt-2">
+                        <a href="/jobs" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Jobs</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-clock-history me-1 text-warning"></i>A/R Aging</h6>
+                    <p class="text-muted small">Outstanding invoices grouped by age (30/60/90+ days) with customer and site breakdowns.</p>
+                    @if (kpis is not null) { <small class="text-muted">@kpis.UnpaidInvoiceCount unpaid invoices · @kpis.OutstandingAR.ToString("C0") outstanding</small> }
+                    <div class="mt-2">
+                        <a href="/financials" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Financials</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-wrench me-1 text-info"></i>Asset Repair Trends</h6>
+                    <p class="text-muted small">Frequency and cost of repairs by asset type, site, or warranty status.</p>
+                    @if (kpis is not null) { <small class="text-muted">@kpis.TotalAssets assets tracked</small> }
+                    <div class="mt-2">
+                        <a href="/assets" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Assets</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-person-lines-fill me-1 text-primary"></i>Tech Performance</h6>
+                    <p class="text-muted small">Jobs completed, time logged, and efficiency metrics per technician.</p>
+                    @if (kpis is not null) { <small class="text-muted">@kpis.ActiveEmployees active techs · @kpis.TotalHoursLogged.ToString("F1") hours logged</small> }
+                    <div class="mt-2">
+                        <a href="/employees" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Employees</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-box-seam me-1 text-danger"></i>Inventory Usage</h6>
+                    <p class="text-muted small">Material consumption by product, job, and reorder recommendations.</p>
+                    @if (kpis is not null) { <small class="text-muted">@kpis.InventoryItemCount items in inventory</small> }
+                    <div class="mt-2">
+                        <a href="/inventory" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Inventory</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <h6><i class="bi bi-file-earmark-check me-1 text-secondary"></i>Agreement Renewals</h6>
+                    <p class="text-muted small">Service agreements expiring soon with visit usage and renewal trends.</p>
+                    @if (kpis is not null) { <small class="text-muted">@kpis.ActiveAgreements active agreements</small> }
+                    <div class="mt-2">
+                        <a href="/serviceagreements" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Agreements</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="alert alert-info mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Full report engine with CSV/PDF export and custom filters is under development. Use the links above to navigate to detailed views.</div>
+}
+else
+{
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search logs..." @bind="auditFilter.Search" @bind:event="oninput" @onkeyup="HandleAuditSearchKey" />
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="auditEntityType">
+                        <option value="">All Entities</option>
+                        <option value="Job">Job</option>
+                        <option value="Customer">Customer</option>
+                        <option value="Invoice">Invoice</option>
+                        <option value="Asset">Asset</option>
+                        <option value="Employee">Employee</option>
+                        <option value="Estimate">Estimate</option>
+                        <option value="Document">Document</option>
+                        <option value="Site">Site</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="auditAction">
+                        <option value="">All Actions</option>
+                        <option value="Created">Created</option>
+                        <option value="Updated">Updated</option>
+                        <option value="Deleted">Deleted</option>
+                        <option value="Viewed">Viewed</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <input type="date" class="form-control form-control-sm" @bind="auditDateFrom" />
+                </div>
+                <div class="col-md-2">
+                    <input type="date" class="form-control form-control-sm" @bind="auditDateTo" />
+                </div>
+                <div class="col-md-1">
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadAuditLogs"><i class="bi bi-search"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (auditLogs is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
+        }
+        else if (!auditLogs.Any())
+        {
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-shield-check" style="font-size:3rem;"></i>
+                <p class="mt-2">No audit logs found for the selected filters.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Timestamp</th><th>User</th><th>Action</th><th>Entity</th><th>ID</th><th>Details</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in auditLogs)
+                        {
+                            <tr>
+                                <td><small>@log.Timestamp.ToString("MMM dd, yyyy h:mm tt")</small></td>
+                                <td>@(log.UserName ?? "\u2014")</td>
+                                <td><span class="badge @GetActionBadge(log.Action)">@log.Action</span></td>
+                                <td>@log.EntityType</td>
+                                <td>@(log.EntityId?.ToString() ?? "\u2014")</td>
+                                <td><small class="text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block;">@(log.Details ?? "\u2014")</small></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <small class="text-muted">Page @auditFilter.Page of @totalAuditPages (@totalAuditCount total)</small>
+                <div>
+                    <button class="btn btn-outline-secondary btn-sm me-1" disabled="@(auditFilter.Page <= 1)" @onclick="PrevAuditPage"><i class="bi bi-chevron-left"></i></button>
+                    <button class="btn btn-outline-secondary btn-sm" disabled="@(auditFilter.Page >= totalAuditPages)" @onclick="NextAuditPage"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private string activeTab = "analytics";
+    private ReportPeriod selectedPeriod = ReportPeriod.ThisMonth;
+    private ReportKPIs? kpis;
+
+    private AuditLogFilter auditFilter = new();
+    private string auditEntityType = "";
+    private string auditAction = "";
+    private DateTime? auditDateFrom;
+    private DateTime? auditDateTo;
+    private List<AuditLogListItem>? auditLogs;
+    private int totalAuditCount;
+    private int totalAuditPages => Math.Max(1, (int)Math.Ceiling(totalAuditCount / (double)auditFilter.PageSize));
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadKPIs();
+    }
+
+    private async Task LoadKPIs()
+    {
+        kpis = await ReportSvc.GetKPIsAsync(selectedPeriod);
+    }
+
+    private async Task LoadAuditLogs()
+    {
+        auditFilter.EntityType = string.IsNullOrWhiteSpace(auditEntityType) ? null : auditEntityType;
+        auditFilter.Action = string.IsNullOrWhiteSpace(auditAction) ? null : auditAction;
+        auditFilter.DateFrom = auditDateFrom;
+        auditFilter.DateTo = auditDateTo;
+        totalAuditCount = await ReportSvc.GetAuditLogCountAsync(auditFilter);
+        auditLogs = await ReportSvc.GetAuditLogsAsync(auditFilter);
+    }
+
+    private async Task SwitchToAudit()
+    {
+        activeTab = "audit";
+        if (auditLogs is null) await LoadAuditLogs();
+    }
+
+    private async Task PrevAuditPage() { auditFilter.Page = Math.Max(1, auditFilter.Page - 1); await LoadAuditLogs(); }
+    private async Task NextAuditPage() { auditFilter.Page = Math.Min(totalAuditPages, auditFilter.Page + 1); await LoadAuditLogs(); }
+
+    private string GetActionBadge(string action) => action.ToLower() switch
+    {
+        "created" => "bg-success",
+        "updated" => "bg-primary",
+        "deleted" => "bg-danger",
+        "viewed" => "bg-info",
+        _ => "bg-secondary"
+    };
+
+    private string FormatPeriod(ReportPeriod p) => p switch
+    {
+        ReportPeriod.Today => "Today",
+        ReportPeriod.ThisWeek => "This Week",
+        ReportPeriod.ThisMonth => "This Month",
+        ReportPeriod.ThisQuarter => "This Quarter",
+        ReportPeriod.ThisYear => "This Year",
+        ReportPeriod.AllTime => "All Time",
+        _ => p.ToString()
+    };
+
+    private async Task HandleAuditSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadAuditLogs(); }
+}

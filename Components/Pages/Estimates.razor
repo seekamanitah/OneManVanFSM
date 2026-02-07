@@ -1,0 +1,333 @@
+@page "/estimates"
+@page "/estimates/{Id:int}"
+@inject IMobileEstimateService EstimateService
+@inject NavigationManager Nav
+
+@if (Id.HasValue && _detail != null)
+{
+    <!-- Estimate Detail View -->
+    <div class="mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="BackToList">
+            <i class="bi bi-arrow-left me-1"></i>Back to Estimates
+        </button>
+    </div>
+
+    <!-- Header Card -->
+    <div class="mobile-card">
+        <div class="mobile-card-header">
+            <div>
+                <span class="priority-dot priority-@_detail.Priority.ToString().ToLower()"></span>
+                <span class="card-title">@(_detail.Title ?? _detail.EstimateNumber)</span>
+            </div>
+            <span class="badge-status badge bg-@EstimateStatusColor(_detail.Status)">@_detail.Status</span>
+        </div>
+        <p class="card-subtitle mb-1"><strong>Estimate #:</strong> @_detail.EstimateNumber</p>
+        @if (_detail.TradeType != null)
+        {
+            <p class="card-subtitle mb-1"><strong>Trade:</strong> @_detail.TradeType</p>
+        }
+        @if (_detail.SystemType != null)
+        {
+            <p class="card-subtitle mb-1"><strong>System:</strong> @_detail.SystemType</p>
+        }
+        <p class="card-subtitle mb-1"><i class="bi bi-calendar3 me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</p>
+        @if (_detail.ExpiryDate.HasValue)
+        {
+            var isExpired = _detail.ExpiryDate.Value < DateTime.UtcNow;
+            <p class="card-subtitle mb-0 @(isExpired ? "text-danger" : "")">
+                <i class="bi bi-clock me-1"></i>@(isExpired ? "Expired" : "Expires") @_detail.ExpiryDate.Value.ToString("MMM dd, yyyy")
+            </p>
+        }
+    </div>
+
+    <!-- Customer & Site -->
+    @if (_detail.CustomerName != null || _detail.SiteAddress != null)
+    {
+        <div class="section-header">Customer & Site</div>
+        <div class="mobile-card">
+            @if (_detail.CustomerName != null)
+            {
+                <p class="mb-1" style="font-size:0.9rem;"><i class="bi bi-person me-2"></i><strong>@_detail.CustomerName</strong></p>
+            }
+            @if (_detail.CustomerPhone != null)
+            {
+                <p class="mb-1" style="font-size:0.85rem;">
+                    <i class="bi bi-telephone me-2"></i>
+                    <a href="tel:@_detail.CustomerPhone" style="text-decoration:none;">@_detail.CustomerPhone</a>
+                </p>
+            }
+            @if (_detail.SiteAddress != null)
+            {
+                <p class="mb-0" style="font-size:0.85rem;">
+                    <i class="bi bi-geo-alt me-2"></i>
+                    @if (_detail.SiteId.HasValue)
+                    {
+                        <a href="/sites/@_detail.SiteId" style="text-decoration:none;">@_detail.SiteAddress</a>
+                    }
+                    else
+                    {
+                        @_detail.SiteAddress
+                    }
+                </p>
+            }
+        </div>
+    }
+
+    <!-- Line Items -->
+    <div class="section-header">Line Items (@_detail.Lines.Count)</div>
+    @if (_detail.Lines.Any())
+    {
+        @foreach (var grp in _detail.Lines.GroupBy(l => l.Section ?? "General"))
+        {
+            <div class="mobile-card">
+                <div class="fw-semibold mb-2" style="font-size:0.85rem; color:var(--primary);">@grp.Key</div>
+                @foreach (var line in grp)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-1 material-row">
+                        <div style="flex:1; min-width:0;">
+                            <p class="mb-0" style="font-size:0.85rem;">@line.Description</p>
+                            @if (line.LineType != null)
+                            {
+                                <span class="badge bg-light text-dark" style="font-size:0.65rem;">@line.LineType</span>
+                            }
+                        </div>
+                        <div class="text-end" style="white-space:nowrap;">
+                            <span style="font-size:0.85rem; font-weight:600;">@line.LineTotal.ToString("C")</span>
+                            <div class="text-muted" style="font-size:0.7rem;">@line.Quantity × @line.UnitPrice.ToString("C")</div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="mobile-card text-center" style="color:#6c757d; font-size:0.85rem;">No line items</div>
+    }
+
+    <!-- Totals -->
+    <div class="section-header">Totals</div>
+    <div class="mobile-card">
+        <div class="d-flex justify-content-between mb-1" style="font-size:0.85rem;">
+            <span class="text-muted">Subtotal</span>
+            <span>@_detail.Subtotal.ToString("C")</span>
+        </div>
+        @if (_detail.MarkupPercent > 0)
+        {
+            <div class="d-flex justify-content-between mb-1" style="font-size:0.85rem;">
+                <span class="text-muted">Markup (@_detail.MarkupPercent%)</span>
+                <span>@((_detail.Subtotal * _detail.MarkupPercent / 100).ToString("C"))</span>
+            </div>
+        }
+        @if (_detail.TaxPercent > 0)
+        {
+            <div class="d-flex justify-content-between mb-1" style="font-size:0.85rem;">
+                <span class="text-muted">Tax (@_detail.TaxPercent%)</span>
+                <span>@((_detail.Subtotal * _detail.TaxPercent / 100).ToString("C"))</span>
+            </div>
+        }
+        <hr class="my-1" />
+        <div class="d-flex justify-content-between fw-bold" style="font-size:1rem;">
+            <span>Total</span>
+            <span>@_detail.Total.ToString("C")</span>
+        </div>
+        @if (_detail.DepositRequired.HasValue)
+        {
+            <div class="d-flex justify-content-between mt-1" style="font-size:0.85rem;">
+                <span class="text-muted">Deposit Required</span>
+                <span class="fw-semibold">@_detail.DepositRequired.Value.ToString("C")</span>
+            </div>
+        }
+    </div>
+
+    <!-- Notes -->
+    @if (_detail.Notes != null)
+    {
+        <div class="section-header">Notes</div>
+        <div class="mobile-card">
+            <p class="mb-0" style="font-size:0.85rem; white-space:pre-wrap;">@_detail.Notes</p>
+        </div>
+    }
+
+    <!-- Quick Links -->
+    <div class="section-header">Quick Links</div>
+    <div class="mobile-card">
+        <div class="d-flex flex-column gap-1">
+            @if (_detail.CustomerId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => GoToCustomer(_detail.CustomerId.Value)">
+                    <span style="font-size:0.9rem;"><i class="bi bi-person me-2 text-primary"></i>View Customer</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+            }
+            @if (_detail.SiteId.HasValue)
+            {
+                @if (_detail.CustomerId.HasValue)
+                {
+                    <hr class="my-0" />
+                }
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => GoToSite(_detail.SiteId.Value)">
+                    <span style="font-size:0.9rem;"><i class="bi bi-geo-alt me-2 text-primary"></i>View Site Details</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+            }
+        </div>
+    </div>
+}
+else if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (!Id.HasValue)
+{
+    <!-- Estimate List View -->
+    <div class="d-flex gap-2 mb-3">
+        <select class="form-select" style="max-width:130px;" @bind="_statusFilter" @bind:after="LoadEstimates">
+            <option value="">All Status</option>
+            @foreach (var s in Enum.GetValues<EstimateStatus>())
+            {
+                <option value="@s">@s</option>
+            }
+        </select>
+        <input type="search" class="form-control" placeholder="Search estimates…" @bind="_search"
+               @bind:event="oninput" @bind:after="LoadEstimates" />
+        <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadEstimates" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+
+    @if (_estimates.Any())
+    {
+        @foreach (var est in _estimates)
+        {
+            <div class="mobile-card" style="cursor:pointer;" @onclick="() => GoToDetail(est.Id)">
+                <div class="mobile-card-header">
+                    <div>
+                        <span class="priority-dot priority-@est.Priority.ToString().ToLower()"></span>
+                        <span class="card-title">@(est.Title ?? est.EstimateNumber)</span>
+                    </div>
+                    <span class="badge-status badge bg-@EstimateStatusColor(est.Status)">@est.Status</span>
+                </div>
+                <p class="card-subtitle mb-1"><strong>@est.EstimateNumber</strong></p>
+                @if (est.CustomerName != null)
+                {
+                    <p class="card-subtitle mb-1">
+                        <i class="bi bi-person me-1"></i>@est.CustomerName
+                    </p>
+                }
+                @if (est.SiteAddress != null)
+                {
+                    <p class="card-subtitle mb-1">
+                        <i class="bi bi-geo-alt me-1"></i>@est.SiteAddress
+                    </p>
+                }
+                <div class="d-flex justify-content-between align-items-center mt-1">
+                    <span class="fw-bold" style="font-size:0.95rem;">@est.Total.ToString("C")</span>
+                    <span class="text-muted" style="font-size:0.7rem;">
+                        @est.LineCount line@(est.LineCount != 1 ? "s" : "") · @est.CreatedAt.ToString("MMM dd")
+                    </span>
+                </div>
+                @if (est.ExpiryDate.HasValue)
+                {
+                    var isExpired = est.ExpiryDate.Value < DateTime.UtcNow;
+                    var isExpiringSoon = !isExpired && est.ExpiryDate.Value < DateTime.UtcNow.AddDays(7);
+                    @if (isExpired)
+                    {
+                        <span class="badge bg-danger mt-1" style="font-size:0.65rem;">Expired</span>
+                    }
+                    else if (isExpiringSoon)
+                    {
+                        <span class="badge bg-warning text-dark mt-1" style="font-size:0.65rem;">
+                            Expires @est.ExpiryDate.Value.ToString("MMM dd")
+                        </span>
+                    }
+                }
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-calculator d-block"></i>
+            <p>No estimates found</p>
+        </div>
+    }
+}
+else
+{
+    <div class="empty-state">
+        <i class="bi bi-exclamation-circle d-block"></i>
+        <p>Estimate not found</p>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private List<MobileEstimateCard> _estimates = [];
+    private MobileEstimateDetail? _detail;
+    private bool _loading = true;
+    private string _search = string.Empty;
+    private string _statusFilter = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (Id.HasValue)
+            await LoadDetail();
+        else
+            await LoadEstimates();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id.HasValue && (_detail == null || _detail.Id != Id.Value))
+            await LoadDetail();
+    }
+
+    private async Task LoadEstimates()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        EstimateStatus? status = Enum.TryParse<EstimateStatus>(_statusFilter, out var parsed) ? parsed : null;
+
+        var filter = new MobileEstimateFilter
+        {
+            Search = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Status = status,
+        };
+
+        _estimates = await EstimateService.GetEstimatesAsync(filter);
+        _loading = false;
+    }
+
+    private async Task LoadDetail()
+    {
+        _loading = true;
+        StateHasChanged();
+        _detail = await EstimateService.GetEstimateDetailAsync(Id!.Value);
+        _loading = false;
+    }
+
+    private void GoToDetail(int id) => Nav.NavigateTo("/estimates/" + id);
+    private void GoToCustomer(int id) => Nav.NavigateTo("/customers/" + id);
+    private void GoToSite(int id) => Nav.NavigateTo("/sites/" + id);
+
+    private void BackToList()
+    {
+        _detail = null;
+        Nav.NavigateTo("/estimates");
+    }
+
+    private static string EstimateStatusColor(EstimateStatus status) => status switch
+    {
+        EstimateStatus.Draft => "secondary",
+        EstimateStatus.Sent => "info",
+        EstimateStatus.Approved => "success",
+        EstimateStatus.Rejected => "danger",
+        EstimateStatus.Expired => "warning",
+        _ => "secondary"
+    };
+}

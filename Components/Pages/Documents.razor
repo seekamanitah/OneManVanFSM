@@ -1,0 +1,284 @@
+@page "/documents"
+@inject IMobileDocumentService DocumentService
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+<!-- Notes / Documents Toggle -->
+<div class="sub-tab-bar mb-3">
+    <button class="sub-tab" @onclick='() => Nav.NavigateTo("/notes")'>
+        <i class="bi bi-journal-text me-1"></i>Notes
+    </button>
+    <button class="sub-tab active">
+        <i class="bi bi-file-earmark-text me-1"></i>Docs
+    </button>
+</div>
+
+<!-- Filter Bar -->
+<div class="d-flex gap-2 mb-3">
+    <select class="form-select" style="max-width:140px;" @bind="_categoryFilter" @bind:after="LoadDocuments">
+        <option value="">All Types</option>
+        @foreach (var c in Enum.GetValues<DocumentCategory>())
+        {
+            <option value="@c">@c</option>
+        }
+    </select>
+    <input type="search" class="form-control" placeholder="Search documents…" @bind="_search"
+           @bind:event="oninput" @bind:after="LoadDocuments" />
+    <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadDocuments" title="Refresh">
+        <i class="bi bi-arrow-clockwise"></i>
+    </button>
+    <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="CycleSort" title="Sort">
+        <i class="bi @SortIcon"></i>
+    </button>
+</div>
+
+@if (_showCreate)
+{
+    <div class="mobile-card">
+        <h6 class="fw-bold mb-3">New Document</h6>
+
+        <div class="mb-2">
+            <input type="text" class="form-control" placeholder="Document name" @bind="_newDoc.Name" />
+        </div>
+
+        <div class="mb-2">
+            <select class="form-select" @bind="_newDoc.Category">
+                @foreach (var c in Enum.GetValues<DocumentCategory>())
+                {
+                    <option value="@c">@c</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-2">
+            <select class="form-select" @bind="_newDoc.FileType">
+                <option value="">File Type</option>
+                <option value="Photo">Photo</option>
+                <option value="PDF">PDF</option>
+                <option value="Image">Image</option>
+                <option value="Video">Video</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <div class="mb-3">
+            <textarea class="form-control" rows="2" placeholder="Notes (optional)" @bind="_newDoc.Notes"></textarea>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary flex-fill" @onclick="SaveDocument" disabled="@string.IsNullOrWhiteSpace(_newDoc.Name)">
+                <i class="bi bi-check-lg me-1"></i>Save
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="CancelCreate">Cancel</button>
+        </div>
+
+        @if (_saveError != null)
+        {
+            <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+        }
+    </div>
+}
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else if (_documents.Any())
+{
+    <div class="text-muted mb-2" style="font-size:0.7rem;"><i class="bi @SortIcon me-1"></i>@SortLabel</div>
+    @foreach (var doc in SortedDocuments)
+    {
+        <div class="mobile-card">
+            <div class="mobile-card-header">
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi @FileIcon(doc.FileType)" style="font-size:1.1rem; color:var(--primary);"></i>
+                    <span class="card-title">@doc.Name</span>
+                </div>
+                <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;"
+                        @onclick="() => DeleteDocument(doc.Id)">
+                    <i class="bi bi-trash3"></i>
+                </button>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
+                <span class="badge bg-light text-dark" style="font-size:0.7rem;">@doc.Category</span>
+                @if (doc.FileType != null)
+                {
+                    <span class="badge bg-light text-dark" style="font-size:0.7rem;">@doc.FileType</span>
+                }
+                @if (doc.FileSize.HasValue)
+                {
+                    <span class="badge bg-light text-dark" style="font-size:0.7rem;">@FormatFileSize(doc.FileSize.Value)</span>
+                }
+                @if (doc.LinkedEntity != null && doc.LinkedEntityId.HasValue)
+                {
+                    <button class="badge bg-info text-white border-0" style="font-size:0.7rem; cursor:pointer;"
+                            @onclick="() => NavigateToEntity(doc.LinkedEntity, doc.LinkedEntityId.Value)">
+                        <i class="bi bi-link-45deg me-1"></i>@doc.LinkedEntity #@doc.LinkedEntityId
+                    </button>
+                }
+                else if (doc.LinkedEntity != null)
+                {
+                    <span class="badge bg-info text-white" style="font-size:0.7rem;">
+                        <i class="bi bi-link-45deg me-1"></i>@doc.LinkedEntity
+                    </span>
+                }
+            </div>
+            @if (doc.Notes != null)
+            {
+                <p class="card-subtitle mb-1" style="white-space:pre-wrap;">@doc.Notes</p>
+            }
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-muted" style="font-size:0.7rem;">@doc.UploadDate.ToString("MMM dd, h:mm tt")</span>
+                @if (doc.FileSize.HasValue)
+                {
+                    <span class="text-muted" style="font-size:0.65rem;"><i class="bi bi-hdd me-1"></i>@FormatFileSize(doc.FileSize.Value)</span>
+                }
+            </div>
+        </div>
+    }
+}
+else if (!_showCreate)
+{
+    <div class="empty-state">
+        <i class="bi bi-file-earmark-text d-block"></i>
+        <p>No documents yet</p>
+        <button class="btn btn-primary btn-sm mt-2" @onclick="ShowCreate">
+            <i class="bi bi-plus-lg me-1"></i>Add Document
+        </button>
+    </div>
+}
+
+@if (!_showCreate)
+{
+    <button class="fab" title="New Document" @onclick="ShowCreate">
+        <i class="bi bi-plus-lg"></i>
+    </button>
+}
+
+@code {
+private int _employeeId;
+private List<MobileDocumentItem> _documents = [];
+private bool _loading = true;
+private bool _showCreate;
+private MobileDocumentCreate _newDoc = new();
+private string? _saveError;
+private string _search = string.Empty;
+private string _categoryFilter = string.Empty;
+private string _sort = "newest";
+
+    private List<MobileDocumentItem> SortedDocuments => _sort switch
+    {
+        "oldest" => _documents.OrderBy(d => d.UploadDate).ToList(),
+        "name" => _documents.OrderBy(d => d.Name).ToList(),
+        _ => _documents.OrderByDescending(d => d.UploadDate).ToList(),
+    };
+
+    private string SortIcon => _sort switch
+    {
+        "oldest" => "bi-sort-up",
+        "name" => "bi-sort-alpha-down",
+        _ => "bi-sort-down",
+    };
+
+    private string SortLabel => _sort switch
+    {
+        "oldest" => "Oldest first",
+        "name" => "Sorted by name",
+        _ => "Newest first",
+    };
+
+    private void CycleSort()
+    {
+        _sort = _sort switch
+        {
+            "newest" => "oldest",
+            "oldest" => "name",
+            _ => "newest",
+        };
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+        await LoadDocuments();
+    }
+
+    private async Task LoadDocuments()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        DocumentCategory? category = Enum.TryParse<DocumentCategory>(_categoryFilter, out var parsed) ? parsed : null;
+
+        var filter = new MobileDocumentFilter
+        {
+            Search = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Category = category,
+        };
+
+        _documents = await DocumentService.GetDocumentsAsync(filter);
+        _loading = false;
+    }
+
+    private void ShowCreate()
+    {
+        _newDoc = new MobileDocumentCreate { UploadedByEmployeeId = _employeeId };
+        _saveError = null;
+        _showCreate = true;
+    }
+
+    private void CancelCreate() => _showCreate = false;
+
+    private async Task SaveDocument()
+    {
+        if (string.IsNullOrWhiteSpace(_newDoc.Name))
+        {
+            _saveError = "Document name is required.";
+            return;
+        }
+
+        _newDoc.UploadedByEmployeeId = _employeeId;
+        await DocumentService.CreateDocumentAsync(_newDoc);
+        _showCreate = false;
+        await LoadDocuments();
+    }
+
+    private async Task DeleteDocument(int id)
+    {
+        await DocumentService.DeleteDocumentAsync(id);
+        await LoadDocuments();
+    }
+
+    private static string FileIcon(string? fileType) => fileType?.ToLower() switch
+    {
+        "photo" or "image" => "bi-image",
+        "pdf" => "bi-file-earmark-pdf",
+        "video" => "bi-camera-video",
+        _ => "bi-file-earmark-text"
+    };
+
+    private static string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024)
+            return bytes + " B";
+        if (bytes < 1024 * 1024)
+            return (bytes / 1024.0).ToString("F1") + " KB";
+        return (bytes / (1024.0 * 1024.0)).ToString("F1") + " MB";
+    }
+
+    private void NavigateToEntity(string entityType, int entityId)
+    {
+        string? route = null;
+        var type = entityType.ToLower();
+        if (type == "job")
+            route = "/jobs/" + entityId;
+        else if (type == "site")
+            route = "/sites/" + entityId;
+        else if (type == "asset")
+            route = "/assets/" + entityId;
+        if (route != null)
+            Nav.NavigateTo(route);
+    }
+}
