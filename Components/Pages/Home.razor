@@ -94,7 +94,7 @@ else if (_data != null)
     }
 
     <!-- Alerts Row -->
-    @if (_data.OverdueJobCount > 0 || _data.PendingNoteCount > 0 || _data.LowStockCount > 0 || _data.ExpiringAgreementCount > 0)
+    @if (_data.OverdueJobCount > 0 || _data.PendingNoteCount > 0 || _data.LowStockCount > 0 || _data.ExpiringAgreementCount > 0 || _data.MaintenanceDueCount > 0 || _data.WarrantyAlertCount > 0)
     {
         <div class="d-flex gap-2 flex-wrap mb-2">
             @if (_data.OverdueJobCount > 0)
@@ -102,6 +102,20 @@ else if (_data != null)
                 <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #dc3545; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
                     <i class="bi bi-exclamation-circle-fill text-danger"></i>
                     <span style="font-size:0.8rem; font-weight:600;">@_data.OverdueJobCount Overdue</span>
+                </div>
+            }
+            @if (_data.MaintenanceDueCount > 0)
+            {
+                <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #0d6efd; cursor:pointer;">
+                    <i class="bi bi-tools text-primary"></i>
+                    <span style="font-size:0.8rem; font-weight:600;">@_data.MaintenanceDueCount PM Due</span>
+                </div>
+            }
+            @if (_data.WarrantyAlertCount > 0)
+            {
+                <div class="mobile-card d-flex align-items-center gap-2 flex-fill" style="padding:0.5rem 0.75rem; border-left:3px solid #ffc107; cursor:pointer;">
+                    <i class="bi bi-shield-exclamation text-warning"></i>
+                    <span style="font-size:0.8rem; font-weight:600;">@_data.WarrantyAlertCount Warranty</span>
                 </div>
             }
             @if (_data.PendingNoteCount > 0)

@@ -15,6 +15,8 @@ public class DashboardData
     public List<LowStockItem> LowStockItems { get; set; } = [];
     public List<ExpiringAgreement> ExpiringAgreements { get; set; } = [];
     public List<UrgentNote> UrgentNotes { get; set; } = [];
+    public List<MaintenanceDueAsset> MaintenanceDueAssets { get; set; } = [];
+    public List<ExpiringWarrantyAsset> ExpiringWarranties { get; set; } = [];
     public DashboardKPIs KPIs { get; set; } = new();
 }
 
@@ -66,6 +68,31 @@ public class UrgentNote
     public DateTime CreatedAt { get; set; }
 }
 
+public class MaintenanceDueAsset
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? AssetType { get; set; }
+    public string? CustomerName { get; set; }
+    public string? SiteName { get; set; }
+    public DateTime? NextServiceDue { get; set; }
+    public DateTime? LastServiceDate { get; set; }
+    public int DaysOverdue { get; set; }
+}
+
+public class ExpiringWarrantyAsset
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? AssetType { get; set; }
+    public string? CustomerName { get; set; }
+    public DateTime? LaborWarrantyExpiry { get; set; }
+    public DateTime? PartsWarrantyExpiry { get; set; }
+    public DateTime? CompressorWarrantyExpiry { get; set; }
+    public string WarrantyAlert { get; set; } = string.Empty;
+    public int DaysUntilExpiry { get; set; }
+}
+
 public class DashboardKPIs
 {
     public int TotalJobsInPeriod { get; set; }
@@ -79,6 +106,14 @@ public class DashboardKPIs
 public interface IDashboardService
 {
     Task<DashboardData> GetDashboardDataAsync(DashboardPeriod period = DashboardPeriod.Today);
+    Task<AgreementAutomationResult> ProcessAgreementAutomationAsync();
+}
+
+public class AgreementAutomationResult
+{
+    public int StatusesUpdated { get; set; }
+    public int AgreementsRenewed { get; set; }
+    public int JobsGenerated { get; set; }
 }
 
 public enum DashboardPeriod

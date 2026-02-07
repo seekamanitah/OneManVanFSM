@@ -117,4 +117,162 @@ public class ServiceAgreementService : IServiceAgreementService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    /// <summary>
+    /// Scans active service agreements that have remaining visits and creates scheduled
+    /// maintenance jobs if one doesn't already exist for the current service window.
+    /// Returns the number of jobs generated.
+    /// </summary>
+    public async Task<int> GenerateAgreementJobsAsync()
+    {
+        var today = DateTime.UtcNow.Date;
+        var activeAgreements = await _db.ServiceAgreements
+            .Include(a => a.ServiceAgreementAssets).ThenInclude(sa => sa.Asset)
+            .Include(a => a.Customer)
+            .Where(a => !a.IsArchived
+                && a.Status == AgreementStatus.Active
+                && a.VisitsUsed < a.VisitsIncluded
+                && a.EndDate >= today)
+            .ToListAsync();
+
+        int jobsCreated = 0;
+
+        foreach (var agreement in activeAgreements)
+        {
+            // Calculate next visit window: divide agreement period evenly by visits included
+            var totalDays = (agreement.EndDate - agreement.StartDate).TotalDays;
+            if (totalDays <= 0) continue;
+            var intervalDays = totalDays / agreement.VisitsIncluded;
+            var nextVisitDate = agreement.StartDate.AddDays(intervalDays * agreement.VisitsUsed);
+
+            // Only create if the next visit is within 30 days from now
+            if (nextVisitDate > today.AddDays(30)) continue;
+
+            // Check if a maintenance job already exists for this agreement in this window
+            var windowStart = nextVisitDate.AddDays(-7);
+            var windowEnd = nextVisitDate.AddDays(30);
+            var existingJob = await _db.Jobs.AnyAsync(j =>
+                !j.IsArchived
+                && j.Description != null && j.Description.Contains($"SA:{agreement.Id}")
+                && j.ScheduledDate >= windowStart
+                && j.ScheduledDate <= windowEnd);
+
+            if (existingJob) continue;
+
+            var jobCount = await _db.Jobs.CountAsync() + 1;
+            var job = new Job
+            {
+                JobNumber = $"JOB-{jobCount:D5}",
+                Title = $"Scheduled Maintenance - {agreement.Title ?? agreement.AgreementNumber}",
+                Description = $"Auto-generated from Service Agreement {agreement.AgreementNumber} (SA:{agreement.Id}). Visit {agreement.VisitsUsed + 1} of {agreement.VisitsIncluded}.",
+                Status = JobStatus.Scheduled,
+                Priority = JobPriority.Standard,
+                TradeType = agreement.TradeType,
+                JobType = "Maintenance",
+                ScheduledDate = nextVisitDate < today ? today : nextVisitDate,
+                EstimatedDuration = 2,
+                CustomerId = agreement.CustomerId,
+                CompanyId = agreement.CompanyId,
+                SiteId = agreement.SiteId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Jobs.Add(job);
+            await _db.SaveChangesAsync();
+
+            // Link covered assets to the job
+            foreach (var coveredAsset in agreement.ServiceAgreementAssets)
+            {
+                _db.JobAssets.Add(new JobAsset
+                {
+                    JobId = job.Id,
+                    AssetId = coveredAsset.AssetId,
+                    Role = "Serviced",
+                    Notes = coveredAsset.CoverageNotes
+                });
+            }
+            await _db.SaveChangesAsync();
+            jobsCreated++;
+        }
+
+        return jobsCreated;
+    }
+
+    /// <summary>
+    /// Updates agreement statuses: marks past-EndDate as Expired, within-30-days as Expiring.
+    /// Returns the number of agreements updated.
+    /// </summary>
+    public async Task<int> UpdateAgreementStatusesAsync()
+    {
+        var today = DateTime.UtcNow.Date;
+        int updated = 0;
+
+        // Mark expired agreements
+        var expired = await _db.ServiceAgreements
+            .Where(a => !a.IsArchived
+                && (a.Status == AgreementStatus.Active || a.Status == AgreementStatus.Expiring))
+            .Where(a => a.EndDate < today)
+            .ToListAsync();
+
+        foreach (var a in expired.Where(a => a.Status != AgreementStatus.Expired))
+        {
+            a.Status = AgreementStatus.Expired;
+            a.UpdatedAt = DateTime.UtcNow;
+            updated++;
+        }
+
+        // Mark expiring-soon agreements (within 30 days)
+        var expiringSoon = await _db.ServiceAgreements
+            .Where(a => !a.IsArchived
+                && a.Status == AgreementStatus.Active
+                && a.EndDate >= today
+                && a.EndDate <= today.AddDays(30))
+            .ToListAsync();
+
+        foreach (var a in expiringSoon)
+        {
+            a.Status = AgreementStatus.Expiring;
+            a.UpdatedAt = DateTime.UtcNow;
+            updated++;
+        }
+
+        if (updated > 0) await _db.SaveChangesAsync();
+        return updated;
+    }
+
+    /// <summary>
+    /// Processes auto-renewal for expired agreements that have AutoRenew enabled.
+    /// Creates a new term with same duration, resets visits, and sets status to Active.
+    /// Returns the number of agreements renewed.
+    /// </summary>
+    public async Task<int> ProcessAutoRenewalsAsync()
+    {
+        var today = DateTime.UtcNow.Date;
+        int renewed = 0;
+
+        var autoRenewable = await _db.ServiceAgreements
+            .Where(a => !a.IsArchived
+                && a.AutoRenew
+                && a.Status == AgreementStatus.Expired
+                && a.EndDate < today)
+            .ToListAsync();
+
+        foreach (var a in autoRenewable)
+        {
+            // Calculate original term length and create a new period
+            var termDays = (int)(a.EndDate - a.StartDate).TotalDays;
+            if (termDays <= 0) termDays = 365; // default to 1 year
+
+            a.StartDate = a.EndDate; // new term starts where old one ended
+            a.EndDate = a.StartDate.AddDays(termDays);
+            a.RenewalDate = today;
+            a.VisitsUsed = 0;
+            a.Status = AgreementStatus.Active;
+            a.UpdatedAt = DateTime.UtcNow;
+            renewed++;
+        }
+
+        if (renewed > 0) await _db.SaveChangesAsync();
+        return renewed;
+    }
 }

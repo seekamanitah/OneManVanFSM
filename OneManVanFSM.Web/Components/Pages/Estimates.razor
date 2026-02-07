@@ -6,6 +6,7 @@
 @implements IDisposable
 @inject IEstimateService EstimateSvc
 @inject ICustomerService CustomerSvc
+@inject IAssetService AssetSvc
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -105,6 +106,7 @@
                                 <th style="width:200px;">Product</th>
                                 <th>Description</th>
                                 <th style="width:100px;">Type</th>
+                                <th style="width:140px;">Asset</th>
                                 <th style="width:80px;">Unit</th>
                                 <th style="width:80px;" class="text-end">Qty</th>
                                 <th style="width:110px;" class="text-end">Unit Price</th>
@@ -136,6 +138,15 @@
                                             <option value="Equipment">Equipment</option>
                                             <option value="Fee">Fee</option>
                                             <option value="Discount">Discount</option>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select class="form-select form-select-sm" @bind="line.AssetId">
+                                            <option value="">— None —</option>
+                                            @foreach (var a in _assetOptions)
+                                            {
+                                                <option value="@a.Id">@a.Name</option>
+                                            }
                                         </select>
                                     </td>
                                     <td><input type="text" class="form-control form-control-sm" @bind="line.Unit" placeholder="Each" /></td>
@@ -291,7 +302,7 @@ else if (mode == "detail" && detail is not null)
                     <h6>Line Items</h6>
                     <div class="table-responsive">
                         <table class="table table-sm table-bordered mb-0">
-                            <thead class="table-light"><tr><th>Description</th><th>Type</th><th>Product</th><th>Unit</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th></tr></thead>
+                            <thead class="table-light"><tr><th>Description</th><th>Type</th><th>Product</th><th>Asset</th><th>Unit</th><th class="text-end">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Total</th></tr></thead>
                             <tbody>
                                 @if (detail.Lines.Any())
                                 {
@@ -301,6 +312,7 @@ else if (mode == "detail" && detail is not null)
                                             <td>@l.Description</td>
                                             <td><small class="text-muted">@(l.LineType ?? "—")</small></td>
                                             <td>@(l.ProductName ?? "—")</td>
+                                            <td>@(l.AssetName ?? "—")</td>
                                             <td><small>@(l.Unit ?? "—")</small></td>
                                             <td class="text-end">@l.Quantity</td>
                                             <td class="text-end">@l.UnitPrice.ToString("C")</td>
@@ -310,7 +322,7 @@ else if (mode == "detail" && detail is not null)
                                 }
                                 else
                                 {
-                                    <tr><td colspan="7" class="text-center text-muted">No line items</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted">No line items</td></tr>
                                 }
                             </tbody>
                         </table>
@@ -460,6 +472,7 @@ else
     private string? errorMsg;
     private List<CustomerListItem> _customers = [];
     private List<ProductOption> productOptions = [];
+    private List<AssetListItem> _assetOptions = [];
 
     protected override void OnInitialized()
     {
@@ -486,11 +499,13 @@ else
             form.Lines.Add(new EstimateLineEditModel());
             _customers = await CustomerSvc.GetCustomersAsync();
             productOptions = await EstimateSvc.GetProductOptionsAsync();
+            _assetOptions = await AssetSvc.GetAssetsAsync();
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
             _customers = await CustomerSvc.GetCustomersAsync();
             productOptions = await EstimateSvc.GetProductOptionsAsync();
+            _assetOptions = await AssetSvc.GetAssetsAsync();
             await LoadForEdit(Id.Value);
         }
         else if (Id.HasValue)
@@ -543,7 +558,8 @@ else
                 Unit = l.Unit,
                 Section = l.Section,
                 Quantity = l.Quantity,
-                UnitPrice = l.UnitPrice
+                UnitPrice = l.UnitPrice,
+                AssetId = l.AssetId
             }).ToList()
         };
         if (form.Lines.Count == 0) form.Lines.Add(new EstimateLineEditModel());

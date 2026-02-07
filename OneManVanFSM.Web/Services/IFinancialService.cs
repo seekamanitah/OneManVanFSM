@@ -81,6 +81,8 @@ public class InvoiceLineDto
     public int Id { get; set; }
     public int? ProductId { get; set; }
     public string? ProductName { get; set; }
+    public int? AssetId { get; set; }
+    public string? AssetName { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? LineType { get; set; }
     public string? Unit { get; set; }
@@ -93,6 +95,7 @@ public class InvoiceLineDto
 public class InvoiceLineEditModel
 {
     public int? ProductId { get; set; }
+    public int? AssetId { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? LineType { get; set; }
     public string? Unit { get; set; }

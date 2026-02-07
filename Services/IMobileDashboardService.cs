@@ -21,6 +21,8 @@ public class MobileDashboardData
     public int UpcomingJobCount { get; set; }
     public int LowStockCount { get; set; }
     public int ExpiringAgreementCount { get; set; }
+    public int MaintenanceDueCount { get; set; }
+    public int WarrantyAlertCount { get; set; }
     public List<MobileJobCard> TodayJobs { get; set; } = [];
     public List<MobileJobCard> UpcomingJobs { get; set; } = [];
     public List<MobileActivityItem> RecentActivity { get; set; } = [];

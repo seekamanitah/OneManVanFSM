@@ -7,6 +7,8 @@ public class EstimateLine
     public Estimate? Estimate { get; set; }
     public int? ProductId { get; set; }
     public Product? Product { get; set; }
+    public int? AssetId { get; set; }
+    public Asset? Asset { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? LineType { get; set; } // Labor, Material, Equipment, Fee, Discount
     public string? Unit { get; set; } // Each, Hour, Ft, Box, Roll

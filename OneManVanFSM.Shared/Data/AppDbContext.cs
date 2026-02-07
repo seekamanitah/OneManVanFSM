@@ -190,6 +190,10 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(il => il.ProductId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(il => il.Asset)
+                .WithMany()
+                .HasForeignKey(il => il.AssetId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // EstimateLine
@@ -202,6 +206,10 @@ public class AppDbContext : DbContext
             e.HasOne(el => el.Product)
                 .WithMany()
                 .HasForeignKey(el => el.ProductId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(el => el.Asset)
+                .WithMany()
+                .HasForeignKey(el => el.AssetId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

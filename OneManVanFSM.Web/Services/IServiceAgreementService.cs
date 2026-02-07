@@ -9,6 +9,9 @@ public interface IServiceAgreementService
     Task<ServiceAgreement> CreateAgreementAsync(AgreementEditModel model);
     Task<ServiceAgreement> UpdateAgreementAsync(int id, AgreementEditModel model);
     Task<bool> ArchiveAgreementAsync(int id);
+    Task<int> GenerateAgreementJobsAsync();
+    Task<int> UpdateAgreementStatusesAsync();
+    Task<int> ProcessAutoRenewalsAsync();
 }
 
 public class AgreementFilter

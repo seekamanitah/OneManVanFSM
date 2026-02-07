@@ -71,6 +71,8 @@ public class EstimateService : IEstimateService
                 {
                     Id = l.Id, ProductId = l.ProductId,
                     ProductName = l.Product != null ? l.Product.Name : null,
+                    AssetId = l.AssetId,
+                    AssetName = l.Asset != null ? l.Asset.Name : null,
                     Description = l.Description, LineType = l.LineType,
                     Unit = l.Unit, Section = l.Section,
                     Quantity = l.Quantity,
@@ -121,6 +123,7 @@ public class EstimateService : IEstimateService
             _db.EstimateLines.Add(new OneManVanFSM.Shared.Models.EstimateLine
             {
                 EstimateId = estimate.Id, ProductId = line.ProductId,
+                AssetId = line.AssetId,
                 Description = line.Description, LineType = line.LineType,
                 Unit = line.Unit, Section = line.Section,
                 Quantity = line.Quantity,
@@ -167,6 +170,7 @@ public class EstimateService : IEstimateService
             _db.EstimateLines.Add(new OneManVanFSM.Shared.Models.EstimateLine
             {
                 EstimateId = e.Id, ProductId = line.ProductId,
+                AssetId = line.AssetId,
                 Description = line.Description, LineType = line.LineType,
                 Unit = line.Unit, Section = line.Section,
                 Quantity = line.Quantity,
@@ -183,9 +187,52 @@ public class EstimateService : IEstimateService
     {
         var e = await _db.Estimates.FindAsync(id);
         if (e is null) return false;
+        var wasNotApproved = e.Status != EstimateStatus.Approved;
         e.Status = status; e.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Auto-create a Job when Estimate is approved (pipeline automation)
+        if (status == EstimateStatus.Approved && wasNotApproved)
+            await CreateJobFromEstimateAsync(e);
+
         return true;
+    }
+
+    /// <summary>
+    /// Auto-creates a Job from an approved Estimate, carrying over customer, site, trade, and line item data.
+    /// </summary>
+    private async Task CreateJobFromEstimateAsync(Estimate estimate)
+    {
+        // Check if a job already exists for this estimate
+        var existing = await _db.Jobs.AnyAsync(j => j.EstimateId == estimate.Id && !j.IsArchived);
+        if (existing) return;
+
+        var jobCount = await _db.Jobs.CountAsync() + 1;
+        var job = new Job
+        {
+            JobNumber = $"JOB-{jobCount:D5}",
+            Title = $"{estimate.Title}",
+            Description = $"Auto-created from Estimate {estimate.EstimateNumber}",
+            Status = JobStatus.Approved,
+            Priority = estimate.Priority,
+            TradeType = estimate.TradeType,
+            SystemType = estimate.SystemType,
+            EstimatedTotal = estimate.Total,
+            Notes = estimate.Notes,
+            CustomerId = estimate.CustomerId,
+            CompanyId = estimate.CompanyId,
+            SiteId = estimate.SiteId,
+            EstimateId = estimate.Id,
+            MaterialListId = estimate.MaterialListId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _db.Jobs.Add(job);
+        await _db.SaveChangesAsync();
+
+        // Link estimate to the job
+        estimate.Job = job;
+        await _db.SaveChangesAsync();
     }
 
     public async Task<bool> ArchiveEstimateAsync(int id)

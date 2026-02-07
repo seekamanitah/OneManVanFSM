@@ -156,6 +156,7 @@ public class JobService : IJobService
     public async Task<Job> UpdateJobAsync(int id, JobEditModel model)
     {
         var job = await _db.Jobs.FindAsync(id) ?? throw new InvalidOperationException("Job not found.");
+        var wasCompleted = job.CompletedDate.HasValue;
         job.Title = model.Title; job.Description = model.Description;
         job.Status = model.Status; job.Priority = model.Priority;
         job.TradeType = model.TradeType; job.JobType = model.JobType; job.SystemType = model.SystemType;
@@ -169,6 +170,10 @@ public class JobService : IJobService
         if (model.Status == JobStatus.Completed && !job.CompletedDate.HasValue)
             job.CompletedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        if (model.Status == JobStatus.Completed && !wasCompleted)
+            await OnJobCompletedAsync(job);
+
         return job;
     }
 
@@ -176,10 +181,173 @@ public class JobService : IJobService
     {
         var job = await _db.Jobs.FindAsync(id);
         if (job is null) return false;
+        var wasCompleted = job.CompletedDate.HasValue;
         job.Status = status; job.UpdatedAt = DateTime.UtcNow;
         if (status == JobStatus.Completed) job.CompletedDate = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        if (status == JobStatus.Completed && !wasCompleted)
+            await OnJobCompletedAsync(job);
+
         return true;
+    }
+
+    private async Task OnJobCompletedAsync(Job job)
+    {
+        var linkedAssets = await _db.JobAssets
+            .Include(ja => ja.Asset)
+            .Where(ja => ja.JobId == job.Id)
+            .ToListAsync();
+
+        if (linkedAssets.Count == 0) return;
+
+        var now = DateTime.Now;
+        var recordCount = await _db.ServiceHistoryRecords.CountAsync() + 1;
+
+        foreach (var ja in linkedAssets)
+        {
+            // Auto-create a ServiceHistoryRecord for each linked asset
+            var alreadyLinked = await _db.ServiceHistoryRecords
+                .AnyAsync(sh => sh.JobId == job.Id && sh.AssetId == ja.AssetId);
+            if (!alreadyLinked)
+            {
+                var serviceType = (ja.Role?.ToLower()) switch
+                {
+                    "installed" => ServiceHistoryType.NonWarrantyRepair,
+                    "replaced" => ServiceHistoryType.NonWarrantyRepair,
+                    "inspected" => ServiceHistoryType.PreventiveMaintenance,
+                    "serviced" => ServiceHistoryType.PreventiveMaintenance,
+                    _ => ServiceHistoryType.NonWarrantyRepair
+                };
+
+                _db.ServiceHistoryRecords.Add(new ServiceHistoryRecord
+                {
+                    RecordNumber = $"SH-{recordCount:D5}",
+                    Type = serviceType,
+                    Status = ServiceHistoryStatus.Resolved,
+                    ServiceDate = now,
+                    Description = $"Auto-generated from completed job {job.JobNumber}: {job.Title}",
+                    ResolutionNotes = $"Asset role: {ja.Role ?? "General"}. {job.Notes}",
+                    Cost = job.ActualTotal,
+                    CustomerId = job.CustomerId,
+                    SiteId = job.SiteId,
+                    AssetId = ja.AssetId,
+                    JobId = job.Id,
+                    TechId = job.AssignedEmployeeId,
+                    CreatedAt = now,
+                    UpdatedAt = now
+                });
+                recordCount++;
+            }
+
+            // Auto-update Asset.LastServiceDate
+            if (ja.Asset is not null)
+            {
+                ja.Asset.LastServiceDate = now;
+                ja.Asset.UpdatedAt = now;
+            }
+        }
+
+        await _db.SaveChangesAsync();
+
+        // Auto-create a draft Invoice from the completed job (pipeline automation)
+        await CreateInvoiceFromJobAsync(job);
+    }
+
+    /// <summary>
+    /// Auto-creates a draft Invoice from a completed Job, pulling in estimate line items if available,
+    /// otherwise creating a single line from the job total.
+    /// </summary>
+    private async Task CreateInvoiceFromJobAsync(Job job)
+    {
+        // Skip if job already has an invoice
+        if (job.InvoiceId.HasValue) return;
+        var existingInv = await _db.Invoices.AnyAsync(i => i.JobId == job.Id && !i.IsArchived);
+        if (existingInv) return;
+
+        var invCount = await _db.Invoices.CountAsync() + 1;
+        var invoice = new Invoice
+        {
+            InvoiceNumber = $"INV-{invCount:D5}",
+            Status = InvoiceStatus.Draft,
+            InvoiceDate = DateTime.UtcNow,
+            DueDate = DateTime.UtcNow.AddDays(30),
+            PaymentTerms = "Net 30",
+            Notes = $"Auto-generated from completed job {job.JobNumber}",
+            CustomerId = job.CustomerId,
+            CompanyId = job.CompanyId,
+            SiteId = job.SiteId,
+            JobId = job.Id,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        // If the job has a linked estimate with line items, copy those to the invoice
+        if (job.EstimateId.HasValue)
+        {
+            var estimateLines = await _db.EstimateLines
+                .Where(l => l.EstimateId == job.EstimateId.Value)
+                .OrderBy(l => l.SortOrder)
+                .ToListAsync();
+
+            if (estimateLines.Count > 0)
+            {
+                invoice.Subtotal = estimateLines.Sum(l => l.LineTotal);
+                invoice.Total = invoice.Subtotal;
+                invoice.BalanceDue = invoice.Total;
+                _db.Invoices.Add(invoice);
+                await _db.SaveChangesAsync();
+
+                int order = 0;
+                foreach (var el in estimateLines)
+                {
+                    _db.InvoiceLines.Add(new InvoiceLine
+                    {
+                        InvoiceId = invoice.Id,
+                        ProductId = el.ProductId,
+                        AssetId = el.AssetId,
+                        Description = el.Description,
+                        LineType = el.LineType,
+                        Unit = el.Unit,
+                        Quantity = el.Quantity,
+                        UnitPrice = el.UnitPrice,
+                        LineTotal = el.LineTotal,
+                        SortOrder = order++
+                    });
+                }
+                await _db.SaveChangesAsync();
+
+                job.InvoiceId = invoice.Id;
+                await _db.SaveChangesAsync();
+                return;
+            }
+        }
+
+        // Fallback: single line from job total
+        var total = job.ActualTotal ?? job.EstimatedTotal ?? 0;
+        invoice.Subtotal = total;
+        invoice.Total = total;
+        invoice.BalanceDue = total;
+        _db.Invoices.Add(invoice);
+        await _db.SaveChangesAsync();
+
+        if (total > 0)
+        {
+            _db.InvoiceLines.Add(new InvoiceLine
+            {
+                InvoiceId = invoice.Id,
+                Description = $"{job.Title} - {job.JobType ?? "Service"}",
+                LineType = "Labor",
+                Quantity = 1,
+                UnitPrice = total,
+                LineTotal = total,
+                SortOrder = 0
+            });
+            await _db.SaveChangesAsync();
+        }
+
+        job.InvoiceId = invoice.Id;
+        await _db.SaveChangesAsync();
     }
 
     public async Task<bool> ArchiveJobAsync(int id)

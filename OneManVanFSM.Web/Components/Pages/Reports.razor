@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @inject IReportService ReportSvc
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 <PageTitle>Reports & Analytics - OneManVanFSM</PageTitle>
 
@@ -16,7 +17,10 @@
 
 <ul class="nav nav-tabs mb-3">
     <li class="nav-item"><a class="nav-link @(activeTab == "analytics" ? "active" : "")" href="javascript:void(0)" @onclick='() => activeTab = "analytics"'><i class="bi bi-bar-chart me-1"></i>Analytics</a></li>
-    <li class="nav-item"><a class="nav-link @(activeTab == "reports" ? "active" : "")" href="javascript:void(0)" @onclick='() => activeTab = "reports"'><i class="bi bi-file-earmark-bar-graph me-1"></i>Reports</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab == "profitability" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToProfitability"><i class="bi bi-cash-coin me-1"></i>Profitability</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab == "utilization" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToUtilization"><i class="bi bi-person-lines-fill me-1"></i>Tech Utilization</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab == "seasonal" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToSeasonal"><i class="bi bi-calendar3 me-1"></i>Seasonal Demand</a></li>
+    <li class="nav-item"><a class="nav-link @(activeTab == "reports" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToReports"><i class="bi bi-file-earmark-bar-graph me-1"></i>Reports</a></li>
     <li class="nav-item"><a class="nav-link @(activeTab == "audit" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToAudit"><i class="bi bi-shield-check me-1"></i>Audit Logs</a></li>
 </ul>
 
@@ -124,83 +128,538 @@
         </div>
     }
 }
+else if (activeTab == "profitability")
+{
+    @if (profitabilityData is null)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading profitability data...</div>
+    }
+    else if (!profitabilityData.Any())
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-cash-coin" style="font-size:3rem;"></i>
+            <p class="mt-2">No completed jobs found for the selected period.</p>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-end mb-2">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="ExportProfitability"><i class="bi bi-download me-1"></i>Export CSV</button>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Total Revenue</small>
+                    <h4 class="mb-0 text-success">@profitabilityData.Sum(p => p.Revenue).ToString("C0")</h4>
+                </div></div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Total Profit</small>
+                    <h4 class="mb-0 text-primary">@profitabilityData.Sum(p => p.Profit).ToString("C0")</h4>
+                </div></div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Avg Margin</small>
+                    @{ var avgMargin = profitabilityData.Average(p => p.MarginPercent); }
+                    <h4 class="mb-0 @(avgMargin >= 30 ? "text-success" : avgMargin >= 15 ? "text-warning" : "text-danger")">@avgMargin.ToString("F1")%</h4>
+                </div></div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Jobs Analyzed</small>
+                    <h4 class="mb-0">@profitabilityData.Count</h4>
+                </div></div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Job #</th><th>Customer</th><th>Trade</th><th class="text-end">Revenue</th><th class="text-end">Labor</th><th class="text-end">Material</th><th class="text-end">Expenses</th><th class="text-end">Profit</th><th class="text-end">Margin</th><th>Completed</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in profitabilityData)
+                        {
+                            <tr style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/jobs/" + item.JobId))">
+                                <td class="fw-medium">@item.JobNumber</td>
+                                <td>@(item.CustomerName ?? "\u2014")</td>
+                                <td><span class="badge bg-info text-dark">@(item.Trade ?? "\u2014")</span></td>
+                                <td class="text-end">@item.Revenue.ToString("C")</td>
+                                <td class="text-end">@item.LaborCost.ToString("C")</td>
+                                <td class="text-end">@item.MaterialCost.ToString("C")</td>
+                                <td class="text-end">@item.ExpenseCost.ToString("C")</td>
+                                <td class="text-end fw-medium @(item.Profit >= 0 ? "text-success" : "text-danger")">@item.Profit.ToString("C")</td>
+                                <td class="text-end"><span class="badge @(item.MarginPercent >= 30 ? "bg-success" : item.MarginPercent >= 15 ? "bg-warning text-dark" : "bg-danger")">@item.MarginPercent%</span></td>
+                                <td><small>@(item.CompletedDate?.ToString("MMM dd") ?? "\u2014")</small></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+else if (activeTab == "utilization")
+{
+    @if (utilizationData is null)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading tech utilization...</div>
+    }
+    else if (!utilizationData.Any())
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-person-lines-fill" style="font-size:3rem;"></i>
+            <p class="mt-2">No active technicians found.</p>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-end mb-2">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="ExportUtilization"><i class="bi bi-download me-1"></i>Export CSV</button>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Total Techs</small>
+                    <h4 class="mb-0">@utilizationData.Count</h4>
+                </div></div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Total Jobs Completed</small>
+                    <h4 class="mb-0 text-success">@utilizationData.Sum(u => u.JobsCompleted)</h4>
+                </div></div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Total Hours</small>
+                    <h4 class="mb-0 text-warning">@utilizationData.Sum(u => u.HoursLogged).ToString("F1")</h4>
+                </div></div>
+            </div>
+            <div class="col-md-3">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Total Revenue</small>
+                    <h4 class="mb-0 text-success">@utilizationData.Sum(u => u.RevenueGenerated).ToString("C0")</h4>
+                </div></div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Technician</th><th class="text-end">Jobs Assigned</th><th class="text-end">Jobs Completed</th><th class="text-end">Hours Logged</th><th class="text-end">Avg Hrs/Job</th><th class="text-end">Revenue</th><th class="text-end">Revenue/Hr</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var tech in utilizationData)
+                        {
+                            <tr style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/employees/" + tech.EmployeeId))">
+                                <td class="fw-medium">@tech.Name</td>
+                                <td class="text-end">@tech.JobsAssigned</td>
+                                <td class="text-end">@tech.JobsCompleted</td>
+                                <td class="text-end">@tech.HoursLogged.ToString("F1")</td>
+                                <td class="text-end">@tech.AvgHoursPerJob.ToString("F1")</td>
+                                <td class="text-end">@tech.RevenueGenerated.ToString("C")</td>
+                                <td class="text-end fw-medium text-success">@tech.RevenuePerHour.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
+else if (activeTab == "seasonal")
+{
+    @if (seasonalData is null)
+    {
+        <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading seasonal data...</div>
+    }
+    else if (!seasonalData.Any())
+    {
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-calendar3" style="font-size:3rem;"></i>
+            <p class="mt-2">No job data available for seasonal analysis.</p>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-end mb-2">
+            <button class="btn btn-outline-secondary btn-sm" @onclick="ExportSeasonal"><i class="bi bi-download me-1"></i>Export CSV</button>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Peak Month</small>
+                    @{ var peak = seasonalData.OrderByDescending(s => s.JobCount).First(); }
+                    <h4 class="mb-0 text-primary">@peak.MonthName</h4>
+                    <small class="text-muted">@peak.JobCount jobs</small>
+                </div></div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Highest Revenue Month</small>
+                    @{ var topRev = seasonalData.OrderByDescending(s => s.Revenue).First(); }
+                    <h4 class="mb-0 text-success">@topRev.MonthName</h4>
+                    <small class="text-muted">@topRev.Revenue.ToString("C0")</small>
+                </div></div>
+            </div>
+            <div class="col-md-4">
+                <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                    <small class="text-muted d-block">Avg Jobs/Month</small>
+                    <h4 class="mb-0">@seasonalData.Average(s => s.JobCount).ToString("F1")</h4>
+                </div></div>
+            </div>
+        </div>
+        <div class="card border-0 shadow-sm">
+            <div class="table-responsive">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr><th>Month</th><th class="text-end">Jobs</th><th class="text-end">Revenue</th><th>Top Trade</th><th>Demand Level</th></tr>
+                    </thead>
+                    <tbody>
+                        @{ var maxJobs = seasonalData.Max(s => s.JobCount); }
+                        @foreach (var item in seasonalData)
+                        {
+                            var pct = maxJobs > 0 ? (double)item.JobCount / maxJobs * 100 : 0;
+                            <tr>
+                                <td class="fw-medium">@item.MonthName</td>
+                                <td class="text-end">@item.JobCount</td>
+                                <td class="text-end">@item.Revenue.ToString("C0")</td>
+                                <td><span class="badge bg-info text-dark">@(item.TopTrade ?? "\u2014")</span></td>
+                                <td>
+                                    <div class="progress" style="height:18px;min-width:80px;">
+                                        <div class="progress-bar @(pct >= 75 ? "bg-danger" : pct >= 50 ? "bg-warning" : "bg-success")" style="width:@pct%"></div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+}
 else if (activeTab == "reports")
 {
-    <div class="row g-3">
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6><i class="bi bi-cash-coin me-1 text-success"></i>Job Profitability</h6>
-                    <p class="text-muted small">Breakdown of materials, labor, and margins by job, site, or customer territory.</p>
-                    @if (kpis is not null) { <small class="text-muted">@kpis.CompletedJobs completed jobs available</small> }
-                    <div class="mt-2">
-                        <a href="/jobs" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Jobs</a>
-                    </div>
+    <ul class="nav nav-pills nav-fill mb-3">
+        <li class="nav-item"><a class="nav-link @(reportSubTab == "aging" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchReportSubTab("aging")'><i class="bi bi-clock-history me-1"></i>A/R Aging</a></li>
+        <li class="nav-item"><a class="nav-link @(reportSubTab == "repairs" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchReportSubTab("repairs")'><i class="bi bi-wrench me-1"></i>Asset Repairs</a></li>
+        <li class="nav-item"><a class="nav-link @(reportSubTab == "inventory" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchReportSubTab("inventory")'><i class="bi bi-box-seam me-1"></i>Inventory</a></li>
+        <li class="nav-item"><a class="nav-link @(reportSubTab == "renewals" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchReportSubTab("renewals")'><i class="bi bi-file-earmark-check me-1"></i>Renewals</a></li>
+    </ul>
+
+    @if (reportSubTab == "aging")
+    {
+        @if (arAgingData is null)
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading A/R aging...</div>
+        }
+        else if (!arAgingData.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-check-circle" style="font-size:3rem;"></i>
+                <p class="mt-2">No outstanding invoices. All accounts are current!</p>
+            </div>
+        }
+        else
+        {
+            var buckets = arAgingData.GroupBy(a => a.AgingBucket).ToDictionary(g => g.Key, g => g.ToList());
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ExportARAging"><i class="bi bi-download me-1"></i>Export CSV</button>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Current</small>
+                        <h4 class="mb-0 text-success">@((buckets.GetValueOrDefault("Current")?.Sum(a => a.BalanceDue) ?? 0).ToString("C0"))</h4>
+                        <small class="text-muted">@(buckets.GetValueOrDefault("Current")?.Count ?? 0) invoices</small>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">31-60 Days</small>
+                        <h4 class="mb-0 text-warning">@((buckets.GetValueOrDefault("31-60")?.Sum(a => a.BalanceDue) ?? 0).ToString("C0"))</h4>
+                        <small class="text-muted">@(buckets.GetValueOrDefault("31-60")?.Count ?? 0) invoices</small>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">61-90 Days</small>
+                        <h4 class="mb-0 text-danger">@((buckets.GetValueOrDefault("61-90")?.Sum(a => a.BalanceDue) ?? 0).ToString("C0"))</h4>
+                        <small class="text-muted">@(buckets.GetValueOrDefault("61-90")?.Count ?? 0) invoices</small>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">90+ Days</small>
+                        <h4 class="mb-0 text-danger fw-bold">@((buckets.GetValueOrDefault("90+")?.Sum(a => a.BalanceDue) ?? 0).ToString("C0"))</h4>
+                        <small class="text-muted">@(buckets.GetValueOrDefault("90+")?.Count ?? 0) invoices</small>
+                    </div></div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6><i class="bi bi-clock-history me-1 text-warning"></i>A/R Aging</h6>
-                    <p class="text-muted small">Outstanding invoices grouped by age (30/60/90+ days) with customer and site breakdowns.</p>
-                    @if (kpis is not null) { <small class="text-muted">@kpis.UnpaidInvoiceCount unpaid invoices · @kpis.OutstandingAR.ToString("C0") outstanding</small> }
-                    <div class="mt-2">
-                        <a href="/financials" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Financials</a>
-                    </div>
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr><th>Invoice #</th><th>Customer</th><th>Site</th><th>Invoice Date</th><th>Due Date</th><th class="text-end">Total</th><th class="text-end">Balance Due</th><th class="text-end">Days Overdue</th><th>Bucket</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in arAgingData)
+                            {
+                                <tr style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/financials"))">
+                                    <td class="fw-medium">@item.InvoiceNumber</td>
+                                    <td>@(item.CustomerName ?? "\u2014")</td>
+                                    <td>@(item.SiteName ?? "\u2014")</td>
+                                    <td><small>@(item.InvoiceDate?.ToString("MMM dd, yyyy") ?? "\u2014")</small></td>
+                                    <td><small>@(item.DueDate?.ToString("MMM dd, yyyy") ?? "\u2014")</small></td>
+                                    <td class="text-end">@item.Total.ToString("C")</td>
+                                    <td class="text-end fw-medium text-danger">@item.BalanceDue.ToString("C")</td>
+                                    <td class="text-end">@item.DaysOverdue</td>
+                                    <td><span class="badge @(item.AgingBucket == "Current" ? "bg-success" : item.AgingBucket == "1-30" ? "bg-info" : item.AgingBucket == "31-60" ? "bg-warning text-dark" : "bg-danger")">@item.AgingBucket</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6><i class="bi bi-wrench me-1 text-info"></i>Asset Repair Trends</h6>
-                    <p class="text-muted small">Frequency and cost of repairs by asset type, site, or warranty status.</p>
-                    @if (kpis is not null) { <small class="text-muted">@kpis.TotalAssets assets tracked</small> }
-                    <div class="mt-2">
-                        <a href="/assets" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Assets</a>
-                    </div>
+        }
+    }
+    else if (reportSubTab == "repairs")
+    {
+        @if (repairTrendData is null)
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading repair trends...</div>
+        }
+        else if (!repairTrendData.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-wrench" style="font-size:3rem;"></i>
+                <p class="mt-2">No asset repair data available yet.</p>
+            </div>
+        }
+        else
+        {
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ExportRepairTrends"><i class="bi bi-download me-1"></i>Export CSV</button>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Asset Types</small>
+                        <h4 class="mb-0 text-primary">@repairTrendData.Count</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Total Repairs</small>
+                        <h4 class="mb-0 text-warning">@repairTrendData.Sum(r => r.RepairCount)</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Total Repair Cost</small>
+                        <h4 class="mb-0 text-danger">@repairTrendData.Sum(r => r.TotalCost).ToString("C0")</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Under Warranty</small>
+                        <h4 class="mb-0 text-success">@repairTrendData.Sum(r => r.UnderWarranty)</h4>
+                    </div></div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6><i class="bi bi-person-lines-fill me-1 text-primary"></i>Tech Performance</h6>
-                    <p class="text-muted small">Jobs completed, time logged, and efficiency metrics per technician.</p>
-                    @if (kpis is not null) { <small class="text-muted">@kpis.ActiveEmployees active techs · @kpis.TotalHoursLogged.ToString("F1") hours logged</small> }
-                    <div class="mt-2">
-                        <a href="/employees" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Employees</a>
-                    </div>
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr><th>Asset Type</th><th class="text-end">Assets</th><th class="text-end">Repairs</th><th class="text-end">Total Cost</th><th class="text-end">Avg/Repair</th><th>Top Issue</th><th class="text-end">Under Warranty</th><th class="text-end">Out of Warranty</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in repairTrendData)
+                            {
+                                <tr>
+                                    <td class="fw-medium">@item.AssetType</td>
+                                    <td class="text-end">@item.AssetCount</td>
+                                    <td class="text-end">@item.RepairCount</td>
+                                    <td class="text-end">@item.TotalCost.ToString("C")</td>
+                                    <td class="text-end">@item.AvgCostPerRepair.ToString("C")</td>
+                                    <td><span class="badge bg-info text-dark">@(item.TopServiceType ?? "\u2014")</span></td>
+                                    <td class="text-end text-success">@item.UnderWarranty</td>
+                                    <td class="text-end text-danger">@item.OutOfWarranty</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6><i class="bi bi-box-seam me-1 text-danger"></i>Inventory Usage</h6>
-                    <p class="text-muted small">Material consumption by product, job, and reorder recommendations.</p>
-                    @if (kpis is not null) { <small class="text-muted">@kpis.InventoryItemCount items in inventory</small> }
-                    <div class="mt-2">
-                        <a href="/inventory" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Inventory</a>
-                    </div>
+        }
+    }
+    else if (reportSubTab == "inventory")
+    {
+        @if (inventoryUsageData is null)
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading inventory report...</div>
+        }
+        else if (!inventoryUsageData.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-box-seam" style="font-size:3rem;"></i>
+                <p class="mt-2">No inventory items found.</p>
+            </div>
+        }
+        else
+        {
+            var reorderCount = inventoryUsageData.Count(i => i.ReorderNeeded);
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ExportInventoryUsage"><i class="bi bi-download me-1"></i>Export CSV</button>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Items Tracked</small>
+                        <h4 class="mb-0 text-primary">@inventoryUsageData.Count</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Total Stock Value</small>
+                        <h4 class="mb-0 text-success">@inventoryUsageData.Sum(i => i.StockValue).ToString("C0")</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Reorder Needed</small>
+                        <h4 class="mb-0 @(reorderCount > 0 ? "text-danger" : "text-success")">@reorderCount</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Avg Unit Cost</small>
+                        @{ var avgCost = inventoryUsageData.Any() ? inventoryUsageData.Average(i => i.Cost) : 0; }
+                        <h4 class="mb-0">@avgCost.ToString("C")</h4>
+                    </div></div>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h6><i class="bi bi-file-earmark-check me-1 text-secondary"></i>Agreement Renewals</h6>
-                    <p class="text-muted small">Service agreements expiring soon with visit usage and renewal trends.</p>
-                    @if (kpis is not null) { <small class="text-muted">@kpis.ActiveAgreements active agreements</small> }
-                    <div class="mt-2">
-                        <a href="/serviceagreements" class="btn btn-outline-primary btn-sm"><i class="bi bi-box-arrow-up-right me-1"></i>View Agreements</a>
-                    </div>
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr><th>Product</th><th>SKU</th><th class="text-end">Stock</th><th class="text-end">Min</th><th class="text-end">Unit Cost</th><th class="text-end">Stock Value</th><th>Supplier</th><th>Last Restocked</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in inventoryUsageData)
+                            {
+                                <tr style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/inventory"))">
+                                    <td class="fw-medium">@item.ProductName</td>
+                                    <td><small class="text-muted">@(item.SKU ?? "\u2014")</small></td>
+                                    <td class="text-end">@item.CurrentStock</td>
+                                    <td class="text-end">@item.MinThreshold</td>
+                                    <td class="text-end">@item.Cost.ToString("C")</td>
+                                    <td class="text-end">@item.StockValue.ToString("C")</td>
+                                    <td><small>@(item.PreferredSupplier ?? "\u2014")</small></td>
+                                    <td><small>@(item.LastRestockedDate?.ToString("MMM dd") ?? "\u2014")</small></td>
+                                    <td>
+                                        @if (item.ReorderNeeded)
+                                        {
+                                            <span class="badge bg-danger">Reorder</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-success">OK</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-    </div>
-    <div class="alert alert-info mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Full report engine with CSV/PDF export and custom filters is under development. Use the links above to navigate to detailed views.</div>
+        }
+    }
+    else if (reportSubTab == "renewals")
+    {
+        @if (agreementRenewalData is null)
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading agreement renewals...</div>
+        }
+        else if (!agreementRenewalData.Any())
+        {
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-file-earmark-check" style="font-size:3rem;"></i>
+                <p class="mt-2">No active agreements requiring renewal attention.</p>
+            </div>
+        }
+        else
+        {
+            var expiringCount = agreementRenewalData.Count(a => a.DaysUntilExpiry <= 30);
+            <div class="d-flex justify-content-end mb-2">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ExportRenewals"><i class="bi bi-download me-1"></i>Export CSV</button>
+            </div>
+            <div class="row g-3 mb-3">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Active Agreements</small>
+                        <h4 class="mb-0 text-primary">@agreementRenewalData.Count</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Expiring Soon (30d)</small>
+                        <h4 class="mb-0 @(expiringCount > 0 ? "text-danger" : "text-success")">@expiringCount</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Auto-Renew</small>
+                        <h4 class="mb-0 text-success">@agreementRenewalData.Count(a => a.AutoRenew)</h4>
+                    </div></div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm"><div class="card-body text-center">
+                        <small class="text-muted d-block">Total Revenue</small>
+                        <h4 class="mb-0 text-success">@agreementRenewalData.Sum(a => a.Fee).ToString("C0")</h4>
+                    </div></div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr><th>Agreement #</th><th>Customer</th><th>Trade</th><th>Coverage</th><th>End Date</th><th class="text-end">Days Left</th><th class="text-end">Visits</th><th class="text-end">Fee</th><th>Auto</th><th>Status</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in agreementRenewalData)
+                            {
+                                <tr style="cursor:pointer" @onclick="@(() => Nav.NavigateTo("/serviceagreements"))">
+                                    <td class="fw-medium">@item.AgreementNumber</td>
+                                    <td>@(item.CustomerName ?? "\u2014")</td>
+                                    <td><span class="badge bg-info text-dark">@(item.TradeType ?? "\u2014")</span></td>
+                                    <td>@(item.CoverageLevel ?? "\u2014")</td>
+                                    <td><small>@item.EndDate.ToString("MMM dd, yyyy")</small></td>
+                                    <td class="text-end"><span class="badge @(item.DaysUntilExpiry <= 0 ? "bg-danger" : item.DaysUntilExpiry <= 30 ? "bg-warning text-dark" : "bg-success")">@item.DaysUntilExpiry d</span></td>
+                                    <td class="text-end">@item.VisitsUsed / @item.VisitsIncluded</td>
+                                    <td class="text-end">@item.Fee.ToString("C")</td>
+                                    <td>
+                                        @if (item.AutoRenew)
+                                        {
+                                            <i class="bi bi-check-circle-fill text-success"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-x-circle text-muted"></i>
+                                        }
+                                    </td>
+                                    <td><span class="badge @(item.Status == "Active" ? "bg-success" : item.Status == "Expiring" ? "bg-warning text-dark" : "bg-secondary")">@item.Status</span></td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        }
+    }
 }
 else
 {
@@ -238,8 +697,11 @@ else
                 <div class="col-md-2">
                     <input type="date" class="form-control form-control-sm" @bind="auditDateTo" />
                 </div>
-                <div class="col-md-1">
-                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="LoadAuditLogs"><i class="bi bi-search"></i></button>
+                <div class="col-auto">
+                    <button class="btn btn-outline-primary btn-sm" @onclick="LoadAuditLogs"><i class="bi bi-search"></i></button>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="ExportAuditLogs" disabled="@(auditLogs is null || !auditLogs.Any())"><i class="bi bi-download me-1"></i>CSV</button>
                 </div>
             </div>
         </div>
@@ -294,6 +756,15 @@ else
     private ReportPeriod selectedPeriod = ReportPeriod.ThisMonth;
     private ReportKPIs? kpis;
 
+    private List<JobProfitabilityItem>? profitabilityData;
+    private List<TechUtilizationItem>? utilizationData;
+    private List<SeasonalDemandItem>? seasonalData;
+    private List<ARAgingItem>? arAgingData;
+    private List<AssetRepairTrendItem>? repairTrendData;
+    private List<InventoryUsageItem>? inventoryUsageData;
+    private List<AgreementRenewalItem>? agreementRenewalData;
+    private string reportSubTab = "aging";
+
     private AuditLogFilter auditFilter = new();
     private string auditEntityType = "";
     private string auditAction = "";
@@ -329,6 +800,62 @@ else
         if (auditLogs is null) await LoadAuditLogs();
     }
 
+    private async Task SwitchToProfitability()
+    {
+        activeTab = "profitability";
+        profitabilityData = null;
+        StateHasChanged();
+        profitabilityData = await ReportSvc.GetJobProfitabilityAsync(selectedPeriod);
+    }
+
+    private async Task SwitchToUtilization()
+    {
+        activeTab = "utilization";
+        utilizationData = null;
+        StateHasChanged();
+        utilizationData = await ReportSvc.GetTechUtilizationAsync(selectedPeriod);
+    }
+
+    private async Task SwitchToSeasonal()
+    {
+        activeTab = "seasonal";
+        seasonalData = null;
+        StateHasChanged();
+        seasonalData = await ReportSvc.GetSeasonalDemandAsync();
+    }
+
+    private async Task SwitchToReports()
+    {
+        activeTab = "reports";
+        if (arAgingData is null) await LoadReportSubTab();
+    }
+
+    private async Task LoadReportSubTab()
+    {
+        if (reportSubTab == "aging" && arAgingData is null)
+        {
+            arAgingData = await ReportSvc.GetARAgingAsync();
+        }
+        else if (reportSubTab == "repairs" && repairTrendData is null)
+        {
+            repairTrendData = await ReportSvc.GetAssetRepairTrendsAsync();
+        }
+        else if (reportSubTab == "inventory" && inventoryUsageData is null)
+        {
+            inventoryUsageData = await ReportSvc.GetInventoryUsageAsync();
+        }
+        else if (reportSubTab == "renewals" && agreementRenewalData is null)
+        {
+            agreementRenewalData = await ReportSvc.GetAgreementRenewalsAsync();
+        }
+    }
+
+    private async Task SwitchReportSubTab(string tab)
+    {
+        reportSubTab = tab;
+        await LoadReportSubTab();
+    }
+
     private async Task PrevAuditPage() { auditFilter.Page = Math.Max(1, auditFilter.Page - 1); await LoadAuditLogs(); }
     private async Task NextAuditPage() { auditFilter.Page = Math.Min(totalAuditPages, auditFilter.Page + 1); await LoadAuditLogs(); }
 
@@ -353,4 +880,97 @@ else
     };
 
     private async Task HandleAuditSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadAuditLogs(); }
+
+    private static string CsvEscape(string? value)
+    {
+        if (string.IsNullOrEmpty(value)) return "";
+        if (value.Contains(',') || value.Contains('"') || value.Contains('\n'))
+            return "\"" + value.Replace("\"", "\"\"") + "\"";
+        return value;
+    }
+
+    private async Task DownloadCsv(string fileName, string csvContent)
+    {
+        await JS.InvokeVoidAsync("downloadCsvFile", fileName, csvContent);
+    }
+
+    private async Task ExportProfitability()
+    {
+        if (profitabilityData is null || !profitabilityData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Job #,Customer,Trade,Revenue,Labor,Material,Expenses,Profit,Margin %,Completed");
+        foreach (var i in profitabilityData)
+            sb.AppendLine($"{CsvEscape(i.JobNumber)},{CsvEscape(i.CustomerName)},{CsvEscape(i.Trade)},{i.Revenue:F2},{i.LaborCost:F2},{i.MaterialCost:F2},{i.ExpenseCost:F2},{i.Profit:F2},{i.MarginPercent:F1},{i.CompletedDate?.ToString("yyyy-MM-dd")}");
+        await DownloadCsv($"Profitability_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportUtilization()
+    {
+        if (utilizationData is null || !utilizationData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Technician,Jobs Assigned,Jobs Completed,Hours Logged,Avg Hrs/Job,Revenue,Revenue/Hr");
+        foreach (var i in utilizationData)
+            sb.AppendLine($"{CsvEscape(i.Name)},{i.JobsAssigned},{i.JobsCompleted},{i.HoursLogged:F1},{i.AvgHoursPerJob:F1},{i.RevenueGenerated:F2},{i.RevenuePerHour:F2}");
+        await DownloadCsv($"TechUtilization_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportSeasonal()
+    {
+        if (seasonalData is null || !seasonalData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Month,Jobs,Revenue,Top Trade");
+        foreach (var i in seasonalData)
+            sb.AppendLine($"{CsvEscape(i.MonthName)},{i.JobCount},{i.Revenue:F2},{CsvEscape(i.TopTrade)}");
+        await DownloadCsv($"SeasonalDemand_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportARAging()
+    {
+        if (arAgingData is null || !arAgingData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Invoice #,Customer,Site,Invoice Date,Due Date,Total,Balance Due,Days Overdue,Bucket");
+        foreach (var i in arAgingData)
+            sb.AppendLine($"{CsvEscape(i.InvoiceNumber)},{CsvEscape(i.CustomerName)},{CsvEscape(i.SiteName)},{i.InvoiceDate?.ToString("yyyy-MM-dd")},{i.DueDate?.ToString("yyyy-MM-dd")},{i.Total:F2},{i.BalanceDue:F2},{i.DaysOverdue},{CsvEscape(i.AgingBucket)}");
+        await DownloadCsv($"AR_Aging_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportRepairTrends()
+    {
+        if (repairTrendData is null || !repairTrendData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Asset Type,Assets,Repairs,Total Cost,Avg/Repair,Top Issue,Under Warranty,Out of Warranty");
+        foreach (var i in repairTrendData)
+            sb.AppendLine($"{CsvEscape(i.AssetType)},{i.AssetCount},{i.RepairCount},{i.TotalCost:F2},{i.AvgCostPerRepair:F2},{CsvEscape(i.TopServiceType)},{i.UnderWarranty},{i.OutOfWarranty}");
+        await DownloadCsv($"AssetRepairTrends_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportInventoryUsage()
+    {
+        if (inventoryUsageData is null || !inventoryUsageData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Product,SKU,Stock,Min Threshold,Unit Cost,Stock Value,Supplier,Last Restocked,Reorder Needed");
+        foreach (var i in inventoryUsageData)
+            sb.AppendLine($"{CsvEscape(i.ProductName)},{CsvEscape(i.SKU)},{i.CurrentStock},{i.MinThreshold},{i.Cost:F2},{i.StockValue:F2},{CsvEscape(i.PreferredSupplier)},{i.LastRestockedDate?.ToString("yyyy-MM-dd")},{(i.ReorderNeeded ? "Yes" : "No")}");
+        await DownloadCsv($"InventoryUsage_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportRenewals()
+    {
+        if (agreementRenewalData is null || !agreementRenewalData.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Agreement #,Customer,Trade,Coverage,End Date,Days Left,Visits Used,Visits Included,Fee,Auto Renew,Status");
+        foreach (var i in agreementRenewalData)
+            sb.AppendLine($"{CsvEscape(i.AgreementNumber)},{CsvEscape(i.CustomerName)},{CsvEscape(i.TradeType)},{CsvEscape(i.CoverageLevel)},{i.EndDate:yyyy-MM-dd},{i.DaysUntilExpiry},{i.VisitsUsed},{i.VisitsIncluded},{i.Fee:F2},{(i.AutoRenew ? "Yes" : "No")},{CsvEscape(i.Status)}");
+        await DownloadCsv($"AgreementRenewals_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
+
+    private async Task ExportAuditLogs()
+    {
+        if (auditLogs is null || !auditLogs.Any()) return;
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("Timestamp,User,Action,Entity,Entity ID,Details");
+        foreach (var i in auditLogs)
+            sb.AppendLine($"{i.Timestamp:yyyy-MM-dd HH:mm:ss},{CsvEscape(i.UserName)},{CsvEscape(i.Action)},{CsvEscape(i.EntityType)},{i.EntityId},{CsvEscape(i.Details)}");
+        await DownloadCsv($"AuditLogs_{DateTime.Now:yyyyMMdd}.csv", sb.ToString());
+    }
 }

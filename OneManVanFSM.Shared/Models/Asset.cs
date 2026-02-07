@@ -32,6 +32,9 @@ public class Asset
     public DateTime? WarrantyStartDate { get; set; }
     public int? WarrantyTermYears { get; set; }
     public DateTime? WarrantyExpiry { get; set; }
+    public DateTime? LaborWarrantyExpiry { get; set; }
+    public DateTime? PartsWarrantyExpiry { get; set; }
+    public DateTime? CompressorWarrantyExpiry { get; set; }
     public AssetStatus Status { get; set; } = AssetStatus.Active;
     public decimal? Value { get; set; }
     public string? Notes { get; set; }

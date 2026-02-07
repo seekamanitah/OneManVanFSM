@@ -64,6 +64,9 @@ public class AssetService : IAssetService
                 InstallDate = a.InstallDate, LastServiceDate = a.LastServiceDate,
                 NextServiceDue = a.NextServiceDue, WarrantyStartDate = a.WarrantyStartDate,
                 WarrantyTermYears = a.WarrantyTermYears, WarrantyExpiry = a.WarrantyExpiry,
+                LaborWarrantyExpiry = a.LaborWarrantyExpiry,
+                PartsWarrantyExpiry = a.PartsWarrantyExpiry,
+                CompressorWarrantyExpiry = a.CompressorWarrantyExpiry,
                 Status = a.Status, Value = a.Value, Notes = a.Notes,
                 ProductId = a.ProductId, ProductName = a.Product != null ? a.Product.Name : null,
                 CustomerId = a.CustomerId, CustomerName = a.Customer != null ? a.Customer.Name : null,
@@ -102,8 +105,14 @@ public class AssetService : IAssetService
                 Notes = sl.Notes,
                 NextDueDate = sl.NextDueDate,
                 Cost = sl.Cost,
+                RefrigerantType = sl.RefrigerantType,
+                RefrigerantAmountAdded = sl.RefrigerantAmountAdded,
+                RefrigerantBeforeReading = sl.RefrigerantBeforeReading,
+                RefrigerantAfterReading = sl.RefrigerantAfterReading,
             })
             .ToListAsync();
+
+        detail.UnifiedTimeline = await GetUnifiedTimelineAsync(id);
 
         return detail;
     }
@@ -130,6 +139,7 @@ public class AssetService : IAssetService
         };
         _db.Assets.Add(asset);
         await _db.SaveChangesAsync();
+        await CalculateWarrantyExpiriesAsync(asset);
         return asset;
     }
 
@@ -152,7 +162,40 @@ public class AssetService : IAssetService
         a.ProductId = model.ProductId; a.CustomerId = model.CustomerId; a.SiteId = model.SiteId;
         a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+        await CalculateWarrantyExpiriesAsync(a);
         return a;
+    }
+
+    /// <summary>
+    /// Auto-calculates Labor/Parts/Compressor warranty expiry dates from InstallDate + Product warranty terms.
+    /// Falls back to WarrantyStartDate if InstallDate is null. Defaults: 1yr labor, 10yr parts, 10yr compressor.
+    /// </summary>
+    private async Task CalculateWarrantyExpiriesAsync(Asset asset)
+    {
+        var startDate = asset.InstallDate ?? asset.WarrantyStartDate;
+        if (startDate is null) return;
+
+        int laborYears = 1, partsYears = 10, compressorYears = 10;
+
+        if (asset.ProductId.HasValue)
+        {
+            var product = await _db.Products.FindAsync(asset.ProductId.Value);
+            if (product is not null)
+            {
+                laborYears = product.LaborWarrantyYears;
+                partsYears = product.PartsWarrantyYears;
+                compressorYears = product.CompressorWarrantyYears;
+            }
+        }
+
+        asset.LaborWarrantyExpiry = startDate.Value.AddYears(laborYears);
+        asset.PartsWarrantyExpiry = startDate.Value.AddYears(partsYears);
+        asset.CompressorWarrantyExpiry = startDate.Value.AddYears(compressorYears);
+
+        // Set the general WarrantyExpiry to the latest of the three
+        asset.WarrantyExpiry = new[] { asset.LaborWarrantyExpiry, asset.PartsWarrantyExpiry, asset.CompressorWarrantyExpiry }.Max();
+
+        await _db.SaveChangesAsync();
     }
 
     public async Task<bool> ArchiveAssetAsync(int id)
@@ -162,5 +205,83 @@ public class AssetService : IAssetService
         a.IsArchived = true; a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<List<AssetTimelineEntry>> GetUnifiedTimelineAsync(int assetId)
+    {
+        var timeline = new List<AssetTimelineEntry>();
+
+        // 1. Jobs linked to this asset
+        var jobs = await _db.JobAssets
+            .Where(ja => ja.AssetId == assetId)
+            .Include(ja => ja.Job).ThenInclude(j => j!.AssignedEmployee)
+            .Select(ja => new { ja.Job, ja.Role })
+            .ToListAsync();
+
+        foreach (var item in jobs)
+        {
+            if (item.Job is null) continue;
+            timeline.Add(new AssetTimelineEntry
+            {
+                Date = item.Job.CompletedDate ?? item.Job.ScheduledDate ?? item.Job.CreatedAt,
+                Source = "Job",
+                Title = $"{item.Job.JobNumber}: {item.Job.Title}",
+                Description = $"Role: {item.Role ?? "General"}. {item.Job.JobType ?? ""}",
+                Status = item.Job.Status.ToString(),
+                PerformedBy = item.Job.AssignedEmployee?.Name,
+                Cost = item.Job.ActualTotal ?? item.Job.EstimatedTotal,
+                SourceId = item.Job.Id,
+                Badge = item.Job.Status == JobStatus.Completed ? "bg-success" : "bg-primary"
+            });
+        }
+
+        // 2. ServiceHistoryRecords linked to this asset
+        var serviceRecords = await _db.ServiceHistoryRecords
+            .Where(sh => sh.AssetId == assetId)
+            .Include(sh => sh.Tech)
+            .OrderByDescending(sh => sh.ServiceDate)
+            .Take(50)
+            .ToListAsync();
+
+        foreach (var sh in serviceRecords)
+        {
+            timeline.Add(new AssetTimelineEntry
+            {
+                Date = sh.ServiceDate,
+                Source = "ServiceHistory",
+                Title = $"{sh.RecordNumber}: {sh.Type}",
+                Description = sh.Description,
+                Status = sh.Status.ToString(),
+                PerformedBy = sh.Tech?.Name,
+                Cost = sh.Cost,
+                SourceId = sh.Id,
+                Badge = sh.Status == ServiceHistoryStatus.Resolved ? "bg-info" : "bg-warning text-dark"
+            });
+        }
+
+        // 3. AssetServiceLogs (manual service entries)
+        var serviceLogs = await _db.AssetServiceLogs
+            .Where(sl => sl.AssetId == assetId)
+            .OrderByDescending(sl => sl.ServiceDate)
+            .Take(50)
+            .ToListAsync();
+
+        foreach (var sl in serviceLogs)
+        {
+            timeline.Add(new AssetTimelineEntry
+            {
+                Date = sl.ServiceDate,
+                Source = "ServiceLog",
+                Title = sl.ServiceType ?? "Service Log",
+                Description = sl.Notes,
+                Status = "Completed",
+                PerformedBy = sl.PerformedBy,
+                Cost = sl.Cost,
+                SourceId = sl.Id,
+                Badge = "bg-secondary"
+            });
+        }
+
+        return timeline.OrderByDescending(t => t.Date).ToList();
     }
 }

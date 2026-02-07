@@ -14,6 +14,9 @@ public class Product
     public string? Unit { get; set; } // Count, Boxes, Ft, Rolls, etc.
     public string? Specs { get; set; } // JSON for flexible specs
     public string? SupplierName { get; set; }
+    public int LaborWarrantyYears { get; set; } = 1;
+    public int PartsWarrantyYears { get; set; } = 10;
+    public int CompressorWarrantyYears { get; set; } = 10;
     public bool IsTemplate { get; set; } = true;
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }

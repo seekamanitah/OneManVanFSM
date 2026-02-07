@@ -4,7 +4,7 @@ using OneManVanFSM.Shared.Models;
 
 namespace OneManVanFSM.Web.Services;
 
-public class DashboardService(AppDbContext db) : IDashboardService
+public class DashboardService(AppDbContext db, IServiceAgreementService agreementService) : IDashboardService
 {
     public async Task<DashboardData> GetDashboardDataAsync(DashboardPeriod period = DashboardPeriod.Today)
     {
@@ -219,6 +219,76 @@ public class DashboardService(AppDbContext db) : IDashboardService
             })
             .ToListAsync();
 
+        // Maintenance due assets (overdue or due within 14 days)
+        var maintenanceDueAssets = await db.Assets
+            .Include(a => a.Customer)
+            .Include(a => a.Site)
+            .Where(a => !a.IsArchived
+                && a.Status == AssetStatus.Active
+                && a.NextServiceDue != null
+                && a.NextServiceDue.Value <= today.AddDays(14))
+            .OrderBy(a => a.NextServiceDue)
+            .Take(10)
+            .Select(a => new MaintenanceDueAsset
+            {
+                Id = a.Id,
+                Name = a.Name,
+                AssetType = a.AssetType,
+                CustomerName = a.Customer != null ? a.Customer.Name : null,
+                SiteName = a.Site != null ? a.Site.Name : null,
+                NextServiceDue = a.NextServiceDue,
+                LastServiceDate = a.LastServiceDate,
+                DaysOverdue = a.NextServiceDue != null ? (int)(today - a.NextServiceDue.Value.Date).TotalDays : 0,
+            })
+            .ToListAsync();
+
+        // Expiring warranty assets (any warranty expiring within 90 days or already expired within last 30 days)
+        var warrantyWindowStart = today.AddDays(-30);
+        var warrantyWindowEnd = today.AddDays(90);
+        var expiringWarrantyAssets = await db.Assets
+            .Include(a => a.Customer)
+            .Where(a => !a.IsArchived
+                && a.Status == AssetStatus.Active
+                && (
+                    (a.LaborWarrantyExpiry != null && a.LaborWarrantyExpiry.Value >= warrantyWindowStart && a.LaborWarrantyExpiry.Value <= warrantyWindowEnd)
+                    || (a.PartsWarrantyExpiry != null && a.PartsWarrantyExpiry.Value >= warrantyWindowStart && a.PartsWarrantyExpiry.Value <= warrantyWindowEnd)
+                    || (a.CompressorWarrantyExpiry != null && a.CompressorWarrantyExpiry.Value >= warrantyWindowStart && a.CompressorWarrantyExpiry.Value <= warrantyWindowEnd)
+                ))
+            .OrderBy(a => a.WarrantyExpiry)
+            .Take(10)
+            .ToListAsync();
+
+        var expiringWarranties = expiringWarrantyAssets.Select(a =>
+        {
+            var earliest = new[] { a.LaborWarrantyExpiry, a.PartsWarrantyExpiry, a.CompressorWarrantyExpiry }
+                .Where(d => d.HasValue)
+                .Select(d => d!.Value)
+                .OrderBy(d => d)
+                .FirstOrDefault();
+            var daysUntil = earliest != default ? (int)(earliest - today).TotalDays : 0;
+
+            var alerts = new List<string>();
+            if (a.LaborWarrantyExpiry.HasValue && a.LaborWarrantyExpiry.Value <= warrantyWindowEnd)
+                alerts.Add(a.LaborWarrantyExpiry.Value < today ? "Labor expired" : $"Labor in {(int)(a.LaborWarrantyExpiry.Value - today).TotalDays}d");
+            if (a.PartsWarrantyExpiry.HasValue && a.PartsWarrantyExpiry.Value <= warrantyWindowEnd)
+                alerts.Add(a.PartsWarrantyExpiry.Value < today ? "Parts expired" : $"Parts in {(int)(a.PartsWarrantyExpiry.Value - today).TotalDays}d");
+            if (a.CompressorWarrantyExpiry.HasValue && a.CompressorWarrantyExpiry.Value <= warrantyWindowEnd)
+                alerts.Add(a.CompressorWarrantyExpiry.Value < today ? "Compressor expired" : $"Compressor in {(int)(a.CompressorWarrantyExpiry.Value - today).TotalDays}d");
+
+            return new ExpiringWarrantyAsset
+            {
+                Id = a.Id,
+                Name = a.Name,
+                AssetType = a.AssetType,
+                CustomerName = a.Customer?.Name,
+                LaborWarrantyExpiry = a.LaborWarrantyExpiry,
+                PartsWarrantyExpiry = a.PartsWarrantyExpiry,
+                CompressorWarrantyExpiry = a.CompressorWarrantyExpiry,
+                WarrantyAlert = string.Join(", ", alerts),
+                DaysUntilExpiry = daysUntil,
+            };
+        }).ToList();
+
         // KPI aggregates
         var allJobsInPeriod = await db.Jobs
             .Where(j => !j.IsArchived && j.CreatedAt >= timeEntriesStart)
@@ -256,7 +326,23 @@ public class DashboardService(AppDbContext db) : IDashboardService
             LowStockItems = lowStockItems,
             ExpiringAgreements = expiringAgreements,
             UrgentNotes = urgentNotes,
+            MaintenanceDueAssets = maintenanceDueAssets,
+            ExpiringWarranties = expiringWarranties,
             KPIs = kpis,
+        };
+    }
+
+    public async Task<AgreementAutomationResult> ProcessAgreementAutomationAsync()
+    {
+        var statusesUpdated = await agreementService.UpdateAgreementStatusesAsync();
+        var renewed = await agreementService.ProcessAutoRenewalsAsync();
+        var jobsGenerated = await agreementService.GenerateAgreementJobsAsync();
+
+        return new AgreementAutomationResult
+        {
+            StatusesUpdated = statusesUpdated,
+            AgreementsRenewed = renewed,
+            JobsGenerated = jobsGenerated,
         };
     }
 }

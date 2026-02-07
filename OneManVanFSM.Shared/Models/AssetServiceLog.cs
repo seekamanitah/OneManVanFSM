@@ -11,5 +11,10 @@ public class AssetServiceLog
     public string? Notes { get; set; }
     public DateTime? NextDueDate { get; set; }
     public decimal? Cost { get; set; }
+    // Refrigerant tracking (EPA compliance)
+    public string? RefrigerantType { get; set; } // R-410A, R-22, R-32, etc.
+    public decimal? RefrigerantAmountAdded { get; set; } // lbs
+    public decimal? RefrigerantBeforeReading { get; set; } // psi or lbs
+    public decimal? RefrigerantAfterReading { get; set; } // psi or lbs
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

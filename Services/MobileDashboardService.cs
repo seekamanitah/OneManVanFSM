@@ -128,6 +128,18 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
             Timestamp = j.UpdatedAt,
         }).ToList();
 
+        var maintenanceDueCount = await db.Assets
+            .CountAsync(a => !a.IsArchived
+                && a.NextServiceDue.HasValue
+                && a.NextServiceDue.Value.Date <= today.AddDays(14));
+
+        var warrantyAlertCount = await db.Assets
+            .CountAsync(a => !a.IsArchived
+                && (a.LaborWarrantyExpiry.HasValue || a.PartsWarrantyExpiry.HasValue || a.CompressorWarrantyExpiry.HasValue)
+                && ((a.LaborWarrantyExpiry.HasValue && a.LaborWarrantyExpiry.Value >= today.AddDays(-30) && a.LaborWarrantyExpiry.Value <= today.AddDays(90))
+                    || (a.PartsWarrantyExpiry.HasValue && a.PartsWarrantyExpiry.Value >= today.AddDays(-30) && a.PartsWarrantyExpiry.Value <= today.AddDays(90))
+                    || (a.CompressorWarrantyExpiry.HasValue && a.CompressorWarrantyExpiry.Value >= today.AddDays(-30) && a.CompressorWarrantyExpiry.Value <= today.AddDays(90))));
+
         return new MobileDashboardData
         {
             TodayJobCount = todayJobs.Count,
@@ -142,6 +154,8 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
             UpcomingJobCount = upcomingJobs.Count,
             LowStockCount = lowStockCount,
             ExpiringAgreementCount = expiringAgreementCount,
+            MaintenanceDueCount = maintenanceDueCount,
+            WarrantyAlertCount = warrantyAlertCount,
             TodayJobs = todayJobs,
             UpcomingJobs = upcomingJobs,
             RecentActivity = recentActivity,

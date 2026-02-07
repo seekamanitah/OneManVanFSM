@@ -50,6 +50,7 @@ public class FinancialService : IFinancialService
             .Include(inv => inv.Job)
             .Include(inv => inv.Payments)
             .Include(inv => inv.Lines).ThenInclude(l => l.Product)
+            .Include(inv => inv.Lines).ThenInclude(l => l.Asset)
             .FirstOrDefaultAsync(inv => inv.Id == id && !inv.IsArchived);
 
         if (i is null) return null;
@@ -84,6 +85,8 @@ public class FinancialService : IFinancialService
             {
                 Id = l.Id, ProductId = l.ProductId,
                 ProductName = l.Product?.Name,
+                AssetId = l.AssetId,
+                AssetName = l.Asset?.Name,
                 Description = l.Description, LineType = l.LineType, Unit = l.Unit,
                 Quantity = l.Quantity, UnitPrice = l.UnitPrice,
                 LineTotal = l.LineTotal, SortOrder = l.SortOrder
@@ -130,6 +133,7 @@ public class FinancialService : IFinancialService
             _db.InvoiceLines.Add(new OneManVanFSM.Shared.Models.InvoiceLine
             {
                 InvoiceId = inv.Id, ProductId = line.ProductId,
+                AssetId = line.AssetId,
                 Description = line.Description, LineType = line.LineType, Unit = line.Unit,
                 Quantity = line.Quantity, UnitPrice = line.UnitPrice,
                 LineTotal = line.Quantity * line.UnitPrice,
@@ -137,6 +141,9 @@ public class FinancialService : IFinancialService
             });
         }
         if (model.Lines.Count > 0) await _db.SaveChangesAsync();
+
+        if (inv.CustomerId.HasValue)
+            await RecalcCustomerBalanceAsync(inv.CustomerId.Value);
 
         return inv;
     }
@@ -173,6 +180,7 @@ public class FinancialService : IFinancialService
             _db.InvoiceLines.Add(new OneManVanFSM.Shared.Models.InvoiceLine
             {
                 InvoiceId = inv.Id, ProductId = line.ProductId,
+                AssetId = line.AssetId,
                 Description = line.Description, LineType = line.LineType, Unit = line.Unit,
                 Quantity = line.Quantity, UnitPrice = line.UnitPrice,
                 LineTotal = line.Quantity * line.UnitPrice,
@@ -181,6 +189,10 @@ public class FinancialService : IFinancialService
         }
 
         await _db.SaveChangesAsync();
+
+        if (inv.CustomerId.HasValue)
+            await RecalcCustomerBalanceAsync(inv.CustomerId.Value);
+
         return inv;
     }
 
@@ -190,6 +202,10 @@ public class FinancialService : IFinancialService
         if (inv is null) return false;
         inv.Status = status; inv.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        if (inv.CustomerId.HasValue)
+            await RecalcCustomerBalanceAsync(inv.CustomerId.Value);
+
         return true;
     }
 
@@ -300,8 +316,26 @@ public class FinancialService : IFinancialService
             inv.BalanceDue = inv.Total - totalPaid;
             if (inv.BalanceDue <= 0) inv.Status = InvoiceStatus.Paid;
             await _db.SaveChangesAsync();
+
+            if (inv.CustomerId.HasValue)
+                await RecalcCustomerBalanceAsync(inv.CustomerId.Value);
         }
         return pay;
+    }
+
+    /// <summary>
+    /// Recalculates Customer.BalanceOwed from SUM(Invoices.BalanceDue) for all non-archived, non-void invoices.
+    /// </summary>
+    private async Task RecalcCustomerBalanceAsync(int customerId)
+    {
+        var customer = await _db.Customers.FindAsync(customerId);
+        if (customer is null) return;
+
+        customer.BalanceOwed = await _db.Invoices
+            .Where(i => i.CustomerId == customerId && !i.IsArchived && i.Status != InvoiceStatus.Void)
+            .SumAsync(i => (decimal?)i.BalanceDue) ?? 0;
+        customer.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
     }
 
     // Dashboard

@@ -340,6 +340,49 @@ else if (mode == "detail" && detail is not null)
                             else { <span>—</span> }
                         </div>
                     </div>
+                    @if (detail.LaborWarrantyExpiry.HasValue || detail.PartsWarrantyExpiry.HasValue || detail.CompressorWarrantyExpiry.HasValue)
+                    {
+                        <hr />
+                        <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-1"></i>Warranty Breakdown</h6>
+                        <div class="row g-2">
+                            @if (detail.LaborWarrantyExpiry.HasValue)
+                            {
+                                var laborDays = (int)(detail.LaborWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                                <div class="col-sm-4">
+                                    <strong>Labor:</strong>
+                                    <span class="@(laborDays < 0 ? "text-danger" : laborDays < 90 ? "text-warning" : "text-success")">
+                                        @detail.LaborWarrantyExpiry.Value.ToString("MMM dd, yyyy")
+                                        @if (laborDays < 0) { <small>(Expired)</small> }
+                                        else { <small>(@laborDays days)</small> }
+                                    </span>
+                                </div>
+                            }
+                            @if (detail.PartsWarrantyExpiry.HasValue)
+                            {
+                                var partsDays = (int)(detail.PartsWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                                <div class="col-sm-4">
+                                    <strong>Parts:</strong>
+                                    <span class="@(partsDays < 0 ? "text-danger" : partsDays < 90 ? "text-warning" : "text-success")">
+                                        @detail.PartsWarrantyExpiry.Value.ToString("MMM dd, yyyy")
+                                        @if (partsDays < 0) { <small>(Expired)</small> }
+                                        else { <small>(@partsDays days)</small> }
+                                    </span>
+                                </div>
+                            }
+                            @if (detail.CompressorWarrantyExpiry.HasValue)
+                            {
+                                var compDays = (int)(detail.CompressorWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                                <div class="col-sm-4">
+                                    <strong>Compressor:</strong>
+                                    <span class="@(compDays < 0 ? "text-danger" : compDays < 90 ? "text-warning" : "text-success")">
+                                        @detail.CompressorWarrantyExpiry.Value.ToString("MMM dd, yyyy")
+                                        @if (compDays < 0) { <small>(Expired)</small> }
+                                        else { <small>(@compDays days)</small> }
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
 
@@ -352,7 +395,7 @@ else if (mode == "detail" && detail is not null)
                         <div class="table-responsive">
                             <table class="table table-sm table-hover align-middle mb-0">
                                 <thead class="table-light">
-                                    <tr><th>Date</th><th>Service</th><th>Performed By</th><th>Cost</th><th>Notes</th></tr>
+                                    <tr><th>Date</th><th>Service</th><th>Performed By</th><th>Cost</th><th>Refrigerant</th><th>Notes</th></tr>
                                 </thead>
                                 <tbody>
                                     @foreach (var sl in detail.ServiceHistory)
@@ -362,6 +405,16 @@ else if (mode == "detail" && detail is not null)
                                             <td><span class="badge bg-info text-dark">@(sl.ServiceType ?? "General")</span></td>
                                             <td>@(sl.PerformedBy ?? "—")</td>
                                             <td>@(sl.Cost?.ToString("C") ?? "—")</td>
+                                            <td>
+                                                @if (!string.IsNullOrWhiteSpace(sl.RefrigerantType))
+                                                {
+                                                    <small>@sl.RefrigerantType @(sl.RefrigerantAmountAdded.HasValue ? $"+{sl.RefrigerantAmountAdded:N1} lbs" : "")</small>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">—</span>
+                                                }
+                                            </td>
                                             <td class="text-muted small">@(sl.Notes ?? "—")</td>
                                         </tr>
                                     }
@@ -405,6 +458,41 @@ else if (mode == "detail" && detail is not null)
                     else
                     {
                         <p class="text-muted mb-0">No linked jobs yet.</p>
+                    }
+                </div>
+            </div>
+
+            <!-- Unified Service Timeline -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3"><i class="bi bi-timeline me-1"></i>Unified Service Timeline (@detail.UnifiedTimeline.Count)</h6>
+                    @if (detail.UnifiedTimeline.Any())
+                    {
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Date</th><th>Source</th><th>Title</th><th>Status</th><th>Performed By</th><th>Cost</th><th>Details</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var entry in detail.UnifiedTimeline)
+                                    {
+                                        <tr @onclick="() => NavigateTimelineEntry(entry)" style="@(entry.Source == "Job" ? "cursor:pointer" : "")">
+                                            <td>@entry.Date.ToString("MMM dd, yyyy")</td>
+                                            <td><span class="badge @(entry.Badge ?? "bg-secondary")">@entry.Source</span></td>
+                                            <td><strong>@entry.Title</strong></td>
+                                            <td><small>@(entry.Status ?? "—")</small></td>
+                                            <td>@(entry.PerformedBy ?? "—")</td>
+                                            <td>@(entry.Cost?.ToString("C") ?? "—")</td>
+                                            <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(entry.Description ?? "—")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-0">No timeline entries yet. Complete a job with linked assets to see entries here automatically.</p>
                     }
                 </div>
             </div>
@@ -672,4 +760,12 @@ else
         JobStatus.Cancelled => "bg-danger",
         _ => "bg-secondary"
     };
+
+    private void NavigateTimelineEntry(AssetTimelineEntry entry)
+    {
+        if (entry.Source == "Job" && entry.SourceId.HasValue)
+            Nav.NavigateTo($"/jobs/{entry.SourceId.Value}");
+        else if (entry.Source == "ServiceHistory" && entry.SourceId.HasValue)
+            Nav.NavigateTo($"/service-history/{entry.SourceId.Value}");
+    }
 }

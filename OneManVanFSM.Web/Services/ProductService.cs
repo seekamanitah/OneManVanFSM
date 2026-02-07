@@ -53,6 +53,9 @@ public class ProductService : IProductService
                 Barcode = p.Barcode, Category = p.Category,
                 Cost = p.Cost, Price = p.Price, MarkupPercent = p.MarkupPercent,
                 Unit = p.Unit, Specs = p.Specs, SupplierName = p.SupplierName,
+                LaborWarrantyYears = p.LaborWarrantyYears,
+                PartsWarrantyYears = p.PartsWarrantyYears,
+                CompressorWarrantyYears = p.CompressorWarrantyYears,
                 IsTemplate = p.IsTemplate, Notes = p.Notes,
                 InventoryCount = p.InventoryItems.Count(i => !i.IsArchived),
                 AssetCount = p.Assets.Count(a => !a.IsArchived),
@@ -68,6 +71,9 @@ public class ProductService : IProductService
             Barcode = model.Barcode, Category = model.Category, Cost = model.Cost,
             Price = model.Price, MarkupPercent = model.MarkupPercent, Unit = model.Unit,
             Specs = model.Specs, SupplierName = model.SupplierName, IsTemplate = model.IsTemplate,
+            LaborWarrantyYears = model.LaborWarrantyYears,
+            PartsWarrantyYears = model.PartsWarrantyYears,
+            CompressorWarrantyYears = model.CompressorWarrantyYears,
             Notes = model.Notes, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
         _db.Products.Add(product);
@@ -82,6 +88,9 @@ public class ProductService : IProductService
         p.Barcode = model.Barcode; p.Category = model.Category; p.Cost = model.Cost;
         p.Price = model.Price; p.MarkupPercent = model.MarkupPercent; p.Unit = model.Unit;
         p.Specs = model.Specs; p.SupplierName = model.SupplierName; p.IsTemplate = model.IsTemplate;
+        p.LaborWarrantyYears = model.LaborWarrantyYears;
+        p.PartsWarrantyYears = model.PartsWarrantyYears;
+        p.CompressorWarrantyYears = model.CompressorWarrantyYears;
         p.Notes = model.Notes; p.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return p;

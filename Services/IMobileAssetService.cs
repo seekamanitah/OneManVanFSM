@@ -46,6 +46,9 @@ public class MobileAssetDetail
     public DateTime? WarrantyStartDate { get; set; }
     public int? WarrantyTermYears { get; set; }
     public DateTime? WarrantyExpiry { get; set; }
+    public DateTime? LaborWarrantyExpiry { get; set; }
+    public DateTime? PartsWarrantyExpiry { get; set; }
+    public DateTime? CompressorWarrantyExpiry { get; set; }
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
 
@@ -81,6 +84,10 @@ public class MobileServiceLogItem
     public string? Notes { get; set; }
     public DateTime? NextDueDate { get; set; }
     public decimal? Cost { get; set; }
+    public string? RefrigerantType { get; set; }
+    public decimal? RefrigerantAmountAdded { get; set; }
+    public decimal? RefrigerantBeforeReading { get; set; }
+    public decimal? RefrigerantAfterReading { get; set; }
 }
 
 public class MobileAssetDocument
@@ -101,4 +108,8 @@ public class MobileServiceLogCreate
     public string? Notes { get; set; }
     public DateTime? NextDueDate { get; set; }
     public decimal? Cost { get; set; }
+    public string? RefrigerantType { get; set; }
+    public decimal? RefrigerantAmountAdded { get; set; }
+    public decimal? RefrigerantBeforeReading { get; set; }
+    public decimal? RefrigerantAfterReading { get; set; }
 }

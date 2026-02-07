@@ -9,6 +9,7 @@ public interface IAssetService
     Task<Asset> CreateAssetAsync(AssetEditModel model);
     Task<Asset> UpdateAssetAsync(int id, AssetEditModel model);
     Task<bool> ArchiveAssetAsync(int id);
+    Task<List<AssetTimelineEntry>> GetUnifiedTimelineAsync(int assetId);
 }
 
 public class AssetFilter
@@ -69,6 +70,9 @@ public class AssetDetail
     public DateTime? WarrantyStartDate { get; set; }
     public int? WarrantyTermYears { get; set; }
     public DateTime? WarrantyExpiry { get; set; }
+    public DateTime? LaborWarrantyExpiry { get; set; }
+    public DateTime? PartsWarrantyExpiry { get; set; }
+    public DateTime? CompressorWarrantyExpiry { get; set; }
     public AssetStatus Status { get; set; }
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
@@ -85,6 +89,7 @@ public class AssetDetail
     // Linked data
     public List<AssetLinkedJob> LinkedJobs { get; set; } = [];
     public List<AssetServiceLogItem> ServiceHistory { get; set; } = [];
+    public List<AssetTimelineEntry> UnifiedTimeline { get; set; } = [];
 }
 
 public class AssetLinkedJob
@@ -106,6 +111,23 @@ public class AssetServiceLogItem
     public string? Notes { get; set; }
     public DateTime? NextDueDate { get; set; }
     public decimal? Cost { get; set; }
+    public string? RefrigerantType { get; set; }
+    public decimal? RefrigerantAmountAdded { get; set; }
+    public decimal? RefrigerantBeforeReading { get; set; }
+    public decimal? RefrigerantAfterReading { get; set; }
+}
+
+public class AssetTimelineEntry
+{
+    public DateTime Date { get; set; }
+    public string Source { get; set; } = string.Empty; // "Job", "ServiceHistory", "ServiceLog"
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string? Status { get; set; }
+    public string? PerformedBy { get; set; }
+    public decimal? Cost { get; set; }
+    public int? SourceId { get; set; }
+    public string? Badge { get; set; } // CSS class for badge styling
 }
 
 public class AssetEditModel

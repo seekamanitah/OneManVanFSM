@@ -49,6 +49,9 @@ public class ProductEditModel
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }
+    public int LaborWarrantyYears { get; set; } = 1;
+    public int PartsWarrantyYears { get; set; } = 10;
+    public int CompressorWarrantyYears { get; set; } = 10;
     public bool IsTemplate { get; set; } = true;
     public string? Notes { get; set; }
 }
@@ -67,6 +70,9 @@ public class ProductDetail
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }
+    public int LaborWarrantyYears { get; set; }
+    public int PartsWarrantyYears { get; set; }
+    public int CompressorWarrantyYears { get; set; }
     public bool IsTemplate { get; set; }
     public string? Notes { get; set; }
     public int InventoryCount { get; set; }

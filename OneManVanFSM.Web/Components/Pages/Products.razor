@@ -70,7 +70,26 @@
                         <label class="form-label">Notes</label>
                         <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
                     </div>
-                    <div class="col-md-4">
+                </div>
+                <hr />
+                <h6 class="text-muted mb-3"><i class="bi bi-shield-check me-1"></i>Warranty Terms (years)</h6>
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Labor Warranty</label>
+                        <InputNumber @bind-Value="form.LaborWarrantyYears" class="form-control" />
+                        <small class="text-muted">Default: 1 year</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Parts Warranty</label>
+                        <InputNumber @bind-Value="form.PartsWarrantyYears" class="form-control" />
+                        <small class="text-muted">Default: 10 years</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Compressor Warranty</label>
+                        <InputNumber @bind-Value="form.CompressorWarrantyYears" class="form-control" />
+                        <small class="text-muted">Default: 10 years</small>
+                    </div>
+                    <div class="col-md-3">
                         <div class="form-check mt-4">
                             <InputCheckbox @bind-Value="form.IsTemplate" class="form-check-input" id="isTemplate" />
                             <label class="form-check-label" for="isTemplate">Is Template</label>
@@ -123,6 +142,13 @@ else if (mode == "detail" && detail is not null)
                         @if (!string.IsNullOrWhiteSpace(detail.Brand)) { <div class="col-sm-4"><small class="text-muted d-block">Brand</small><span>@detail.Brand</span></div> }
                         @if (!string.IsNullOrWhiteSpace(detail.PartNumber)) { <div class="col-sm-4"><small class="text-muted d-block">Part Number</small><span>@detail.PartNumber</span></div> }
                         @if (!string.IsNullOrWhiteSpace(detail.Barcode)) { <div class="col-sm-4"><small class="text-muted d-block">Barcode</small><span>@detail.Barcode</span></div> }
+                    </div>
+                    <hr />
+                    <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-1"></i>Warranty Terms</h6>
+                    <div class="row g-2">
+                        <div class="col-sm-4"><small class="text-muted d-block">Labor</small><span>@detail.LaborWarrantyYears year(s)</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Parts</small><span>@detail.PartsWarrantyYears year(s)</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Compressor</small><span>@detail.CompressorWarrantyYears year(s)</span></div>
                     </div>
                 </div>
             </div>
@@ -327,7 +353,9 @@ else
             Name = p.Name, Brand = p.Brand, PartNumber = p.PartNumber, Barcode = p.Barcode,
             Category = p.Category, Cost = p.Cost, Price = p.Price,
             MarkupPercent = p.MarkupPercent, Unit = p.Unit, Specs = p.Specs,
-            SupplierName = p.SupplierName, IsTemplate = p.IsTemplate, Notes = p.Notes
+            SupplierName = p.SupplierName, IsTemplate = p.IsTemplate, Notes = p.Notes,
+            LaborWarrantyYears = p.LaborWarrantyYears, PartsWarrantyYears = p.PartsWarrantyYears,
+            CompressorWarrantyYears = p.CompressorWarrantyYears
         };
         mode = "form";
     }

@@ -44,6 +44,10 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
                 Notes = l.Notes,
                 NextDueDate = l.NextDueDate,
                 Cost = l.Cost,
+                RefrigerantType = l.RefrigerantType,
+                RefrigerantAmountAdded = l.RefrigerantAmountAdded,
+                RefrigerantBeforeReading = l.RefrigerantBeforeReading,
+                RefrigerantAfterReading = l.RefrigerantAfterReading,
             })
             .ToListAsync();
 
@@ -92,6 +96,9 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
             WarrantyStartDate = asset.WarrantyStartDate,
             WarrantyTermYears = asset.WarrantyTermYears,
             WarrantyExpiry = asset.WarrantyExpiry,
+            LaborWarrantyExpiry = asset.LaborWarrantyExpiry,
+            PartsWarrantyExpiry = asset.PartsWarrantyExpiry,
+            CompressorWarrantyExpiry = asset.CompressorWarrantyExpiry,
             Value = asset.Value,
             Notes = asset.Notes,
             SiteName = asset.Site?.Name,
@@ -119,6 +126,10 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
                 Notes = l.Notes,
                 NextDueDate = l.NextDueDate,
                 Cost = l.Cost,
+                RefrigerantType = l.RefrigerantType,
+                RefrigerantAmountAdded = l.RefrigerantAmountAdded,
+                RefrigerantBeforeReading = l.RefrigerantBeforeReading,
+                RefrigerantAfterReading = l.RefrigerantAfterReading,
             })
             .ToListAsync();
     }
@@ -134,6 +145,10 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
             Notes = model.Notes,
             NextDueDate = model.NextDueDate,
             Cost = model.Cost,
+            RefrigerantType = model.RefrigerantType,
+            RefrigerantAmountAdded = model.RefrigerantAmountAdded,
+            RefrigerantBeforeReading = model.RefrigerantBeforeReading,
+            RefrigerantAfterReading = model.RefrigerantAfterReading,
             CreatedAt = DateTime.UtcNow,
         };
         db.AssetServiceLogs.Add(log);
