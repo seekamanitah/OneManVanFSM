@@ -32,6 +32,8 @@ public class EmployeeListItem
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public EmployeeRole Role { get; set; }
     public EmployeeStatus Status { get; set; }
     public string? Phone { get; set; }
@@ -45,6 +47,8 @@ public class EmployeeDetail
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public EmployeeRole Role { get; set; }
     public EmployeeStatus Status { get; set; }
     public string? Phone { get; set; }
@@ -88,8 +92,13 @@ public class EmployeeTimeEntry
 
 public class EmployeeEditModel
 {
-    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Employee name is required.")]
     public string Name { get; set; } = string.Empty;
+
+    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "First name is required.")]
+    public string FirstName { get; set; } = string.Empty;
+
+    public string? LastName { get; set; }
+
     public EmployeeRole Role { get; set; } = EmployeeRole.Tech;
     public string? Phone { get; set; }
 

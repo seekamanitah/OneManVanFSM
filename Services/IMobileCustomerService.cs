@@ -12,10 +12,14 @@ public class MobileCustomerCard
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public CustomerType Type { get; set; }
     public string? Phone { get; set; }
     public string? Email { get; set; }
     public string? Address { get; set; }
+    public int? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
     public int SiteCount { get; set; }
     public int OpenJobCount { get; set; }
     public bool HasActiveAgreement { get; set; }
@@ -26,6 +30,8 @@ public class MobileCustomerDetail
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public CustomerType Type { get; set; }
     public string? PrimaryPhone { get; set; }
     public string? SecondaryPhone { get; set; }
@@ -35,6 +41,8 @@ public class MobileCustomerDetail
     public string? City { get; set; }
     public string? State { get; set; }
     public string? Zip { get; set; }
+    public int? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
     public DateTime SinceDate { get; set; }
     public decimal BalanceOwed { get; set; }
     public string? Tags { get; set; }

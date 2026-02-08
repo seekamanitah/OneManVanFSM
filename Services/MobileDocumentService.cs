@@ -35,6 +35,7 @@ public class MobileDocumentService(AppDbContext db) : IMobileDocumentService
                 Category = d.Category,
                 FileType = d.FileType,
                 FileSize = d.FileSize,
+                StoredFileName = d.StoredFileName,
                 Notes = d.Notes,
                 LinkedEntity = d.JobId.HasValue ? "Job"
                     : d.SiteId.HasValue ? "Site"
@@ -58,6 +59,7 @@ public class MobileDocumentService(AppDbContext db) : IMobileDocumentService
                 Category = d.Category,
                 FileType = d.FileType,
                 FileSize = d.FileSize,
+                StoredFileName = d.StoredFileName,
                 Notes = d.Notes,
                 LinkedEntity = d.JobId.HasValue ? "Job"
                     : d.SiteId.HasValue ? "Site"

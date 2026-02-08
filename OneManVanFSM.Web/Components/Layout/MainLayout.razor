@@ -26,10 +26,21 @@
         </div>
 
         <nav class="sidebar-nav">
+            @* Dashboard & Calendar — primary views *@
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Dashboard">
+                <i class="bi bi-speedometer2"></i>@if (!SidebarCollapsed) { <span>Dashboard</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="calendar" title="Calendar">
+                <i class="bi bi-calendar3"></i>@if (!SidebarCollapsed) { <span>Calendar</span> }
+            </NavLink>
+
             @* Clients *@
             <div class="nav-section-header">@(!SidebarCollapsed ? "Clients" : "")</div>
             <NavLink class="nav-link" href="customers" title="Customers">
                 <i class="bi bi-people-fill"></i>@if (!SidebarCollapsed) { <span>Customers</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="companies" title="Companies">
+                <i class="bi bi-building"></i>@if (!SidebarCollapsed) { <span>Companies</span> }
             </NavLink>
             <NavLink class="nav-link" href="sites" title="Sites">
                 <i class="bi bi-geo-alt-fill"></i>@if (!SidebarCollapsed) { <span>Sites</span> }
@@ -61,9 +72,6 @@
             <NavLink class="nav-link" href="jobs" title="Jobs">
                 <i class="bi bi-wrench-adjustable-circle-fill"></i>@if (!SidebarCollapsed) { <span>Jobs</span> }
             </NavLink>
-            <NavLink class="nav-link" href="calendar" title="Calendar">
-                <i class="bi bi-calendar3"></i>@if (!SidebarCollapsed) { <span>Calendar</span> }
-            </NavLink>
 
             @* Services & History *@
             <div class="nav-section-header">@(!SidebarCollapsed ? "Services" : "")</div>
@@ -79,8 +87,14 @@
 
             @* Financials *@
             <div class="nav-section-header">@(!SidebarCollapsed ? "Financials" : "")</div>
-            <NavLink class="nav-link" href="financials" title="Financials">
-                <i class="bi bi-cash-stack"></i>@if (!SidebarCollapsed) { <span>Financials</span> }
+            <NavLink class="nav-link" href="financials" Match="NavLinkMatch.All" title="Overview">
+                <i class="bi bi-cash-stack"></i>@if (!SidebarCollapsed) { <span>Overview</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="financials/invoices" title="Invoices">
+                <i class="bi bi-receipt"></i>@if (!SidebarCollapsed) { <span>Invoices</span> }
+            </NavLink>
+            <NavLink class="nav-link" href="financials/expenses" title="Expenses">
+                <i class="bi bi-wallet2"></i>@if (!SidebarCollapsed) { <span>Expenses</span> }
             </NavLink>
 
             @* Team & HR *@
@@ -164,12 +178,43 @@
                 </button>
 
                 @* Notifications *@
-                <button class="btn btn-link header-icon position-relative" title="Notifications">
-                    <i class="bi bi-bell"></i>
-                    <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                        3
-                    </span>
-                </button>
+                <div class="dropdown">
+                    <button class="btn btn-link header-icon position-relative dropdown-toggle" data-bs-toggle="dropdown" title="Notifications" aria-expanded="false">
+                        <i class="bi bi-bell"></i>
+                        @if (_notifications.Count > 0)
+                        {
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                @_notifications.Count
+                            </span>
+                        }
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" style="min-width:320px;max-height:400px;overflow-y:auto;">
+                        <li><span class="dropdown-header fw-bold"><i class="bi bi-bell me-1"></i>Notifications</span></li>
+                        <li><hr class="dropdown-divider" /></li>
+                        @if (_notifications.Count == 0)
+                        {
+                            <li><span class="dropdown-item-text text-muted small">No notifications</span></li>
+                        }
+                        else
+                        {
+                            @foreach (var n in _notifications)
+                            {
+                                <li>
+                                    <a class="dropdown-item small d-flex align-items-start gap-2 @(n.IsRead ? "text-muted" : "")" href="@n.Url" @onclick="() => MarkNotificationRead(n)">
+                                        <i class="bi @n.Icon mt-1"></i>
+                                        <div>
+                                            <div class="fw-semibold">@n.Title</div>
+                                            <small class="text-muted">@n.Message</small>
+                                            <div class="text-muted" style="font-size:0.7rem;">@n.TimeAgo</div>
+                                        </div>
+                                    </a>
+                                </li>
+                            }
+                            <li><hr class="dropdown-divider" /></li>
+                            <li><button class="dropdown-item text-center small text-primary" @onclick="ClearNotifications"><i class="bi bi-check-all me-1"></i>Mark all as read</button></li>
+                        }
+                    </ul>
+                </div>
 
                 @* User Profile *@
                 <div class="dropdown">
@@ -228,6 +273,28 @@
     private string _searchText = string.Empty;
     private string _selectedPeriod = "today";
     private string _selectedPeriodLabel = "Today";
+    private List<AppNotification> _notifications = [];
+
+    private class AppNotification
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string Icon { get; set; } = "bi-info-circle";
+        public string Url { get; set; } = "#";
+        public bool IsRead { get; set; }
+        public string TimeAgo { get; set; } = "just now";
+    }
+
+    private void MarkNotificationRead(AppNotification n)
+    {
+        n.IsRead = true;
+        _notifications.RemoveAll(x => x.IsRead);
+    }
+
+    private void ClearNotifications()
+    {
+        _notifications.Clear();
+    }
 
     protected override void OnInitialized()
     {
@@ -236,11 +303,8 @@
 
     private void ToggleSidebar()
     {
+        SidebarCollapsed = !SidebarCollapsed;
         _mobileMenuOpen = !_mobileMenuOpen;
-        if (!_mobileMenuOpen)
-        {
-            SidebarCollapsed = !SidebarCollapsed;
-        }
     }
 
     private void CloseMobileMenu()
@@ -282,6 +346,6 @@
 
     private async Task PrintPage()
     {
-        await JS.InvokeVoidAsync("window.print");
+        await JS.InvokeVoidAsync("triggerPrint");
     }
 }

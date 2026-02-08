@@ -4,6 +4,7 @@
 @page "/sites/{Id:int}/edit"
 @inject ISiteService SiteService
 @inject ICustomerService CustomerSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Navigation
 @rendermode InteractiveServer
 @implements IDisposable
@@ -187,6 +188,8 @@ else if (_view == View.Detail && _detail is not null)
                     { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>Crawl Space</div> }
                     @if (_detail.HasBasement == true)
                     { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>Basement</div> }
+                    @if (_detail.IsNewConstruction)
+                    { <div class="col-sm-4 mb-1"><i class="bi bi-check-circle text-success me-1"></i>New Construction</div> }
                 </div>
             }
             <hr class="my-2" />
@@ -323,11 +326,12 @@ else if (_view == View.Form)
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Property Type</label>
-                        <InputSelect @bind-Value="_editModel.PropertyType" class="form-select">
-                            <option value="@PropertyType.Residential">Residential</option>
-                            <option value="@PropertyType.Commercial">Commercial</option>
-                            <option value="@PropertyType.Industrial">Industrial</option>
-                        </InputSelect>
+                        <select class="form-select" value="@_editModel.PropertyType" @onchange="OnPropertyTypeChanged">
+                            @foreach (var opt in _propertyTypeOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </select>
                     </div>
                 </div>
 
@@ -392,6 +396,14 @@ else if (_view == View.Form)
                         </div>
                     </div>
                 </div>
+                <div class="row">
+                    <div class="col-md-4 mb-2 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_isNewConstruction" class="form-check-input" id="newConstructionCheck" />
+                            <label class="form-check-label" for="newConstructionCheck">New Construction</label>
+                        </div>
+                    </div>
+                </div>
 
                 <hr class="my-2" />
                 <h6 class="text-muted">Access Information</h6>
@@ -410,7 +422,16 @@ else if (_view == View.Form)
                 </div>
                 <div class="row">
                     <div class="col-md-6 mb-2"><label class="form-label">Water Shutoff Location</label><InputText @bind-Value="_editModel.WaterShutoffLocation" class="form-control" placeholder="Front yard, basement..." /></div>
-                    <div class="col-md-6 mb-2"><label class="form-label">Heating Fuel Source</label><InputText @bind-Value="_editModel.HeatingFuelSource" class="form-control" placeholder="Natural Gas, Propane, Electric..." /></div>
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label">Heating Fuel Source</label>
+                        <InputSelect @bind-Value="_editModel.HeatingFuelSource" class="form-select">
+                            <option value="">— Select —</option>
+                            @foreach (var opt in _heatingFuelOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </InputSelect>
+                    </div>
                 </div>
 
                 <div class="mb-2"><label class="form-label">Notes</label><InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="2" /></div>
@@ -448,6 +469,11 @@ else if (_view == View.Form)
     private bool _hasAtticAccess;
     private bool _hasCrawlSpace;
     private bool _hasBasement;
+    private bool _isNewConstruction;
+
+    // Dropdown options from settings
+    private List<string> _propertyTypeOptions = ["Residential", "Commercial", "Industrial"];
+    private List<string> _heatingFuelOptions = ["Natural Gas", "Propane", "Electric", "Oil", "Geothermal", "Solar"];
 
     protected override void OnInitialized()
     {
@@ -476,6 +502,7 @@ else if (_view == View.Form)
             _pageTitle = Id.HasValue ? "Edit Site" : "New Site";
             _customers = await CustomerSvc.GetCustomersAsync();
             _companies = await SiteService.GetCompaniesForDropdownAsync();
+            await LoadFormDropdowns();
             if (Id.HasValue)
             {
                 var d = await SiteService.GetSiteAsync(Id.Value);
@@ -492,14 +519,25 @@ else if (_view == View.Form)
                         WaterShutoffLocation = d.WaterShutoffLocation, HeatingFuelSource = d.HeatingFuelSource,
                         YearBuilt = d.YearBuilt, HasAtticAccess = d.HasAtticAccess,
                         HasCrawlSpace = d.HasCrawlSpace, HasBasement = d.HasBasement,
+                        IsNewConstruction = d.IsNewConstruction,
                         Notes = d.Notes, CustomerId = d.CustomerId, CompanyId = d.CompanyId
                     };
                     _hasAtticAccess = d.HasAtticAccess == true;
                     _hasCrawlSpace = d.HasCrawlSpace == true;
                     _hasBasement = d.HasBasement == true;
+                    _isNewConstruction = d.IsNewConstruction;
                 }
             }
-            else { _editModel = new SiteEditModel(); _hasAtticAccess = false; _hasCrawlSpace = false; _hasBasement = false; }
+            else
+            {
+                _editModel = new SiteEditModel
+                {
+                    City = "Pikeville",
+                    State = "TN",
+                    Zip = "37367"
+                };
+                _hasAtticAccess = false; _hasCrawlSpace = false; _hasBasement = false; _isNewConstruction = false;
+            }
         }
         else if (Id.HasValue)
         {
@@ -542,6 +580,7 @@ else if (_view == View.Form)
         _editModel.HasAtticAccess = _hasAtticAccess ? true : null;
         _editModel.HasCrawlSpace = _hasCrawlSpace ? true : null;
         _editModel.HasBasement = _hasBasement ? true : null;
+        _editModel.IsNewConstruction = _isNewConstruction;
         try
         {
             if (Id.HasValue) { await SiteService.UpdateSiteAsync(Id.Value, _editModel); Navigation.NavigateTo($"sites/{Id.Value}"); }
@@ -604,4 +643,18 @@ else if (_view == View.Form)
         JobStatus.Cancelled => "bg-danger",
         _ => "bg-secondary"
     };
+
+    private async Task LoadFormDropdowns()
+    {
+        var propTypes = await DropdownSvc.GetOptionsAsync("PropertyType");
+        if (propTypes.Count > 0) _propertyTypeOptions = propTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var fuels = await DropdownSvc.GetOptionsAsync("HeatingFuelSource");
+        if (fuels.Count > 0) _heatingFuelOptions = fuels.Where(o => o.IsActive).Select(o => o.Value).ToList();
+    }
+
+    private void OnPropertyTypeChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<PropertyType>(e.Value?.ToString(), out var parsed))
+            _editModel.PropertyType = parsed;
+    }
 }

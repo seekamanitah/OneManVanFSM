@@ -13,6 +13,7 @@ public class MobileEstimateService : IMobileEstimateService
     {
         var query = _db.Estimates
             .Include(e => e.Customer)
+            .Include(e => e.Company)
             .Include(e => e.Site)
             .Include(e => e.Lines)
             .Where(e => !e.IsArchived)
@@ -39,6 +40,7 @@ public class MobileEstimateService : IMobileEstimateService
             Status = e.Status,
             Priority = e.Priority,
             CustomerName = e.Customer?.Name,
+            CompanyName = e.Company?.Name,
             SiteAddress = e.Site?.Address,
             Total = e.Total,
             ExpiryDate = e.ExpiryDate,
@@ -51,6 +53,7 @@ public class MobileEstimateService : IMobileEstimateService
     {
         var e = await _db.Estimates
             .Include(e => e.Customer)
+            .Include(e => e.Company)
             .Include(e => e.Site)
             .Include(e => e.Lines)
             .FirstOrDefaultAsync(e => e.Id == id);
@@ -68,6 +71,8 @@ public class MobileEstimateService : IMobileEstimateService
             SystemType = e.SystemType,
             CustomerName = e.Customer?.Name,
             CustomerPhone = e.Customer?.PrimaryPhone,
+            CompanyId = e.CompanyId,
+            CompanyName = e.Company?.Name,
             SiteName = e.Site?.Name,
             SiteAddress = e.Site != null ? $"{e.Site.Address}, {e.Site.City}, {e.Site.State} {e.Site.Zip}" : null,
             SiteId = e.SiteId,

@@ -1,0 +1,443 @@
+@page "/expenses"
+@inject IMobileExpenseService ExpenseSvc
+@inject IMobileJobService JobSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_mode == "detail" && _detail != null)
+{
+    <!-- Detail View -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Expense Detail</span>
+        <span class="badge ms-auto @GetStatusBadge(_detail.Status)" style="font-size:0.7rem;">@_detail.Status</span>
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <div style="font-size:0.9rem; font-weight:700;">@(_detail.Description ?? _detail.Category ?? "Expense")</div>
+                @if (!string.IsNullOrWhiteSpace(_detail.Category))
+                {
+                    <span class="badge bg-light text-dark" style="font-size:0.65rem;">@_detail.Category</span>
+                }
+                @if (_detail.IsBillable)
+                {
+                    <span class="badge bg-success bg-opacity-10 text-success" style="font-size:0.65rem;">Billable</span>
+                }
+            </div>
+            <div style="font-size:1.1rem; font-weight:700; color:var(--primary);">@_detail.Total.ToString("C")</div>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:0.78rem;">
+            <span><i class="bi bi-calendar3 me-1 text-muted"></i>@_detail.ExpenseDate.ToString("MMM dd, yyyy")</span>
+            @if (!string.IsNullOrWhiteSpace(_detail.PaymentMethod))
+            {
+                <span><i class="bi bi-credit-card me-1 text-muted"></i>@_detail.PaymentMethod</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.VendorName))
+            {
+                <span><i class="bi bi-shop me-1 text-muted"></i>@_detail.VendorName</span>
+            }
+        </div>
+
+        @if (_detail.Amount != _detail.Total)
+        {
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Amount</span><span>@_detail.Amount.ToString("C")</span>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Tax</span><span>@_detail.TaxAmount.ToString("C")</span>
+            </div>
+            <hr style="margin:0.3rem 0;" />
+            <div class="d-flex justify-content-between fw-bold" style="font-size:0.85rem;">
+                <span>Total</span><span>@_detail.Total.ToString("C")</span>
+            </div>
+        }
+    </div>
+
+    <!-- Linked Info -->
+    @if (_detail.CustomerName != null || _detail.JobNumber != null || _detail.EmployeeName != null || _detail.CompanyName != null)
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Linked Info</div>
+            @if (_detail.CustomerName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-person text-muted"></i><span>@_detail.CustomerName</span>
+                </div>
+            }
+            @if (_detail.JobNumber != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs/" + _detail.JobId)'>
+                    <i class="bi bi-briefcase text-muted"></i><span class="text-primary">@_detail.JobNumber@(!string.IsNullOrWhiteSpace(_detail.JobTitle) ? $" — {_detail.JobTitle}" : "")</span>
+                </div>
+            }
+            @if (_detail.EmployeeName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-person-badge text-muted"></i><span>@_detail.EmployeeName</span>
+                </div>
+            }
+            @if (_detail.CompanyName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-building text-muted"></i><span>@_detail.CompanyName</span>
+                </div>
+            }
+            @if (_detail.InvoiceNumber != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-receipt text-muted"></i><span>Invoice: @_detail.InvoiceNumber</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Line Items -->
+    @if (_detail.Lines.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Line Items</div>
+            @foreach (var l in _detail.Lines)
+            {
+                <div class="d-flex justify-content-between align-items-start py-1" style="border-bottom:1px solid #f0f0f0;">
+                    <div style="min-width:0; flex:1;">
+                        <div style="font-size:0.8rem; font-weight:500;">@l.Description</div>
+                        <div style="font-size:0.7rem;" class="text-muted">
+                            @l.Quantity x @l.UnitPrice.ToString("C")
+                            @if (!string.IsNullOrWhiteSpace(l.LineType)) { <span>· @l.LineType</span> }
+                        </div>
+                    </div>
+                    <span style="font-size:0.8rem; font-weight:600;">@l.LineTotal.ToString("C")</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Receipt & Notes -->
+    @if (!string.IsNullOrWhiteSpace(_detail.ReceiptNumber) || !string.IsNullOrWhiteSpace(_detail.Notes))
+    {
+        <div class="mobile-card mb-2">
+            @if (!string.IsNullOrWhiteSpace(_detail.ReceiptNumber))
+            {
+                <div style="font-size:0.78rem;"><strong>Receipt #:</strong> @_detail.ReceiptNumber</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+            {
+                <div style="font-size:0.78rem; margin-top:0.25rem;"><strong>Notes:</strong> @_detail.Notes</div>
+            }
+        </div>
+    }
+
+    <div class="text-muted text-center" style="font-size:0.65rem;">Created @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
+}
+else if (_mode == "create")
+{
+    <!-- Create Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Log Expense</span>
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Category</label>
+            <select class="form-select form-select-sm" @bind="_form.Category">
+                <option value="">— Select —</option>
+                <option value="Materials">Materials</option>
+                <option value="Fuel">Fuel</option>
+                <option value="Tools">Tools</option>
+                <option value="Disposal">Disposal</option>
+                <option value="Supplies">Supplies</option>
+                <option value="Permits">Permits</option>
+                <option value="Subcontractor">Subcontractor</option>
+                <option value="Meals">Meals</option>
+                <option value="Travel">Travel</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
+            <input type="text" class="form-control form-control-sm" @bind="_form.Description" placeholder="What was purchased?" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Amount</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_form.Amount" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Tax</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_form.TaxAmount" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Vendor</label>
+            <input type="text" class="form-control form-control-sm" @bind="_form.VendorName" placeholder="Store or vendor name" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Payment Method</label>
+                <select class="form-select form-select-sm" @bind="_form.PaymentMethod">
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Check">Check</option>
+                    <option value="ACH">ACH</option>
+                    <option value="Zelle">Zelle</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Date</label>
+                <input type="date" class="form-control form-control-sm" @bind="_form.ExpenseDate" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Receipt #</label>
+            <input type="text" class="form-control form-control-sm" @bind="_form.ReceiptNumber" placeholder="Optional receipt number" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Linked Job</label>
+            <select class="form-select form-select-sm" @bind="_form.JobId">
+                <option value="">— None —</option>
+                @foreach (var j in _jobs)
+                {
+                    <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option>
+                }
+            </select>
+        </div>
+        <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="billable" @bind="_form.IsBillable" />
+            <label class="form-check-label" for="billable" style="font-size:0.78rem;">Billable to customer</label>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_form.Notes" placeholder="Additional notes..."></textarea>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="BackToList">Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveExpense" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Save Expense
+        </button>
+    </div>
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-wallet2 me-1"></i>Expenses</span>
+        <button class="btn btn-primary btn-sm" @onclick="ShowCreate"><i class="bi bi-plus-lg me-1"></i>Log Expense</button>
+    </div>
+
+    <!-- Stats -->
+    @if (_stats != null)
+    {
+        <div class="gap-grid mb-2">
+            <div class="stat-card">
+                <div class="stat-icon text-primary"><i class="bi bi-wallet2"></i></div>
+                <div class="stat-value">@_stats.TotalCount</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-warning"><i class="bi bi-hourglass-split"></i></div>
+                <div class="stat-value">@_stats.PendingCount</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-info"><i class="bi bi-calendar3"></i></div>
+                <div class="stat-value">@_stats.TotalThisMonth.ToString("C0")</div>
+                <div class="stat-label">This Month</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-success"><i class="bi bi-receipt-cutoff"></i></div>
+                <div class="stat-value">@_stats.BillableAmount.ToString("C0")</div>
+                <div class="stat-label">Billable</div>
+            </div>
+        </div>
+    }
+
+    <!-- Search -->
+    <div class="mobile-card mb-2" style="padding:0.5rem 0.75rem;">
+        <input type="text" class="form-control form-control-sm" placeholder="Search expenses..." @bind="_filter.Search" @bind:event="oninput" @bind:after="LoadExpenses" />
+    </div>
+
+    <!-- Category Filter -->
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(string.IsNullOrEmpty(_filter.Category) ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterCategory(null)">All</button>
+        @foreach (var cat in _categories)
+        {
+            <button class="btn btn-sm @(_filter.Category == cat ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterCategory(cat)">@cat</button>
+        }
+    </div>
+
+    <!-- Status Filter -->
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(!_filter.Status.HasValue ? "btn-dark" : "btn-outline-dark")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(null)">All</button>
+        @foreach (var s in Enum.GetValues<ExpenseStatus>())
+        {
+            <button class="btn btn-sm @(_filter.Status == s ? "btn-dark" : "btn-outline-dark")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(s)">@s</button>
+        }
+    </div>
+
+    <!-- Expense List -->
+    @if (_expenses.Any())
+    {
+        @foreach (var exp in _expenses)
+        {
+            <div class="mobile-card mb-1" style="cursor:pointer;" @onclick="() => ViewDetail(exp.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi @GetCategoryIcon(exp.Category) text-muted" style="font-size:0.85rem;"></i>
+                            <span style="font-size:0.85rem; font-weight:600;">@(exp.Description ?? exp.Category ?? "Expense")</span>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-1 text-muted" style="font-size:0.7rem;">
+                            <span>@exp.ExpenseDate.ToString("MMM dd")</span>
+                            @if (!string.IsNullOrWhiteSpace(exp.VendorName)) { <span>· @exp.VendorName</span> }
+                            @if (!string.IsNullOrWhiteSpace(exp.JobNumber)) { <span>· @exp.JobNumber</span> }
+                            @if (exp.IsBillable) { <span class="text-success">· Billable</span> }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:0.9rem; font-weight:700;">@exp.Total.ToString("C")</div>
+                        <span class="badge @GetStatusBadge(exp.Status)" style="font-size:0.6rem;">@exp.Status</span>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-wallet2 d-block" style="font-size:2rem;"></i>
+            <p>No expenses found</p>
+        </div>
+    }
+}
+
+@code {
+    private string _mode = "list";
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+
+    private MobileExpenseStats? _stats;
+    private List<MobileExpenseCard> _expenses = [];
+    private MobileExpenseDetail? _detail;
+    private MobileExpenseCreate _form = new();
+    private MobileExpenseFilter _filter = new();
+    private List<MobileJobCard> _jobs = [];
+
+    private readonly string[] _categories = ["Materials", "Fuel", "Tools", "Disposal", "Supplies", "Permits", "Travel", "Meals", "Other"];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _stats = await ExpenseSvc.GetStatsAsync();
+        await LoadExpenses();
+    }
+
+    private async Task LoadExpenses()
+    {
+        _expenses = await ExpenseSvc.GetExpensesAsync(_filter);
+    }
+
+    private async Task ViewDetail(int id)
+    {
+        _detail = await ExpenseSvc.GetExpenseDetailAsync(id);
+        if (_detail != null) _mode = "detail";
+    }
+
+    private void ShowCreate()
+    {
+        _form = new MobileExpenseCreate { ExpenseDate = DateTime.UtcNow };
+        _error = null;
+        _mode = "create";
+        _ = LoadJobOptions();
+    }
+
+    private async Task LoadJobOptions()
+    {
+        _jobs = await JobSvc.GetAllJobCardsAsync();
+        StateHasChanged();
+    }
+
+    private async Task SaveExpense()
+    {
+        if (_form.Amount <= 0) { _error = "Amount must be greater than zero."; return; }
+        if (string.IsNullOrWhiteSpace(_form.Category) && string.IsNullOrWhiteSpace(_form.Description))
+        {
+            _error = "Please enter a category or description.";
+            return;
+        }
+
+        try
+        {
+            _saving = true;
+            _error = null;
+            var id = await ExpenseSvc.CreateExpenseAsync(_form);
+            await LoadData();
+            await ViewDetail(id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task BackToList()
+    {
+        _mode = "list";
+        _detail = null;
+        await LoadData();
+    }
+
+    private async Task FilterCategory(string? category)
+    {
+        _filter.Category = category;
+        await LoadExpenses();
+    }
+
+    private async Task FilterStatus(ExpenseStatus? status)
+    {
+        _filter.Status = status;
+        await LoadExpenses();
+    }
+
+    private static string GetStatusBadge(ExpenseStatus s) => s switch
+    {
+        ExpenseStatus.Pending => "bg-warning text-dark",
+        ExpenseStatus.Approved => "bg-info",
+        ExpenseStatus.Reimbursed => "bg-success",
+        ExpenseStatus.Denied => "bg-danger",
+        _ => "bg-secondary",
+    };
+
+    private static string GetCategoryIcon(string? category) => category switch
+    {
+        "Materials" => "bi-box",
+        "Fuel" => "bi-fuel-pump",
+        "Tools" => "bi-tools",
+        "Disposal" => "bi-trash3",
+        "Supplies" => "bi-bag",
+        "Permits" => "bi-file-earmark-text",
+        "Travel" => "bi-car-front",
+        "Meals" => "bi-cup-hot",
+        "Subcontractor" => "bi-people",
+        _ => "bi-wallet2",
+    };
+}

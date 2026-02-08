@@ -62,10 +62,16 @@ public class EstimateDetail
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerEmail { get; set; }
+    public string? CustomerPhone { get; set; }
+    public string? CustomerAddress { get; set; }
+    public string? CustomerCity { get; set; }
+    public string? CustomerState { get; set; }
+    public string? CustomerZip { get; set; }
     public int? CompanyId { get; set; }
     public string? CompanyName { get; set; }
     public int? SiteId { get; set; }
     public string? SiteName { get; set; }
+    public string? SiteAddress { get; set; }
     public int? MaterialListId { get; set; }
     public string? MaterialListName { get; set; }
     public DateTime CreatedAt { get; set; }

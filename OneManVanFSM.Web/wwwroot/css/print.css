@@ -1,9 +1,9 @@
-/* ===== PRINT STYLESHEET — OneManVanFSM ===== */
-/* Professional document output for invoices, estimates, material lists */
+/* ===== PRINT STYLESHEET - OneManVanFSM ===== */
+/* Professional document output for invoices, estimates, expenses */
 
 @media print {
 
-    /* ?? Hide non-printable UI ??????????????????????????? */
+    /* -- Hide non-printable UI ---------------------------------------- */
     .app-sidebar,
     .app-header,
     .app-footer,
@@ -20,13 +20,15 @@
     .form-check,
     .spinner-border,
     #blazor-error-ui,
-    .blazor-error-boundary {
+    .blazor-error-boundary,
+    .modal,
+    .dropdown-menu {
         display: none !important;
     }
 
-    /* ?? Page setup ?????????????????????????????????????? */
+    /* -- Page setup --------------------------------------------------- */
     @page {
-        margin: 1.8cm 2cm;
+        margin: 0.3cm 1.2cm;
         size: letter;
     }
 
@@ -35,7 +37,7 @@
         print-color-adjust: exact !important;
     }
 
-    /* ?? Full-width content reset ???????????????????????? */
+    /* -- Full-width content reset ------------------------------------- */
     body,
     .app-layout,
     .app-main,
@@ -47,24 +49,14 @@
         background: #fff !important;
         color: #1a1a1a !important;
         font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
-        font-size: 10pt !important;
-        line-height: 1.5 !important;
+        font-size: 9pt !important;
+        line-height: 1.35 !important;
     }
 
-    /* ?? Typography ?????????????????????????????????????? */
+    /* -- Typography --------------------------------------------------- */
     h1, h2, h3, h4, h5, h6 {
         color: #1a1a1a !important;
         margin-top: 0;
-    }
-
-    h2 {
-        font-size: 18pt !important;
-        font-weight: 700 !important;
-    }
-
-    h5, h6 {
-        font-size: 11pt !important;
-        font-weight: 600 !important;
     }
 
     p, span, td, th, div, li {
@@ -75,20 +67,12 @@
         color: #555 !important;
     }
 
-    .text-primary,
-    .text-danger,
-    .text-success,
-    .text-info,
-    .text-warning {
-        color: #1a1a1a !important;
-    }
-
     a {
         color: #1a1a1a !important;
         text-decoration: none !important;
     }
 
-    /* ?? Reset dark theme ???????????????????????????????? */
+    /* -- Reset dark theme --------------------------------------------- */
     .card,
     .card-body,
     .card-header,
@@ -100,7 +84,7 @@
         color: #1a1a1a !important;
     }
 
-    /* ?? Card / shadow cleanup ??????????????????????????? */
+    /* -- Card / shadow cleanup ---------------------------------------- */
     .card {
         border: none !important;
         box-shadow: none !important;
@@ -121,7 +105,7 @@
         border-bottom: none !important;
     }
 
-    /* ?? Grid layout — single column for print ??????????? */
+    /* -- Grid layout - single column for print ------------------------ */
     .row {
         display: block !important;
     }
@@ -130,19 +114,20 @@
     .col-md-8,
     .col-md-6,
     .col-sm-4,
-    .col-sm-6 {
+    .col-sm-6,
+    .col-sm-2 {
         width: 100% !important;
         max-width: 100% !important;
         flex: none !important;
     }
 
-    /* ?? Tables — professional styling ??????????????????? */
+    /* -- Default table styles ----------------------------------------- */
     .table {
         --bs-table-bg: transparent !important;
         --bs-table-color: #1a1a1a !important;
         width: 100% !important;
         border-collapse: collapse !important;
-        margin-bottom: 12pt !important;
+        margin-bottom: 10pt !important;
     }
 
     .table-responsive {
@@ -151,25 +136,20 @@
 
     .table th {
         font-weight: 700 !important;
-        font-size: 9pt !important;
+        font-size: 8.5pt !important;
         text-transform: uppercase !important;
         letter-spacing: 0.3pt !important;
         color: #333 !important;
         background: #f5f5f5 !important;
-        border-bottom: 2pt solid #333 !important;
-        border-top: 1pt solid #ccc !important;
-        padding: 6pt 8pt !important;
+        border-bottom: 1.5pt solid #333 !important;
+        padding: 5pt 8pt !important;
     }
 
     .table td {
-        padding: 5pt 8pt !important;
-        border-bottom: 0.5pt solid #ddd !important;
-        font-size: 10pt !important;
+        padding: 4pt 8pt !important;
+        border-bottom: 0.5pt solid #e0e0e0 !important;
+        font-size: 9.5pt !important;
         vertical-align: top !important;
-    }
-
-    .table-light {
-        background: #f5f5f5 !important;
     }
 
     .table-bordered th,
@@ -181,191 +161,375 @@
         break-inside: avoid;
     }
 
-    /* ?? Badges — subtle print treatment ????????????????? */
+    /* -- Badges - subtle print treatment ------------------------------ */
     .badge {
-        border: 1pt solid #888 !important;
+        border: 0.75pt solid #999 !important;
         color: #333 !important;
         background: #f0f0f0 !important;
         font-weight: 600 !important;
-        font-size: 8pt !important;
-        padding: 2pt 6pt !important;
+        font-size: 7.5pt !important;
+        padding: 1pt 5pt !important;
         border-radius: 2pt !important;
     }
 
-    /* ?? Responsive columns — force visible ?????????????? */
+    /* -- Responsive columns - force visible --------------------------- */
     .d-none.d-md-table-cell,
     .d-none.d-lg-table-cell {
         display: table-cell !important;
     }
 
-    /* ??????????????????????????????????????????????????????
-       PRINT DOCUMENT HEADER — Professional document layout
-       Hidden on screen (d-none), revealed here for print
-       ?????????????????????????????????????????????????????? */
 
-    .print-document-header {
+    /* =====================================================
+       PROFESSIONAL PRINT DOCUMENT LAYOUT
+       Navy accent (#1B2A4A) inspired by reference templates
+       ===================================================== */
+
+    /* -- Print document wrapper --------------------------------------- */
+    .print-doc {
         display: block !important;
-        margin-bottom: 16pt;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
     }
 
-    .print-document-header .print-doc-title {
-        font-size: 22pt;
-        font-weight: 800;
-        color: #1a1a1a !important;
-        letter-spacing: 1pt;
-        text-transform: uppercase;
-        margin: 0 0 4pt 0;
-        padding-bottom: 6pt;
-        border-bottom: 3pt solid #333;
-    }
-
-    .print-document-header .print-doc-subtitle {
-        font-size: 11pt;
-        color: #555 !important;
-        margin: 4pt 0 0 0;
-    }
-
-    .print-document-header .print-doc-meta {
+    /* -- Header banner - navy bar with doc type + company ------------- */
+    .print-doc-banner {
         display: flex !important;
+        align-items: flex-start;
         justify-content: space-between;
-        margin-top: 12pt;
-        padding-top: 8pt;
+        background: #1B2A4A !important;
+        color: #fff !important;
+        padding: 8pt 14pt !important;
+        margin-bottom: 0;
     }
 
-    .print-document-header .print-address-block {
-        flex: 1;
-        padding-right: 16pt;
+    .print-doc-banner-left {
+        flex: 0 0 auto;
     }
 
-    .print-document-header .print-address-block:last-child {
-        padding-right: 0;
-        text-align: right;
-    }
-
-    .print-document-header .print-address-label {
-        font-size: 8pt;
-        font-weight: 700;
+    .print-doc-banner-left .print-doc-type {
+        font-size: 16pt !important;
+        font-weight: 800 !important;
+        color: #fff !important;
         text-transform: uppercase;
-        letter-spacing: 0.5pt;
-        color: #888 !important;
-        margin: 0 0 3pt 0;
-    }
-
-    .print-document-header .print-address-value {
-        font-size: 10pt;
-        line-height: 1.4;
-        color: #1a1a1a !important;
-        margin: 0;
-    }
-
-    .print-document-header .print-address-name {
-        font-weight: 700;
-        font-size: 11pt;
+        letter-spacing: 2pt;
         margin: 0 0 2pt 0;
     }
 
-    .print-document-header .print-doc-details {
-        margin-top: 12pt;
-        padding: 8pt 0;
-        border-top: 0.5pt solid #ddd;
-        border-bottom: 0.5pt solid #ddd;
-        display: flex !important;
-        gap: 24pt;
-        flex-wrap: wrap;
+    .print-doc-banner-left .print-doc-number-line {
+        font-size: 9pt !important;
+        color: #b0c4de !important;
+        margin: 0;
     }
 
-    .print-document-header .print-detail-item {
+    .print-doc-banner-left .print-doc-number-line strong {
+        color: #fff !important;
+    }
+
+    .print-doc-banner-right {
+        text-align: right;
+        flex: 0 0 auto;
+    }
+
+    .print-doc-banner-right .print-company-name {
+        font-size: 11pt !important;
+        font-weight: 700 !important;
+        color: #fff !important;
+        margin: 0 0 1pt 0;
+    }
+
+    .print-doc-banner-right .print-company-detail {
+        font-size: 7.5pt !important;
+        color: #b0c4de !important;
+        margin: 0;
+        line-height: 1.35;
+    }
+
+    /* -- Sub-banner info bar (dates, status) -------------------------- */
+    .print-doc-info-bar {
+        display: flex !important;
+        justify-content: flex-start;
+        gap: 20pt;
+        background: #f0f4f8 !important;
+        padding: 4pt 14pt !important;
+        border-bottom: 1pt solid #1B2A4A !important;
+        margin-bottom: 8pt;
+    }
+
+    .print-doc-info-bar .print-info-item {
         display: inline-block;
     }
 
-    .print-document-header .print-detail-label {
-        font-size: 8pt;
-        font-weight: 700;
+    .print-doc-info-bar .print-info-label {
+        font-size: 7pt !important;
+        font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.5pt;
-        color: #888 !important;
+        color: #1B2A4A !important;
         display: block;
+        margin-bottom: 1pt;
     }
 
-    .print-document-header .print-detail-value {
-        font-size: 10pt;
-        font-weight: 600;
+    .print-doc-info-bar .print-info-value {
+        font-size: 8.5pt !important;
+        font-weight: 600 !important;
         color: #1a1a1a !important;
     }
 
-    /* ?? Document notes section ?????????????????????????? */
-    .print-document-notes {
-        display: block !important;
-        margin-top: 12pt;
-        padding: 8pt 10pt;
-        border: 0.5pt solid #ddd;
-        border-radius: 3pt;
-        background: #fafafa !important;
+    /* -- Two-column address area (From / Bill To) --------------------- */
+    .print-doc-addresses {
+        display: flex !important;
+        justify-content: space-between;
+        margin-bottom: 8pt;
+        padding: 0 4pt;
     }
 
-    .print-document-notes .print-notes-label {
-        font-size: 8pt;
-        font-weight: 700;
+    .print-addr-block {
+        flex: 0 0 48%;
+    }
+
+    .print-addr-block .print-addr-label {
+        font-size: 6.5pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.6pt;
+        color: #1B2A4A !important;
+        border-bottom: 1pt solid #1B2A4A !important;
+        padding-bottom: 2pt;
+        margin-bottom: 3pt;
+        display: block;
+    }
+
+    .print-addr-block .print-addr-name {
+        font-size: 9.5pt !important;
+        font-weight: 700 !important;
+        color: #1a1a1a !important;
+        margin: 0 0 1pt 0;
+    }
+
+    .print-addr-block .print-addr-line {
+        font-size: 8pt !important;
+        color: #444 !important;
+        margin: 0;
+        line-height: 1.35;
+    }
+
+    /* -- Line items table - navy header ------------------------------- */
+    .print-doc-table {
+        width: 100% !important;
+        border-collapse: collapse !important;
+        margin-bottom: 0;
+    }
+
+    .print-doc-table thead th {
+        background: #1B2A4A !important;
+        color: #fff !important;
+        font-size: 7pt !important;
+        font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.5pt;
-        color: #888 !important;
-        margin: 0 0 4pt 0;
+        padding: 4pt 8pt !important;
+        border: none !important;
     }
 
-    .print-document-notes .print-notes-text {
-        font-size: 10pt;
-        color: #333 !important;
+    .print-doc-table tbody td {
+        padding: 3pt 8pt !important;
+        font-size: 8.5pt !important;
+        border-bottom: 0.5pt solid #e0e0e0 !important;
+        color: #1a1a1a !important;
+        vertical-align: top;
+    }
+
+    .print-doc-table tbody tr:nth-child(even) td {
+        background: #f8f9fa !important;
+    }
+
+    .print-doc-table tbody tr:last-child td {
+        border-bottom: 1.5pt solid #1B2A4A !important;
+    }
+
+    .print-doc-table .text-end {
+        text-align: right !important;
+    }
+
+    .print-doc-table .text-center {
+        text-align: center !important;
+    }
+
+    /* -- Section headers for Material + Labor grouping ---------------- */
+    .print-section-divider td {
+        background: #e8edf2 !important;
+        padding: 3pt 8pt !important;
+        font-size: 8pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #1B2A4A !important;
+        border-bottom: 1pt solid #1B2A4A !important;
+        border-top: 1pt solid #ccc !important;
+    }
+
+    /* -- Totals block - right-aligned --------------------------------- */
+    .print-doc-totals {
+        margin: 6pt 0 0 auto;
+        width: 44%;
+    }
+
+    .print-doc-totals .print-total-row {
+        display: flex !important;
+        justify-content: space-between;
+        padding: 2pt 8pt;
+        font-size: 8.5pt !important;
+    }
+
+    .print-doc-totals .print-total-row .print-total-label {
+        color: #555 !important;
+    }
+
+    .print-doc-totals .print-total-row .print-total-value {
+        font-weight: 600 !important;
+        color: #1a1a1a !important;
+    }
+
+    .print-doc-totals .print-total-row.print-total-subtotal {
+        border-bottom: 0.5pt solid #ddd !important;
+        padding-bottom: 5pt;
+        margin-bottom: 3pt;
+    }
+
+    .print-doc-totals .print-total-row.print-grand-total {
+        background: #1B2A4A !important;
+        padding: 4pt 8pt !important;
+        margin-top: 3pt;
+    }
+
+    .print-doc-totals .print-total-row.print-grand-total .print-total-label {
+        font-weight: 700 !important;
+        font-size: 9.5pt !important;
+        color: #fff !important;
+    }
+
+    .print-doc-totals .print-total-row.print-grand-total .print-total-value {
+        font-weight: 800 !important;
+        font-size: 10pt !important;
+        color: #fff !important;
+    }
+
+    .print-doc-totals .print-total-row.print-balance-due {
+        margin-top: 3pt;
+        padding-top: 3pt;
+        border-top: 1pt solid #1B2A4A !important;
+    }
+
+    .print-doc-totals .print-total-row.print-balance-due .print-total-label {
+        font-weight: 700 !important;
+        font-size: 9pt !important;
+        color: #c0392b !important;
+    }
+
+    .print-doc-totals .print-total-row.print-balance-due .print-total-value {
+        font-weight: 800 !important;
+        font-size: 9.5pt !important;
+        color: #c0392b !important;
+    }
+
+    .print-doc-totals .print-total-row.print-balance-paid .print-total-label,
+    .print-doc-totals .print-total-row.print-balance-paid .print-total-value {
+        color: #27ae60 !important;
+    }
+
+    /* -- Terms & notes section ---------------------------------------- */
+    .print-doc-terms {
+        margin-top: 10pt;
+        padding: 0 4pt;
+        display: flex !important;
+        gap: 12pt;
+    }
+
+    .print-doc-terms-block {
+        flex: 1;
+    }
+
+    .print-doc-terms-block .print-terms-heading {
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #1B2A4A !important;
+        border-bottom: 1pt solid #1B2A4A !important;
+        padding-bottom: 2pt;
+        margin-bottom: 3pt;
+    }
+
+    .print-doc-terms-block .print-terms-text {
+        font-size: 7.5pt !important;
+        color: #444 !important;
+        line-height: 1.35;
         white-space: pre-wrap;
         margin: 0;
     }
 
-    /* ?? Pricing summary — right-aligned totals block ???? */
-    .print-pricing-summary {
-        margin-top: 12pt;
-        margin-left: auto;
-        width: 50%;
+    /* -- Payments table ----------------------------------------------- */
+    .print-payments-block {
+        margin-top: 8pt;
     }
 
-    .print-pricing-summary .print-pricing-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 3pt 0;
-        font-size: 10pt;
+    .print-payments-block .print-payments-heading {
+        font-size: 7pt !important;
+        font-weight: 700 !important;
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #1B2A4A !important;
+        border-bottom: 1pt solid #1B2A4A !important;
+        padding-bottom: 2pt;
+        margin-bottom: 3pt;
     }
 
-    .print-pricing-summary .print-pricing-row.print-pricing-total {
-        border-top: 2pt solid #333;
-        margin-top: 4pt;
-        padding-top: 6pt;
-        font-weight: 800;
-        font-size: 12pt;
+    /* -- Footer - company contact bar at bottom ----------------------- */
+    .print-doc-footer {
+        display: flex !important;
+        justify-content: center;
+        gap: 18pt;
+        margin-top: 14pt;
+        padding: 5pt 0;
+        border-top: 1.5pt solid #1B2A4A !important;
+        font-size: 7.5pt !important;
+        color: #555 !important;
     }
 
-    .print-pricing-summary .print-pricing-row.print-pricing-balance {
-        border-top: 1pt solid #aaa;
-        margin-top: 4pt;
-        padding-top: 6pt;
-        font-weight: 700;
-        font-size: 11pt;
+    .print-doc-footer .print-footer-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 4pt;
     }
 
-    /* ?? Footer on documents ????????????????????????????? */
-    .print-document-footer {
-        display: block !important;
-        margin-top: 24pt;
-        padding-top: 8pt;
-        border-top: 0.5pt solid #ddd;
-        font-size: 8pt;
-        color: #999 !important;
+    .print-doc-footer .print-footer-icon {
+        font-size: 9pt !important;
+        color: #1B2A4A !important;
+    }
+
+    /* -- Thank you / signoff ------------------------------------------ */
+    .print-doc-thankyou {
         text-align: center;
+        margin-top: 10pt;
+        font-size: 9pt !important;
+        font-style: italic;
+        color: #666 !important;
     }
 
-    /* ?? Supply house mode — hide price columns ?????????? */
-    body.print-supply-house .print-price-col {
-        display: none !important;
+    /* -- Deposit info callout ----------------------------------------- */
+    .print-deposit-callout {
+        border: 1pt solid #1B2A4A !important;
+        background: #f0f4f8 !important;
+        padding: 4pt 8pt !important;
+        margin-top: 6pt;
+        font-size: 8pt !important;
     }
 
-    /* ?? Page break controls ????????????????????????????? */
+    .print-deposit-callout .print-deposit-label {
+        font-weight: 700 !important;
+        color: #1B2A4A !important;
+    }
+
+    /* -- Page break controls ------------------------------------------ */
     .print-page-break {
         break-before: page;
     }
@@ -378,31 +542,235 @@
         break-inside: auto;
     }
 
-    /* ?? Material list section headers ??????????????????? */
-    .print-section-header {
-        font-size: 11pt;
-        font-weight: 700;
-        color: #333 !important;
-        border-bottom: 1pt solid #aaa;
-        padding-bottom: 3pt;
-        margin: 12pt 0 6pt 0;
-        text-transform: uppercase;
-        letter-spacing: 0.5pt;
-    }
-
-    /* ?? Payments table — compact ???????????????????????? */
-    .print-payments-section {
-        margin-top: 16pt;
-    }
-
-    .print-payments-section h6 {
-        font-size: 10pt;
-        margin-bottom: 6pt;
-    }
-
-    /* ?? Horizontal rules ???????????????????????????????? */
+    /* -- Horizontal rules --------------------------------------------- */
     hr {
         border-color: #ddd !important;
         margin: 8pt 0 !important;
+    }
+
+    /* -- Supply house mode - hide price columns ----------------------- */
+    body.print-supply-house .print-price-col {
+        display: none !important;
+    }
+
+    /* -- Hide the screen-only detail content during print ------------- */
+    .print-screen-only {
+        display: none !important;
+    }
+
+    /* -- Compact asset / equipment info (inline rows) ----------------- */
+    .print-asset-compact {
+        margin: 4pt 0 2pt 0;
+        font-size: 7.5pt !important;
+        line-height: 1.3 !important;
+    }
+
+    .print-asset-compact .print-terms-heading {
+        font-size: 7pt !important;
+        margin-bottom: 2pt !important;
+    }
+
+    .print-asset-compact .print-asset-row {
+        padding: 1pt 0;
+        border-bottom: 0.5pt solid #ddd;
+    }
+
+    .print-asset-compact .print-asset-row:last-child {
+        border-bottom: none;
+    }
+
+    .print-asset-compact .print-asset-label {
+        font-weight: 600;
+        color: #1B2A4A;
+        display: inline;
+    }
+
+    .print-asset-compact .print-asset-detail {
+        color: #555;
+        display: inline;
+    }
+
+    /* =====================================================
+       TEMPLATE VARIANT: CLASSIC
+       Clean black & white, no colored banners, understated
+       ===================================================== */
+
+    .print-doc.print-template-classic .print-doc-banner {
+        background: #fff !important;
+        border-bottom: 2.5pt solid #333 !important;
+        padding: 12pt 18pt !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-banner-left .print-doc-type {
+        color: #333 !important;
+        font-size: 20pt !important;
+        letter-spacing: 3pt;
+    }
+
+    .print-doc.print-template-classic .print-doc-banner-left .print-doc-number-line {
+        color: #666 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-banner-left .print-doc-number-line strong {
+        color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-banner-right .print-company-name {
+        color: #1a1a1a !important;
+        font-size: 13pt !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-banner-right .print-company-detail {
+        color: #555 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-info-bar {
+        background: #fafafa !important;
+        border-bottom: 1pt solid #ccc !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-info-bar .print-info-label {
+        color: #555 !important;
+    }
+
+    .print-doc.print-template-classic .print-addr-block .print-addr-label {
+        color: #333 !important;
+        border-bottom-color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-table thead th {
+        background: #f5f5f5 !important;
+        color: #333 !important;
+        border-bottom: 1.5pt solid #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-table tbody tr:last-child td {
+        border-bottom: 1.5pt solid #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-section-divider td {
+        background: #f0f0f0 !important;
+        color: #333 !important;
+        border-bottom-color: #333 !important;
+        border-top-color: #ccc !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-totals .print-total-row.print-grand-total {
+        background: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-totals .print-total-row.print-balance-due .print-total-label,
+    .print-doc.print-template-classic .print-doc-totals .print-total-row.print-balance-due .print-total-value {
+        color: #c0392b !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-totals .print-total-row.print-balance-due {
+        border-top-color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-terms-block .print-terms-heading {
+        color: #333 !important;
+        border-bottom-color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-payments-block .print-payments-heading {
+        color: #333 !important;
+        border-bottom-color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-footer {
+        border-top-color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-doc-footer .print-footer-icon {
+        color: #333 !important;
+    }
+
+    .print-doc.print-template-classic .print-deposit-callout {
+        border-color: #333 !important;
+        background: #fafafa !important;
+    }
+
+    .print-doc.print-template-classic .print-deposit-callout .print-deposit-label {
+        color: #333 !important;
+    }
+
+    /* =====================================================
+       TEMPLATE VARIANT: MODERN
+       Teal accent (#0D7377), rounded feel, lighter palette
+       ===================================================== */
+
+    .print-doc.print-template-modern .print-doc-banner {
+        background: linear-gradient(135deg, #0D7377 0%, #14919B 100%) !important;
+        border-radius: 0 0 6pt 6pt;
+    }
+
+    .print-doc.print-template-modern .print-doc-info-bar {
+        background: #e8f6f7 !important;
+        border-bottom: 1.5pt solid #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-info-bar .print-info-label {
+        color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-addr-block .print-addr-label {
+        color: #0D7377 !important;
+        border-bottom-color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-table thead th {
+        background: #0D7377 !important;
+        border-radius: 3pt;
+    }
+
+    .print-doc.print-template-modern .print-doc-table tbody tr:last-child td {
+        border-bottom: 1.5pt solid #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-table tbody tr:nth-child(even) td {
+        background: #f0fafa !important;
+    }
+
+    .print-doc.print-template-modern .print-section-divider td {
+        background: #e0f0f0 !important;
+        color: #0D7377 !important;
+        border-bottom-color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-totals .print-total-row.print-grand-total {
+        background: #0D7377 !important;
+        border-radius: 3pt;
+    }
+
+    .print-doc.print-template-modern .print-doc-totals .print-total-row.print-balance-due {
+        border-top-color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-terms-block .print-terms-heading {
+        color: #0D7377 !important;
+        border-bottom-color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-payments-block .print-payments-heading {
+        color: #0D7377 !important;
+        border-bottom-color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-footer {
+        border-top: 2pt solid #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-doc-footer .print-footer-icon {
+        color: #0D7377 !important;
+    }
+
+    .print-doc.print-template-modern .print-deposit-callout {
+        border-color: #0D7377 !important;
+        background: #e8f6f7 !important;
+    }
+
+    .print-doc.print-template-modern .print-deposit-callout .print-deposit-label {
+        color: #0D7377 !important;
     }
 }

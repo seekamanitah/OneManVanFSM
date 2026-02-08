@@ -25,6 +25,8 @@ public class CustomerListItem
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public CustomerType Type { get; set; }
     public string? PrimaryPhone { get; set; }
     public string? PrimaryEmail { get; set; }
@@ -39,6 +41,8 @@ public class CustomerDetail
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public CustomerType Type { get; set; }
     public string? PrimaryPhone { get; set; }
     public string? SecondaryPhone { get; set; }
@@ -131,8 +135,12 @@ public class NoteSummary
 
 public class CustomerEditModel
 {
-    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Customer name is required.")]
     public string Name { get; set; } = string.Empty;
+
+    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "First name is required.")]
+    public string FirstName { get; set; } = string.Empty;
+
+    public string? LastName { get; set; }
 
     public CustomerType Type { get; set; } = CustomerType.Individual;
 

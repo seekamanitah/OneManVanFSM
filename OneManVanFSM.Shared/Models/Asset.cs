@@ -25,7 +25,20 @@ public class Asset
     public string? PipeMaterial { get; set; } // Plumbing — Copper, PEX, PVC, Cast Iron
     public int? GallonCapacity { get; set; } // Plumbing — water heater tank size
     public string? RefrigerantType { get; set; }
-    public decimal? RefrigerantQuantity { get; set; }
+    public decimal? RefrigerantQuantity { get; set; } // oz
+    public decimal? SEER2 { get; set; } // New efficiency standard
+    public decimal? HSPF2 { get; set; } // New efficiency standard
+    public decimal? EER { get; set; } // Energy Efficiency Ratio
+    public string? AssetTag { get; set; } // Barcode / QR code
+    public string? Nickname { get; set; } // Friendly name, e.g., "Upstairs Unit"
+    public string? FilterType { get; set; } // Fiberglass, Pleated, HEPA, etc.
+    public int? FilterChangeIntervalMonths { get; set; }
+    public DateTime? FilterLastChanged { get; set; }
+    public DateTime? FilterNextDue { get; set; }
+    public string? ThermostatBrand { get; set; }
+    public string? ThermostatModel { get; set; }
+    public string? ThermostatType { get; set; } // Programmable, Smart, Non-Programmable, etc.
+    public bool ThermostatWiFiEnabled { get; set; }
     public DateTime? InstallDate { get; set; }
     public DateTime? LastServiceDate { get; set; }
     public DateTime? NextServiceDue { get; set; }
@@ -35,6 +48,12 @@ public class Asset
     public DateTime? LaborWarrantyExpiry { get; set; }
     public DateTime? PartsWarrantyExpiry { get; set; }
     public DateTime? CompressorWarrantyExpiry { get; set; }
+    public int? LaborWarrantyTermYears { get; set; }
+    public int? PartsWarrantyTermYears { get; set; }
+    public int? CompressorWarrantyTermYears { get; set; }
+    public bool RegisteredOnline { get; set; }
+    public string? InstalledBy { get; set; }
+    public bool WarrantedByCompany { get; set; }
     public AssetStatus Status { get; set; } = AssetStatus.Active;
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
@@ -52,6 +71,8 @@ public class Asset
     public ICollection<JobAsset> JobAssets { get; set; } = [];
     public ICollection<ServiceAgreementAsset> ServiceAgreementAssets { get; set; } = [];
     public ICollection<AssetServiceLog> ServiceLogs { get; set; } = [];
+    public ICollection<AssetLink> AssetLinksFrom { get; set; } = [];
+    public ICollection<AssetLink> AssetLinksTo { get; set; } = [];
 }
 
 public enum AssetStatus

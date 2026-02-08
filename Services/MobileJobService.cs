@@ -10,6 +10,7 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
     {
         var query = db.Jobs
             .Include(j => j.Customer)
+            .Include(j => j.Company)
             .Include(j => j.Site)
             .Where(j => !j.IsArchived && j.AssignedEmployeeId == employeeId)
             .AsQueryable();
@@ -43,6 +44,7 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
                 JobNumber = j.JobNumber,
                 Title = j.Title,
                 CustomerName = j.Customer != null ? j.Customer.Name : null,
+                CompanyName = j.Company != null ? j.Company.Name : null,
                 SiteAddress = j.Site != null ? (j.Site.Address + ", " + j.Site.City) : null,
                 Status = j.Status,
                 Priority = j.Priority,
@@ -53,10 +55,29 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
             .ToListAsync();
     }
 
+    public async Task<List<MobileJobCard>> GetAllJobCardsAsync()
+    {
+        return await db.Jobs
+            .Where(j => !j.IsArchived)
+            .OrderByDescending(j => j.ScheduledDate)
+            .Select(j => new MobileJobCard
+            {
+                Id = j.Id,
+                JobNumber = j.JobNumber,
+                Title = j.Title,
+                CustomerName = j.Customer != null ? j.Customer.Name : null,
+                Status = j.Status,
+                Priority = j.Priority,
+                ScheduledDate = j.ScheduledDate,
+            })
+            .ToListAsync();
+    }
+
     public async Task<MobileJobDetail?> GetJobDetailAsync(int id)
     {
         var job = await db.Jobs
             .Include(j => j.Customer)
+            .Include(j => j.Company)
             .Include(j => j.Site)
             .Include(j => j.AssignedEmployee)
             .Include(j => j.TimeEntries)
@@ -92,6 +113,8 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
             CustomerName = job.Customer?.Name,
             CustomerId = job.CustomerId,
             CustomerPhone = job.Customer?.PrimaryPhone,
+            CompanyId = job.CompanyId,
+            CompanyName = job.Company?.Name,
             SiteName = job.Site?.Name,
             SiteAddress = job.Site != null ? $"{job.Site.Address}, {job.Site.City}, {job.Site.State} {job.Site.Zip}" : null,
             SiteId = job.SiteId,
@@ -155,6 +178,7 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
     {
         var site = await db.Sites
             .Include(s => s.Customer)
+            .Include(s => s.Company)
             .Include(s => s.Assets)
             .FirstOrDefaultAsync(s => s.Id == siteId && !s.IsArchived);
 
@@ -217,6 +241,9 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
             Notes = site.Notes,
             CustomerId = site.CustomerId,
             CustomerName = site.Customer?.Name,
+            CompanyId = site.CompanyId,
+            CompanyName = site.Company?.Name,
+            IsNewConstruction = site.IsNewConstruction,
             Agreements = agreements,
             Assets = site.Assets.Where(a => !a.IsArchived).Select(a => new MobileAssetSummary
             {
@@ -285,5 +312,55 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
             BaseCost = item.BaseCost,
             Notes = item.Notes,
         };
+    }
+
+    public async Task<int> CreateJobAsync(MobileJobCreate model)
+    {
+        // Generate job number: JOB-YYYYMMDD-XXXX
+        var today = DateTime.UtcNow.ToString("yyyyMMdd");
+        var todayCount = await db.Jobs.CountAsync(j => j.JobNumber.StartsWith($"JOB-{today}"));
+        var jobNumber = $"JOB-{today}-{(todayCount + 1):D4}";
+
+        var job = new Job
+        {
+            JobNumber = jobNumber,
+            Title = model.Title,
+            Description = model.Description,
+            Priority = model.Priority,
+            Status = model.ScheduledDate.HasValue ? JobStatus.Scheduled : JobStatus.Lead,
+            ScheduledDate = model.ScheduledDate,
+            ScheduledTime = model.ScheduledTime,
+            EstimatedDuration = model.EstimatedDuration,
+            CustomerId = model.CustomerId,
+            SiteId = model.SiteId,
+            AssignedEmployeeId = model.AssignedEmployeeId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        db.Jobs.Add(job);
+        await db.SaveChangesAsync();
+        return job.Id;
+    }
+
+    public async Task<List<MobileCustomerOption>> GetCustomerOptionsAsync()
+    {
+        return await db.Customers
+            .Where(c => !c.IsArchived)
+            .OrderBy(c => c.Name)
+            .Select(c => new MobileCustomerOption { Id = c.Id, Name = c.Name })
+            .ToListAsync();
+    }
+
+    public async Task<List<MobileSiteOption>> GetSiteOptionsAsync(int? customerId)
+    {
+        var query = db.Sites.Where(s => !s.IsArchived);
+        if (customerId.HasValue)
+            query = query.Where(s => s.CustomerId == customerId);
+
+        return await query
+            .OrderBy(s => s.Name)
+            .Select(s => new MobileSiteOption { Id = s.Id, Name = s.Name, Address = s.Address })
+            .ToListAsync();
     }
 }

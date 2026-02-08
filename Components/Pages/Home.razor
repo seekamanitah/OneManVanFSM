@@ -295,6 +295,16 @@ else if (_data != null)
             <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Search</div>
         </div>
     </div>
+    <div class="gap-grid mb-2">
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/expenses")'>
+            <i class="bi bi-wallet2 text-danger" style="font-size:1.3rem;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Expenses</div>
+        </div>
+        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/invoices")'>
+            <i class="bi bi-receipt" style="font-size:1.3rem; color:#0d6efd;"></i>
+            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Invoices</div>
+        </div>
+    </div>
 }
 
 @code {

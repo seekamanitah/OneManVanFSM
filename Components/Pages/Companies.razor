@@ -1,0 +1,335 @@
+@page "/companies"
+@page "/companies/{Id:int}"
+@inject IMobileCompanyService CompanyService
+@inject NavigationManager Nav
+
+@if (Id > 0)
+{
+    <!-- Detail View -->
+    @if (_loadingDetail)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (_detail == null)
+    {
+        <div class="empty-state">
+            <i class="bi bi-building-x d-block"></i>
+            <p>Company not found</p>
+            <button class="btn btn-primary btn-sm mt-2" @onclick='() => Nav.NavigateTo("/companies")'>
+                <i class="bi bi-arrow-left me-1"></i>All Companies
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="mb-3">
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/companies")'>
+                <i class="bi bi-arrow-left me-1"></i>Companies
+            </button>
+        </div>
+
+        <!-- Company Header -->
+        <div class="mobile-card">
+            <div class="mobile-card-header">
+                <div>
+                    <span class="card-title">@_detail.Name</span>
+                </div>
+                <span class="badge bg-@(_detail.IsActive ? "success" : "secondary")">@(_detail.IsActive ? "Active" : "Inactive")</span>
+            </div>
+            @if (_detail.LegalName != null && _detail.LegalName != _detail.Name)
+            {
+                <p class="card-subtitle mb-1">@_detail.LegalName</p>
+            }
+            <div class="d-flex flex-wrap gap-1 mb-1">
+                <span class="badge bg-light text-dark" style="font-size:0.65rem;">@_detail.Type</span>
+                @if (_detail.Industry != null)
+                {
+                    <span class="badge bg-primary-subtle text-primary" style="font-size:0.65rem;">@_detail.Industry</span>
+                }
+            </div>
+            @if (_detail.Address != null)
+            {
+                <p class="card-subtitle mb-0">
+                    <i class="bi bi-geo-alt me-1"></i>@_detail.Address@(", " + _detail.City) @_detail.State @_detail.Zip
+                </p>
+            }
+        </div>
+
+        <!-- Contact Actions -->
+        <div class="gap-grid mb-2">
+            @if (_detail.Phone != null)
+            {
+                <a href="tel:@_detail.Phone" class="mobile-card text-center text-decoration-none" style="padding:0.65rem;">
+                    <i class="bi bi-telephone-fill text-success d-block" style="font-size:1.1rem;"></i>
+                    <span style="font-size:0.7rem; color:var(--text-primary);">Call</span>
+                </a>
+            }
+            @if (_detail.Email != null)
+            {
+                <a href="mailto:@_detail.Email" class="mobile-card text-center text-decoration-none" style="padding:0.65rem;">
+                    <i class="bi bi-envelope-fill text-primary d-block" style="font-size:1.1rem;"></i>
+                    <span style="font-size:0.7rem; color:var(--text-primary);">Email</span>
+                </a>
+            }
+            @if (_detail.Website != null)
+            {
+                <a href="@(_detail.Website.StartsWith("http") ? _detail.Website : "https://" + _detail.Website)" target="_blank" class="mobile-card text-center text-decoration-none" style="padding:0.65rem;">
+                    <i class="bi bi-globe text-info d-block" style="font-size:1.1rem;"></i>
+                    <span style="font-size:0.7rem; color:var(--text-primary);">Website</span>
+                </a>
+            }
+        </div>
+
+        <!-- Details -->
+        <div class="section-header">Details</div>
+        <div class="mobile-card">
+            <div class="d-flex flex-column gap-2">
+                @if (_detail.TaxId != null)
+                {
+                    <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                        <span class="text-muted">Tax ID</span>
+                        <span class="fw-semibold">@_detail.TaxId</span>
+                    </div>
+                }
+                @if (_detail.PrimaryContactName != null)
+                {
+                    <div class="d-flex justify-content-between align-items-center" style="font-size:0.85rem;">
+                        <span class="text-muted">Primary Contact</span>
+                        @if (_detail.PrimaryContactId.HasValue)
+                        {
+                            <a href="/customers/@_detail.PrimaryContactId" class="fw-semibold text-decoration-none">@_detail.PrimaryContactName</a>
+                        }
+                        else
+                        {
+                            <span class="fw-semibold">@_detail.PrimaryContactName</span>
+                        }
+                    </div>
+                }
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted">Contacts</span>
+                    <span class="fw-semibold">@_detail.Contacts.Count</span>
+                </div>
+                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
+                    <span class="text-muted">Sites</span>
+                    <span class="fw-semibold">@_detail.Sites.Count</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contacts -->
+        @if (_detail.Contacts.Any())
+        {
+            <div class="section-header">Contacts</div>
+            @foreach (var contact in _detail.Contacts)
+            {
+                <div class="mobile-card" style="padding:0.65rem 1rem; cursor:pointer;" @onclick='() => Nav.NavigateTo($"/customers/{contact.Id}")'>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="customer-avatar" style="width:32px; height:32px; font-size:0.8rem;">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <p class="mb-0 fw-semibold" style="font-size:0.85rem;">@contact.Name</p>
+                            <p class="card-subtitle mb-0">
+                                @contact.Type
+                                @if (contact.Phone != null) { <span> · @contact.Phone</span> }
+                            </p>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Sites -->
+        @if (_detail.Sites.Any())
+        {
+            <div class="section-header">Sites</div>
+            @foreach (var site in _detail.Sites)
+            {
+                <div class="mobile-card" style="padding:0.65rem 1rem; cursor:pointer;" @onclick='() => Nav.NavigateTo($"/sites/{site.Id}")'>
+                <div class="d-flex align-items-center gap-2">
+                    <i class="bi bi-geo-alt-fill text-primary" style="font-size:1rem;"></i>
+                        <div style="flex:1; min-width:0;">
+                            <p class="mb-0 fw-semibold" style="font-size:0.85rem;">@site.Name</p>
+                            <p class="card-subtitle mb-0">
+                                @site.PropertyType
+                                @if (site.Address != null) { <span> · @site.Address</span> }
+                                @if (site.AssetCount > 0) { <span> · @site.AssetCount asset(s)</span> }
+                            </p>
+                        </div>
+                        <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Recent Jobs -->
+        @if (_detail.RecentJobs.Any())
+        {
+            <div class="section-header">Recent Jobs</div>
+            @foreach (var job in _detail.RecentJobs)
+            {
+                <div class="mobile-card" style="padding:0.65rem 1rem; cursor:pointer;" @onclick='() => Nav.NavigateTo($"/jobs/{job.Id}")'>
+                <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="mb-0" style="font-size:0.85rem; font-weight:600;">@(job.Title ?? job.JobNumber)</p>
+                            <p class="card-subtitle mb-0">
+                                @job.JobNumber
+                                @if (job.ScheduledDate.HasValue) { <span> · @job.ScheduledDate.Value.ToString("MMM dd")</span> }
+                            </p>
+                        </div>
+                        <span class="badge-status badge bg-@JobStatusColor(job.Status)" style="white-space:nowrap;">@job.Status</span>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Service Agreements -->
+        @if (_detail.Agreements.Any())
+        {
+            <div class="section-header">Agreements</div>
+            @foreach (var sa in _detail.Agreements)
+            {
+                <div class="mobile-card" style="padding:0.65rem 1rem; cursor:pointer;" @onclick='() => Nav.NavigateTo($"/agreements/{sa.Id}")'>
+                <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <p class="mb-0" style="font-size:0.85rem; font-weight:600;">@(sa.Title ?? sa.AgreementNumber)</p>
+                            <p class="card-subtitle mb-0">@sa.AgreementNumber · Ends @sa.EndDate.ToString("MMM dd, yyyy")</p>
+                        </div>
+                        <span class="badge bg-@AgreementStatusColor(sa.Status)" style="font-size:0.65rem;">@sa.Status</span>
+                    </div>
+                </div>
+            }
+        }
+
+        <!-- Notes -->
+        @if (_detail.Notes != null)
+        {
+            <div class="section-header">Notes</div>
+            <div class="mobile-card">
+                <p class="mb-0" style="font-size:0.85rem; white-space:pre-wrap;">@_detail.Notes</p>
+            </div>
+        }
+    }
+}
+else
+{
+    <!-- List View -->
+    <div class="mobile-search mb-2">
+        <i class="bi bi-search"></i>
+        <input type="text" placeholder="Search companies…" @bind="_search" @bind:event="oninput" @bind:after="LoadCompanies" />
+    </div>
+
+    @if (_loading)
+    {
+        <div class="text-center py-4">
+            <div class="spinner-border text-primary" role="status"></div>
+        </div>
+    }
+    else if (!_companies.Any())
+    {
+        <div class="empty-state">
+            <i class="bi bi-building d-block"></i>
+            <p>No companies found</p>
+        </div>
+    }
+    else
+    {
+        @foreach (var company in _companies)
+        {
+            <div class="mobile-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo($"/companies/{company.Id}")'>
+            <div class="d-flex align-items-start gap-3">
+                <div class="customer-avatar">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <p class="mb-0 fw-bold" style="font-size:0.9rem;">@company.Name</p>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    <span class="badge bg-light text-dark" style="font-size:0.6rem;">@company.Type</span>
+                                    @if (!company.IsActive)
+                                    {
+                                        <span class="badge bg-secondary" style="font-size:0.6rem;">Inactive</span>
+                                    }
+                                </div>
+                            </div>
+                            <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                        </div>
+                        <div class="d-flex gap-3 mt-1" style="font-size:0.75rem; color:var(--text-secondary);">
+                            @if (company.City != null || company.State != null)
+                            {
+                                <span><i class="bi bi-geo-alt me-1"></i>@company.City@(company.State != null ? ", " + company.State : "")</span>
+                            }
+                            @if (company.ContactCount > 0)
+                            {
+                                <span><i class="bi bi-people me-1"></i>@company.ContactCount</span>
+                            }
+                            @if (company.SiteCount > 0)
+                            {
+                                <span><i class="bi bi-building me-1"></i>@company.SiteCount</span>
+                            }
+                            @if (company.OpenJobCount > 0)
+                            {
+                                <span class="text-warning"><i class="bi bi-wrench me-1"></i>@company.OpenJobCount open</span>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+
+    private List<MobileCompanyCard> _companies = [];
+    private MobileCompanyDetail? _detail;
+    private bool _loading = true;
+    private bool _loadingDetail = true;
+    private string _search = string.Empty;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id > 0)
+        {
+            _loadingDetail = true;
+            _detail = await CompanyService.GetCompanyDetailAsync(Id);
+            _loadingDetail = false;
+        }
+        else
+        {
+            await LoadCompanies();
+        }
+    }
+
+    private async Task LoadCompanies()
+    {
+        _loading = true;
+        _companies = await CompanyService.GetCompaniesAsync(
+            string.IsNullOrWhiteSpace(_search) ? null : _search);
+        _loading = false;
+    }
+
+    private static string JobStatusColor(JobStatus status) => status switch
+    {
+        JobStatus.Scheduled => "info",
+        JobStatus.EnRoute => "primary",
+        JobStatus.OnSite or JobStatus.InProgress => "warning",
+        JobStatus.Completed => "success",
+        _ => "secondary"
+    };
+
+    private static string AgreementStatusColor(AgreementStatus status) => status switch
+    {
+        AgreementStatus.Active => "success",
+        AgreementStatus.Expiring => "warning",
+        AgreementStatus.Renewed => "info",
+        AgreementStatus.Expired => "secondary",
+        AgreementStatus.Cancelled => "danger",
+        _ => "secondary"
+    };
+}

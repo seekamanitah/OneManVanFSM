@@ -4,7 +4,10 @@
 @page "/jobs/{Id:int}/edit"
 @inject IJobService JobService
 @inject ICustomerService CustomerSvc
+@inject ICompanyService CompanySvc
 @inject ISiteService SiteSvc
+@inject IAssetService AssetSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -134,6 +137,10 @@ else if (_view == View.Detail && _detail is not null)
                 <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg me-1"></i>Actions</button>
                 <ul class="dropdown-menu dropdown-menu-end">
                     <li><a class="dropdown-item" href="jobs/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Job</a></li>
+                    @if (!_detail.InvoiceId.HasValue)
+                    {
+                        <li><button class="dropdown-item" @onclick="CreateInvoiceForJob"><i class="bi bi-receipt me-2"></i>Create Invoice</button></li>
+                    }
                     <li><hr class="dropdown-divider" /></li>
                     @if (!_confirmArchive)
                     {
@@ -149,6 +156,17 @@ else if (_view == View.Detail && _detail is not null)
         </div>
     </div>
 
+    @if ((_detail.Status == JobStatus.Completed || _detail.Status == JobStatus.Closed) && !_detail.InvoiceId.HasValue)
+    {
+        <div class="alert alert-success d-flex align-items-center mb-3">
+            <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+            <div class="flex-grow-1">
+                <strong>Job Completed!</strong> Ready to bill? Create an invoice to capture materials, labor, and time for this job.
+            </div>
+            <button class="btn btn-success btn-sm ms-3" @onclick="CreateInvoiceForJob"><i class="bi bi-receipt me-1"></i>Create Invoice</button>
+        </div>
+    }
+
     <div class="row mb-3">
         <div class="col-md-8">
             <div class="card border-0 shadow-sm mb-3">
@@ -158,7 +176,9 @@ else if (_view == View.Detail && _detail is not null)
                     @if (!string.IsNullOrEmpty(_detail.Description)) { <p class="text-muted">@_detail.Description</p> }
                     <div class="row mt-3 g-2">
                         <div class="col-sm-6">
-                            @if (!string.IsNullOrEmpty(_detail.CustomerName))
+                        @if (!string.IsNullOrEmpty(_detail.CompanyName))
+                            { <div class="mb-1"><i class="bi bi-building me-2 text-muted"></i><a href="companies/@_detail.CompanyId">@_detail.CompanyName</a></div> }
+                        @if (!string.IsNullOrEmpty(_detail.CustomerName))
                             { <div class="mb-1"><i class="bi bi-person me-2 text-muted"></i><a href="customers/@_detail.CustomerId">@_detail.CustomerName</a></div> }
                             @if (!string.IsNullOrEmpty(_detail.SiteName))
                             { <div class="mb-1"><i class="bi bi-geo-alt me-2 text-muted"></i><a href="sites/@_detail.SiteId">@_detail.SiteName</a></div> }
@@ -266,7 +286,7 @@ else if (_view == View.Detail && _detail is not null)
                         @if (_detail.EstimateId.HasValue)
                         { <div class="mb-1"><i class="bi bi-file-text me-1"></i><a href="estimates/@_detail.EstimateId">Estimate @(_detail.EstimateNumber ?? $"#{_detail.EstimateId}")</a></div> }
                         @if (_detail.InvoiceId.HasValue)
-                        { <div class="mb-1"><i class="bi bi-receipt me-1"></i><a href="financials/@_detail.InvoiceId">Invoice @(_detail.InvoiceNumber ?? $"#{_detail.InvoiceId}")</a></div> }
+                        { <div class="mb-1"><i class="bi bi-receipt me-1"></i><a href="financials/invoices/@_detail.InvoiceId">Invoice @(_detail.InvoiceNumber ?? $"#{_detail.InvoiceId}")</a></div> }
                     }
                     @if (_detail.CompletedDate.HasValue)
                     { <div class="mt-2"><strong>Completed:</strong> @_detail.CompletedDate.Value.ToString("MMM dd, yyyy")</div> }
@@ -279,7 +299,7 @@ else if (_view == View.Detail && _detail is not null)
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
                         <h6 class="text-muted"><i class="bi bi-box-seam me-1"></i>Material List</h6>
-                        <p class="mb-1"><a href="material-lists/@_detail.MaterialSummary.Id">@_detail.MaterialSummary.Name</a></p>
+                        <p class="mb-1"><a href="materiallists/@_detail.MaterialSummary.Id">@_detail.MaterialSummary.Name</a></p>
                         <small class="text-muted">@_detail.MaterialSummary.ItemCount items · @_detail.MaterialSummary.Total.ToString("C")</small>
                     </div>
                 </div>
@@ -327,7 +347,7 @@ else if (_view == View.Detail && _detail is not null)
                 <div class="row g-2 align-items-end">
                     <div class="col-md-3">
                         <label class="form-label small">Employee</label>
-                        <select class="form-select form-select-sm" @bind="_addEmpId">
+                        <select class="form-select form-select-sm" @bind="_addEmpId" @bind:after="OnAddEmpChanged">
                             <option value="">— Select —</option>
                             @foreach (var t in _technicians.Where(t => !_assignedEmployees.Any(a => a.EmployeeId == t.Id)))
                             {
@@ -341,12 +361,12 @@ else if (_view == View.Detail && _detail is not null)
                     </div>
                     <div class="col-md-2">
                         <label class="form-label small">Pay Type</label>
-                        <select class="form-select form-select-sm" @bind="_addEmpPayType">
+                        <select class="form-select form-select-sm" @bind="_addEmpPayType" @bind:after="OnAddEmpPayTypeChanged">
                             @foreach (var pt in Enum.GetValues<JobEmployeePayType>()) { <option value="@pt">@pt</option> }
                         </select>
                     </div>
                     <div class="col-md-2">
-                        <label class="form-label small">Flat Rate</label>
+                        <label class="form-label small">@(_addEmpPayType == JobEmployeePayType.Hourly ? "Hourly Rate" : "Flat Rate")</label>
                         <input type="number" class="form-control form-control-sm" @bind="_addEmpFlatRate" placeholder="0.00" />
                     </div>
                     <div class="col-md-2">
@@ -359,7 +379,7 @@ else if (_view == View.Detail && _detail is not null)
         {
             <div class="table-responsive">
                 <table class="table table-sm mb-0 align-middle">
-                    <thead class="table-light"><tr><th>Employee</th><th>Role</th><th>Pay Type</th><th>Flat Rate</th><th>Assigned</th><th></th></tr></thead>
+                    <thead class="table-light"><tr><th>Employee</th><th>Role</th><th>Pay Type</th><th>Rate</th><th>Assigned</th><th></th></tr></thead>
                     <tbody>
                         @foreach (var ae in _assignedEmployees)
                         {
@@ -452,20 +472,48 @@ else if (_view == View.Form)
                 <div class="row">
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Trade Type</label>
-                        <InputText @bind-Value="_editModel.TradeType" class="form-control" placeholder="HVAC, Plumbing, Electrical" />
+                        <InputSelect @bind-Value="_editModel.TradeType" class="form-select">
+                            <option value="">— Select —</option>
+                            @foreach (var opt in _tradeTypeOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </InputSelect>
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Job Type</label>
-                        <InputText @bind-Value="_editModel.JobType" class="form-control" placeholder="Install, Repair, Maintenance" />
+                        <InputSelect @bind-Value="_editModel.JobType" class="form-select">
+                            <option value="">— Select —</option>
+                            @foreach (var opt in _jobTypeOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </InputSelect>
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">System Type</label>
-                        <InputText @bind-Value="_editModel.SystemType" class="form-control" placeholder="Spider, Trunk, Ductless..." />
+                        <InputSelect @bind-Value="_editModel.SystemType" class="form-select">
+                            <option value="">— Select —</option>
+                            @foreach (var opt in _systemTypeOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </InputSelect>
                     </div>
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6 mb-2">
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">Company</label>
+                        <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
+                            <option value="">— Select Company —</option>
+                            @foreach (var co in _companies)
+                            {
+                                <option value="@co.Id">@co.Name</option>
+                            }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
                             <option value="">— Select Customer —</option>
@@ -475,7 +523,7 @@ else if (_view == View.Form)
                             }
                         </InputSelect>
                     </div>
-                    <div class="col-md-6 mb-2">
+                    <div class="col-md-4 mb-2">
                         <label class="form-label">Site</label>
                         <InputSelect @bind-Value="_editModel.SiteId" class="form-select">
                             <option value="">— Select Site —</option>
@@ -489,14 +537,34 @@ else if (_view == View.Form)
 
                 <div class="row">
                     <div class="col-md-6 mb-2">
-                        <label class="form-label">Assigned Technician</label>
-                        <InputSelect @bind-Value="_editModel.AssignedEmployeeId" class="form-select">
-                            <option value="">Unassigned</option>
-                            @foreach (var t in _technicians)
-                            {
-                                <option value="@t.Id">@t.Name @(!string.IsNullOrEmpty(t.Territory) ? $"({t.Territory})" : "")</option>
-                            }
-                        </InputSelect>
+                        <label class="form-label">Assigned Technicians</label>
+                        <div class="dropdown">
+                            <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                @if (_selectedTechIds.Count == 0)
+                                {
+                                    <span class="text-muted">Select technicians...</span>
+                                }
+                                else
+                                {
+                                    <span>@_selectedTechIds.Count technician@(_selectedTechIds.Count != 1 ? "s" : "") selected</span>
+                                }
+                            </button>
+                            <ul class="dropdown-menu w-100" style="max-height:220px;overflow-y:auto;">
+                                @foreach (var t in _technicians)
+                                {
+                                    <li class="px-2 py-1">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="tech_@t.Id"
+                                                   checked="@_selectedTechIds.Contains(t.Id)"
+                                                   @onchange="() => ToggleTechnician(t.Id)" />
+                                            <label class="form-check-label" for="tech_@t.Id">
+                                                @t.Name @(!string.IsNullOrEmpty(t.Territory) ? $"({t.Territory})" : "")
+                                            </label>
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
                     </div>
                     <div class="col-md-3 mb-2">
                         <label class="form-label">Estimated Total</label>
@@ -510,8 +578,9 @@ else if (_view == View.Form)
 
                 <div class="row">
                     <div class="col-md-3 mb-2">
-                        <label class="form-label">Actual Duration (hrs)</label>
-                        <InputNumber @bind-Value="_editModel.ActualDuration" class="form-control" />
+                        <label class="form-label">Actual Hours</label>
+                        <InputNumber @bind-Value="_editModel.ActualDuration" class="form-control" disabled="@true" />
+                        <small class="text-muted">Auto-calculated on completion</small>
                     </div>
                     <div class="col-md-3 mb-2 d-flex align-items-end">
                         <div class="form-check mb-2">
@@ -522,6 +591,39 @@ else if (_view == View.Form)
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Permit Number</label>
                         <InputText @bind-Value="_editModel.PermitNumber" class="form-control" placeholder="Permit #" />
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6 mb-2">
+                        <label class="form-label">Linked Assets</label>
+                        <div class="dropdown">
+                            <button type="button" class="form-select text-start" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+                                @if (_selectedAssetIds.Count == 0)
+                                {
+                                    <span class="text-muted">Select assets...</span>
+                                }
+                                else
+                                {
+                                    <span>@_selectedAssetIds.Count asset@(_selectedAssetIds.Count != 1 ? "s" : "") linked</span>
+                                }
+                            </button>
+                            <ul class="dropdown-menu w-100" style="max-height:220px;overflow-y:auto;">
+                                @foreach (var a in _assets)
+                                {
+                                    <li class="px-2 py-1">
+                                        <div class="form-check">
+                                            <input type="checkbox" class="form-check-input" id="asset_@a.Id"
+                                                   checked="@_selectedAssetIds.Contains(a.Id)"
+                                                   @onchange="() => ToggleAsset(a.Id)" />
+                                            <label class="form-check-label" for="asset_@a.Id">
+                                                @a.Name @(!string.IsNullOrEmpty(a.AssetType) ? $"({a.AssetType})" : "")
+                                            </label>
+                                        </div>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
                     </div>
                 </div>
 
@@ -557,11 +659,18 @@ else if (_view == View.Form)
     private JobEditModel _editModel = new();
     private List<EmployeeOption> _technicians = [];
     private List<CustomerListItem> _customers = [];
+    private List<CompanyDropdownItem> _companies = [];
     private List<SiteListItem> _sites = [];
     private string? _formError;
     private bool _saving;
     private bool _permitRequired;
     private bool _confirmArchive;
+    private HashSet<int> _selectedTechIds = [];
+
+    // Dropdown options from settings
+    private List<string> _tradeTypeOptions = ["HVAC", "Plumbing", "Electrical"];
+    private List<string> _jobTypeOptions = ["Service Call", "Inspection", "Repair", "Emergency", "New Install", "Changeout", "Ductwork", "Startup", "Estimate"];
+    private List<string> _systemTypeOptions = ["Split System", "Package Unit", "Mini-Split", "Ductless", "Geothermal", "Heat Pump", "Furnace", "Boiler", "RTU"];
 
     // Assigned employees
     private List<JobEmployeeDto> _assignedEmployees = [];
@@ -570,6 +679,10 @@ else if (_view == View.Form)
     private string _addEmpRole = "";
     private JobEmployeePayType _addEmpPayType = JobEmployeePayType.Hourly;
     private decimal? _addEmpFlatRate;
+
+    // Asset linking
+    private List<AssetListItem> _assets = [];
+    private HashSet<int> _selectedAssetIds = [];
 
     protected override void OnInitialized()
     {
@@ -598,7 +711,10 @@ else if (_view == View.Form)
             _pageTitle = Id.HasValue ? "Edit Job" : "New Job";
             _technicians = await JobService.GetTechniciansAsync();
             _customers = await CustomerSvc.GetCustomersAsync();
+            _companies = await CompanySvc.GetCompanyDropdownAsync();
             _sites = await SiteSvc.GetSitesAsync();
+            _assets = await AssetSvc.GetAssetsAsync();
+            await LoadFormDropdowns();
             if (Id.HasValue)
             {
                 var d = await JobService.GetJobAsync(Id.Value);
@@ -613,13 +729,34 @@ else if (_view == View.Form)
                         EstimatedTotal = d.EstimatedTotal, ActualDuration = d.ActualDuration,
                         ActualTotal = d.ActualTotal, PermitRequired = d.PermitRequired,
                         PermitNumber = d.PermitNumber, Notes = d.Notes,
-                        CustomerId = d.CustomerId, SiteId = d.SiteId,
+                        CustomerId = d.CustomerId, CompanyId = d.CompanyId, SiteId = d.SiteId,
                         AssignedEmployeeId = d.AssignedEmployeeId
                     };
                     _permitRequired = d.PermitRequired == true;
+                    // Populate multi-select from primary + additional employee ids
+                    _selectedTechIds = [];
+                    if (d.AssignedEmployeeId.HasValue) _selectedTechIds.Add(d.AssignedEmployeeId.Value);
+                    if (d.AssignedEmployees?.Count > 0)
+                    {
+                        foreach (var ae in d.AssignedEmployees)
+                            _selectedTechIds.Add(ae.EmployeeId);
+                    }
+                    // Populate linked assets
+                    _selectedAssetIds = [];
+                    if (d.LinkedAssets?.Count > 0)
+                    {
+                        foreach (var la in d.LinkedAssets)
+                            _selectedAssetIds.Add(la.Id);
+                    }
                 }
             }
-            else { _editModel = new JobEditModel(); _permitRequired = false; }
+            else
+            {
+                _editModel = new JobEditModel { TradeType = "HVAC" };
+                _permitRequired = false;
+                _selectedTechIds = [];
+                _selectedAssetIds = [];
+            }
         }
         else if (Id.HasValue)
         {
@@ -667,6 +804,30 @@ else if (_view == View.Form)
 
     private void ToggleAddEmployee() => _showAddEmployee = !_showAddEmployee;
 
+    private void OnAddEmpChanged()
+    {
+        if (int.TryParse(_addEmpId, out var empId) && _addEmpPayType == JobEmployeePayType.Hourly)
+        {
+            var emp = _technicians.FirstOrDefault(t => t.Id == empId);
+            if (emp is not null)
+                _addEmpFlatRate = emp.HourlyRate > 0 ? emp.HourlyRate : null;
+        }
+    }
+
+    private void OnAddEmpPayTypeChanged()
+    {
+        if (_addEmpPayType == JobEmployeePayType.Hourly && int.TryParse(_addEmpId, out var empId))
+        {
+            var emp = _technicians.FirstOrDefault(t => t.Id == empId);
+            if (emp is not null)
+                _addEmpFlatRate = emp.HourlyRate > 0 ? emp.HourlyRate : null;
+        }
+        else if (_addEmpPayType == JobEmployeePayType.FlatRate)
+        {
+            _addEmpFlatRate = null;
+        }
+    }
+
     private async Task AddEmployee()
     {
         if (_detail is null || !int.TryParse(_addEmpId, out var empId)) return;
@@ -690,6 +851,11 @@ else if (_view == View.Form)
     {
         _formError = null; _saving = true;
         _editModel.PermitRequired = _permitRequired ? true : null;
+        // Map multi-select technicians to model
+        var techList = _selectedTechIds.ToList();
+        _editModel.AssignedEmployeeId = techList.Count > 0 ? techList[0] : null;
+        _editModel.AdditionalEmployeeIds = techList.Count > 1 ? techList.Skip(1).ToList() : [];
+        _editModel.AssetIds = _selectedAssetIds.ToList();
         try
         {
             if (Id.HasValue) { await JobService.UpdateJobAsync(Id.Value, _editModel); Navigation.NavigateTo($"jobs/{Id.Value}"); }
@@ -702,6 +868,12 @@ else if (_view == View.Form)
     private async Task ArchiveJob()
     {
         if (_detail is not null) { await JobService.ArchiveJobAsync(_detail.Id); Navigation.NavigateTo("jobs"); }
+    }
+
+    private void CreateInvoiceForJob()
+    {
+        if (_detail is null) return;
+        Navigation.NavigateTo($"/financials/invoices?jobId={_detail.Id}");
     }
 
     private async Task ToggleSort(string column)
@@ -777,4 +949,26 @@ else if (_view == View.Form)
         AssetStatus.Decommissioned => "bg-danger",
         _ => "bg-secondary"
     };
+
+    private async Task LoadFormDropdowns()
+    {
+        var trades = await DropdownSvc.GetOptionsAsync("TradeType");
+        if (trades.Count > 0) _tradeTypeOptions = trades.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var jobTypes = await DropdownSvc.GetOptionsAsync("JobType");
+        if (jobTypes.Count > 0) _jobTypeOptions = jobTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var sysTypes = await DropdownSvc.GetOptionsAsync("SystemType");
+        if (sysTypes.Count > 0) _systemTypeOptions = sysTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
+    }
+
+    private void ToggleTechnician(int techId)
+    {
+        if (!_selectedTechIds.Remove(techId))
+            _selectedTechIds.Add(techId);
+    }
+
+    private void ToggleAsset(int assetId)
+    {
+        if (!_selectedAssetIds.Remove(assetId))
+            _selectedAssetIds.Add(assetId);
+    }
 }

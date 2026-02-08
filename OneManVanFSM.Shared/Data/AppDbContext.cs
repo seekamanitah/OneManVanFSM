@@ -34,17 +34,29 @@ public class AppDbContext : DbContext
     public DbSet<ServiceHistoryRecord> ServiceHistoryRecords => Set<ServiceHistoryRecord>();
     public DbSet<ClaimAction> ClaimActions => Set<ClaimAction>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+    public DbSet<ExpenseLine> ExpenseLines => Set<ExpenseLine>();
     public DbSet<EstimateLine> EstimateLines => Set<EstimateLine>();
     public DbSet<JobEmployee> JobEmployees => Set<JobEmployee>();
     public DbSet<JobAsset> JobAssets => Set<JobAsset>();
     public DbSet<ServiceAgreementAsset> ServiceAgreementAssets => Set<ServiceAgreementAsset>();
     public DbSet<AssetServiceLog> AssetServiceLogs => Set<AssetServiceLog>();
+    public DbSet<AssetLink> AssetLinks => Set<AssetLink>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<DropdownOption> DropdownOptions => Set<DropdownOption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Company
+        modelBuilder.Entity<Company>(e =>
+        {
+            e.HasIndex(co => co.Name);
+            e.HasOne(co => co.PrimaryContact)
+                .WithMany()
+                .HasForeignKey(co => co.PrimaryContactId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
 
         // Customer
         modelBuilder.Entity<Customer>(e =>
@@ -264,6 +276,20 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        // AssetLink (peer-to-peer equipment grouping)
+        modelBuilder.Entity<AssetLink>(e =>
+        {
+            e.HasIndex(al => new { al.AssetId, al.LinkedAssetId }).IsUnique();
+            e.HasOne(al => al.Asset)
+                .WithMany(a => a.AssetLinksFrom)
+                .HasForeignKey(al => al.AssetId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(al => al.LinkedAsset)
+                .WithMany(a => a.AssetLinksTo)
+                .HasForeignKey(al => al.LinkedAssetId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         // Supplier
         modelBuilder.Entity<Supplier>(e =>
         {
@@ -304,6 +330,10 @@ public class AppDbContext : DbContext
             e.HasOne(exp => exp.Job)
                 .WithMany(j => j.Expenses)
                 .HasForeignKey(exp => exp.JobId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(exp => exp.Company)
+                .WithMany(co => co.Expenses)
+                .HasForeignKey(exp => exp.CompanyId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 

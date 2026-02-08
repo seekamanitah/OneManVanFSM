@@ -26,6 +26,9 @@ public class InventoryListItem
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? SKU { get; set; }
+    public string? PartNumber { get; set; }
+    public string? Category { get; set; }
+    public string? Unit { get; set; }
     public string? ProductName { get; set; }
     public InventoryLocation Location { get; set; }
     public decimal Quantity { get; set; }
@@ -43,6 +46,10 @@ public class InventoryDetail
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? SKU { get; set; }
+    public string? PartNumber { get; set; }
+    public string? Category { get; set; }
+    public string? Unit { get; set; }
+    public string? Description { get; set; }
     public string? Barcode { get; set; }
     public string? ShelfBin { get; set; }
     public string? PreferredSupplier { get; set; }
@@ -68,6 +75,10 @@ public class InventoryEditModel
     [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Item name is required.")]
     public string Name { get; set; } = string.Empty;
     public string? SKU { get; set; }
+    public string? PartNumber { get; set; }
+    public string? Category { get; set; }
+    public string? Unit { get; set; }
+    public string? Description { get; set; }
     public string? Barcode { get; set; }
     public string? ShelfBin { get; set; }
     public string? PreferredSupplier { get; set; }

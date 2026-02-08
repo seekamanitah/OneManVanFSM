@@ -151,7 +151,58 @@ else
                 <span style="font-size:0.9rem;"><i class="bi bi-archive me-2"></i>Cached Data</span>
                 <span class="text-muted" style="font-size:0.85rem;">
                     @_syncStatus.CachedJobs jobs, @_syncStatus.CachedCustomers customers, @_syncStatus.CachedAssets assets
-                </span>
+            </span>
+        </div>
+        }
+    </div>
+
+    <!-- Testing & Demo -->
+    <div class="section-header">Testing & Demo</div>
+    <div class="mobile-card">
+        <div class="py-1">
+            <span style="font-size:0.9rem;"><i class="bi bi-database-gear me-2 text-warning"></i>Seed Demo Data</span>
+            <p class="card-subtitle mb-0">Load sample HVAC data for testing (customers, jobs, assets, etc.)</p>
+        </div>
+        <hr class="my-2" />
+        <div class="d-flex justify-content-between align-items-center py-1">
+            <span style="font-size:0.85rem;" class="@(_hasData ? "text-success" : "text-muted")">
+                <i class="bi @(_hasData ? "bi-check-circle-fill" : "bi-x-circle") me-1"></i>
+                @(_hasData ? "Database has data" : "Database is empty")
+            </span>
+        </div>
+        <hr class="my-2" />
+        @if (!_confirmSeed)
+        {
+            <button class="btn btn-warning w-100" @onclick="() => _confirmSeed = true" disabled="@(_seeding || _hasData)">
+                <i class="bi bi-database-add me-1"></i>@(_hasData ? "Demo Data Already Loaded" : "Load Demo Data")
+            </button>
+        }
+        else
+        {
+            <div class="alert alert-warning py-2 mb-2" style="font-size:0.85rem;">
+                <i class="bi bi-exclamation-triangle-fill me-1"></i>This will populate the database with sample HVAC data. Continue?
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-warning flex-fill" @onclick="SeedDemoData" disabled="@_seeding">
+                    @if (_seeding)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    Yes, Load Demo Data
+                </button>
+                <button class="btn btn-outline-secondary flex-fill" @onclick="() => _confirmSeed = false" disabled="@_seeding">Cancel</button>
+            </div>
+        }
+        @if (_seedSuccess)
+        {
+            <div class="alert alert-success d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
+                <i class="bi bi-check-circle-fill me-2"></i>Demo data loaded successfully!
+            </div>
+        }
+        @if (_seedError != null)
+        {
+            <div class="alert alert-danger d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
+                <i class="bi bi-x-circle-fill me-2"></i>@_seedError
             </div>
         }
     </div>
@@ -206,12 +257,18 @@ else
     private MobileAppInfo? _appInfo;
     private bool _loading = true;
     private bool _saved;
+    private bool _hasData;
+    private bool _seeding;
+    private bool _confirmSeed;
+    private bool _seedSuccess;
+    private string? _seedError;
 
     protected override async Task OnInitializedAsync()
     {
         _settings = await SettingsService.GetSettingsAsync();
         _syncStatus = await SettingsService.GetSyncStatusAsync();
         _appInfo = await SettingsService.GetAppInfoAsync();
+        _hasData = await SettingsService.HasDataAsync();
         await ApplyTheme(_settings.Theme);
         _loading = false;
     }
@@ -231,6 +288,38 @@ else
     {
         await ApplyTheme(_settings.Theme);
         await SettingsService.SaveSettingsAsync(_settings);
+    }
+
+    private async Task SeedDemoData()
+    {
+        _seeding = true;
+        _seedSuccess = false;
+        _seedError = null;
+        StateHasChanged();
+        try
+        {
+            var result = await SettingsService.SeedDemoDataAsync();
+            if (result)
+            {
+                _seedSuccess = true;
+                _hasData = true;
+                _confirmSeed = false;
+                _syncStatus = await SettingsService.GetSyncStatusAsync();
+            }
+            else
+            {
+                _seedError = "Database already contains data or seeding failed.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _seedError = $"Seeding failed: {ex.Message}";
+        }
+        finally
+        {
+            _seeding = false;
+            StateHasChanged();
+        }
     }
 
     private async Task ApplyTheme(string theme)

@@ -4,6 +4,7 @@
 @page "/customers/{Id:int}/edit"
 @inject ICustomerService CustomerService
 @inject ISiteService SiteService
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -545,25 +546,31 @@ else if (_view == View.Form)
                 }
 
                 <div class="row">
-                    <div class="col-md-8 mb-2">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="_editModel.Name" class="form-control" placeholder="Customer name" />
-                        <ValidationMessage For="() => _editModel.Name" />
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="_editModel.FirstName" class="form-control" placeholder="First name" />
+                        <ValidationMessage For="() => _editModel.FirstName" />
+                    </div>
+                    <div class="col-md-4 mb-2">
+                        <label class="form-label">Last Name</label>
+                        <InputText @bind-Value="_editModel.LastName" class="form-control" placeholder="Last name" />
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Type</label>
-                        <InputSelect @bind-Value="_editModel.Type" class="form-select">
-                            <option value="@CustomerType.Individual">Individual</option>
-                            <option value="@CustomerType.Company">Company</option>
-                            <option value="@CustomerType.Landlord">Landlord</option>
-                        </InputSelect>
+                        <select class="form-select" value="@_editModel.Type" @onchange="OnCustomerTypeChanged">
+                            @foreach (var opt in _customerTypeOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </select>
                     </div>
                 </div>
 
                 <div class="row">
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Phone</label>
-                        <InputText @bind-Value="_editModel.PrimaryPhone" class="form-control" placeholder="(555) 123-4567" />
+                        <input type="tel" class="form-control" value="@_editModel.PrimaryPhone"
+                               @oninput="e => _editModel.PrimaryPhone = FormatPhone(e.Value?.ToString())" placeholder="(555) 123-4567" />
                     </div>
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Email</label>
@@ -574,20 +581,28 @@ else if (_view == View.Form)
                 <div class="row">
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Secondary Phone</label>
-                        <InputText @bind-Value="_editModel.SecondaryPhone" class="form-control" placeholder="(555) 987-6543" />
+                        <input type="tel" class="form-control" value="@_editModel.SecondaryPhone"
+                               @oninput="e => _editModel.SecondaryPhone = FormatPhone(e.Value?.ToString())" placeholder="(555) 987-6543" />
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Preferred Contact</label>
                         <InputSelect @bind-Value="_editModel.PreferredContactMethod" class="form-select">
                             <option value="">No Preference</option>
-                            <option value="Phone">Phone</option>
-                            <option value="Email">Email</option>
-                            <option value="Text">Text</option>
+                            @foreach (var opt in _preferredContactOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
                         </InputSelect>
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Referral Source</label>
-                        <InputText @bind-Value="_editModel.ReferralSource" class="form-control" placeholder="Word of Mouth, Google..." />
+                        <InputSelect @bind-Value="_editModel.ReferralSource" class="form-select">
+                            <option value="">— Select —</option>
+                            @foreach (var opt in _referralSourceOptions)
+                            {
+                                <option value="@opt">@opt</option>
+                            }
+                        </InputSelect>
                     </div>
                 </div>
 
@@ -685,6 +700,11 @@ else if (_view == View.Form)
     private bool _saving;
     private bool _confirmArchive;
 
+    // Dropdown options from settings
+    private List<string> _customerTypeOptions = ["Individual", "Company", "Landlord"];
+    private List<string> _preferredContactOptions = ["Phone", "Email", "Text"];
+    private List<string> _referralSourceOptions = [];
+
     protected override void OnInitialized()
     {
         Navigation.LocationChanged += OnLocationChanged;
@@ -712,6 +732,7 @@ else if (_view == View.Form)
             _view = View.Form;
             _pageTitle = Id.HasValue ? "Edit Customer" : "New Customer";
             _companies = await SiteService.GetCompaniesForDropdownAsync();
+            await LoadFormDropdowns();
             if (Id.HasValue)
             {
                 var detail = await CustomerService.GetCustomerAsync(Id.Value);
@@ -720,6 +741,8 @@ else if (_view == View.Form)
                     _editModel = new CustomerEditModel
                     {
                         Name = detail.Name,
+                        FirstName = detail.FirstName ?? detail.Name,
+                        LastName = detail.LastName,
                         Type = detail.Type,
                         PrimaryPhone = detail.PrimaryPhone,
                         SecondaryPhone = detail.SecondaryPhone,
@@ -740,7 +763,13 @@ else if (_view == View.Form)
             }
             else
             {
-                _editModel = new CustomerEditModel();
+                _editModel = new CustomerEditModel
+                {
+                    FirstName = string.Empty,
+                    City = "Pikeville",
+                    State = "TN",
+                    Zip = "37367"
+                };
             }
         }
         else if (Id.HasValue)
@@ -792,7 +821,7 @@ else if (_view == View.Form)
     private void GoToSite(int id) => Navigation.NavigateTo($"sites/{id}");
     private void GoToAsset(int id) => Navigation.NavigateTo($"assets/{id}");
     private void GoToJob(int id) => Navigation.NavigateTo($"jobs/{id}");
-    private void GoToInvoice(int id) => Navigation.NavigateTo($"financials/{id}");
+    private void GoToInvoice(int id) => Navigation.NavigateTo($"financials/invoices/{id}");
     private void GoToAgreement(int id) => Navigation.NavigateTo($"serviceagreements/{id}");
 
     private void GoBack()
@@ -897,6 +926,34 @@ else if (_view == View.Form)
         builder.AddAttribute(1, "class", $"bi {icon} {css} small");
         builder.CloseElement();
     };
+
+    private async Task LoadFormDropdowns()
+    {
+        var customerTypes = await DropdownSvc.GetOptionsAsync("CustomerType");
+        if (customerTypes.Count > 0) _customerTypeOptions = customerTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var contacts = await DropdownSvc.GetOptionsAsync("PreferredContact");
+        if (contacts.Count > 0) _preferredContactOptions = contacts.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var referrals = await DropdownSvc.GetOptionsAsync("ReferralSource");
+        if (referrals.Count > 0) _referralSourceOptions = referrals.Where(o => o.IsActive).Select(o => o.Value).ToList();
+    }
+
+    private void OnCustomerTypeChanged(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<CustomerType>(e.Value?.ToString(), out var parsed))
+            _editModel.Type = parsed;
+    }
+
+    private static string? FormatPhone(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return raw;
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        return digits.Length switch
+        {
+            >= 10 => $"({digits[..3]}) {digits[3..6]}-{digits[6..Math.Min(10, digits.Length)]}",
+            >= 7 => $"{digits[..3]}-{digits[3..Math.Min(7, digits.Length)]}",
+            _ => digits
+        };
+    }
 
     private async Task EmailCustomer()
     {

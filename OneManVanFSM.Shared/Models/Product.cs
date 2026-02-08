@@ -4,19 +4,39 @@ public class Product
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
-    public string? Brand { get; set; } // Carrier, Honeywell, etc.
+    public string? Brand { get; set; } // Manufacturer: Carrier, Honeywell, etc.
+    public string? ModelNumber { get; set; }
     public string? PartNumber { get; set; } // Manufacturer part number / SKU
+    public string? ProductNumber { get; set; } // Auto-generated if blank
     public string? Barcode { get; set; } // For mobile scanning
     public string? Category { get; set; } // Ductwork, Equipment, Sealing, etc.
-    public decimal Cost { get; set; }
-    public decimal Price { get; set; }
+    public string? EquipmentType { get; set; }
+    public string? FuelType { get; set; }
+    public string? Description { get; set; }
+    public decimal Cost { get; set; } // Wholesale Cost
+    public decimal Price { get; set; } // Suggested Sell Price
+    public decimal MSRP { get; set; }
     public decimal MarkupPercent { get; set; }
     public string? Unit { get; set; } // Count, Boxes, Ft, Rolls, etc.
     public string? Specs { get; set; } // JSON for flexible specs
     public string? SupplierName { get; set; }
-    public int LaborWarrantyYears { get; set; } = 1;
-    public int PartsWarrantyYears { get; set; } = 10;
-    public int CompressorWarrantyYears { get; set; } = 10;
+
+    // Specifications
+    public string? Tonnage { get; set; }
+    public string? RefrigerantType { get; set; }
+    public string? SEERRating { get; set; }
+    public string? AFUERating { get; set; }
+    public string? Voltage { get; set; }
+
+    // Warranty
+    public int LaborWarrantyYears { get; set; }
+    public int PartsWarrantyYears { get; set; }
+    public int CompressorWarrantyYears { get; set; }
+    public bool RegistrationRequired { get; set; }
+
+    // Status
+    public bool IsActive { get; set; } = true;
+    public bool IsDiscontinued { get; set; }
     public bool IsTemplate { get; set; } = true;
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }

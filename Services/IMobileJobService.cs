@@ -9,6 +9,36 @@ public interface IMobileJobService
     Task<bool> UpdateJobStatusAsync(int id, JobStatus status);
     Task<MobileSiteDetail?> GetSiteDetailAsync(int siteId);
     Task<MobileMaterialItem> AddMaterialItemAsync(MobileMaterialCreate model);
+    Task<int> CreateJobAsync(MobileJobCreate model);
+    Task<List<MobileJobCard>> GetAllJobCardsAsync();
+    Task<List<MobileCustomerOption>> GetCustomerOptionsAsync();
+    Task<List<MobileSiteOption>> GetSiteOptionsAsync(int? customerId);
+}
+
+public class MobileJobCreate
+{
+    public string? Title { get; set; }
+    public string? Description { get; set; }
+    public JobPriority Priority { get; set; } = JobPriority.Standard;
+    public DateTime? ScheduledDate { get; set; }
+    public TimeSpan? ScheduledTime { get; set; }
+    public decimal? EstimatedDuration { get; set; }
+    public int? CustomerId { get; set; }
+    public int? SiteId { get; set; }
+    public int? AssignedEmployeeId { get; set; }
+}
+
+public class MobileCustomerOption
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+public class MobileSiteOption
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Address { get; set; }
 }
 
 public class MobileJobFilter
@@ -40,6 +70,8 @@ public class MobileJobDetail
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerPhone { get; set; }
+    public int? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
     public string? SiteName { get; set; }
     public string? SiteAddress { get; set; }
     public int? SiteId { get; set; }
@@ -129,6 +161,9 @@ public class MobileSiteDetail
     public string? Notes { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
+    public int? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
+    public bool IsNewConstruction { get; set; }
     public List<MobileAssetSummary> Assets { get; set; } = [];
     public List<MobileSiteJob> RecentJobs { get; set; } = [];
     public List<MobileSiteAgreement> Agreements { get; set; } = [];

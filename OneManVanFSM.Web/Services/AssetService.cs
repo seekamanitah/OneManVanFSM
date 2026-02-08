@@ -56,17 +56,28 @@ public class AssetService : IAssetService
                 AssetType = a.AssetType, Brand = a.Brand, FuelType = a.FuelType,
                 UnitConfiguration = a.UnitConfiguration, BTURating = a.BTURating,
                 FilterSize = a.FilterSize, Tonnage = a.Tonnage, SEER = a.SEER,
-                AFUE = a.AFUE, HSPF = a.HSPF, Voltage = a.Voltage, Phase = a.Phase,
+                SEER2 = a.SEER2, AFUE = a.AFUE, HSPF = a.HSPF, HSPF2 = a.HSPF2,
+                EER = a.EER, AssetTag = a.AssetTag, Nickname = a.Nickname,
+                Voltage = a.Voltage, Phase = a.Phase,
                 LocationOnSite = a.LocationOnSite, ManufactureDate = a.ManufactureDate,
                 AmpRating = a.AmpRating, PanelType = a.PanelType,
                 PipeMaterial = a.PipeMaterial, GallonCapacity = a.GallonCapacity,
                 RefrigerantType = a.RefrigerantType, RefrigerantQuantity = a.RefrigerantQuantity,
+                FilterType = a.FilterType, FilterChangeIntervalMonths = a.FilterChangeIntervalMonths,
+                FilterLastChanged = a.FilterLastChanged, FilterNextDue = a.FilterNextDue,
+                ThermostatBrand = a.ThermostatBrand, ThermostatModel = a.ThermostatModel,
+                ThermostatType = a.ThermostatType, ThermostatWiFiEnabled = a.ThermostatWiFiEnabled,
                 InstallDate = a.InstallDate, LastServiceDate = a.LastServiceDate,
                 NextServiceDue = a.NextServiceDue, WarrantyStartDate = a.WarrantyStartDate,
                 WarrantyTermYears = a.WarrantyTermYears, WarrantyExpiry = a.WarrantyExpiry,
                 LaborWarrantyExpiry = a.LaborWarrantyExpiry,
                 PartsWarrantyExpiry = a.PartsWarrantyExpiry,
                 CompressorWarrantyExpiry = a.CompressorWarrantyExpiry,
+                LaborWarrantyTermYears = a.LaborWarrantyTermYears,
+                PartsWarrantyTermYears = a.PartsWarrantyTermYears,
+                CompressorWarrantyTermYears = a.CompressorWarrantyTermYears,
+                RegisteredOnline = a.RegisteredOnline, InstalledBy = a.InstalledBy,
+                WarrantedByCompany = a.WarrantedByCompany,
                 Status = a.Status, Value = a.Value, Notes = a.Notes,
                 ProductId = a.ProductId, ProductName = a.Product != null ? a.Product.Name : null,
                 CustomerId = a.CustomerId, CustomerName = a.Customer != null ? a.Customer.Name : null,
@@ -113,6 +124,7 @@ public class AssetService : IAssetService
             .ToListAsync();
 
         detail.UnifiedTimeline = await GetUnifiedTimelineAsync(id);
+        detail.LinkedAssets = await GetLinkedAssetsAsync(id);
 
         return detail;
     }
@@ -125,20 +137,40 @@ public class AssetService : IAssetService
             AssetType = model.AssetType, Brand = model.Brand, FuelType = model.FuelType,
             UnitConfiguration = model.UnitConfiguration, BTURating = model.BTURating,
             FilterSize = model.FilterSize, Tonnage = model.Tonnage, SEER = model.SEER,
-            AFUE = model.AFUE, HSPF = model.HSPF, Voltage = model.Voltage, Phase = model.Phase,
+            SEER2 = model.SEER2, AFUE = model.AFUE, HSPF = model.HSPF, HSPF2 = model.HSPF2,
+            EER = model.EER, AssetTag = model.AssetTag, Nickname = model.Nickname,
+            Voltage = model.Voltage, Phase = model.Phase,
             LocationOnSite = model.LocationOnSite, ManufactureDate = model.ManufactureDate,
             AmpRating = model.AmpRating, PanelType = model.PanelType,
             PipeMaterial = model.PipeMaterial, GallonCapacity = model.GallonCapacity,
             RefrigerantType = model.RefrigerantType, RefrigerantQuantity = model.RefrigerantQuantity,
+            FilterType = model.FilterType, FilterChangeIntervalMonths = model.FilterChangeIntervalMonths,
+            FilterLastChanged = model.FilterLastChanged, FilterNextDue = model.FilterNextDue,
+            ThermostatBrand = model.ThermostatBrand, ThermostatModel = model.ThermostatModel,
+            ThermostatType = model.ThermostatType, ThermostatWiFiEnabled = model.ThermostatWiFiEnabled,
             InstallDate = model.InstallDate, LastServiceDate = model.LastServiceDate,
             NextServiceDue = model.NextServiceDue, WarrantyStartDate = model.WarrantyStartDate,
             WarrantyTermYears = model.WarrantyTermYears, WarrantyExpiry = model.WarrantyExpiry,
+            LaborWarrantyTermYears = model.LaborWarrantyTermYears,
+            PartsWarrantyTermYears = model.PartsWarrantyTermYears,
+            CompressorWarrantyTermYears = model.CompressorWarrantyTermYears,
+            RegisteredOnline = model.RegisteredOnline, InstalledBy = model.InstalledBy,
+            WarrantedByCompany = model.WarrantedByCompany,
             Status = model.Status, Value = model.Value, Notes = model.Notes,
             ProductId = model.ProductId, CustomerId = model.CustomerId, SiteId = model.SiteId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
         _db.Assets.Add(asset);
         await _db.SaveChangesAsync();
+
+        // Link jobs
+        if (model.JobIds.Count > 0)
+        {
+            foreach (var jobId in model.JobIds)
+                _db.Set<JobAsset>().Add(new JobAsset { JobId = jobId, AssetId = asset.Id, CreatedAt = DateTime.UtcNow });
+            await _db.SaveChangesAsync();
+        }
+
         await CalculateWarrantyExpiriesAsync(asset);
         return asset;
     }
@@ -150,50 +182,87 @@ public class AssetService : IAssetService
         a.AssetType = model.AssetType; a.Brand = model.Brand; a.FuelType = model.FuelType;
         a.UnitConfiguration = model.UnitConfiguration; a.BTURating = model.BTURating;
         a.FilterSize = model.FilterSize; a.Tonnage = model.Tonnage; a.SEER = model.SEER;
-        a.AFUE = model.AFUE; a.HSPF = model.HSPF; a.Voltage = model.Voltage; a.Phase = model.Phase;
+        a.SEER2 = model.SEER2; a.AFUE = model.AFUE; a.HSPF = model.HSPF; a.HSPF2 = model.HSPF2;
+        a.EER = model.EER; a.AssetTag = model.AssetTag; a.Nickname = model.Nickname;
+        a.Voltage = model.Voltage; a.Phase = model.Phase;
         a.LocationOnSite = model.LocationOnSite; a.ManufactureDate = model.ManufactureDate;
         a.AmpRating = model.AmpRating; a.PanelType = model.PanelType;
         a.PipeMaterial = model.PipeMaterial; a.GallonCapacity = model.GallonCapacity;
         a.RefrigerantType = model.RefrigerantType; a.RefrigerantQuantity = model.RefrigerantQuantity;
+        a.FilterType = model.FilterType; a.FilterChangeIntervalMonths = model.FilterChangeIntervalMonths;
+        a.FilterLastChanged = model.FilterLastChanged; a.FilterNextDue = model.FilterNextDue;
+        a.ThermostatBrand = model.ThermostatBrand; a.ThermostatModel = model.ThermostatModel;
+        a.ThermostatType = model.ThermostatType; a.ThermostatWiFiEnabled = model.ThermostatWiFiEnabled;
         a.InstallDate = model.InstallDate; a.LastServiceDate = model.LastServiceDate;
         a.NextServiceDue = model.NextServiceDue; a.WarrantyStartDate = model.WarrantyStartDate;
         a.WarrantyTermYears = model.WarrantyTermYears; a.WarrantyExpiry = model.WarrantyExpiry;
+        a.LaborWarrantyTermYears = model.LaborWarrantyTermYears;
+        a.PartsWarrantyTermYears = model.PartsWarrantyTermYears;
+        a.CompressorWarrantyTermYears = model.CompressorWarrantyTermYears;
+        a.RegisteredOnline = model.RegisteredOnline; a.InstalledBy = model.InstalledBy;
+        a.WarrantedByCompany = model.WarrantedByCompany;
         a.Status = model.Status; a.Value = model.Value; a.Notes = model.Notes;
         a.ProductId = model.ProductId; a.CustomerId = model.CustomerId; a.SiteId = model.SiteId;
         a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
+
+        // Sync linked jobs
+        var existingLinks = await _db.Set<JobAsset>().Where(ja => ja.AssetId == id).ToListAsync();
+        _db.Set<JobAsset>().RemoveRange(existingLinks);
+        foreach (var jobId in model.JobIds)
+            _db.Set<JobAsset>().Add(new JobAsset { JobId = jobId, AssetId = id, CreatedAt = DateTime.UtcNow });
+        await _db.SaveChangesAsync();
+
         await CalculateWarrantyExpiriesAsync(a);
         return a;
     }
 
     /// <summary>
-    /// Auto-calculates Labor/Parts/Compressor warranty expiry dates from InstallDate + Product warranty terms.
-    /// Falls back to WarrantyStartDate if InstallDate is null. Defaults: 1yr labor, 10yr parts, 10yr compressor.
+    /// Auto-calculates Labor/Parts/Compressor warranty expiry dates.
+    /// Priority: form-level term years > Product warranty terms > defaults (1yr labor, 10yr parts, 10yr compressor).
+    /// Uses WarrantyStartDate (or InstallDate fallback) as the base date.
+    /// Also auto-sets NextServiceDue to 1 year from InstallDate if not already set.
     /// </summary>
     private async Task CalculateWarrantyExpiriesAsync(Asset asset)
     {
-        var startDate = asset.InstallDate ?? asset.WarrantyStartDate;
-        if (startDate is null) return;
-
-        int laborYears = 1, partsYears = 10, compressorYears = 10;
-
-        if (asset.ProductId.HasValue)
+        var startDate = asset.WarrantyStartDate ?? asset.InstallDate;
+        if (startDate is not null)
         {
-            var product = await _db.Products.FindAsync(asset.ProductId.Value);
-            if (product is not null)
+            // Determine warranty term years: form-level > product > defaults
+            int laborYears = asset.LaborWarrantyTermYears ?? 0;
+            int partsYears = asset.PartsWarrantyTermYears ?? 0;
+            int compressorYears = asset.CompressorWarrantyTermYears ?? 0;
+
+            // Fall back to product warranty terms if form-level not set
+            if (laborYears == 0 || partsYears == 0 || compressorYears == 0)
             {
-                laborYears = product.LaborWarrantyYears;
-                partsYears = product.PartsWarrantyYears;
-                compressorYears = product.CompressorWarrantyYears;
+                int pLabor = 1, pParts = 10, pCompressor = 10;
+                if (asset.ProductId.HasValue)
+                {
+                    var product = await _db.Products.FindAsync(asset.ProductId.Value);
+                    if (product is not null)
+                    {
+                        pLabor = product.LaborWarrantyYears;
+                        pParts = product.PartsWarrantyYears;
+                        pCompressor = product.CompressorWarrantyYears;
+                    }
+                }
+                if (laborYears == 0) { laborYears = pLabor; asset.LaborWarrantyTermYears = laborYears; }
+                if (partsYears == 0) { partsYears = pParts; asset.PartsWarrantyTermYears = partsYears; }
+                if (compressorYears == 0) { compressorYears = pCompressor; asset.CompressorWarrantyTermYears = compressorYears; }
             }
+
+            asset.LaborWarrantyExpiry = startDate.Value.AddYears(laborYears);
+            asset.PartsWarrantyExpiry = startDate.Value.AddYears(partsYears);
+            asset.CompressorWarrantyExpiry = startDate.Value.AddYears(compressorYears);
+
+            // Set the general WarrantyExpiry to the latest of the three
+            asset.WarrantyExpiry = new[] { asset.LaborWarrantyExpiry, asset.PartsWarrantyExpiry, asset.CompressorWarrantyExpiry }.Max();
         }
 
-        asset.LaborWarrantyExpiry = startDate.Value.AddYears(laborYears);
-        asset.PartsWarrantyExpiry = startDate.Value.AddYears(partsYears);
-        asset.CompressorWarrantyExpiry = startDate.Value.AddYears(compressorYears);
-
-        // Set the general WarrantyExpiry to the latest of the three
-        asset.WarrantyExpiry = new[] { asset.LaborWarrantyExpiry, asset.PartsWarrantyExpiry, asset.CompressorWarrantyExpiry }.Max();
+        // Auto-set NextServiceDue to 1 year from install if not already set
+        if (!asset.NextServiceDue.HasValue && asset.InstallDate.HasValue)
+            asset.NextServiceDue = asset.InstallDate.Value.AddYears(1);
 
         await _db.SaveChangesAsync();
     }
@@ -283,5 +352,85 @@ public class AssetService : IAssetService
         }
 
         return timeline.OrderByDescending(t => t.Date).ToList();
+    }
+
+    public async Task<List<LinkedAssetDto>> GetLinkedAssetsAsync(int assetId)
+    {
+        // Query both directions of the link
+        var fromLinks = await _db.AssetLinks
+            .Where(al => al.AssetId == assetId)
+            .Select(al => new LinkedAssetDto
+            {
+                Id = al.LinkedAsset!.Id,
+                Name = al.LinkedAsset.Name,
+                AssetType = al.LinkedAsset.AssetType,
+                Brand = al.LinkedAsset.Brand,
+                Model = al.LinkedAsset.Model,
+                LocationOnSite = al.LinkedAsset.LocationOnSite,
+                LinkType = al.LinkType,
+                Label = al.Label,
+                Status = al.LinkedAsset.Status
+            }).ToListAsync();
+
+        var toLinks = await _db.AssetLinks
+            .Where(al => al.LinkedAssetId == assetId)
+            .Select(al => new LinkedAssetDto
+            {
+                Id = al.Asset!.Id,
+                Name = al.Asset.Name,
+                AssetType = al.Asset.AssetType,
+                Brand = al.Asset.Brand,
+                Model = al.Asset.Model,
+                LocationOnSite = al.Asset.LocationOnSite,
+                LinkType = al.LinkType,
+                Label = al.Label,
+                Status = al.Asset.Status
+            }).ToListAsync();
+
+        return [.. fromLinks, .. toLinks];
+    }
+
+    public async Task LinkAssetsAsync(int assetId, int linkedAssetId, string? linkType = null, string? label = null)
+    {
+        if (assetId == linkedAssetId) return;
+
+        // Ensure canonical ordering to avoid duplicates (always store smaller ID as AssetId)
+        var (a, b) = assetId < linkedAssetId ? (assetId, linkedAssetId) : (linkedAssetId, assetId);
+        var exists = await _db.AssetLinks.AnyAsync(al => al.AssetId == a && al.LinkedAssetId == b);
+        if (exists) return;
+
+        _db.AssetLinks.Add(new AssetLink
+        {
+            AssetId = a,
+            LinkedAssetId = b,
+            LinkType = linkType,
+            Label = label,
+            CreatedAt = DateTime.UtcNow
+        });
+        await _db.SaveChangesAsync();
+    }
+
+    public async Task UnlinkAssetAsync(int assetId, int linkedAssetId)
+    {
+        var (a, b) = assetId < linkedAssetId ? (assetId, linkedAssetId) : (linkedAssetId, assetId);
+        var link = await _db.AssetLinks.FirstOrDefaultAsync(al => al.AssetId == a && al.LinkedAssetId == b);
+        if (link is not null)
+        {
+            _db.AssetLinks.Remove(link);
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    public async Task<List<AssetOption>> GetAssetOptionsAsync(int? customerId = null, int? siteId = null)
+    {
+        var query = _db.Assets.Where(a => !a.IsArchived);
+        if (siteId.HasValue)
+            query = query.Where(a => a.SiteId == siteId.Value);
+        else if (customerId.HasValue)
+            query = query.Where(a => a.CustomerId == customerId.Value);
+        return await query
+            .OrderBy(a => a.Name)
+            .Select(a => new AssetOption { Id = a.Id, Name = a.Name, AssetType = a.AssetType })
+            .ToListAsync();
     }
 }

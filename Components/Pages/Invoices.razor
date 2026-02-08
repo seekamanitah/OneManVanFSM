@@ -1,0 +1,320 @@
+@page "/invoices"
+@inject IMobileInvoiceService InvoiceSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_mode == "detail" && _detail != null)
+{
+    <!-- Detail View -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">@_detail.InvoiceNumber</span>
+        <span class="badge ms-auto @GetStatusBadge(_detail.Status)" style="font-size:0.7rem;">@_detail.Status</span>
+    </div>
+
+    <!-- Amount Card -->
+    <div class="mobile-card mb-2" style="border-left:3px solid @(_detail.BalanceDue > 0 ? "#dc3545" : "#198754");">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <span style="font-size:0.8rem; font-weight:600;">Total</span>
+            <span style="font-size:1.2rem; font-weight:700; color:var(--primary);">@_detail.Total.ToString("C")</span>
+        </div>
+        <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+            <span class="text-muted">Subtotal</span><span>@_detail.Subtotal.ToString("C")</span>
+        </div>
+        @if (_detail.TaxAmount > 0)
+        {
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Tax (@(_detail.TaxRate)%)</span><span>@_detail.TaxAmount.ToString("C")</span>
+            </div>
+        }
+        @if (_detail.MarkupAmount > 0)
+        {
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Markup</span><span>@_detail.MarkupAmount.ToString("C")</span>
+            </div>
+        }
+        @if (_detail.DiscountAmount.HasValue && _detail.DiscountAmount > 0)
+        {
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Discount</span><span>-@_detail.DiscountAmount.Value.ToString("C")</span>
+            </div>
+        }
+        <hr style="margin:0.3rem 0;" />
+        <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+            <span class="text-muted">Paid</span><span class="text-success">@_detail.AmountPaid.ToString("C")</span>
+        </div>
+        <div class="d-flex justify-content-between fw-bold" style="font-size:0.9rem;">
+            <span>Balance Due</span>
+            <span class="@(_detail.BalanceDue > 0 ? "text-danger" : "text-success")">@_detail.BalanceDue.ToString("C")</span>
+        </div>
+    </div>
+
+    <!-- Invoice Info -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Invoice Info</div>
+        <div class="d-flex flex-wrap gap-3" style="font-size:0.78rem;">
+            @if (_detail.InvoiceDate.HasValue)
+            {
+                <div><span class="text-muted">Date:</span> @_detail.InvoiceDate.Value.ToString("MMM dd, yyyy")</div>
+            }
+            @if (_detail.DueDate.HasValue)
+            {
+                <div><span class="text-muted">Due:</span> @_detail.DueDate.Value.ToString("MMM dd, yyyy")</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.PaymentTerms))
+            {
+                <div><span class="text-muted">Terms:</span> @_detail.PaymentTerms</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.PricingType))
+            {
+                <div><span class="text-muted">Pricing:</span> @_detail.PricingType</div>
+            }
+        </div>
+    </div>
+
+    <!-- Customer / Job / Site -->
+    @if (_detail.CustomerName != null || _detail.JobNumber != null || _detail.SiteName != null)
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Linked Info</div>
+            @if (_detail.CustomerName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-person text-muted"></i>
+                    <span>@_detail.CustomerName</span>
+                    @if (!string.IsNullOrWhiteSpace(_detail.CustomerPhone))
+                    {
+                        <a href="tel:@_detail.CustomerPhone" class="ms-auto" style="font-size:0.75rem;"><i class="bi bi-telephone"></i></a>
+                    }
+                </div>
+            }
+            @if (_detail.JobNumber != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs/" + _detail.JobId)'>
+                    <i class="bi bi-briefcase text-muted"></i>
+                    <span class="text-primary">@_detail.JobNumber@(!string.IsNullOrWhiteSpace(_detail.JobTitle) ? $" — {_detail.JobTitle}" : "")</span>
+                </div>
+            }
+            @if (_detail.SiteName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-geo-alt text-muted"></i>
+                    <span>@_detail.SiteName@(!string.IsNullOrWhiteSpace(_detail.SiteAddress) ? $" — {_detail.SiteAddress}" : "")</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Line Items -->
+    @if (_detail.Lines.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Line Items (@_detail.Lines.Count)</div>
+            @foreach (var l in _detail.Lines)
+            {
+                <div class="d-flex justify-content-between align-items-start py-1" style="border-bottom:1px solid #f0f0f0;">
+                    <div style="min-width:0; flex:1;">
+                        <div style="font-size:0.8rem; font-weight:500;">@l.Description</div>
+                        <div style="font-size:0.7rem;" class="text-muted">
+                            @l.Quantity x @l.UnitPrice.ToString("C")
+                            @if (!string.IsNullOrWhiteSpace(l.LineType)) { <span>· @l.LineType</span> }
+                        </div>
+                    </div>
+                    <span style="font-size:0.8rem; font-weight:600;">@l.LineTotal.ToString("C")</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Payments -->
+    @if (_detail.Payments.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">
+                <i class="bi bi-cash-stack me-1"></i>Payments (@_detail.Payments.Count)
+            </div>
+            @foreach (var p in _detail.Payments)
+            {
+                <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid #f0f0f0;">
+                    <div>
+                        <div style="font-size:0.8rem; font-weight:500;">@p.PaymentDate.ToString("MMM dd, yyyy")</div>
+                        <div style="font-size:0.7rem;" class="text-muted">
+                            @p.Method
+                            @if (!string.IsNullOrWhiteSpace(p.Reference)) { <span>· Ref: @p.Reference</span> }
+                        </div>
+                    </div>
+                    <span style="font-size:0.85rem; font-weight:600; color:#198754;">@p.Amount.ToString("C")</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Notes / Terms -->
+    @if (!string.IsNullOrWhiteSpace(_detail.Notes) || !string.IsNullOrWhiteSpace(_detail.Terms))
+    {
+        <div class="mobile-card mb-2">
+            @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+            {
+                <div style="font-size:0.78rem; margin-bottom:0.25rem;"><strong>Notes:</strong> @_detail.Notes</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.Terms))
+            {
+                <div style="font-size:0.78rem;"><strong>Terms:</strong> @_detail.Terms</div>
+            }
+        </div>
+    }
+
+    <div class="text-muted text-center" style="font-size:0.65rem;">Created @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt") · Updated @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-receipt me-1"></i>Invoices</span>
+    </div>
+
+    <!-- Stats -->
+    @if (_stats != null)
+    {
+        <div class="gap-grid mb-2">
+            <div class="stat-card">
+                <div class="stat-icon text-primary"><i class="bi bi-receipt"></i></div>
+                <div class="stat-value">@_stats.TotalCount</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-secondary"><i class="bi bi-pencil-square"></i></div>
+                <div class="stat-value">@_stats.DraftCount</div>
+                <div class="stat-label">Drafts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-danger"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="stat-value">@_stats.OverdueCount</div>
+                <div class="stat-label">Overdue</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-warning"><i class="bi bi-cash-coin"></i></div>
+                <div class="stat-value">@_stats.TotalOutstanding.ToString("C0")</div>
+                <div class="stat-label">Outstanding</div>
+            </div>
+        </div>
+    }
+
+    <!-- Search -->
+    <div class="mobile-card mb-2" style="padding:0.5rem 0.75rem;">
+        <input type="text" class="form-control form-control-sm" placeholder="Search invoices..." @bind="_filter.Search" @bind:event="oninput" @bind:after="LoadInvoices" />
+    </div>
+
+    <!-- Status Filter -->
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(!_filter.Status.HasValue ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(null)">All</button>
+        @foreach (var s in Enum.GetValues<InvoiceStatus>())
+        {
+            <button class="btn btn-sm @(_filter.Status == s ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(s)">@s</button>
+        }
+    </div>
+
+    <!-- Invoice List -->
+    @if (_invoices.Any())
+    {
+        @foreach (var inv in _invoices)
+        {
+            <div class="mobile-card mb-1" style="cursor:pointer;" @onclick="() => ViewDetail(inv.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <span style="font-size:0.85rem; font-weight:700;">@inv.InvoiceNumber</span>
+                            <span class="badge @GetStatusBadge(inv.Status)" style="font-size:0.58rem;">@inv.Status</span>
+                        </div>
+                        <div style="font-size:0.75rem;" class="text-muted mt-1">
+                            @(inv.CustomerName ?? "—")
+                            @if (!string.IsNullOrWhiteSpace(inv.JobNumber)) { <span>· @inv.JobNumber</span> }
+                        </div>
+                        @if (inv.DueDate.HasValue)
+                        {
+                            <div style="font-size:0.7rem;" class="text-muted">Due @inv.DueDate.Value.ToString("MMM dd")</div>
+                        }
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:0.9rem; font-weight:700;">@inv.Total.ToString("C")</div>
+                        @if (inv.BalanceDue > 0)
+                        {
+                            <div style="font-size:0.7rem;" class="text-danger">Bal: @inv.BalanceDue.ToString("C")</div>
+                        }
+                        else if (inv.Status == InvoiceStatus.Paid)
+                        {
+                            <div style="font-size:0.7rem;" class="text-success">Paid</div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-receipt d-block" style="font-size:2rem;"></i>
+            <p>No invoices found</p>
+        </div>
+    }
+}
+
+@code {
+    private string _mode = "list";
+    private bool _loading = true;
+
+    private MobileInvoiceStats? _stats;
+    private List<MobileInvoiceCard> _invoices = [];
+    private MobileInvoiceDetail? _detail;
+    private MobileInvoiceFilter _filter = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _stats = await InvoiceSvc.GetStatsAsync();
+        await LoadInvoices();
+    }
+
+    private async Task LoadInvoices()
+    {
+        _invoices = await InvoiceSvc.GetInvoicesAsync(_filter);
+    }
+
+    private async Task ViewDetail(int id)
+    {
+        _detail = await InvoiceSvc.GetInvoiceDetailAsync(id);
+        if (_detail != null) _mode = "detail";
+    }
+
+    private async Task BackToList()
+    {
+        _mode = "list";
+        _detail = null;
+        await LoadData();
+    }
+
+    private async Task FilterStatus(InvoiceStatus? status)
+    {
+        _filter.Status = status;
+        await LoadInvoices();
+    }
+
+    private static string GetStatusBadge(InvoiceStatus s) => s switch
+    {
+        InvoiceStatus.Draft => "bg-secondary",
+        InvoiceStatus.Sent => "bg-info",
+        InvoiceStatus.Invoiced => "bg-primary",
+        InvoiceStatus.Paid => "bg-success",
+        InvoiceStatus.Overdue => "bg-danger",
+        InvoiceStatus.Void => "bg-dark",
+        _ => "bg-secondary",
+    };
+}

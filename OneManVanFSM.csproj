@@ -92,4 +92,8 @@
         <ProjectReference Include="OneManVanFSM.Shared\OneManVanFSM.Shared.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="OneManVanFSM\Components\Pages\" />
+    </ItemGroup>
+
 </Project>

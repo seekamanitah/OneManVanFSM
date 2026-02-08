@@ -52,6 +52,8 @@ public class SiteService : ISiteService
             SqFt = s.SqFt,
             Zones = s.Zones,
             OwnerName = s.Customer != null ? s.Customer.Name : (s.Company != null ? s.Company.Name : null),
+            CustomerId = s.CustomerId,
+            CompanyId = s.CompanyId,
             AssetCount = s.Assets.Count(a => !a.IsArchived),
             OpenJobCount = s.Jobs.Count(j => !j.IsArchived && j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled)
         }).ToListAsync();
@@ -81,6 +83,7 @@ public class SiteService : ISiteService
             WaterShutoffLocation = site.WaterShutoffLocation, HeatingFuelSource = site.HeatingFuelSource,
             YearBuilt = site.YearBuilt, HasAtticAccess = site.HasAtticAccess,
             HasCrawlSpace = site.HasCrawlSpace, HasBasement = site.HasBasement,
+            IsNewConstruction = site.IsNewConstruction,
             CustomerId = site.CustomerId, CustomerName = site.Customer?.Name,
             CompanyId = site.CompanyId, CompanyName = site.Company?.Name,
             CreatedAt = site.CreatedAt, UpdatedAt = site.UpdatedAt,
@@ -125,6 +128,7 @@ public class SiteService : ISiteService
             WaterShutoffLocation = model.WaterShutoffLocation, HeatingFuelSource = model.HeatingFuelSource,
             YearBuilt = model.YearBuilt, HasAtticAccess = model.HasAtticAccess,
             HasCrawlSpace = model.HasCrawlSpace, HasBasement = model.HasBasement,
+            IsNewConstruction = model.IsNewConstruction,
             Notes = model.Notes, CustomerId = model.CustomerId, CompanyId = model.CompanyId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
@@ -147,6 +151,7 @@ public class SiteService : ISiteService
         site.WaterShutoffLocation = model.WaterShutoffLocation; site.HeatingFuelSource = model.HeatingFuelSource;
         site.YearBuilt = model.YearBuilt; site.HasAtticAccess = model.HasAtticAccess;
         site.HasCrawlSpace = model.HasCrawlSpace; site.HasBasement = model.HasBasement;
+        site.IsNewConstruction = model.IsNewConstruction;
         site.Notes = model.Notes; site.CustomerId = model.CustomerId; site.CompanyId = model.CompanyId;
         site.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();

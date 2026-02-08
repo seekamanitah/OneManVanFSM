@@ -59,7 +59,7 @@ public class JobService : IJobService
     public async Task<JobDetail?> GetJobAsync(int id)
     {
         var job = await _db.Jobs
-            .Include(j => j.Customer).Include(j => j.Site)
+            .Include(j => j.Customer).Include(j => j.Company).Include(j => j.Site)
             .Include(j => j.AssignedEmployee)
             .Include(j => j.Invoice).Include(j => j.Estimate)
             .Include(j => j.MaterialList).ThenInclude(ml => ml!.Items)
@@ -84,6 +84,7 @@ public class JobService : IJobService
             Notes = job.Notes, CompletedDate = job.CompletedDate,
             CreatedAt = job.CreatedAt, UpdatedAt = job.UpdatedAt,
             CustomerId = job.CustomerId, CustomerName = job.Customer?.Name,
+            CompanyId = job.CompanyId, CompanyName = job.Company?.Name,
             SiteId = job.SiteId, SiteName = job.Site?.Name,
             SiteAddress = job.Site != null ? string.Join(", ", new[] { job.Site.Address, job.Site.City, job.Site.State }.Where(p => !string.IsNullOrWhiteSpace(p))) : null,
             AssignedEmployeeId = job.AssignedEmployeeId, TechnicianName = job.AssignedEmployee?.Name,
@@ -144,12 +145,23 @@ public class JobService : IJobService
             EstimatedTotal = model.EstimatedTotal, ActualDuration = model.ActualDuration,
             ActualTotal = model.ActualTotal, PermitRequired = model.PermitRequired,
             PermitNumber = model.PermitNumber, Notes = model.Notes,
-            CustomerId = model.CustomerId, SiteId = model.SiteId,
+            CustomerId = model.CustomerId, CompanyId = model.CompanyId, SiteId = model.SiteId,
             AssignedEmployeeId = model.AssignedEmployeeId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
         _db.Jobs.Add(job);
         await _db.SaveChangesAsync();
+
+        // Link assets
+        if (model.AssetIds.Count > 0)
+        {
+            foreach (var assetId in model.AssetIds)
+            {
+                _db.JobAssets.Add(new JobAsset { JobId = job.Id, AssetId = assetId, CreatedAt = DateTime.UtcNow });
+            }
+            await _db.SaveChangesAsync();
+        }
+
         return job;
     }
 
@@ -164,7 +176,7 @@ public class JobService : IJobService
         job.EstimatedTotal = model.EstimatedTotal; job.ActualDuration = model.ActualDuration;
         job.ActualTotal = model.ActualTotal; job.PermitRequired = model.PermitRequired;
         job.PermitNumber = model.PermitNumber; job.Notes = model.Notes;
-        job.CustomerId = model.CustomerId; job.SiteId = model.SiteId;
+        job.CustomerId = model.CustomerId; job.CompanyId = model.CompanyId; job.SiteId = model.SiteId;
         job.AssignedEmployeeId = model.AssignedEmployeeId;
         job.UpdatedAt = DateTime.UtcNow;
         if (model.Status == JobStatus.Completed && !job.CompletedDate.HasValue)
@@ -173,6 +185,15 @@ public class JobService : IJobService
 
         if (model.Status == JobStatus.Completed && !wasCompleted)
             await OnJobCompletedAsync(job);
+
+        // Sync linked assets
+        var existingLinks = await _db.JobAssets.Where(ja => ja.JobId == id).ToListAsync();
+        _db.JobAssets.RemoveRange(existingLinks);
+        foreach (var assetId in model.AssetIds)
+        {
+            _db.JobAssets.Add(new JobAsset { JobId = id, AssetId = assetId, CreatedAt = DateTime.UtcNow });
+        }
+        await _db.SaveChangesAsync();
 
         return job;
     }
@@ -364,7 +385,20 @@ public class JobService : IJobService
         return await _db.Employees
             .Where(e => !e.IsArchived && e.Status == EmployeeStatus.Active)
             .OrderBy(e => e.Name)
-            .Select(e => new EmployeeOption { Id = e.Id, Name = e.Name, Territory = e.Territory })
+            .Select(e => new EmployeeOption { Id = e.Id, Name = e.Name, Territory = e.Territory, HourlyRate = e.HourlyRate })
+            .ToListAsync();
+    }
+
+    public async Task<List<JobOption>> GetJobOptionsAsync(int? customerId = null, int? siteId = null)
+    {
+        var query = _db.Jobs.Where(j => !j.IsArchived);
+        if (siteId.HasValue)
+            query = query.Where(j => j.SiteId == siteId.Value);
+        else if (customerId.HasValue)
+            query = query.Where(j => j.CustomerId == customerId.Value);
+        return await query
+            .OrderByDescending(j => j.ScheduledDate)
+            .Select(j => new JobOption { Id = j.Id, JobNumber = j.JobNumber, Title = j.Title })
             .ToListAsync();
     }
 
@@ -378,7 +412,7 @@ public class JobService : IJobService
             EmployeeId = employeeId,
             Role = role,
             PayType = payType,
-            FlatRateAmount = payType == JobEmployeePayType.FlatRate ? flatRate : null,
+            FlatRateAmount = flatRate,
             AssignedAt = DateTime.UtcNow
         });
         await _db.SaveChangesAsync();

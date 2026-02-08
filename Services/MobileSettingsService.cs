@@ -95,4 +95,22 @@ public class MobileSettingsService : IMobileSettingsService
             ApiEndpoint = "Local (Offline)",
         });
     }
+
+    public async Task<bool> HasDataAsync()
+    {
+        return await _db.Employees.AnyAsync() || await _db.Customers.AnyAsync();
+    }
+
+    public Task<bool> SeedDemoDataAsync()
+    {
+        try
+        {
+            MauiProgram.SeedMobileData(_db);
+            return Task.FromResult(true);
+        }
+        catch
+        {
+            return Task.FromResult(false);
+        }
+    }
 }

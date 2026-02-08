@@ -8,6 +8,8 @@ public interface IMobileSettingsService
     Task SaveSettingsAsync(MobileAppSettings settings);
     Task<MobileSyncStatus> GetSyncStatusAsync();
     Task<MobileAppInfo> GetAppInfoAsync();
+    Task<bool> HasDataAsync();
+    Task<bool> SeedDemoDataAsync();
 }
 
 public class MobileAppSettings

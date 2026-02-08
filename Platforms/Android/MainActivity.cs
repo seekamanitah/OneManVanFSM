@@ -21,8 +21,11 @@ namespace OneManVanFSM
 
                 // Use the WindowInsetsController for system bar colors (non-deprecated approach)
                 var controller = WindowCompat.GetInsetsController(Window, decorView);
-                controller.AppearanceLightStatusBars = false;       // light icons on primary header
-                controller.AppearanceLightNavigationBars = true;    // dark icons on white nav bar
+                if (controller != null)
+                {
+                    controller.AppearanceLightStatusBars = false;       // light icons on primary header
+                    controller.AppearanceLightNavigationBars = true;    // dark icons on white nav bar
+                }
 
 #pragma warning disable CA1422 // Platform compatibility — fallback for API < 35
                 Window.SetStatusBarColor(Android.Graphics.Color.ParseColor("#0d6efd"));
@@ -44,11 +47,14 @@ namespace OneManVanFSM
             public WindowInsetsCompat OnApplyWindowInsets(Android.Views.View? v, WindowInsetsCompat? insets)
             {
                 if (v == null || insets == null)
-                    return insets ?? new WindowInsetsCompat.Builder().Build();
+                    return insets ?? new WindowInsetsCompat.Builder().Build()!;
 
                 var systemBars = insets.GetInsets(WindowInsetsCompat.Type.SystemBars());
-                v.SetPadding(systemBars.Left, systemBars.Top, systemBars.Right, systemBars.Bottom);
-                return WindowInsetsCompat.Consumed;
+                if (systemBars != null)
+                {
+                    v.SetPadding(systemBars.Left, systemBars.Top, systemBars.Right, systemBars.Bottom);
+                }
+                return WindowInsetsCompat.Consumed!;
             }
         }
     }

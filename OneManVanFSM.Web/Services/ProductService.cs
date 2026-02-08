@@ -37,10 +37,11 @@ public class ProductService : IProductService
 
         return await query.Select(p => new ProductListItem
         {
-            Id = p.Id, Name = p.Name, Brand = p.Brand, PartNumber = p.PartNumber,
-            Category = p.Category,
-            Cost = p.Cost, Price = p.Price, MarkupPercent = p.MarkupPercent,
+            Id = p.Id, Name = p.Name, Brand = p.Brand, ModelNumber = p.ModelNumber,
+            PartNumber = p.PartNumber, Category = p.Category, EquipmentType = p.EquipmentType,
+            Cost = p.Cost, Price = p.Price, MSRP = p.MSRP, MarkupPercent = p.MarkupPercent,
             Unit = p.Unit, SupplierName = p.SupplierName, IsTemplate = p.IsTemplate,
+            IsActive = p.IsActive, IsDiscontinued = p.IsDiscontinued,
             InventoryCount = p.InventoryItems.Count(i => !i.IsArchived)
         }).ToListAsync();
     }
@@ -50,13 +51,20 @@ public class ProductService : IProductService
         return await _db.Products.Where(p => p.Id == id && !p.IsArchived)
             .Select(p => new ProductDetail
             {
-                Id = p.Id, Name = p.Name, Brand = p.Brand, PartNumber = p.PartNumber,
+                Id = p.Id, Name = p.Name, Brand = p.Brand, ModelNumber = p.ModelNumber,
+                ProductNumber = p.ProductNumber, PartNumber = p.PartNumber,
                 Barcode = p.Barcode, Category = p.Category,
-                Cost = p.Cost, Price = p.Price, MarkupPercent = p.MarkupPercent,
+                EquipmentType = p.EquipmentType, FuelType = p.FuelType,
+                Description = p.Description,
+                Cost = p.Cost, Price = p.Price, MSRP = p.MSRP, MarkupPercent = p.MarkupPercent,
                 Unit = p.Unit, Specs = p.Specs, SupplierName = p.SupplierName,
+                Tonnage = p.Tonnage, RefrigerantType = p.RefrigerantType,
+                SEERRating = p.SEERRating, AFUERating = p.AFUERating, Voltage = p.Voltage,
                 LaborWarrantyYears = p.LaborWarrantyYears,
                 PartsWarrantyYears = p.PartsWarrantyYears,
                 CompressorWarrantyYears = p.CompressorWarrantyYears,
+                RegistrationRequired = p.RegistrationRequired,
+                IsActive = p.IsActive, IsDiscontinued = p.IsDiscontinued,
                 IsTemplate = p.IsTemplate, Notes = p.Notes,
                 InventoryCount = p.InventoryItems.Count(i => !i.IsArchived),
                 AssetCount = p.Assets.Count(a => !a.IsArchived),
@@ -68,13 +76,22 @@ public class ProductService : IProductService
     {
         var product = new Product
         {
-            Name = model.Name, Brand = model.Brand, PartNumber = model.PartNumber,
-            Barcode = model.Barcode, Category = model.Category, Cost = model.Cost,
-            Price = model.Price, MarkupPercent = model.MarkupPercent, Unit = model.Unit,
-            Specs = model.Specs, SupplierName = model.SupplierName, IsTemplate = model.IsTemplate,
+            Name = model.Name, Brand = model.Brand, ModelNumber = model.ModelNumber,
+            PartNumber = model.PartNumber, ProductNumber = model.ProductNumber,
+            Barcode = model.Barcode, Category = model.Category,
+            EquipmentType = model.EquipmentType, FuelType = model.FuelType,
+            Description = model.Description,
+            Cost = model.Cost, Price = model.Price, MSRP = model.MSRP,
+            MarkupPercent = model.MarkupPercent, Unit = model.Unit,
+            Specs = model.Specs, SupplierName = model.SupplierName,
+            Tonnage = model.Tonnage, RefrigerantType = model.RefrigerantType,
+            SEERRating = model.SEERRating, AFUERating = model.AFUERating,
+            Voltage = model.Voltage, IsTemplate = model.IsTemplate,
             LaborWarrantyYears = model.LaborWarrantyYears,
             PartsWarrantyYears = model.PartsWarrantyYears,
             CompressorWarrantyYears = model.CompressorWarrantyYears,
+            RegistrationRequired = model.RegistrationRequired,
+            IsActive = model.IsActive, IsDiscontinued = model.IsDiscontinued,
             Notes = model.Notes, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
         _db.Products.Add(product);
@@ -85,13 +102,22 @@ public class ProductService : IProductService
     public async Task<Product> UpdateProductAsync(int id, ProductEditModel model)
     {
         var p = await _db.Products.FindAsync(id) ?? throw new InvalidOperationException("Product not found.");
-        p.Name = model.Name; p.Brand = model.Brand; p.PartNumber = model.PartNumber;
-        p.Barcode = model.Barcode; p.Category = model.Category; p.Cost = model.Cost;
-        p.Price = model.Price; p.MarkupPercent = model.MarkupPercent; p.Unit = model.Unit;
-        p.Specs = model.Specs; p.SupplierName = model.SupplierName; p.IsTemplate = model.IsTemplate;
+        p.Name = model.Name; p.Brand = model.Brand; p.ModelNumber = model.ModelNumber;
+        p.PartNumber = model.PartNumber; p.ProductNumber = model.ProductNumber;
+        p.Barcode = model.Barcode; p.Category = model.Category;
+        p.EquipmentType = model.EquipmentType; p.FuelType = model.FuelType;
+        p.Description = model.Description;
+        p.Cost = model.Cost; p.Price = model.Price; p.MSRP = model.MSRP;
+        p.MarkupPercent = model.MarkupPercent; p.Unit = model.Unit;
+        p.Specs = model.Specs; p.SupplierName = model.SupplierName;
+        p.Tonnage = model.Tonnage; p.RefrigerantType = model.RefrigerantType;
+        p.SEERRating = model.SEERRating; p.AFUERating = model.AFUERating;
+        p.Voltage = model.Voltage; p.IsTemplate = model.IsTemplate;
         p.LaborWarrantyYears = model.LaborWarrantyYears;
         p.PartsWarrantyYears = model.PartsWarrantyYears;
         p.CompressorWarrantyYears = model.CompressorWarrantyYears;
+        p.RegistrationRequired = model.RegistrationRequired;
+        p.IsActive = model.IsActive; p.IsDiscontinued = model.IsDiscontinued;
         p.Notes = model.Notes; p.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return p;

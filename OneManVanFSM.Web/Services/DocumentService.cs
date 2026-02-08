@@ -71,7 +71,8 @@ public class DocumentService : IDocumentService
             .Select(d => new DocumentDetail
             {
                 Id = d.Id, Name = d.Name, Category = d.Category,
-                FilePath = d.FilePath, FileType = d.FileType, FileSize = d.FileSize,
+                FilePath = d.FilePath, StoredFileName = d.StoredFileName,
+                FileType = d.FileType, FileSize = d.FileSize,
                 Version = d.Version, AccessLevel = d.AccessLevel,
                 CustomTags = d.CustomTags, Notes = d.Notes,
                 UploadDate = d.UploadDate, CreatedAt = d.CreatedAt,

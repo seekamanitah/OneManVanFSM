@@ -90,16 +90,22 @@ else if (_documents.Any())
     <div class="text-muted mb-2" style="font-size:0.7rem;"><i class="bi @SortIcon me-1"></i>@SortLabel</div>
     @foreach (var doc in SortedDocuments)
     {
-        <div class="mobile-card">
+        <div class="mobile-card" @onclick="() => TogglePreview(doc.Id)">
             <div class="mobile-card-header">
                 <div class="d-flex align-items-center gap-2">
                     <i class="bi @FileIcon(doc.FileType)" style="font-size:1.1rem; color:var(--primary);"></i>
                     <span class="card-title">@doc.Name</span>
                 </div>
-                <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;"
-                        @onclick="() => DeleteDocument(doc.Id)">
-                    <i class="bi bi-trash3"></i>
-                </button>
+                <div class="d-flex gap-1">
+                    @if (IsPreviewable(doc.FileType) && !string.IsNullOrEmpty(doc.StoredFileName))
+                    {
+                        <span class="badge bg-info text-white" style="font-size:0.65rem;"><i class="bi bi-eye me-1"></i>Preview</span>
+                    }
+                    <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;"
+                            @onclick="() => DeleteDocument(doc.Id)" @onclick:stopPropagation="true">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
             </div>
             <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
                 <span class="badge bg-light text-dark" style="font-size:0.7rem;">@doc.Category</span>
@@ -114,7 +120,7 @@ else if (_documents.Any())
                 @if (doc.LinkedEntity != null && doc.LinkedEntityId.HasValue)
                 {
                     <button class="badge bg-info text-white border-0" style="font-size:0.7rem; cursor:pointer;"
-                            @onclick="() => NavigateToEntity(doc.LinkedEntity, doc.LinkedEntityId.Value)">
+                            @onclick="() => NavigateToEntity(doc.LinkedEntity, doc.LinkedEntityId.Value)" @onclick:stopPropagation="true">
                         <i class="bi bi-link-45deg me-1"></i>@doc.LinkedEntity #@doc.LinkedEntityId
                     </button>
                 }
@@ -136,6 +142,24 @@ else if (_documents.Any())
                     <span class="text-muted" style="font-size:0.65rem;"><i class="bi bi-hdd me-1"></i>@FormatFileSize(doc.FileSize.Value)</span>
                 }
             </div>
+
+            @* -- Expanded Preview -- *@
+            @if (_expandedDocId == doc.Id && IsPreviewable(doc.FileType) && !string.IsNullOrEmpty(doc.StoredFileName))
+            {
+                <div style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
+                    <div class="text-center text-muted small mb-2">
+                        <i class="bi bi-info-circle me-1"></i>Preview available on web app
+                    </div>
+                </div>
+            }
+            else if (_expandedDocId == doc.Id)
+            {
+                <div style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
+                    <div class="text-center text-muted small">
+                        <i class="bi bi-eye-slash me-1"></i>No preview available for this file type
+                    </div>
+                </div>
+            }
         </div>
     }
 }
@@ -167,6 +191,7 @@ private string? _saveError;
 private string _search = string.Empty;
 private string _categoryFilter = string.Empty;
 private string _sort = "newest";
+private int? _expandedDocId;
 
     private List<MobileDocumentItem> SortedDocuments => _sort switch
     {
@@ -267,6 +292,11 @@ private string _sort = "newest";
             return (bytes / 1024.0).ToString("F1") + " KB";
         return (bytes / (1024.0 * 1024.0)).ToString("F1") + " MB";
     }
+
+    private void TogglePreview(int docId) => _expandedDocId = _expandedDocId == docId ? null : docId;
+    private static bool IsPreviewable(string? fileType) => IsPdfFile(fileType) || IsImageFile(fileType);
+    private static bool IsPdfFile(string? fileType) => string.Equals(fileType, "PDF", StringComparison.OrdinalIgnoreCase);
+    private static bool IsImageFile(string? fileType) => fileType?.ToUpperInvariant() is "JPG" or "JPEG" or "PNG" or "GIF" or "WEBP" or "IMAGE" or "PHOTO";
 
     private void NavigateToEntity(string entityType, int entityId)
     {

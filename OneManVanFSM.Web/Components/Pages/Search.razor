@@ -307,7 +307,7 @@ else
                         <tbody>
                             @foreach (var inv in _invoices)
                             {
-                                <tr style="cursor:pointer" @onclick="@(() => GoTo("/financials/" + inv.Id))">
+                                <tr style="cursor:pointer" @onclick="@(() => GoTo("/financials/invoices/" + inv.Id))">
                                     <td><code>@inv.InvoiceNumber</code></td>
                                     <td>@(inv.CustomerName ?? "\u2014")</td>
                                     <td><span class="badge @GetInvoiceStatusBadge(inv.Status)">@inv.Status</span></td>

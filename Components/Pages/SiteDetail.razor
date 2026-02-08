@@ -36,6 +36,18 @@ else
                 <i class="bi bi-person me-2"></i><span class="text-primary">@_site.CustomerName</span>
             </p>
         }
+        @if (_site.CompanyName != null)
+        {
+            <p class="card-subtitle mb-1" style="cursor:pointer;" @onclick="GoToCompany">
+                <i class="bi bi-building me-2"></i><span class="text-primary">@_site.CompanyName</span>
+            </p>
+        }
+        @if (_site.IsNewConstruction)
+        {
+            <span class="badge bg-warning-subtle text-warning mb-1" style="font-size:0.65rem;">
+                <i class="bi bi-cone-striped me-1"></i>New Construction
+            </span>
+        }
         @if (_site.Address != null)
         {
             <div class="d-flex align-items-center gap-2 mb-0">
@@ -259,6 +271,14 @@ else
                 </div>
                 <hr class="my-0" />
             }
+            @if (_site.CompanyId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="GoToCompany">
+                    <span style="font-size:0.9rem;"><i class="bi bi-building me-2 text-primary"></i>View Company</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
             <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs")'>
                 <span style="font-size:0.9rem;"><i class="bi bi-wrench-adjustable me-2 text-primary"></i>All Jobs</span>
                 <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
@@ -293,7 +313,7 @@ else
         _loading = false;
     }
 
-    private void GoBack() => Nav.NavigateTo("/jobs");
+    private void GoBack() => Nav.NavigateTo("/sites");
 
     private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);
 
@@ -303,6 +323,12 @@ else
     {
         if (_site?.CustomerId.HasValue == true)
             Nav.NavigateTo("/customers/" + _site.CustomerId.Value);
+    }
+
+    private void GoToCompany()
+    {
+        if (_site?.CompanyId.HasValue == true)
+            Nav.NavigateTo("/companies/" + _site.CompanyId.Value);
     }
 
     private static string AgreementStatusColor(AgreementStatus status) => status switch

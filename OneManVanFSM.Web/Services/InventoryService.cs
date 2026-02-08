@@ -38,7 +38,8 @@ public class InventoryService : IInventoryService
 
         return await query.Select(i => new InventoryListItem
         {
-            Id = i.Id, Name = i.Name, SKU = i.SKU,
+            Id = i.Id, Name = i.Name, SKU = i.SKU, PartNumber = i.PartNumber,
+            Category = i.Category, Unit = i.Unit,
             ProductName = i.Product != null ? i.Product.Name : null,
             Location = i.Location, Quantity = i.Quantity, MinThreshold = i.MinThreshold,
             MaxCapacity = i.MaxCapacity, Cost = i.Cost, Price = i.Price,
@@ -51,9 +52,10 @@ public class InventoryService : IInventoryService
         return await _db.InventoryItems.Where(i => i.Id == id && !i.IsArchived)
             .Select(i => new InventoryDetail
             {
-                Id = i.Id, Name = i.Name, SKU = i.SKU, Barcode = i.Barcode,
-                ShelfBin = i.ShelfBin, PreferredSupplier = i.PreferredSupplier,
-                Location = i.Location,
+                Id = i.Id, Name = i.Name, SKU = i.SKU, PartNumber = i.PartNumber,
+                Category = i.Category, Unit = i.Unit, Description = i.Description,
+                Barcode = i.Barcode, ShelfBin = i.ShelfBin,
+                PreferredSupplier = i.PreferredSupplier, Location = i.Location,
                 Quantity = i.Quantity, MinThreshold = i.MinThreshold, MaxCapacity = i.MaxCapacity,
                 Cost = i.Cost, Price = i.Price, MarkupPercent = i.MarkupPercent,
                 LotNumber = i.LotNumber, ExpiryDate = i.ExpiryDate,
@@ -68,8 +70,10 @@ public class InventoryService : IInventoryService
     {
         var item = new InventoryItem
         {
-            Name = model.Name, SKU = model.SKU, Barcode = model.Barcode,
-            ShelfBin = model.ShelfBin, PreferredSupplier = model.PreferredSupplier,
+            Name = model.Name, SKU = model.SKU, PartNumber = model.PartNumber,
+            Category = model.Category, Unit = model.Unit, Description = model.Description,
+            Barcode = model.Barcode, ShelfBin = model.ShelfBin,
+            PreferredSupplier = model.PreferredSupplier,
             Location = model.Location, Quantity = model.Quantity,
             MinThreshold = model.MinThreshold, MaxCapacity = model.MaxCapacity,
             Cost = model.Cost, Price = model.Price, MarkupPercent = model.MarkupPercent,
@@ -85,8 +89,10 @@ public class InventoryService : IInventoryService
     public async Task<InventoryItem> UpdateItemAsync(int id, InventoryEditModel model)
     {
         var item = await _db.InventoryItems.FindAsync(id) ?? throw new InvalidOperationException("Item not found.");
-        item.Name = model.Name; item.SKU = model.SKU; item.Barcode = model.Barcode;
-        item.ShelfBin = model.ShelfBin; item.PreferredSupplier = model.PreferredSupplier;
+        item.Name = model.Name; item.SKU = model.SKU; item.PartNumber = model.PartNumber;
+        item.Category = model.Category; item.Unit = model.Unit; item.Description = model.Description;
+        item.Barcode = model.Barcode; item.ShelfBin = model.ShelfBin;
+        item.PreferredSupplier = model.PreferredSupplier;
         item.Location = model.Location; item.Quantity = model.Quantity;
         item.MinThreshold = model.MinThreshold; item.MaxCapacity = model.MaxCapacity;
         item.Cost = model.Cost; item.Price = model.Price; item.MarkupPercent = model.MarkupPercent;

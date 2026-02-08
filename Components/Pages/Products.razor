@@ -1,0 +1,206 @@
+@page "/products"
+@inject IMobileProductService ProductService
+
+@if (_loading)
+{
+    <div class="text-center py-4">
+        <div class="spinner-border text-primary" role="status"></div>
+    </div>
+}
+else
+{
+    <!-- Stats Row -->
+    <div class="gap-grid mb-2">
+        <div class="stat-card">
+            <div class="stat-icon text-primary"><i class="bi bi-box"></i></div>
+            <div class="stat-value">@_stats.TotalProducts</div>
+            <div class="stat-label">Products</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-info"><i class="bi bi-grid"></i></div>
+            <div class="stat-value">@_stats.Categories</div>
+            <div class="stat-label">Categories</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-success"><i class="bi bi-check2-square"></i></div>
+            <div class="stat-value">@_stats.InStockProducts</div>
+            <div class="stat-label">In Stock</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-icon text-warning"><i class="bi bi-percent"></i></div>
+            <div class="stat-value">@_stats.AvgMarkup.ToString("0")%</div>
+            <div class="stat-label">Avg Markup</div>
+        </div>
+    </div>
+
+    <!-- Filter Bar -->
+    <div class="d-flex gap-2 mb-3">
+        <select class="form-select" style="max-width:150px;" @bind="_categoryFilter" @bind:after="LoadProducts">
+            <option value="">All Categories</option>
+            @foreach (var c in _categories)
+            {
+                <option value="@c">@c</option>
+            }
+        </select>
+        <input type="search" class="form-control" placeholder="Search products…" @bind="_search"
+               @bind:event="oninput" @bind:after="LoadProducts" />
+        <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadProducts" title="Refresh">
+            <i class="bi bi-arrow-clockwise"></i>
+        </button>
+    </div>
+
+    <!-- Count + Sort -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-muted" style="font-size:0.75rem;">@_products.Count product@(_products.Count != 1 ? "s" : "") found</span>
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem; padding:2px 8px; border-radius:12px;" @onclick="ToggleSort">
+            <i class="bi @(_sortMode == "price" ? "bi-currency-dollar" : _sortMode == "category" ? "bi-grid" : "bi-sort-alpha-down") me-1"></i>@SortLabel()
+        </button>
+    </div>
+
+    @if (_products.Any())
+    {
+        @foreach (var group in GroupedProducts)
+        {
+            @if (_sortMode == "category" && string.IsNullOrEmpty(_categoryFilter))
+            {
+                <div class="section-header">
+                    <span><i class="bi bi-folder me-1"></i>@(group.Key ?? "Uncategorized") (@group.Count())</span>
+                </div>
+            }
+            @foreach (var product in group)
+            {
+                <div class="mobile-card">
+                    <div class="mobile-card-header">
+                        <div style="min-width:0;">
+                            <span class="card-title">@product.Name</span>
+                            @if (product.PartNumber != null)
+                            {
+                                <span class="text-muted ms-1" style="font-size:0.7rem;">#@product.PartNumber</span>
+                            }
+                        </div>
+                        @if (product.Category != null)
+                        {
+                            <span class="badge bg-primary" style="font-size:0.6rem; white-space:nowrap;">@product.Category</span>
+                        }
+                    </div>
+
+                    @if (product.Brand != null)
+                    {
+                        <p class="card-subtitle mb-1">
+                            <i class="bi bi-tag me-1"></i>@product.Brand
+                        </p>
+                    }
+
+                    <div class="d-flex justify-content-between align-items-center mt-1">
+                        <div>
+                            <span style="font-size:0.85rem; font-weight:600;">@product.Price.ToString("C")</span>
+                            <span class="text-muted ms-1" style="font-size:0.7rem;">cost: @product.Cost.ToString("C")</span>
+                            @if (product.MarkupPercent > 0)
+                            {
+                                <span class="badge bg-light text-dark ms-1" style="font-size:0.6rem;">+@product.MarkupPercent.ToString("0")%</span>
+                            }
+                        </div>
+                        @if (product.Unit != null)
+                        {
+                            <span class="text-muted" style="font-size:0.7rem;">per @product.Unit</span>
+                        }
+                    </div>
+
+                    <div class="d-flex flex-wrap gap-1 mt-1">
+                        @if (product.StockCount > 0)
+                        {
+                            <span class="badge bg-success" style="font-size:0.6rem;">
+                                <i class="bi bi-box-seam me-1"></i>@product.StockCount in stock
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="badge bg-secondary" style="font-size:0.6rem;">
+                                <i class="bi bi-box-seam me-1"></i>No stock
+                            </span>
+                        }
+                        @if (product.AssetCount > 0)
+                        {
+                            <span class="badge bg-light text-dark" style="font-size:0.6rem;">
+                                <i class="bi bi-cpu me-1"></i>@product.AssetCount installed
+                            </span>
+                        }
+                    </div>
+                </div>
+            }
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-box d-block"></i>
+            <p>No products found</p>
+        </div>
+    }
+}
+
+@code {
+    private List<MobileProductCard> _products = [];
+    private MobileProductStats _stats = new();
+    private List<string> _categories = [];
+    private bool _loading = true;
+    private string _search = string.Empty;
+    private string _categoryFilter = string.Empty;
+    private string _sortMode = "name";
+
+    private IEnumerable<IGrouping<string?, MobileProductCard>> GroupedProducts =>
+        _sortMode == "category"
+            ? SortedProducts.GroupBy(p => p.Category ?? "Uncategorized")
+            : SortedProducts.GroupBy(p => (string?)null);
+
+    private IEnumerable<MobileProductCard> SortedProducts => _sortMode switch
+    {
+        "price" => _products.OrderByDescending(p => p.Price),
+        "category" => _products.OrderBy(p => p.Category ?? "zzz").ThenBy(p => p.Name),
+        _ => _products.OrderBy(p => p.Name)
+    };
+
+    private void ToggleSort()
+    {
+        _sortMode = _sortMode switch
+        {
+            "name" => "price",
+            "price" => "category",
+            _ => "name"
+        };
+    }
+
+    private string SortLabel() => _sortMode switch
+    {
+        "price" => "Price",
+        "category" => "Category",
+        _ => "Name"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await ProductService.GetStatsAsync();
+        await LoadProducts();
+        _categories = _products
+            .Where(p => p.Category != null)
+            .Select(p => p.Category!)
+            .Distinct()
+            .OrderBy(c => c)
+            .ToList();
+    }
+
+    private async Task LoadProducts()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        var filter = new MobileProductFilter
+        {
+            Search = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Category = string.IsNullOrEmpty(_categoryFilter) ? null : _categoryFilter,
+        };
+
+        _products = await ProductService.GetProductsAsync(filter);
+        _loading = false;
+    }
+}

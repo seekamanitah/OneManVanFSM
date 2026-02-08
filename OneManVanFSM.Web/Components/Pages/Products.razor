@@ -11,7 +11,6 @@
 
 @if (mode == "form")
 {
-    <!-- CREATE / EDIT FORM -->
     <div class="d-flex align-items-center mb-3">
         <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
         <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Product</h4>
@@ -20,85 +19,176 @@
         <div class="card-body">
             <EditForm Model="form" OnValidSubmit="SaveProduct">
                 <DataAnnotationsValidator />
-                <div class="row g-2">
-                    <div class="col-md-5">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="form.Name" class="form-control" />
-                        <ValidationMessage For="() => form.Name" />
+
+                @* ?? Product Information ?? *@
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-box-seam me-1"></i>Product Information</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Manufacturer <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.Brand" class="form-control form-control-sm" placeholder="Search or enter manufacturer..." />
+                        <ValidationMessage For="() => form.Brand" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Model Number <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.ModelNumber" class="form-control form-control-sm" />
+                        <ValidationMessage For="() => form.ModelNumber" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Product Name</label>
+                        <InputText @bind-Value="form.Name" class="form-control form-control-sm" placeholder="Display name (optional)" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Product Number</label>
+                        <InputText @bind-Value="form.ProductNumber" class="form-control form-control-sm" placeholder="Auto-generated if blank" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Category</label>
-                        <InputText @bind-Value="form.Category" class="form-control" placeholder="e.g. Ductwork, Equipment" />
+                        <select class="form-select form-select-sm" @bind="form.Category">
+                            <option value="">Unknown</option>
+                            <option value="Air Conditioner">Air Conditioner</option>
+                            <option value="Furnace">Furnace</option>
+                            <option value="Heat Pump">Heat Pump</option>
+                            <option value="Ductwork">Ductwork</option>
+                            <option value="Thermostat">Thermostat</option>
+                            <option value="Air Handler">Air Handler</option>
+                            <option value="Boiler">Boiler</option>
+                            <option value="Mini Split">Mini Split</option>
+                            <option value="Package Unit">Package Unit</option>
+                            <option value="Parts">Parts</option>
+                            <option value="Supplies">Supplies</option>
+                            <option value="Other">Other</option>
+                        </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Brand</label>
-                        <InputText @bind-Value="form.Brand" class="form-control" placeholder="e.g. Carrier, Honeywell" />
+                    <div class="col-md-4">
+                        <label class="form-label">Equipment Type</label>
+                        <select class="form-select form-select-sm" @bind="form.EquipmentType">
+                            <option value="">Unknown</option>
+                            <option value="Residential">Residential</option>
+                            <option value="Commercial">Commercial</option>
+                            <option value="Light Commercial">Light Commercial</option>
+                            <option value="Industrial">Industrial</option>
+                        </select>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Part Number</label>
-                        <InputText @bind-Value="form.PartNumber" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Barcode</label>
-                        <InputText @bind-Value="form.Barcode" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Cost</label>
-                        <InputNumber @bind-Value="form.Cost" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Price</label>
-                        <InputNumber @bind-Value="form.Price" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Markup %</label>
-                        <InputNumber @bind-Value="form.MarkupPercent" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Unit</label>
-                        <InputText @bind-Value="form.Unit" class="form-control" placeholder="e.g. Count, Boxes, Ft" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Supplier</label>
-                        <InputText @bind-Value="form.SupplierName" class="form-control" />
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">Specs (JSON)</label>
-                        <InputText @bind-Value="form.Specs" class="form-control" placeholder='e.g. {"sizes":"5-18 in"}' />
+                    <div class="col-md-4">
+                        <label class="form-label">Fuel Type</label>
+                        <select class="form-select form-select-sm" @bind="form.FuelType">
+                            <option value="">Unknown</option>
+                            <option value="Electric">Electric</option>
+                            <option value="Natural Gas">Natural Gas</option>
+                            <option value="Propane">Propane</option>
+                            <option value="Oil">Oil</option>
+                            <option value="Dual Fuel">Dual Fuel</option>
+                        </select>
                     </div>
                     <div class="col-12">
-                        <label class="form-label">Notes</label>
-                        <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
+                        <label class="form-label">Description</label>
+                        <InputTextArea @bind-Value="form.Description" class="form-control form-control-sm" rows="3" />
                     </div>
                 </div>
-                <hr class="my-2" />
-                <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-1"></i>Warranty Terms (years)</h6>
-                <div class="row g-2">
+
+                @* ?? Specifications ?? *@
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-gear me-1"></i>Specifications</h6>
+                <div class="row g-2 mb-3">
                     <div class="col-md-3">
-                        <label class="form-label">Labor Warranty</label>
-                        <InputNumber @bind-Value="form.LaborWarrantyYears" class="form-control" />
-                        <small class="text-muted">Default: 1 year</small>
+                        <label class="form-label">Tonnage</label>
+                        <select class="form-select form-select-sm" @bind="form.Tonnage">
+                            <option value="">Select...</option>
+                            <option value="1.5">1.5</option>
+                            <option value="2">2</option>
+                            <option value="2.5">2.5</option>
+                            <option value="3">3</option>
+                            <option value="3.5">3.5</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                        </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Parts Warranty</label>
-                        <InputNumber @bind-Value="form.PartsWarrantyYears" class="form-control" />
-                        <small class="text-muted">Default: 10 years</small>
+                        <label class="form-label">Refrigerant Type</label>
+                        <InputText @bind-Value="form.RefrigerantType" class="form-control form-control-sm" placeholder="Unknown" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Compressor Warranty</label>
-                        <InputNumber @bind-Value="form.CompressorWarrantyYears" class="form-control" />
-                        <small class="text-muted">Default: 10 years</small>
+                        <label class="form-label">SEER Rating</label>
+                        <InputText @bind-Value="form.SEERRating" class="form-control form-control-sm" />
                     </div>
                     <div class="col-md-3">
-                        <div class="form-check mt-4">
-                            <InputCheckbox @bind-Value="form.IsTemplate" class="form-check-input" id="isTemplate" />
-                            <label class="form-check-label" for="isTemplate">Is Template</label>
+                        <label class="form-label">AFUE Rating</label>
+                        <InputText @bind-Value="form.AFUERating" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Voltage</label>
+                        <InputText @bind-Value="form.Voltage" class="form-control form-control-sm" />
+                    </div>
+                </div>
+
+                @* ?? Pricing ?? *@
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-currency-dollar me-1"></i>Pricing</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">MSRP</label>
+                        <InputNumber @bind-Value="form.MSRP" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Wholesale Cost</label>
+                        <InputNumber @bind-Value="form.Cost" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Suggested Sell Price</label>
+                        <InputNumber @bind-Value="form.Price" class="form-control form-control-sm" />
+                    </div>
+                </div>
+
+                @* ?? Warranty ?? *@
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-shield-check me-1"></i>Warranty</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Parts Warranty (years)</label>
+                        <select class="form-select form-select-sm" @bind="form.PartsWarrantyYears">
+                            <option value="0">N/A</option>
+                            @for (int w = 1; w <= 15; w++) { <option value="@w">@w</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Labor Warranty (years)</label>
+                        <select class="form-select form-select-sm" @bind="form.LaborWarrantyYears">
+                            <option value="0">N/A</option>
+                            @for (int w = 1; w <= 15; w++) { <option value="@w">@w</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Compressor Warranty (years)</label>
+                        <select class="form-select form-select-sm" @bind="form.CompressorWarrantyYears">
+                            <option value="0">N/A</option>
+                            @for (int w = 1; w <= 15; w++) { <option value="@w">@w</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="form.RegistrationRequired" class="form-check-input" id="regRequired" />
+                            <label class="form-check-label" for="regRequired">Registration Required</label>
                         </div>
                     </div>
                 </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
-                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+
+                @* ?? Status ?? *@
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-toggle-on me-1"></i>Status</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-auto">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="isActive" checked="@form.IsActive" @onchange="e => { form.IsActive = (bool)(e.Value ?? false); if (form.IsActive) form.IsDiscontinued = false; }" />
+                            <label class="form-check-label" for="isActive">Active</label>
+                        </div>
+                    </div>
+                    <div class="col-auto ms-4">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="isDiscontinued" checked="@form.IsDiscontinued" @onchange="e => { form.IsDiscontinued = (bool)(e.Value ?? false); if (form.IsDiscontinued) form.IsActive = false; }" />
+                            <label class="form-check-label" for="isDiscontinued">Discontinued</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between border-top pt-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToList">Cancel</button>
+                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle me-1"></i>@(editId.HasValue ? "Save Product" : "Create Product")</button>
                 </div>
                 @if (!string.IsNullOrEmpty(errorMsg))
                 {
@@ -113,15 +203,13 @@ else if (mode == "detail" && detail is not null)
     <!-- DETAIL VIEW -->
     <div class="d-flex align-items-center mb-3">
         <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
-        <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@detail.Name</h4>
+        <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@(detail.Name.Length > 0 ? detail.Name : $"{detail.Brand} {detail.ModelNumber}")</h4>
         @if (!string.IsNullOrWhiteSpace(detail.Category))
         {
             <span class="badge bg-info ms-2">@detail.Category</span>
         }
-        @if (detail.IsTemplate)
-        {
-            <span class="badge bg-secondary ms-1">Template</span>
-        }
+        @if (detail.IsActive) { <span class="badge bg-success ms-1">Active</span> }
+        @if (detail.IsDiscontinued) { <span class="badge bg-warning text-dark ms-1">Discontinued</span> }
         <div class="ms-auto dropdown">
             <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>Actions</button>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -143,35 +231,67 @@ else if (mode == "detail" && detail is not null)
         <div class="col-md-8">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
-                    <h6><i class="bi bi-box-seam me-1"></i>Product Details</h6>
+                    <h6><i class="bi bi-box-seam me-1"></i>Product Information</h6>
                     <div class="row g-2 mt-2">
-                        <div class="col-sm-4"><small class="text-muted d-block">Cost</small><span>@detail.Cost.ToString("C")</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Price</small><span>@detail.Price.ToString("C")</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Markup</small><span>@detail.MarkupPercent%</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Unit</small><span>@(detail.Unit ?? "\u2014")</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Supplier</small><span>@(detail.SupplierName ?? "\u2014")</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Template</small><span>@(detail.IsTemplate ? "Yes" : "No")</span></div>
-                        @if (!string.IsNullOrWhiteSpace(detail.Brand)) { <div class="col-sm-4"><small class="text-muted d-block">Brand</small><span>@detail.Brand</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.Brand)) { <div class="col-sm-4"><small class="text-muted d-block">Manufacturer</small><span>@detail.Brand</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.ModelNumber)) { <div class="col-sm-4"><small class="text-muted d-block">Model Number</small><span>@detail.ModelNumber</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.ProductNumber)) { <div class="col-sm-4"><small class="text-muted d-block">Product Number</small><span>@detail.ProductNumber</span></div> }
                         @if (!string.IsNullOrWhiteSpace(detail.PartNumber)) { <div class="col-sm-4"><small class="text-muted d-block">Part Number</small><span>@detail.PartNumber</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.Category)) { <div class="col-sm-4"><small class="text-muted d-block">Category</small><span>@detail.Category</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.EquipmentType)) { <div class="col-sm-4"><small class="text-muted d-block">Equipment Type</small><span>@detail.EquipmentType</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.FuelType)) { <div class="col-sm-4"><small class="text-muted d-block">Fuel Type</small><span>@detail.FuelType</span></div> }
                         @if (!string.IsNullOrWhiteSpace(detail.Barcode)) { <div class="col-sm-4"><small class="text-muted d-block">Barcode</small><span>@detail.Barcode</span></div> }
                     </div>
-                    <hr class="my-2" />
-                    <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-1"></i>Warranty Terms</h6>
-                    <div class="row g-2">
-                        <div class="col-sm-4"><small class="text-muted d-block">Labor</small><span>@detail.LaborWarrantyYears year(s)</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Parts</small><span>@detail.PartsWarrantyYears year(s)</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Compressor</small><span>@detail.CompressorWarrantyYears year(s)</span></div>
+                    @if (!string.IsNullOrWhiteSpace(detail.Description))
+                    {
+                        <hr class="my-2" />
+                        <small class="text-muted d-block">Description</small>
+                        <p class="mb-0">@detail.Description</p>
+                    }
+                </div>
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(detail.Tonnage) || !string.IsNullOrWhiteSpace(detail.RefrigerantType) ||
+                 !string.IsNullOrWhiteSpace(detail.SEERRating) || !string.IsNullOrWhiteSpace(detail.AFUERating) ||
+                 !string.IsNullOrWhiteSpace(detail.Voltage))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <h6><i class="bi bi-gear me-1"></i>Specifications</h6>
+                        <div class="row g-2 mt-2">
+                            @if (!string.IsNullOrWhiteSpace(detail.Tonnage)) { <div class="col-sm-4"><small class="text-muted d-block">Tonnage</small><span>@detail.Tonnage</span></div> }
+                            @if (!string.IsNullOrWhiteSpace(detail.RefrigerantType)) { <div class="col-sm-4"><small class="text-muted d-block">Refrigerant Type</small><span>@detail.RefrigerantType</span></div> }
+                            @if (!string.IsNullOrWhiteSpace(detail.SEERRating)) { <div class="col-sm-4"><small class="text-muted d-block">SEER Rating</small><span>@detail.SEERRating</span></div> }
+                            @if (!string.IsNullOrWhiteSpace(detail.AFUERating)) { <div class="col-sm-4"><small class="text-muted d-block">AFUE Rating</small><span>@detail.AFUERating</span></div> }
+                            @if (!string.IsNullOrWhiteSpace(detail.Voltage)) { <div class="col-sm-4"><small class="text-muted d-block">Voltage</small><span>@detail.Voltage</span></div> }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6><i class="bi bi-currency-dollar me-1"></i>Pricing</h6>
+                    <div class="row g-2 mt-2">
+                        @if (detail.MSRP > 0) { <div class="col-sm-4"><small class="text-muted d-block">MSRP</small><span>@detail.MSRP.ToString("C")</span></div> }
+                        <div class="col-sm-4"><small class="text-muted d-block">Wholesale Cost</small><span>@detail.Cost.ToString("C")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Suggested Sell Price</small><span>@detail.Price.ToString("C")</span></div>
+                        @if (detail.MarkupPercent > 0) { <div class="col-sm-4"><small class="text-muted d-block">Markup</small><span>@detail.MarkupPercent%</span></div> }
                     </div>
                 </div>
             </div>
 
-            @if (!string.IsNullOrWhiteSpace(detail.Specs))
-            {
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-header bg-white"><strong><i class="bi bi-gear me-1"></i>Specs</strong></div>
-                    <div class="card-body"><pre class="bg-light p-3 rounded small mb-0">@detail.Specs</pre></div>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6><i class="bi bi-shield-check me-1"></i>Warranty</h6>
+                    <div class="row g-2 mt-2">
+                        <div class="col-sm-3"><small class="text-muted d-block">Parts</small><span>@(detail.PartsWarrantyYears > 0 ? $"{detail.PartsWarrantyYears} year(s)" : "N/A")</span></div>
+                        <div class="col-sm-3"><small class="text-muted d-block">Labor</small><span>@(detail.LaborWarrantyYears > 0 ? $"{detail.LaborWarrantyYears} year(s)" : "N/A")</span></div>
+                        <div class="col-sm-3"><small class="text-muted d-block">Compressor</small><span>@(detail.CompressorWarrantyYears > 0 ? $"{detail.CompressorWarrantyYears} year(s)" : "N/A")</span></div>
+                        <div class="col-sm-3"><small class="text-muted d-block">Registration</small><span>@(detail.RegistrationRequired ? "Required" : "Not Required")</span></div>
+                    </div>
                 </div>
-            }
+            </div>
 
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-header bg-white"><strong><i class="bi bi-link-45deg me-1"></i>Connections</strong></div>
@@ -252,13 +372,12 @@ else
                     <thead class="table-light">
                         <tr>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
-                            <th>Brand</th>
+                            <th>Manufacturer</th>
+                            <th>Model</th>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Category")'>Category @SortIcon("Category")</th>
-                            <th style="cursor:pointer" @onclick='() => ToggleSort("Cost")'>Cost @SortIcon("Cost")</th>
-                            <th style="cursor:pointer" @onclick='() => ToggleSort("Price")'>Price @SortIcon("Price")</th>
-                            <th>Markup</th>
-                            <th>Unit</th>
-                            <th>Supplier</th>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Cost")'>Wholesale @SortIcon("Cost")</th>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Price")'>Sell Price @SortIcon("Price")</th>
+                            <th>Status</th>
                             <th>Stock</th>
                         </tr>
                     </thead>
@@ -267,16 +386,17 @@ else
                         {
                             <tr style="cursor:pointer" @onclick="() => GoToDetail(p.Id)">
                                 <td>
-                                    <strong>@p.Name</strong>
-                                    @if (p.IsTemplate) { <span class="badge bg-secondary ms-1">T</span> }
+                                    <strong>@(p.Name.Length > 0 ? p.Name : $"{p.Brand} {p.ModelNumber}")</strong>
                                 </td>
                                 <td>@(p.Brand ?? "—")</td>
+                                <td>@(p.ModelNumber ?? "—")</td>
                                 <td>@(p.Category ?? "—")</td>
                                 <td>@p.Cost.ToString("C")</td>
                                 <td>@p.Price.ToString("C")</td>
-                                <td>@p.MarkupPercent%</td>
-                                <td>@(p.Unit ?? "—")</td>
-                                <td>@(p.SupplierName ?? "—")</td>
+                                <td>
+                                    @if (p.IsActive) { <span class="badge bg-success">Active</span> }
+                                    @if (p.IsDiscontinued) { <span class="badge bg-warning text-dark">Discontinued</span> }
+                                </td>
                                 <td>@p.InventoryCount</td>
                             </tr>
                         }
@@ -321,7 +441,7 @@ else
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
         if (uri.AbsolutePath.Contains("/products/new", StringComparison.OrdinalIgnoreCase))
         {
-            mode = "form"; editId = null; form = new ProductEditModel { IsTemplate = true };
+            mode = "form"; editId = null; form = new ProductEditModel { IsActive = true };
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
@@ -358,12 +478,21 @@ else
         editId = id;
         form = new ProductEditModel
         {
-            Name = p.Name, Brand = p.Brand, PartNumber = p.PartNumber, Barcode = p.Barcode,
-            Category = p.Category, Cost = p.Cost, Price = p.Price,
+            Name = p.Name, Brand = p.Brand, ModelNumber = p.ModelNumber,
+            ProductNumber = p.ProductNumber, PartNumber = p.PartNumber,
+            Barcode = p.Barcode, Category = p.Category,
+            EquipmentType = p.EquipmentType, FuelType = p.FuelType,
+            Description = p.Description,
+            Cost = p.Cost, Price = p.Price, MSRP = p.MSRP,
             MarkupPercent = p.MarkupPercent, Unit = p.Unit, Specs = p.Specs,
-            SupplierName = p.SupplierName, IsTemplate = p.IsTemplate, Notes = p.Notes,
+            SupplierName = p.SupplierName, IsTemplate = p.IsTemplate,
+            Tonnage = p.Tonnage, RefrigerantType = p.RefrigerantType,
+            SEERRating = p.SEERRating, AFUERating = p.AFUERating, Voltage = p.Voltage,
             LaborWarrantyYears = p.LaborWarrantyYears, PartsWarrantyYears = p.PartsWarrantyYears,
-            CompressorWarrantyYears = p.CompressorWarrantyYears
+            CompressorWarrantyYears = p.CompressorWarrantyYears,
+            RegistrationRequired = p.RegistrationRequired,
+            IsActive = p.IsActive, IsDiscontinued = p.IsDiscontinued,
+            Notes = p.Notes
         };
         mode = "form";
     }
@@ -373,6 +502,8 @@ else
         try
         {
             errorMsg = null;
+            if (string.IsNullOrWhiteSpace(form.Name) && !string.IsNullOrWhiteSpace(form.Brand))
+                form.Name = $"{form.Brand} {form.ModelNumber}".Trim();
             if (editId.HasValue)
                 await ProductSvc.UpdateProductAsync(editId.Value, form);
             else

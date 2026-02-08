@@ -156,6 +156,34 @@ public class MobileSearchService : IMobileSearchService
             }
         }
 
+        // Companies
+        if (category is null or "Companies")
+        {
+            var companies = await _db.Companies
+                .Where(c => !c.IsArchived &&
+                    (c.Name.ToLower().Contains(q)
+                    || (c.LegalName != null && c.LegalName.ToLower().Contains(q))
+                    || (c.Phone != null && c.Phone.Contains(q))
+                    || (c.Email != null && c.Email.ToLower().Contains(q))))
+                .Take(10)
+                .ToListAsync();
+
+            foreach (var c in companies)
+            {
+                results.Add(new MobileSearchResult
+                {
+                    Id = c.Id,
+                    Title = c.Name,
+                    Subtitle = $"{c.Type} · {c.City ?? "—"}, {c.State ?? ""}",
+                    Category = "Companies",
+                    Icon = "bi-building",
+                    BadgeText = c.IsActive ? "Active" : "Inactive",
+                    BadgeColor = c.IsActive ? "success" : "secondary",
+                    NavigateTo = $"/companies/{c.Id}",
+                });
+            }
+        }
+
         return new MobileSearchResults
         {
             Results = results,

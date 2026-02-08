@@ -7,6 +7,9 @@
 @inject IAssetService AssetSvc
 @inject ICustomerService CustomerSvc
 @inject ISiteService SiteSvc
+@inject IProductService ProductSvc
+@inject IDropdownService DropdownSvc
+@inject IJobService JobSvc
 @inject NavigationManager Nav
 
 <PageTitle>Assets - OneManVanFSM</PageTitle>
@@ -21,56 +24,135 @@
         <div class="card-body">
             <EditForm Model="form" OnValidSubmit="SaveAsset">
                 <DataAnnotationsValidator />
-                <!-- Core Identity -->
-                <h6 class="text-muted mb-2"><i class="bi bi-tag me-1"></i>Identity</h6>
+
+                <!-- Populate from Product -->
+                <h6 class="text-info mb-2"><i class="bi bi-pencil-square me-1"></i>Populate from Product</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-12">
+                        <select class="form-select border-info" @onchange="OnProductSelected">
+                            <option value="">Select a product to auto-fill...</option>
+                            @foreach (var p in _products)
+                            {
+                                <option value="@p.Id" selected="@(form.ProductId == p.Id)">@p.Name @(!string.IsNullOrWhiteSpace(p.Brand) ? $"({p.Brand})" : "")</option>
+                            }
+                        </select>
+                        <small class="text-muted">Auto-fills brand, model, tonnage, SEER, and warranty info</small>
+                    </div>
+                </div>
+
+                <!-- Equipment Information -->
+                <h6 class="text-muted mb-2"><i class="bi bi-tag me-1"></i>Equipment Information</h6>
                 <div class="row g-2">
                     <div class="col-md-4">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="form.Name" class="form-control" />
+                        <label class="form-label">Customer</label>
+                        <InputSelect @bind-Value="form.CustomerId" @bind-Value:after="OnAssetCustomerChanged" class="form-select">
+                            <option value="">— Select Customer —</option>
+                            @foreach (var c in _customers) { <option value="@c.Id">@c.Name</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Site</label>
+                        <InputSelect @bind-Value="form.SiteId" @bind-Value:after="OnAssetSiteChanged" class="form-select">
+                            <option value="">— Select Site —</option>
+                            @foreach (var s in FilteredAssetSites) { <option value="@s.Id">@s.Name</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-4"></div>
+                    <div class="col-md-4">
+                        <label class="form-label">Asset Name</label>
+                        <InputText @bind-Value="form.Name" class="form-control" placeholder="Optional friendly name" />
                         <ValidationMessage For="() => form.Name" />
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Serial Number <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.SerialNumber" class="form-control" />
+                    </div>
+                    <div class="col-md-4"></div>
                     <div class="col-md-3">
-                        <label class="form-label">Asset Type</label>
-                        <InputText @bind-Value="form.AssetType" class="form-control" placeholder="e.g. Furnace, AC Unit" />
+                        <label class="form-label">Asset Tag</label>
+                        <InputText @bind-Value="form.AssetTag" class="form-control" placeholder="Barcode/QR code" />
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Brand</label>
-                        <InputText @bind-Value="form.Brand" class="form-control" placeholder="e.g. Carrier, Lennox" />
-                    </div>
-                    <div class="col-md-2">
-                        <label class="form-label">Status</label>
-                        <InputSelect @bind-Value="form.Status" class="form-select">
-                            @foreach (var s in Enum.GetValues<AssetStatus>()) { <option value="@s">@s</option> }
-                        </InputSelect>
+                        <select class="form-select" @bind="_brandValue" @bind:after="OnBrandChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _brandOptions) { <option value="@o">@o</option> }
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Model</label>
                         <InputText @bind-Value="form.Model" class="form-control" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Serial Number</label>
-                        <InputText @bind-Value="form.SerialNumber" class="form-control" />
+                        <label class="form-label">Nickname</label>
+                        <InputText @bind-Value="form.Nickname" class="form-control" placeholder="e.g., Upstairs Unit" />
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Unit Configuration</label>
-                        <InputText @bind-Value="form.UnitConfiguration" class="form-control" placeholder="Split, Packaged, etc." />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Location on Site</label>
-                        <InputText @bind-Value="form.LocationOnSite" class="form-control" placeholder="Basement, Attic, Roof" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Value</label>
-                        <InputNumber @bind-Value="form.Value" class="form-control" />
+                    <div class="col-md-4">
+                        <label class="form-label">Location</label>
+                        <select class="form-select" @bind="_locationValue" @bind:after="OnLocationChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _locationOptions) { <option value="@o">@o</option> }
+                        </select>
                     </div>
                 </div>
 
-                <hr class="my-2" />
-                <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>HVAC Specs</h6>
+                <hr class="my-3" />
+                <!-- Equipment Type -->
+                <h6 class="text-muted mb-2"><i class="bi bi-gear me-1"></i>Equipment Type</h6>
                 <div class="row g-2">
                     <div class="col-md-3">
-                        <label class="form-label">Tonnage</label>
-                        <InputNumber @bind-Value="form.Tonnage" class="form-control" />
+                        <label class="form-label">Equipment Type</label>
+                        <select class="form-select" @bind="_assetTypeValue" @bind:after="OnAssetTypeChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _assetTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fuel Type</label>
+                        <select class="form-select" @bind="_fuelTypeValue" @bind:after="OnFuelTypeChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _fuelTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Status</label>
+                        <InputSelect @bind-Value="form.Status" class="form-select">
+                            @foreach (var s in Enum.GetValues<AssetStatus>()) { <option value="@s">@s</option> }
+                        </InputSelect>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Unit Config</label>
+                        <select class="form-select" @bind="_unitConfigValue" @bind:after="OnUnitConfigChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _unitConfigOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <!-- Capacity & Efficiency -->
+                <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>Capacity & Efficiency</h6>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Tonnage (BTU)</label>
+                        <select class="form-select" @bind="_tonnageValue" @bind:after="OnTonnageChanged">
+                            <option value="">— Select —</option>
+                            <option value="6000">6,000 BTU (0.5 Ton)</option>
+                            <option value="9000">9,000 BTU (0.75 Ton)</option>
+                            <option value="12000">12,000 BTU (1 Ton)</option>
+                            <option value="18000">18,000 BTU (1.5 Ton)</option>
+                            <option value="24000">24,000 BTU (2 Ton)</option>
+                            <option value="30000">30,000 BTU (3 Ton)</option>
+                            <option value="36000">36,000 BTU (3 Ton)</option>
+                            <option value="42000">42,000 BTU (3.5 Ton)</option>
+                            <option value="48000">48,000 BTU (4 Ton)</option>
+                            <option value="60000">60,000 BTU (5 Ton)</option>
+                            <option value="Other">Other</option>
+                        </select>
+                        @if (_tonnageValue == "Other")
+                        {
+                            <input type="number" class="form-control mt-1" step="1" placeholder="Enter BTU value" @bind="form.Tonnage" />
+                        }
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">BTU Rating</label>
@@ -81,7 +163,11 @@
                         <InputNumber @bind-Value="form.SEER" class="form-control" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">AFUE (%)</label>
+                        <label class="form-label">SEER2</label>
+                        <InputNumber @bind-Value="form.SEER2" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">AFUE %</label>
                         <InputNumber @bind-Value="form.AFUE" class="form-control" />
                     </div>
                     <div class="col-md-3">
@@ -89,116 +175,240 @@
                         <InputNumber @bind-Value="form.HSPF" class="form-control" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Fuel Type</label>
-                        <InputText @bind-Value="form.FuelType" class="form-control" placeholder="Natural Gas, Electric" />
+                        <label class="form-label">HSPF2</label>
+                        <InputNumber @bind-Value="form.HSPF2" class="form-control" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Filter Size</label>
-                        <InputText @bind-Value="form.FilterSize" class="form-control" placeholder="16x25x1" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Refrigerant</label>
-                        <InputText @bind-Value="form.RefrigerantType" class="form-control" placeholder="R-410A" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Ref. Quantity (lbs)</label>
-                        <InputNumber @bind-Value="form.RefrigerantQuantity" class="form-control" />
+                        <label class="form-label">EER</label>
+                        <InputNumber @bind-Value="form.EER" class="form-control" />
                     </div>
                 </div>
 
-                <hr class="my-2" />
-                <h6 class="text-muted mb-2"><i class="bi bi-lightning-charge me-1"></i>Electrical / <i class="bi bi-droplet me-1"></i>Plumbing</h6>
+                <hr class="my-3" />
+                <!-- Refrigerant & Electrical -->
+                <h6 class="text-muted mb-2"><i class="bi bi-snow me-1"></i>Refrigerant & Electrical</h6>
                 <div class="row g-2">
                     <div class="col-md-3">
+                        <label class="form-label">Refrigerant Type</label>
+                        <select class="form-select" @bind="_refrigerantValue" @bind:after="OnRefrigerantChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _refrigerantOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Charge (oz)</label>
+                        <InputNumber @bind-Value="form.RefrigerantQuantity" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Voltage</label>
-                        <InputText @bind-Value="form.Voltage" class="form-control" placeholder="120V, 240V" />
+                        <select class="form-select" @bind="_voltageValue" @bind:after="OnVoltageChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _voltageOptions) { <option value="@o">@o</option> }
+                        </select>
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Phase</label>
-                        <InputText @bind-Value="form.Phase" class="form-control" placeholder="Single Phase" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Amp Rating</label>
-                        <InputNumber @bind-Value="form.AmpRating" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Panel Type</label>
-                        <InputText @bind-Value="form.PanelType" class="form-control" placeholder="Main Breaker" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Pipe Material</label>
-                        <InputText @bind-Value="form.PipeMaterial" class="form-control" placeholder="Copper, PEX" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Gallon Capacity</label>
-                        <InputNumber @bind-Value="form.GallonCapacity" class="form-control" />
+                        <label class="form-label">Phase Type</label>
+                        <select class="form-select" @bind="_phaseValue" @bind:after="OnPhaseChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _phaseOptions) { <option value="@o">@o</option> }
+                        </select>
                     </div>
                 </div>
 
-                <hr class="my-2" />
-                <h6 class="text-muted mb-2"><i class="bi bi-calendar3 me-1"></i>Dates & Warranty</h6>
+                <hr class="my-3" />
+                <!-- Filter Information -->
+                <h6 class="text-muted mb-2"><i class="bi bi-funnel me-1"></i>Filter Information</h6>
+                <div class="row g-2">
+                    <div class="col-md-2">
+                        <label class="form-label">Filter Size</label>
+                        <select class="form-select" @bind="_filterSizeValue" @bind:after="OnFilterSizeChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _filterSizeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Filter Type</label>
+                        <select class="form-select" @bind="_filterTypeValue" @bind:after="OnFilterTypeChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _filterTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Change Interval</label>
+                        <InputNumber @bind-Value="form.FilterChangeIntervalMonths" class="form-control" />
+                        <small class="text-muted">months</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Last Changed</label>
+                        <InputDate @bind-Value="form.FilterLastChanged" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Next Due</label>
+                        <InputDate @bind-Value="form.FilterNextDue" class="form-control" />
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <!-- Thermostat -->
+                <h6 class="text-muted mb-2"><i class="bi bi-thermometer me-1"></i>Thermostat</h6>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Thermostat Brand</label>
+                        <InputText @bind-Value="form.ThermostatBrand" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Thermostat Model</label>
+                        <InputText @bind-Value="form.ThermostatModel" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Thermostat Type</label>
+                        <select class="form-select" @bind="_thermostatTypeValue" @bind:after="OnThermostatTypeChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _thermostatTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="form.ThermostatWiFiEnabled" class="form-check-input" id="chkWifi" />
+                            <label class="form-check-label" for="chkWifi">WiFi Enabled</label>
+                        </div>
+                    </div>
+                </div>
+
+                <hr class="my-3" />
+                <!-- Installation & Warranty -->
+                <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-1"></i>Installation & Warranty</h6>
                 <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">Install Date</label>
-                        <InputDate @bind-Value="form.InstallDate" class="form-control" />
+                        <InputDate @bind-Value="form.InstallDate" @bind-Value:after="OnInstallDateChanged" class="form-control" />
                     </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Warranty Start</label>
+                        <InputDate @bind-Value="form.WarrantyStartDate" @bind-Value:after="RecalculateWarrantyExpiries" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Warranty Expiration</label>
+                        <InputDate @bind-Value="form.WarrantyExpiry" class="form-control" disabled />
+                    </div>
+                    <div class="col-md-3"></div>
                     <div class="col-md-3">
                         <label class="form-label">Manufacture Date</label>
                         <InputDate @bind-Value="form.ManufactureDate" class="form-control" />
                     </div>
                     <div class="col-md-3">
-                        <label class="form-label">Last Service Date</label>
-                        <InputDate @bind-Value="form.LastServiceDate" class="form-control" />
+                        <label class="form-label">Installed By</label>
+                        <InputText @bind-Value="form.InstalledBy" class="form-control" />
                     </div>
+                    <div class="col-md-3 d-flex align-items-end">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="form.WarrantedByCompany" class="form-check-input" id="chkWarrantedByCompany" />
+                            <label class="form-check-label" for="chkWarrantedByCompany">Warranted by SE HVAC</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3"></div>
+                </div>
+
+                <!-- Warranty Terms Breakdown -->
+                <div class="row g-2 mt-2">
+                    <div class="col-12"><small class="text-muted fw-bold">Warranty Terms (years) — expiry dates auto-calculate from Warranty Start</small></div>
+                    <div class="col-md-3">
+                        <label class="form-label">Labor (years)</label>
+                        <InputNumber @bind-Value="form.LaborWarrantyTermYears" @bind-Value:after="RecalculateWarrantyExpiries" class="form-control" />
+                        @if (_laborExpiry.HasValue)
+                        {
+                            <small class="@GetWarrantyTermCss(_laborExpiry.Value)">Expires: @_laborExpiry.Value.ToString("MMM dd, yyyy")</small>
+                        }
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Parts (years)</label>
+                        <InputNumber @bind-Value="form.PartsWarrantyTermYears" @bind-Value:after="RecalculateWarrantyExpiries" class="form-control" />
+                        @if (_partsExpiry.HasValue)
+                        {
+                            <small class="@GetWarrantyTermCss(_partsExpiry.Value)">Expires: @_partsExpiry.Value.ToString("MMM dd, yyyy")</small>
+                        }
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Compressor (years)</label>
+                        <InputNumber @bind-Value="form.CompressorWarrantyTermYears" @bind-Value:after="RecalculateWarrantyExpiries" class="form-control" />
+                        @if (_compressorExpiry.HasValue)
+                        {
+                            <small class="@GetWarrantyTermCss(_compressorExpiry.Value)">Expires: @_compressorExpiry.Value.ToString("MMM dd, yyyy")</small>
+                        }
+                    </div>
+                    <div class="col-md-3"></div>
+                </div>
+
+                <!-- Registration & Service -->
+                <div class="row g-2 mt-2">
                     <div class="col-md-3">
                         <label class="form-label">Next Service Due</label>
                         <InputDate @bind-Value="form.NextServiceDue" class="form-control" />
+                        <small class="text-muted">Defaults to 1yr from install</small>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Warranty Start</label>
-                        <InputDate @bind-Value="form.WarrantyStartDate" class="form-control" />
+                    <div class="col-md-3 d-flex align-items-center pt-4">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="form.RegisteredOnline" class="form-check-input" id="chkRegistered" />
+                            <label class="form-check-label" for="chkRegistered">Registered Online</label>
+                        </div>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Warranty Term (years)</label>
-                        <InputNumber @bind-Value="form.WarrantyTermYears" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Warranty Expiry</label>
-                        <InputDate @bind-Value="form.WarrantyExpiry" class="form-control" />
+                    @if (!form.RegisteredOnline)
+                    {
+                        <div class="col-md-6 pt-4">
+                            <div class="alert alert-warning py-1 px-2 mb-0 small">
+                                <i class="bi bi-exclamation-triangle me-1"></i>Remember to register this equipment online to honor the full manufacturer warranty.
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <hr class="my-3" />
+                <!-- Linked Jobs -->
+                <h6 class="fw-semibold mb-2"><i class="bi bi-briefcase me-1"></i>Linked Jobs</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-12">
+                        <div class="border rounded p-2" style="max-height:200px;overflow-y:auto;">
+                            @if (!form.CustomerId.HasValue && !form.SiteId.HasValue)
+                            {
+                                <small class="text-muted">Select a customer or site to see matching jobs.</small>
+                            }
+                            else if (FilteredJobOptions.Count == 0)
+                            {
+                                <small class="text-muted">No jobs found for the selected customer/site.</small>
+                            }
+                            else
+                            {
+                                @foreach (var j in FilteredJobOptions)
+                                {
+                                    <div class="form-check">
+                                        <input type="checkbox" class="form-check-input" id="chkJob_@j.Id"
+                                               checked="@(_selectedJobIds.Contains(j.Id))"
+                                               @onchange="() => ToggleJob(j.Id)" />
+                                        <label class="form-check-label" for="chkJob_@j.Id">@j.Display</label>
+                                    </div>
+                                }
+                            }
+                        </div>
+                        <small class="text-muted">@_selectedJobIds.Count job(s) selected</small>
                     </div>
                 </div>
 
-                <hr class="my-2" />
-                <h6 class="text-muted mb-2"><i class="bi bi-link-45deg me-1"></i>Connections</h6>
+                <hr class="my-3" />
+                <!-- Notes -->
                 <div class="row g-2">
-                    <div class="col-md-4">
-                        <label class="form-label">Customer</label>
-                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
-                            <option value="">— Select Customer —</option>
-                            @foreach (var c in _customers)
-                            {
-                                <option value="@c.Id">@c.Name</option>
-                            }
-                        </InputSelect>
+                    <div class="col-md-3">
+                        <label class="form-label">Value</label>
+                        <InputNumber @bind-Value="form.Value" class="form-control" />
                     </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Site</label>
-                        <InputSelect @bind-Value="form.SiteId" class="form-select">
-                            <option value="">— Select Site —</option>
-                            @foreach (var s in _sites)
-                            {
-                                <option value="@s.Id">@s.Name</option>
-                            }
-                        </InputSelect>
-                    </div>
-                    <div class="col-12">
+                    <div class="col-md-9">
                         <label class="form-label">Notes</label>
                         <InputTextArea @bind-Value="form.Notes" class="form-control" rows="2" />
                     </div>
                 </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
-                    <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
+
+                <div class="mt-3 d-flex justify-content-between">
+                    <button type="button" class="btn btn-outline-secondary" @onclick="GoToList">Cancel</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>@(editId.HasValue ? "Save Changes" : "Create Asset")</button>
                 </div>
                 @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
             </EditForm>
@@ -254,9 +464,13 @@ else if (mode == "detail" && detail is not null)
                         <div class="col-sm-4"><strong>Brand:</strong> @(detail.Brand ?? "—")</div>
                         <div class="col-sm-4"><strong>Model:</strong> @(detail.Model ?? "—")</div>
                         <div class="col-sm-4"><strong>Serial:</strong> @(detail.SerialNumber ?? "—")</div>
+                        @if (detail.Nickname is not null) { <div class="col-sm-4"><strong>Nickname:</strong> @detail.Nickname</div> }
+                        @if (detail.AssetTag is not null) { <div class="col-sm-4"><strong>Asset Tag:</strong> @detail.AssetTag</div> }
                         @if (detail.UnitConfiguration is not null) { <div class="col-sm-4"><strong>Config:</strong> @detail.UnitConfiguration</div> }
+                        @if (detail.FuelType is not null) { <div class="col-sm-4"><strong>Fuel:</strong> @detail.FuelType</div> }
                         @if (detail.LocationOnSite is not null) { <div class="col-sm-4"><strong>Location:</strong> @detail.LocationOnSite</div> }
                         <div class="col-sm-4"><strong>Value:</strong> @(detail.Value?.ToString("C") ?? "—")</div>
+                        @if (detail.InstalledBy is not null) { <div class="col-sm-4"><strong>Installed By:</strong> @detail.InstalledBy</div> }
                     </div>
                 </div>
             </div>
@@ -268,39 +482,67 @@ else if (mode == "detail" && detail is not null)
             {
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
-                        <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>HVAC Specifications</h6>
+                        <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>Capacity & Efficiency</h6>
                         <div class="row g-2">
-                            @if (detail.Tonnage.HasValue) { <div class="col-sm-3"><strong>Tonnage:</strong> @detail.Tonnage</div> }
+                            @if (detail.Tonnage.HasValue) { <div class="col-sm-3"><strong>Tonnage:</strong> @detail.Tonnage.Value.ToString("N0") BTU</div> }
                             @if (detail.BTURating.HasValue) { <div class="col-sm-3"><strong>BTU:</strong> @detail.BTURating.Value.ToString("N0")</div> }
                             @if (detail.SEER.HasValue) { <div class="col-sm-3"><strong>SEER:</strong> @detail.SEER</div> }
+                            @if (detail.SEER2.HasValue) { <div class="col-sm-3"><strong>SEER2:</strong> @detail.SEER2</div> }
                             @if (detail.AFUE.HasValue) { <div class="col-sm-3"><strong>AFUE:</strong> @detail.AFUE%</div> }
                             @if (detail.HSPF.HasValue) { <div class="col-sm-3"><strong>HSPF:</strong> @detail.HSPF</div> }
-                            @if (detail.FuelType is not null) { <div class="col-sm-3"><strong>Fuel:</strong> @detail.FuelType</div> }
-                            @if (detail.FilterSize is not null) { <div class="col-sm-3"><strong>Filter:</strong> @detail.FilterSize</div> }
+                            @if (detail.HSPF2.HasValue) { <div class="col-sm-3"><strong>HSPF2:</strong> @detail.HSPF2</div> }
+                            @if (detail.EER.HasValue) { <div class="col-sm-3"><strong>EER:</strong> @detail.EER</div> }
                         </div>
                         @if (detail.RefrigerantType is not null)
                         {
                             <hr />
+                            <h6 class="text-muted mb-2"><i class="bi bi-snow me-1"></i>Refrigerant & Electrical</h6>
                             <div class="row g-2">
-                                <div class="col-sm-6"><strong>Refrigerant:</strong> @detail.RefrigerantType</div>
-                                <div class="col-sm-6"><strong>Quantity:</strong> @(detail.RefrigerantQuantity?.ToString() ?? "—") lbs</div>
+                                <div class="col-sm-3"><strong>Refrigerant:</strong> @detail.RefrigerantType</div>
+                                <div class="col-sm-3"><strong>Charge:</strong> @(detail.RefrigerantQuantity?.ToString() ?? "—") oz</div>
+                                @if (detail.Voltage is not null) { <div class="col-sm-3"><strong>Voltage:</strong> @detail.Voltage</div> }
+                                @if (detail.Phase is not null) { <div class="col-sm-3"><strong>Phase:</strong> @detail.Phase</div> }
                             </div>
                         }
                     </div>
                 </div>
             }
 
-            <!-- Electrical Specs -->
-            @if (detail.Voltage is not null || detail.Phase is not null || detail.AmpRating.HasValue || detail.PanelType is not null)
+            <!-- Filter Information -->
+            @if (detail.FilterSize is not null || detail.FilterType is not null || detail.FilterChangeIntervalMonths.HasValue)
             {
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
-                        <h6 class="text-muted mb-2"><i class="bi bi-lightning-charge me-1"></i>Electrical</h6>
+                        <h6 class="text-muted mb-2"><i class="bi bi-funnel me-1"></i>Filter Information</h6>
                         <div class="row g-2">
-                            @if (detail.Voltage is not null) { <div class="col-sm-3"><strong>Voltage:</strong> @detail.Voltage</div> }
-                            @if (detail.Phase is not null) { <div class="col-sm-3"><strong>Phase:</strong> @detail.Phase</div> }
-                            @if (detail.AmpRating.HasValue) { <div class="col-sm-3"><strong>Amps:</strong> @detail.AmpRating A</div> }
-                            @if (detail.PanelType is not null) { <div class="col-sm-3"><strong>Panel:</strong> @detail.PanelType</div> }
+                            @if (detail.FilterSize is not null) { <div class="col-sm-3"><strong>Size:</strong> @detail.FilterSize</div> }
+                            @if (detail.FilterType is not null) { <div class="col-sm-3"><strong>Type:</strong> @detail.FilterType</div> }
+                            @if (detail.FilterChangeIntervalMonths.HasValue) { <div class="col-sm-3"><strong>Interval:</strong> @detail.FilterChangeIntervalMonths months</div> }
+                            @if (detail.FilterLastChanged.HasValue) { <div class="col-sm-3"><strong>Last Changed:</strong> @detail.FilterLastChanged.Value.ToString("MMM dd, yyyy")</div> }
+                            @if (detail.FilterNextDue.HasValue)
+                            {
+                                var filterOverdue = detail.FilterNextDue.Value < DateTime.UtcNow;
+                                <div class="col-sm-3">
+                                    <strong>Next Due:</strong>
+                                    <span class="@(filterOverdue ? "text-danger fw-bold" : "")">@detail.FilterNextDue.Value.ToString("MMM dd, yyyy") @(filterOverdue ? "(Overdue)" : "")</span>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Thermostat -->
+            @if (detail.ThermostatBrand is not null || detail.ThermostatModel is not null || detail.ThermostatType is not null)
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-2"><i class="bi bi-thermometer me-1"></i>Thermostat</h6>
+                        <div class="row g-2">
+                            @if (detail.ThermostatBrand is not null) { <div class="col-sm-3"><strong>Brand:</strong> @detail.ThermostatBrand</div> }
+                            @if (detail.ThermostatModel is not null) { <div class="col-sm-3"><strong>Model:</strong> @detail.ThermostatModel</div> }
+                            @if (detail.ThermostatType is not null) { <div class="col-sm-3"><strong>Type:</strong> @detail.ThermostatType</div> }
+                            <div class="col-sm-3"><strong>WiFi:</strong> @(detail.ThermostatWiFiEnabled ? "Yes" : "No")</div>
                         </div>
                     </div>
                 </div>
@@ -362,7 +604,7 @@ else if (mode == "detail" && detail is not null)
                             {
                                 var laborDays = (int)(detail.LaborWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
                                 <div class="col-sm-4">
-                                    <strong>Labor:</strong>
+                                    <strong>Labor@(detail.LaborWarrantyTermYears.HasValue ? $" ({detail.LaborWarrantyTermYears}yr)" : ""):</strong>
                                     <span class="@(laborDays < 0 ? "text-danger" : laborDays < 90 ? "text-warning" : "text-success")">
                                         @detail.LaborWarrantyExpiry.Value.ToString("MMM dd, yyyy")
                                         @if (laborDays < 0) { <small>(Expired)</small> }
@@ -374,7 +616,7 @@ else if (mode == "detail" && detail is not null)
                             {
                                 var partsDays = (int)(detail.PartsWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
                                 <div class="col-sm-4">
-                                    <strong>Parts:</strong>
+                                    <strong>Parts@(detail.PartsWarrantyTermYears.HasValue ? $" ({detail.PartsWarrantyTermYears}yr)" : ""):</strong>
                                     <span class="@(partsDays < 0 ? "text-danger" : partsDays < 90 ? "text-warning" : "text-success")">
                                         @detail.PartsWarrantyExpiry.Value.ToString("MMM dd, yyyy")
                                         @if (partsDays < 0) { <small>(Expired)</small> }
@@ -386,7 +628,7 @@ else if (mode == "detail" && detail is not null)
                             {
                                 var compDays = (int)(detail.CompressorWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
                                 <div class="col-sm-4">
-                                    <strong>Compressor:</strong>
+                                    <strong>Compressor@(detail.CompressorWarrantyTermYears.HasValue ? $" ({detail.CompressorWarrantyTermYears}yr)" : ""):</strong>
                                     <span class="@(compDays < 0 ? "text-danger" : compDays < 90 ? "text-warning" : "text-success")">
                                         @detail.CompressorWarrantyExpiry.Value.ToString("MMM dd, yyyy")
                                         @if (compDays < 0) { <small>(Expired)</small> }
@@ -396,6 +638,21 @@ else if (mode == "detail" && detail is not null)
                             }
                         </div>
                     }
+                    <hr />
+                    <div class="row g-2">
+                        <div class="col-sm-4">
+                            <strong>Registered Online:</strong>
+                            @if (detail.RegisteredOnline)
+                            {
+                                <span class="text-success"><i class="bi bi-check-circle-fill me-1"></i>Yes</span>
+                            }
+                            else
+                            {
+                                <span class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>No — register to honor full warranty</span>
+                            }
+                        </div>
+                        @if (detail.WarrantedByCompany) { <div class="col-sm-4"><span class="badge bg-primary"><i class="bi bi-award me-1"></i>Warranted by SE HVAC</span></div> }
+                    </div>
                 </div>
             </div>
 
@@ -523,6 +780,70 @@ else if (mode == "detail" && detail is not null)
 
         <!-- Sidebar -->
         <div class="col-md-4">
+            <!-- Connected Equipment (Asset Links) -->
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2"><i class="bi bi-diagram-3 me-1"></i>Connected Equipment (@detail.LinkedAssets.Count)</h6>
+                    @if (detail.LinkedAssets.Any())
+                    {
+                        @foreach (var la in detail.LinkedAssets)
+                        {
+                            <div class="d-flex align-items-start justify-content-between border-bottom py-2">
+                                <div>
+                                    <a href="assets/@la.Id" class="fw-semibold text-decoration-none">@la.Name</a>
+                                    @if (la.AssetType is not null) { <br /><small class="text-muted">@la.AssetType</small> }
+                                    @if (la.Brand is not null || la.Model is not null) { <br /><small class="text-muted">@la.Brand @la.Model</small> }
+                                    @if (la.LocationOnSite is not null) { <br /><small class="text-muted"><i class="bi bi-geo-alt me-1"></i>@la.LocationOnSite</small> }
+                                    @if (la.LinkType is not null) { <span class="badge bg-info text-dark ms-1" style="font-size:0.7em;">@la.LinkType</span> }
+                                </div>
+                                <button class="btn btn-outline-danger btn-sm ms-2" title="Unlink" @onclick="() => UnlinkAsset(la.Id)">
+                                    <i class="bi bi-x-lg"></i>
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <p class="text-muted small mb-2">No connected equipment.</p>
+                    }
+                    @if (!_showLinkForm)
+                    {
+                        <button class="btn btn-outline-primary btn-sm mt-2 w-100" @onclick="() => ShowLinkForm()">
+                            <i class="bi bi-plus-lg me-1"></i>Link Equipment
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="mt-2 border rounded p-2 bg-light">
+                            <label class="form-label small fw-semibold mb-1">Link to Asset</label>
+                            <select class="form-select form-select-sm mb-1" @bind="_linkTargetAssetId">
+                                <option value="0">— Select Asset —</option>
+                                @foreach (var opt in _linkableAssets.Where(a => a.Id != detail.Id && !detail.LinkedAssets.Any(la => la.Id == a.Id)))
+                                {
+                                    <option value="@opt.Id">@opt.Display</option>
+                                }
+                            </select>
+                            <label class="form-label small mb-1">System Type</label>
+                            <select class="form-select form-select-sm mb-2" @bind="_linkType">
+                                <option value="">— Optional —</option>
+                                <option value="Split System">Split System</option>
+                                <option value="Packaged Unit">Packaged Unit</option>
+                                <option value="Mini-Split System">Mini-Split System</option>
+                                <option value="Heat Pump System">Heat Pump System</option>
+                                <option value="Zoned System">Zoned System</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-primary btn-sm flex-grow-1" @onclick="LinkSelectedAsset" disabled="@(_linkTargetAssetId == 0)">
+                                    <i class="bi bi-link-45deg me-1"></i>Link
+                                </button>
+                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showLinkForm = false">Cancel</button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="text-muted mb-2"><i class="bi bi-link-45deg me-1"></i>Connections</h6>
@@ -628,104 +949,335 @@ else
 }
 
 @code {
-    [Parameter] public int? Id { get; set; }
+[Parameter] public int? Id { get; set; }
 
-    private string mode = "list";
-    private List<AssetListItem>? assets;
-    private AssetFilter filter = new();
-    private string filterStatus = "";
-    private AssetDetail? detail;
-    private AssetEditModel form = new();
-    private int? editId;
-    private string? errorMsg;
-    private bool _confirmArchive;
-    private List<CustomerListItem> _customers = [];
-    private List<SiteListItem> _sites = [];
+private string mode = "list";
+private List<AssetListItem>? assets;
+private AssetFilter filter = new();
+private string filterStatus = "";
+private AssetDetail? detail;
+private AssetEditModel form = new();
+private int? editId;
+private string? errorMsg;
+private bool _confirmArchive;
+private List<CustomerListItem> _customers = [];
+private List<SiteListItem> _sites = [];
 
-    protected override void OnInitialized()
+// Asset linking state
+private bool _showLinkForm;
+private List<AssetOption> _linkableAssets = [];
+private int _linkTargetAssetId;
+private string _linkType = "";
+
+    private List<SiteListItem> FilteredAssetSites => form.CustomerId.HasValue
+        ? _sites.Where(s => s.CustomerId == form.CustomerId.Value).ToList()
+        : _sites;
+private List<ProductListItem> _products = [];
+private List<JobOption> _jobOptions = [];
+private HashSet<int> _selectedJobIds = [];
+
+    private List<JobOption> FilteredJobOptions => form.SiteId.HasValue || form.CustomerId.HasValue
+        ? _jobOptions
+        : [];
+
+// Dropdown options loaded from DropdownService
+private List<string> _brandOptions = [];
+private List<string> _assetTypeOptions = [];
+private List<string> _fuelTypeOptions = [];
+private List<string> _unitConfigOptions = [];
+private List<string> _voltageOptions = [];
+private List<string> _phaseOptions = [];
+private List<string> _refrigerantOptions = [];
+private List<string> _filterSizeOptions = [];
+private List<string> _filterTypeOptions = [];
+private List<string> _thermostatTypeOptions = [];
+private List<string> _locationOptions = [];
+
+// Bound select values for dropdown ? form sync
+private string _brandValue = "";
+private string _assetTypeValue = "";
+private string _fuelTypeValue = "";
+private string _unitConfigValue = "";
+private string _voltageValue = "";
+private string _phaseValue = "";
+private string _refrigerantValue = "";
+private string _filterSizeValue = "";
+private string _filterTypeValue = "";
+private string _thermostatTypeValue = "";
+private string _locationValue = "";
+private string _tonnageValue = "";
+
+// Computed warranty expiries for live display in form
+private DateTime? _laborExpiry;
+private DateTime? _partsExpiry;
+private DateTime? _compressorExpiry;
+
+protected override void OnInitialized()
+{
+    Nav.LocationChanged += OnLocationChanged;
+}
+
+protected override async Task OnParametersSetAsync()
+{
+    await DetermineView();
+}
+
+private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+{
+    await DetermineView();
+    await InvokeAsync(StateHasChanged);
+}
+
+private async Task DetermineView()
+{
+    var uri = Nav.ToAbsoluteUri(Nav.Uri);
+    if (uri.AbsolutePath.Contains("/assets/new", StringComparison.OrdinalIgnoreCase))
     {
-        Nav.LocationChanged += OnLocationChanged;
+        mode = "form"; editId = null;
+        form = new AssetEditModel { WarrantyStartDate = DateTime.UtcNow.Date };
+        _selectedJobIds = [];
+        await LoadFormDependencies();
     }
-
-    protected override async Task OnParametersSetAsync()
+    else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
     {
-        await DetermineView();
+        await LoadFormDependencies();
+        await LoadForEdit(Id.Value);
     }
+    else if (Id.HasValue)
+        await LoadDetail(Id.Value);
+    else { mode = "list"; await LoadAssets(); }
+}
 
-    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
-    {
-        await DetermineView();
-        await InvokeAsync(StateHasChanged);
-    }
+private async Task LoadFormDependencies()
+{
+    _customers = await CustomerSvc.GetCustomersAsync();
+    _sites = await SiteSvc.GetSitesAsync();
+    _products = await ProductSvc.GetProductsAsync();
+    _jobOptions = await JobSvc.GetJobOptionsAsync(form.CustomerId, form.SiteId);
+    await LoadDropdownOptions();
+}
 
-    private async Task DetermineView()
-    {
-        var uri = Nav.ToAbsoluteUri(Nav.Uri);
-        if (uri.AbsolutePath.Contains("/assets/new", StringComparison.OrdinalIgnoreCase))
-        {
-            mode = "form"; editId = null; form = new();
-            _customers = await CustomerSvc.GetCustomersAsync();
-            _sites = await SiteSvc.GetSitesAsync();
-        }
-        else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
-        {
-            _customers = await CustomerSvc.GetCustomersAsync();
-            _sites = await SiteSvc.GetSitesAsync();
-            await LoadForEdit(Id.Value);
-        }
-        else if (Id.HasValue)
-            await LoadDetail(Id.Value);
-        else { mode = "list"; await LoadAssets(); }
-    }
+private async Task LoadDropdownOptions()
+{
+    _brandOptions = (await DropdownSvc.GetOptionsAsync("Brand")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _assetTypeOptions = (await DropdownSvc.GetOptionsAsync("EquipmentCategory")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _fuelTypeOptions = (await DropdownSvc.GetOptionsAsync("FuelType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _unitConfigOptions = (await DropdownSvc.GetOptionsAsync("UnitConfiguration")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _voltageOptions = (await DropdownSvc.GetOptionsAsync("Voltage")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _phaseOptions = (await DropdownSvc.GetOptionsAsync("Phase")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _refrigerantOptions = (await DropdownSvc.GetOptionsAsync("RefrigerantType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _filterSizeOptions = (await DropdownSvc.GetOptionsAsync("FilterSize")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _filterTypeOptions = (await DropdownSvc.GetOptionsAsync("FilterType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _thermostatTypeOptions = (await DropdownSvc.GetOptionsAsync("ThermostatType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _locationOptions = (await DropdownSvc.GetOptionsAsync("AssetLocation")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+}
 
-    public void Dispose()
+private void SyncDropdownSelects()
+{
+    _brandValue = form.Brand ?? "";
+    _assetTypeValue = form.AssetType ?? "";
+    _fuelTypeValue = form.FuelType ?? "";
+    _unitConfigValue = form.UnitConfiguration ?? "";
+    _voltageValue = form.Voltage ?? "";
+    _phaseValue = form.Phase ?? "";
+    _refrigerantValue = form.RefrigerantType ?? "";
+    _filterSizeValue = form.FilterSize ?? "";
+    _filterTypeValue = form.FilterType ?? "";
+    _thermostatTypeValue = form.ThermostatType ?? "";
+    _locationValue = form.LocationOnSite ?? "";
+    // Sync tonnage dropdown
+    if (form.Tonnage.HasValue)
     {
-        Nav.LocationChanged -= OnLocationChanged;
+        var knownBtus = new[] { 6000m, 9000m, 12000m, 18000m, 24000m, 30000m, 36000m, 42000m, 48000m, 60000m };
+        _tonnageValue = knownBtus.Contains(form.Tonnage.Value) ? form.Tonnage.Value.ToString("0") : "Other";
     }
+    else
+    {
+        _tonnageValue = "";
+    }
+    RecalculateWarrantyExpiries();
+}
 
-    private async Task LoadAssets()
-    {
-        filter.Status = string.IsNullOrWhiteSpace(filterStatus) ? null : Enum.Parse<AssetStatus>(filterStatus);
-        assets = await AssetSvc.GetAssetsAsync(filter);
-    }
+// Dropdown change handlers
+private void OnTonnageChanged()
+{
+    if (string.IsNullOrEmpty(_tonnageValue))
+        form.Tonnage = null;
+    else if (_tonnageValue != "Other" && decimal.TryParse(_tonnageValue, out var btu))
+        form.Tonnage = btu;
+    // When "Other" is selected, form.Tonnage is bound directly via the input
+}
+private void OnBrandChanged() => form.Brand = string.IsNullOrEmpty(_brandValue) ? null : _brandValue;
+private void OnAssetTypeChanged() => form.AssetType = string.IsNullOrEmpty(_assetTypeValue) ? null : _assetTypeValue;
+private void OnFuelTypeChanged() => form.FuelType = string.IsNullOrEmpty(_fuelTypeValue) ? null : _fuelTypeValue;
+private void OnUnitConfigChanged() => form.UnitConfiguration = string.IsNullOrEmpty(_unitConfigValue) ? null : _unitConfigValue;
+private void OnVoltageChanged() => form.Voltage = string.IsNullOrEmpty(_voltageValue) ? null : _voltageValue;
+private void OnPhaseChanged() => form.Phase = string.IsNullOrEmpty(_phaseValue) ? null : _phaseValue;
+private void OnRefrigerantChanged() => form.RefrigerantType = string.IsNullOrEmpty(_refrigerantValue) ? null : _refrigerantValue;
+private void OnFilterSizeChanged() => form.FilterSize = string.IsNullOrEmpty(_filterSizeValue) ? null : _filterSizeValue;
+private void OnFilterTypeChanged() => form.FilterType = string.IsNullOrEmpty(_filterTypeValue) ? null : _filterTypeValue;
+private void OnThermostatTypeChanged() => form.ThermostatType = string.IsNullOrEmpty(_thermostatTypeValue) ? null : _thermostatTypeValue;
+private void OnLocationChanged() => form.LocationOnSite = string.IsNullOrEmpty(_locationValue) ? null : _locationValue;
 
-    private async Task LoadDetail(int id)
+private async Task OnAssetCustomerChanged()
+{
+    // Reset site if it no longer belongs to the selected customer
+    if (form.SiteId.HasValue && form.CustomerId.HasValue)
     {
-        detail = await AssetSvc.GetAssetAsync(id);
-        mode = detail is not null ? "detail" : "list";
-        if (mode == "list") await LoadAssets();
+        var site = _sites.FirstOrDefault(s => s.Id == form.SiteId.Value);
+        if (site is not null && site.CustomerId.HasValue && site.CustomerId != form.CustomerId)
+            form.SiteId = null;
     }
+    // Reload job options for the new customer/site
+    _jobOptions = await JobSvc.GetJobOptionsAsync(form.CustomerId, form.SiteId);
+    // Remove any selected jobs that are no longer in the filtered list
+    var validIds = _jobOptions.Select(j => j.Id).ToHashSet();
+    _selectedJobIds.IntersectWith(validIds);
+}
 
-    private async Task LoadForEdit(int id)
+private async Task OnAssetSiteChanged()
+{
+    // Reload job options for the new site (or fall back to customer)
+    _jobOptions = await JobSvc.GetJobOptionsAsync(form.CustomerId, form.SiteId);
+    var validIds = _jobOptions.Select(j => j.Id).ToHashSet();
+    _selectedJobIds.IntersectWith(validIds);
+}
+
+private async Task OnProductSelected(ChangeEventArgs e)
+{
+    if (!int.TryParse(e.Value?.ToString(), out var productId)) { form.ProductId = null; return; }
+    form.ProductId = productId;
+    var product = await ProductSvc.GetProductAsync(productId);
+    if (product is null) return;
+
+    // Auto-fill fields from product
+    form.Brand = product.Brand;
+    form.Name = string.IsNullOrWhiteSpace(form.Name) ? product.Name : form.Name;
+    form.LaborWarrantyTermYears = product.LaborWarrantyYears;
+    form.PartsWarrantyTermYears = product.PartsWarrantyYears;
+    form.CompressorWarrantyTermYears = product.CompressorWarrantyYears;
+
+    // Sync dropdown selects
+    _brandValue = form.Brand ?? "";
+    RecalculateWarrantyExpiries();
+}
+
+private void OnInstallDateChanged()
+{
+    // Auto-set NextServiceDue to 1 year from install date
+    if (form.InstallDate.HasValue && !form.NextServiceDue.HasValue)
+        form.NextServiceDue = form.InstallDate.Value.AddYears(1);
+}
+
+private void RecalculateWarrantyExpiries()
+{
+    var start = form.WarrantyStartDate ?? form.InstallDate;
+    _laborExpiry = start.HasValue && form.LaborWarrantyTermYears.HasValue && form.LaborWarrantyTermYears > 0
+        ? start.Value.AddYears(form.LaborWarrantyTermYears.Value) : null;
+    _partsExpiry = start.HasValue && form.PartsWarrantyTermYears.HasValue && form.PartsWarrantyTermYears > 0
+        ? start.Value.AddYears(form.PartsWarrantyTermYears.Value) : null;
+    _compressorExpiry = start.HasValue && form.CompressorWarrantyTermYears.HasValue && form.CompressorWarrantyTermYears > 0
+        ? start.Value.AddYears(form.CompressorWarrantyTermYears.Value) : null;
+
+    // Set overall expiry to latest
+    var all = new[] { _laborExpiry, _partsExpiry, _compressorExpiry }.Where(d => d.HasValue).Select(d => d!.Value).ToArray();
+    form.WarrantyExpiry = all.Length > 0 ? all.Max() : null;
+}
+
+private string GetWarrantyTermCss(DateTime expiry)
+{
+    var days = (expiry - DateTime.UtcNow).TotalDays;
+    if (days < 0) return "text-danger";
+    if (days < 90) return "text-warning";
+    return "text-success";
+}
+
+private async Task ShowLinkForm()
+{
+    if (detail is not null)
+        _linkableAssets = await AssetSvc.GetAssetOptionsAsync(detail.CustomerId, detail.SiteId);
+    _linkTargetAssetId = 0;
+    _linkType = "";
+    _showLinkForm = true;
+}
+
+private async Task LinkSelectedAsset()
+{
+    if (detail is null || _linkTargetAssetId == 0) return;
+    await AssetSvc.LinkAssetsAsync(detail.Id, _linkTargetAssetId, string.IsNullOrEmpty(_linkType) ? null : _linkType);
+    _showLinkForm = false;
+    await LoadDetail(detail.Id);
+}
+
+private async Task UnlinkAsset(int linkedAssetId)
+{
+    if (detail is null) return;
+    await AssetSvc.UnlinkAssetAsync(detail.Id, linkedAssetId);
+    await LoadDetail(detail.Id);
+}
+
+public void Dispose()
+{
+    Nav.LocationChanged -= OnLocationChanged;
+}
+
+private async Task LoadAssets()
+{
+    filter.Status = string.IsNullOrWhiteSpace(filterStatus) ? null : Enum.Parse<AssetStatus>(filterStatus);
+    assets = await AssetSvc.GetAssetsAsync(filter);
+}
+
+private async Task LoadDetail(int id)
+{
+    detail = await AssetSvc.GetAssetAsync(id);
+    mode = detail is not null ? "detail" : "list";
+    if (mode == "list") await LoadAssets();
+}
+
+private async Task LoadForEdit(int id)
+{
+    var d = await AssetSvc.GetAssetAsync(id);
+    if (d is null) { mode = "list"; await LoadAssets(); return; }
+    editId = id;
+    form = new AssetEditModel
     {
-        var d = await AssetSvc.GetAssetAsync(id);
-        if (d is null) { mode = "list"; await LoadAssets(); return; }
-        editId = id;
-        form = new AssetEditModel
-        {
-            Name = d.Name, Model = d.Model, SerialNumber = d.SerialNumber,
-            AssetType = d.AssetType, Brand = d.Brand, FuelType = d.FuelType,
-            UnitConfiguration = d.UnitConfiguration, BTURating = d.BTURating,
-            FilterSize = d.FilterSize, Tonnage = d.Tonnage, SEER = d.SEER,
-            AFUE = d.AFUE, HSPF = d.HSPF, Voltage = d.Voltage, Phase = d.Phase,
-            LocationOnSite = d.LocationOnSite, ManufactureDate = d.ManufactureDate,
-            AmpRating = d.AmpRating, PanelType = d.PanelType,
-            PipeMaterial = d.PipeMaterial, GallonCapacity = d.GallonCapacity,
-            RefrigerantType = d.RefrigerantType, RefrigerantQuantity = d.RefrigerantQuantity,
-            InstallDate = d.InstallDate, LastServiceDate = d.LastServiceDate,
-            NextServiceDue = d.NextServiceDue, WarrantyStartDate = d.WarrantyStartDate,
-            WarrantyTermYears = d.WarrantyTermYears, WarrantyExpiry = d.WarrantyExpiry,
-            Status = d.Status, Value = d.Value, Notes = d.Notes,
-            ProductId = d.ProductId, CustomerId = d.CustomerId, SiteId = d.SiteId
-        };
-        mode = "form";
-    }
+        Name = d.Name, Model = d.Model, SerialNumber = d.SerialNumber,
+        AssetType = d.AssetType, Brand = d.Brand, FuelType = d.FuelType,
+        UnitConfiguration = d.UnitConfiguration, BTURating = d.BTURating,
+        FilterSize = d.FilterSize, Tonnage = d.Tonnage, SEER = d.SEER,
+        SEER2 = d.SEER2, AFUE = d.AFUE, HSPF = d.HSPF, HSPF2 = d.HSPF2,
+        EER = d.EER, AssetTag = d.AssetTag, Nickname = d.Nickname,
+        Voltage = d.Voltage, Phase = d.Phase,
+        LocationOnSite = d.LocationOnSite, ManufactureDate = d.ManufactureDate,
+        AmpRating = d.AmpRating, PanelType = d.PanelType,
+        PipeMaterial = d.PipeMaterial, GallonCapacity = d.GallonCapacity,
+        RefrigerantType = d.RefrigerantType, RefrigerantQuantity = d.RefrigerantQuantity,
+        FilterType = d.FilterType, FilterChangeIntervalMonths = d.FilterChangeIntervalMonths,
+        FilterLastChanged = d.FilterLastChanged, FilterNextDue = d.FilterNextDue,
+        ThermostatBrand = d.ThermostatBrand, ThermostatModel = d.ThermostatModel,
+        ThermostatType = d.ThermostatType, ThermostatWiFiEnabled = d.ThermostatWiFiEnabled,
+        InstallDate = d.InstallDate, LastServiceDate = d.LastServiceDate,
+        NextServiceDue = d.NextServiceDue, WarrantyStartDate = d.WarrantyStartDate,
+        WarrantyTermYears = d.WarrantyTermYears, WarrantyExpiry = d.WarrantyExpiry,
+        LaborWarrantyTermYears = d.LaborWarrantyTermYears,
+        PartsWarrantyTermYears = d.PartsWarrantyTermYears,
+        CompressorWarrantyTermYears = d.CompressorWarrantyTermYears,
+        RegisteredOnline = d.RegisteredOnline, InstalledBy = d.InstalledBy,
+        WarrantedByCompany = d.WarrantedByCompany,
+        Status = d.Status, Value = d.Value, Notes = d.Notes,
+        ProductId = d.ProductId, CustomerId = d.CustomerId, SiteId = d.SiteId
+    };
+    _selectedJobIds = d.LinkedJobs.Select(j => j.Id).ToHashSet();
+    SyncDropdownSelects();
+    mode = "form";
+}
 
     private async Task SaveAsset()
     {
         try
         {
             errorMsg = null;
+            form.JobIds = _selectedJobIds.ToList();
             if (editId.HasValue) await AssetSvc.UpdateAssetAsync(editId.Value, form);
             else await AssetSvc.CreateAssetAsync(form);
             Nav.NavigateTo("/assets");
@@ -806,7 +1358,13 @@ else
     {
         if (entry.Source == "Job" && entry.SourceId.HasValue)
             Nav.NavigateTo($"/jobs/{entry.SourceId.Value}");
-        else if (entry.Source == "ServiceHistory" && entry.SourceId.HasValue)
-            Nav.NavigateTo($"/service-history/{entry.SourceId.Value}");
+        else if (entry.Source == "ServiceHistory")
+            Nav.NavigateTo("/servicehistory");
+    }
+
+    private void ToggleJob(int jobId)
+    {
+        if (!_selectedJobIds.Remove(jobId))
+            _selectedJobIds.Add(jobId);
     }
 }

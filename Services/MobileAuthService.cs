@@ -27,7 +27,7 @@ public class MobileAuthService : IMobileAuthService
 
     public async Task<MobileAuthResult> LoginAsync(string username, string password, bool rememberMe = false)
     {
-        System.Diagnostics.Debug.WriteLine($"[AUTH] LoginAsync called — username='{username}', password length={password?.Length ?? -1}");
+        System.Diagnostics.Debug.WriteLine($"[AUTH] LoginAsync called — username='{username}', password length={password.Length}");
 
         var user = await _db.Users
             .Include(u => u.Employee)
@@ -47,6 +47,9 @@ public class MobileAuthService : IMobileAuthService
 
         if (!user.IsActive)
             return MobileAuthResult.Failure("Account is inactive. Contact your administrator.");
+
+        if (string.IsNullOrEmpty(user.PasswordHash))
+            return MobileAuthResult.Failure("Invalid username or password.");
 
         var verifyResult = VerifyPassword(password, user.PasswordHash);
         System.Diagnostics.Debug.WriteLine($"[AUTH] VerifyPassword result: {verifyResult}");

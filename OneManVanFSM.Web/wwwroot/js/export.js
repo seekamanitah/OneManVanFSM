@@ -10,3 +10,22 @@ window.downloadCsvFile = function (fileName, csvContent) {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 };
+
+window.getLocalStorage = function (key) {
+    return localStorage.getItem(key);
+};
+
+window.setLocalStorage = function (key, value) {
+    localStorage.setItem(key, value);
+};
+
+window.triggerPrint = function () {
+    setTimeout(function () { window.print(); }, 50);
+};
+
+window.openMailto = function (to, subject, body) {
+    var mailto = 'mailto:' + encodeURIComponent(to)
+        + '?subject=' + encodeURIComponent(subject)
+        + '&body=' + encodeURIComponent(body);
+    window.location.href = mailto;
+};

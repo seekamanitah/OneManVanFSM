@@ -44,14 +44,15 @@
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             <h5>Company Profile & Branding</h5>
-            <div class="row g-3 mt-2">
+            <div class="row g-2 mt-2">
                 <div class="col-md-6">
                     <label class="form-label">Company Name</label>
                     <input type="text" class="form-control" @bind="_companyName" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Business Phone</label>
-                    <input type="text" class="form-control" placeholder="(555) 000-0000" @bind="_companyPhone" />
+                    <input type="tel" class="form-control" value="@_companyPhone"
+                           @oninput="e => _companyPhone = FormatPhone(e.Value?.ToString()) ?? string.Empty" placeholder="(555) 123-4567" />
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Business Email</label>
@@ -216,7 +217,7 @@ else if (tab == "custom")
             <h5>Customizations & Dropdown Editor</h5>
             <p class="text-muted">Manage dropdown options used across all pages. Select a category, then add/edit/remove values.</p>
 
-            <div class="row g-3 mt-2">
+            <div class="row g-2 mt-2">
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Category</label>
                     <select class="form-select" value="@selectedCategory" @onchange="OnCategoryChanged">
@@ -614,18 +615,18 @@ else if (tab == "data")
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             <h5><i class="bi bi-database me-2"></i>Data Management & Exports</h5>
-            <p class="text-muted">Export/import data across all modules using CSV. Manage backups and data retention.</p>
+            <p class="text-muted">Export data as Excel workbooks with a sheet per table. Import from CSV. Manage backups and data retention.</p>
 
             @* Export Section *@
             <h6 class="mt-3 mb-2"><i class="bi bi-download me-1"></i>Export Data</h6>
             <div class="row g-2">
                 <div class="col-md-4">
-                    <button class="btn btn-primary w-100" @onclick="ExportAllCsv" disabled="@isProcessing">
+                    <button class="btn btn-primary w-100" @onclick="ExportAllXlsx" disabled="@isProcessing">
                         @if (isProcessing && processingAction == "exportAll")
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        <i class="bi bi-file-earmark-zip me-1"></i>Export All Tables (CSV)
+                        <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export All Tables (Excel)
                     </button>
                 </div>
                 <div class="col-md-4">
@@ -637,7 +638,7 @@ else if (tab == "data")
                                 <option value="@t">@t</option>
                             }
                         </select>
-                        <button class="btn btn-outline-primary" @onclick="ExportSingleTable"
+                        <button class="btn btn-outline-primary" @onclick="ExportSingleTableXlsx"
                                 disabled="@(isProcessing || string.IsNullOrEmpty(selectedExportTable))">
                             <i class="bi bi-download"></i>
                         </button>
@@ -750,6 +751,42 @@ else if (tab == "data")
                 </div>
             </div>
             <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After purge, log in with <strong>admin / admin123</strong>. Change your password immediately.</small>
+
+            <hr class="my-3" />
+
+            @* Seed Demo Data Section *@
+            <h6 class="mb-2 text-warning"><i class="bi bi-database-gear me-1"></i>Seed Demo Data</h6>
+            <p class="small text-muted">Load a comprehensive set of sample HVAC data (customers, sites, assets, jobs, estimates, invoices, etc.) for testing and demonstration purposes. Only works when the database is empty.</p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-4">
+                    @if (!_confirmSeed)
+                    {
+                        <button class="btn btn-outline-warning w-100" @onclick="() => _confirmSeed = true"
+                                disabled="@(isProcessing || _hasData == true)">
+                            <i class="bi bi-database-add me-1"></i>@(_hasData == true ? "Demo Data Already Loaded" : "Load Demo Data")
+                        </button>
+                    }
+                    else
+                    {
+                        <div class="card border-warning">
+                            <div class="card-body py-2">
+                                <p class="small text-warning fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>This will populate the database with sample data. Continue?</p>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-warning btn-sm" @onclick="SeedDemoData" disabled="@isProcessing">
+                                        @if (isProcessing && processingAction == "seed")
+                                        {
+                                            <span class="spinner-border spinner-border-sm me-1"></span>
+                                        }
+                                        Yes, Seed Demo Data
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmSeed = false">Cancel</button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+            <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After seeding, sample customers, jobs, assets, and more will be available. Log in with <strong>admin / admin123</strong>.</small>
         </div>
     </div>
 }
@@ -849,6 +886,10 @@ private Dictionary<string, bool> notificationSettings = new()
     // Purge state
     private bool _confirmPurge;
 
+    // Seed demo data state
+    private bool _confirmSeed;
+    private bool? _hasData;
+
     protected override async Task OnInitializedAsync()
     {
         await LoadCompanyProfile();
@@ -928,6 +969,7 @@ private Dictionary<string, bool> notificationSettings = new()
         tab = "data";
         if (exportableTables.Count == 0)
             exportableTables = await DataSvc.GetExportableTablesAsync();
+        _hasData = await DataSvc.HasDataAsync();
     }
 
     // ---- Template Management ----
@@ -1117,27 +1159,29 @@ private Dictionary<string, bool> notificationSettings = new()
     }
 
     // ---- Data Management ----
-    private async Task ExportAllCsv()
+    private async Task ExportAllXlsx()
     {
         isProcessing = true; processingAction = "exportAll"; errorMessage = null;
         try
         {
-            var bytes = await DataSvc.ExportAllCsvAsync();
-            await DownloadFileAsync(bytes, "OneManVanFSM_AllData.csv", "text/csv");
+            var bytes = await DataSvc.ExportAllXlsxAsync();
+            await DownloadFileAsync(bytes, "OneManVanFSM_AllData.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             successMessage = "All data exported successfully.";
         }
         catch (Exception ex) { errorMessage = $"Export failed: {ex.Message}"; }
         finally { isProcessing = false; processingAction = null; }
     }
 
-    private async Task ExportSingleTable()
+    private async Task ExportSingleTableXlsx()
     {
         if (string.IsNullOrEmpty(selectedExportTable)) return;
         isProcessing = true; processingAction = "exportSingle"; errorMessage = null;
         try
         {
-            var bytes = await DataSvc.ExportTableCsvAsync(selectedExportTable);
-            await DownloadFileAsync(bytes, $"{selectedExportTable}.csv", "text/csv");
+            var bytes = await DataSvc.ExportTableXlsxAsync(selectedExportTable);
+            await DownloadFileAsync(bytes, $"{selectedExportTable}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             successMessage = $"{selectedExportTable} exported.";
         }
         catch (Exception ex) { errorMessage = $"Export failed: {ex.Message}"; }
@@ -1418,8 +1462,31 @@ private Dictionary<string, bool> notificationSettings = new()
             await DataSvc.PurgeDatabaseAsync();
             successMessage = "Database purged. All data deleted. Default admin account re-created (admin / admin123). Please log out and log back in.";
             _confirmPurge = false;
+            _hasData = false;
         }
         catch (Exception ex) { errorMessage = $"Purge failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; }
+    }
+
+    // ---- Seed Demo Data ----
+    private async Task SeedDemoData()
+    {
+        isProcessing = true; processingAction = "seed"; errorMessage = null;
+        try
+        {
+            var result = await DataSvc.SeedDemoDataAsync();
+            if (result)
+            {
+                successMessage = "Demo data seeded successfully! Sample customers, jobs, assets, and more are now available.";
+                _hasData = true;
+                _confirmSeed = false;
+            }
+            else
+            {
+                errorMessage = "Database already contains data or seeding failed. Purge first if you want to re-seed.";
+            }
+        }
+        catch (Exception ex) { errorMessage = $"Seeding failed: {ex.Message}"; }
         finally { isProcessing = false; processingAction = null; }
     }
 
@@ -1428,5 +1495,17 @@ private Dictionary<string, bool> notificationSettings = new()
         var base64 = Convert.ToBase64String(bytes);
         await JS.InvokeVoidAsync("eval",
             $"(() => {{ var a=document.createElement('a'); a.href='data:{contentType};base64,{base64}'; a.download='{fileName}'; document.body.appendChild(a); a.click(); a.remove(); }})()");
+    }
+
+    private static string? FormatPhone(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return raw;
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        return digits.Length switch
+        {
+            >= 10 => $"({digits[..3]}) {digits[3..6]}-{digits[6..Math.Min(10, digits.Length)]}",
+            >= 7 => $"{digits[..3]}-{digits[3..Math.Min(7, digits.Length)]}",
+            _ => digits
+        };
     }
 }

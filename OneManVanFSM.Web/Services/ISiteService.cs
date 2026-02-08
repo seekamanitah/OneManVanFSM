@@ -32,6 +32,8 @@ public class SiteListItem
     public int? SqFt { get; set; }
     public int? Zones { get; set; }
     public string? OwnerName { get; set; }
+    public int? CustomerId { get; set; }
+    public int? CompanyId { get; set; }
     public int AssetCount { get; set; }
     public int OpenJobCount { get; set; }
 }
@@ -63,6 +65,7 @@ public class SiteDetail
     public bool? HasAtticAccess { get; set; }
     public bool? HasCrawlSpace { get; set; }
     public bool? HasBasement { get; set; }
+    public bool IsNewConstruction { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public int? CompanyId { get; set; }
@@ -102,13 +105,8 @@ public class SiteEditModel
     public bool? HasAtticAccess { get; set; }
     public bool? HasCrawlSpace { get; set; }
     public bool? HasBasement { get; set; }
+    public bool IsNewConstruction { get; set; }
     public string? Notes { get; set; }
     public int? CustomerId { get; set; }
     public int? CompanyId { get; set; }
-}
-
-public class CompanyOption
-{
-    public int Id { get; set; }
-    public string Name { get; set; } = string.Empty;
 }

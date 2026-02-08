@@ -42,6 +42,11 @@ namespace OneManVanFSM
             builder.Services.AddScoped<IMobileSettingsService, MobileSettingsService>();
             builder.Services.AddScoped<IMobileReportService, MobileReportService>();
             builder.Services.AddScoped<IMobileServiceAgreementService, MobileServiceAgreementService>();
+            builder.Services.AddScoped<IMobileSiteService, MobileSiteService>();
+            builder.Services.AddScoped<IMobileCompanyService, MobileCompanyService>();
+            builder.Services.AddScoped<IMobileProductService, MobileProductService>();
+            builder.Services.AddScoped<IMobileExpenseService, MobileExpenseService>();
+            builder.Services.AddScoped<IMobileInvoiceService, MobileInvoiceService>();
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
@@ -50,13 +55,12 @@ namespace OneManVanFSM
 
             var app = builder.Build();
 
-            // Ensure schema is up-to-date, recreate if needed, then seed
+            // Ensure schema is up-to-date and tables exist (no data seeded)
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 EnsureSchemaUpToDate(db);
                 db.Database.EnsureCreated();
-                SeedMobileData(db);
             }
 
             return app;
@@ -155,7 +159,7 @@ namespace OneManVanFSM
             System.Diagnostics.Debug.WriteLine("[SEED] Admin user created successfully.");
         }
 
-        private static void SeedMobileData(AppDbContext db)
+        public static void SeedMobileData(AppDbContext db)
         {
             try
             {
@@ -220,11 +224,20 @@ namespace OneManVanFSM
                 var cust4 = new OneManVanFSM.Shared.Models.Customer { Name = "Linda Parker", Type = OneManVanFSM.Shared.Models.CustomerType.Landlord, PrimaryPhone = "(555) 555-6666", SecondaryPhone = "(555) 555-6667", PrimaryEmail = "lparker@rentals.com", PreferredContactMethod = "Text", ReferralSource = "Repeat Customer", Address = "200 Pine St", City = "Springfield", State = "IL", Zip = "62703", SinceDate = today.AddMonths(-3), Tags = "[\"Landlord\",\"Multi-Site\"]" };
                 db.Customers.AddRange(cust1, cust2, cust3, cust4);
 
+                // Companies
+                var comp1 = new OneManVanFSM.Shared.Models.Company { Name = "Heritage Oaks HOA", Type = OneManVanFSM.Shared.Models.CompanyType.Customer, Phone = "(555) 333-4444", Email = "board@heritageoaks.org", Address = "100 Heritage Blvd", City = "Springfield", State = "IL", Zip = "62711", Industry = "Property Management", IsActive = true };
+                var comp2 = new OneManVanFSM.Shared.Models.Company { Name = "Parker Rental Properties", Type = OneManVanFSM.Shared.Models.CompanyType.Customer, Phone = "(555) 555-6666", Email = "lparker@rentals.com", Address = "200 Pine St", City = "Springfield", State = "IL", Zip = "62703", Industry = "Real Estate", IsActive = true };
+                db.Companies.AddRange(comp1, comp2);
+
+                // Link customers and sites to companies
+                cust3.Company = comp1;
+                cust4.Company = comp2;
+
                 // Sites
                 var site1 = new OneManVanFSM.Shared.Models.Site { Name = "Chen Residence", Address = "123 Oak St", City = "Springfield", State = "IL", Zip = "62704", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 2200, Zones = 2, Stories = 2, EquipmentLocation = "Basement", Customer = cust1, GasLineLocation = "Left side of house near meter", ElectricalPanelLocation = "Basement \u2014 east wall", WaterShutoffLocation = "Basement \u2014 near hot water heater", HeatingFuelSource = "Natural Gas", YearBuilt = 1998, HasAtticAccess = true, HasCrawlSpace = false, HasBasement = true };
                 var site2 = new OneManVanFSM.Shared.Models.Site { Name = "Reynolds Home", Address = "456 Maple Ave", City = "Springfield", State = "IL", Zip = "62701", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1800, Zones = 1, Stories = 1, EquipmentLocation = "Attic", Customer = cust2, GasLineLocation = "Rear of house", ElectricalPanelLocation = "Garage", WaterShutoffLocation = "Under kitchen sink", HeatingFuelSource = "Natural Gas", YearBuilt = 2005, HasAtticAccess = true, HasCrawlSpace = true, HasBasement = false, Notes = "Attic ladder loose \u2014 safety concern" };
-                var site3 = new OneManVanFSM.Shared.Models.Site { Name = "Heritage Oaks Clubhouse", Address = "100 Heritage Blvd", City = "Springfield", State = "IL", Zip = "62711", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Commercial, SqFt = 5000, Zones = 4, Stories = 1, Customer = cust3, AccessCodes = "Gate: 4521#", EquipmentLocation = "Rooftop", ElectricalPanelLocation = "Utility closet \u2014 main hall", HeatingFuelSource = "Electric", YearBuilt = 2010 };
-                var site4 = new OneManVanFSM.Shared.Models.Site { Name = "Parker Rental Unit A", Address = "201 Pine St", City = "Springfield", State = "IL", Zip = "62703", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1100, Zones = 1, Stories = 1, Customer = cust4, AccessCodes = "Lock box: 9876", HeatingFuelSource = "Propane", YearBuilt = 1992, HasCrawlSpace = true, HasBasement = false };
+                var site3 = new OneManVanFSM.Shared.Models.Site { Name = "Heritage Oaks Clubhouse", Address = "100 Heritage Blvd", City = "Springfield", State = "IL", Zip = "62711", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Commercial, SqFt = 5000, Zones = 4, Stories = 1, Customer = cust3, Company = comp1, AccessCodes = "Gate: 4521#", EquipmentLocation = "Rooftop", ElectricalPanelLocation = "Utility closet \u2014 main hall", HeatingFuelSource = "Electric", YearBuilt = 2010 };
+                var site4 = new OneManVanFSM.Shared.Models.Site { Name = "Parker Rental Unit A", Address = "201 Pine St", City = "Springfield", State = "IL", Zip = "62703", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1100, Zones = 1, Stories = 1, Customer = cust4, Company = comp2, AccessCodes = "Lock box: 9876", HeatingFuelSource = "Propane", YearBuilt = 1992, HasCrawlSpace = true, HasBasement = false };
                 db.Sites.AddRange(site1, site2, site3, site4);
 
                 // Assets

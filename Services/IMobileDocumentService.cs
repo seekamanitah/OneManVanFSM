@@ -17,6 +17,7 @@ public class MobileDocumentItem
     public DocumentCategory Category { get; set; }
     public string? FileType { get; set; }
     public long? FileSize { get; set; }
+    public string? StoredFileName { get; set; }
     public string? Notes { get; set; }
     public string? LinkedEntity { get; set; }
     public int? LinkedEntityId { get; set; }

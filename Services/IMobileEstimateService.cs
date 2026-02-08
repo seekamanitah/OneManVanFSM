@@ -16,6 +16,7 @@ public class MobileEstimateCard
     public EstimateStatus Status { get; set; }
     public JobPriority Priority { get; set; }
     public string? CustomerName { get; set; }
+    public string? CompanyName { get; set; }
     public string? SiteAddress { get; set; }
     public decimal Total { get; set; }
     public DateTime? ExpiryDate { get; set; }
@@ -34,6 +35,8 @@ public class MobileEstimateDetail
     public string? SystemType { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerPhone { get; set; }
+    public int? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
     public string? SiteName { get; set; }
     public string? SiteAddress { get; set; }
     public int? SiteId { get; set; }

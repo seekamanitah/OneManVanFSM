@@ -4,6 +4,8 @@ public class Customer
 {
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? FirstName { get; set; }
+    public string? LastName { get; set; }
     public CustomerType Type { get; set; } = CustomerType.Individual;
     public string? PrimaryPhone { get; set; }
     public string? SecondaryPhone { get; set; }

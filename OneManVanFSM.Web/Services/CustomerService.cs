@@ -55,6 +55,8 @@ public class CustomerService : ICustomerService
         {
             Id = c.Id,
             Name = c.Name,
+            FirstName = c.FirstName,
+            LastName = c.LastName,
             Type = c.Type,
             PrimaryPhone = c.PrimaryPhone,
             PrimaryEmail = c.PrimaryEmail,
@@ -87,6 +89,8 @@ public class CustomerService : ICustomerService
         {
             Id = customer.Id,
             Name = customer.Name,
+            FirstName = customer.FirstName,
+            LastName = customer.LastName,
             Type = customer.Type,
             PrimaryPhone = customer.PrimaryPhone,
             SecondaryPhone = customer.SecondaryPhone,
@@ -203,7 +207,9 @@ public class CustomerService : ICustomerService
     {
         var customer = new Customer
         {
-            Name = model.Name,
+            FirstName = model.FirstName,
+            LastName = model.LastName,
+            Name = string.IsNullOrWhiteSpace(model.LastName) ? model.FirstName : $"{model.FirstName} {model.LastName}".Trim(),
             Type = model.Type,
             PrimaryPhone = model.PrimaryPhone,
             SecondaryPhone = model.SecondaryPhone,
@@ -234,7 +240,9 @@ public class CustomerService : ICustomerService
         var customer = await _db.Customers.FindAsync(id)
             ?? throw new InvalidOperationException("Customer not found.");
 
-        customer.Name = model.Name;
+        customer.FirstName = model.FirstName;
+        customer.LastName = model.LastName;
+        customer.Name = string.IsNullOrWhiteSpace(model.LastName) ? model.FirstName : $"{model.FirstName} {model.LastName}".Trim();
         customer.Type = model.Type;
         customer.PrimaryPhone = model.PrimaryPhone;
         customer.SecondaryPhone = model.SecondaryPhone;

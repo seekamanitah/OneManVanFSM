@@ -10,12 +10,19 @@ public class Invoice
     public string? PaymentTerms { get; set; } // Net 30, Due on Receipt, etc.
     public decimal Subtotal { get; set; }
     public decimal TaxAmount { get; set; }
+    public decimal TaxRate { get; set; } // Tax percentage, e.g. 7.0
+    public bool TaxIncludedInPrice { get; set; } // Flat rate with tax already included
+    public string? PricingType { get; set; } // "Material & Labor (Itemized)", "Flat Rate", "Time & Materials"
     public decimal MarkupAmount { get; set; }
     public decimal Total { get; set; }
     public decimal? DiscountAmount { get; set; }
     public decimal? DepositApplied { get; set; }
+    public decimal AmountPaid { get; set; }
     public decimal BalanceDue { get; set; }
     public string? Notes { get; set; }
+    public string? Terms { get; set; } // Separate payment terms text (e.g. "Payment due within 30 days")
+    public bool IncludeSiteLocation { get; set; } = true;
+    public bool IncludeAssetInfo { get; set; } = true;
     public bool IsArchived { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;

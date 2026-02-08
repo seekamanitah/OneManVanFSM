@@ -39,7 +39,8 @@ public class EmployeeService : IEmployeeService
 
         return await query.Select(e => new EmployeeListItem
         {
-            Id = e.Id, Name = e.Name, Role = e.Role, Status = e.Status,
+            Id = e.Id, Name = e.Name, FirstName = e.FirstName, LastName = e.LastName,
+            Role = e.Role, Status = e.Status,
             Phone = e.Phone, Email = e.Email, Territory = e.Territory,
             HourlyRate = e.HourlyRate,
             ActiveJobCount = e.AssignedJobs.Count(j => j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled)
@@ -56,7 +57,8 @@ public class EmployeeService : IEmployeeService
 
         return new EmployeeDetail
         {
-            Id = emp.Id, Name = emp.Name, Role = emp.Role, Status = emp.Status,
+            Id = emp.Id, Name = emp.Name, FirstName = emp.FirstName, LastName = emp.LastName,
+            Role = emp.Role, Status = emp.Status,
             Phone = emp.Phone, Email = emp.Email, Address = emp.Address,
             HourlyRate = emp.HourlyRate, HireDate = emp.HireDate,
             Territory = emp.Territory, Certifications = emp.Certifications,
@@ -85,7 +87,10 @@ public class EmployeeService : IEmployeeService
     {
         var emp = new Employee
         {
-            Name = model.Name, Role = model.Role, Phone = model.Phone,
+            FirstName = model.FirstName,
+            LastName = model.LastName,
+            Name = string.IsNullOrWhiteSpace(model.LastName) ? model.FirstName : $"{model.FirstName} {model.LastName}".Trim(),
+            Role = model.Role, Phone = model.Phone,
             Email = model.Email, Address = model.Address, HourlyRate = model.HourlyRate,
             HireDate = model.HireDate, Status = model.Status, Territory = model.Territory,
             Certifications = model.Certifications,
@@ -105,7 +110,10 @@ public class EmployeeService : IEmployeeService
     public async Task<Employee> UpdateEmployeeAsync(int id, EmployeeEditModel model)
     {
         var e = await _db.Employees.FindAsync(id) ?? throw new InvalidOperationException("Employee not found.");
-        e.Name = model.Name; e.Role = model.Role; e.Phone = model.Phone;
+        e.FirstName = model.FirstName;
+        e.LastName = model.LastName;
+        e.Name = string.IsNullOrWhiteSpace(model.LastName) ? model.FirstName : $"{model.FirstName} {model.LastName}".Trim();
+        e.Role = model.Role; e.Phone = model.Phone;
         e.Email = model.Email; e.Address = model.Address; e.HourlyRate = model.HourlyRate;
         e.HireDate = model.HireDate; e.Status = model.Status; e.Territory = model.Territory;
         e.Certifications = model.Certifications;

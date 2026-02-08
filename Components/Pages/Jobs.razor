@@ -123,7 +123,95 @@ else
     <div class="empty-state">
         <i class="bi bi-wrench-adjustable d-block"></i>
         <p>No jobs found</p>
+        <button class="btn btn-primary btn-sm mt-2" @onclick="ShowCreate">
+            <i class="bi bi-plus-lg me-1"></i>Create a Job
+        </button>
     </div>
+}
+
+@* New Job Form *@
+@if (_showCreate)
+{
+    <div class="mobile-card" style="border-left:3px solid var(--primary);">
+        <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1"></i>New Job</h6>
+
+        <div class="mb-2">
+            <input type="text" class="form-control" placeholder="Job title…" @bind="_newJob.Title" />
+        </div>
+
+        <div class="mb-2">
+            <textarea class="form-control" rows="2" placeholder="Description (optional)" @bind="_newJob.Description"></textarea>
+        </div>
+
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <select class="form-select" @bind="_newJob.Priority">
+                    @foreach (var p in Enum.GetValues<JobPriority>())
+                    {
+                        <option value="@p">@p</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6">
+                <input type="number" class="form-control" placeholder="Est. hours" step="0.5" min="0"
+                       @bind="_newJob.EstimatedDuration" />
+            </div>
+        </div>
+
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <input type="date" class="form-control" @bind="_newJob.ScheduledDate" />
+            </div>
+            <div class="col-6">
+                <input type="time" class="form-control" value="@_scheduledTimeStr"
+                       @onchange="OnScheduledTimeChanged" />
+            </div>
+        </div>
+
+        <div class="mb-2">
+            <select class="form-select" @bind="_selectedCustomerId" @bind:after="OnCustomerChanged">
+                <option value="">— Customer —</option>
+                @foreach (var c in _customers)
+                {
+                    <option value="@c.Id">@c.Name</option>
+                }
+            </select>
+        </div>
+
+        <div class="mb-2">
+            <select class="form-select" @bind="_newJob.SiteId">
+                <option value="">— Site —</option>
+                @foreach (var s in _sites)
+                {
+                    <option value="@s.Id">@s.Name @(s.Address != null ? $"({s.Address})" : "")</option>
+                }
+            </select>
+        </div>
+
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary flex-fill" @onclick="SaveJob"
+                    disabled="@(string.IsNullOrWhiteSpace(_newJob.Title) || _saving)">
+                @if (_saving)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-check-lg me-1"></i>Create Job
+            </button>
+            <button class="btn btn-outline-secondary" @onclick="CancelCreate">Cancel</button>
+        </div>
+
+        @if (_createError != null)
+        {
+            <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_createError</div>
+        }
+    </div>
+}
+
+@if (!_showCreate)
+{
+    <button class="fab" title="New Job" @onclick="ShowCreate">
+        <i class="bi bi-plus-lg"></i>
+    </button>
 }
 
 @code {
@@ -135,6 +223,16 @@ private string _statusFilter = string.Empty;
 private string _priorityFilter = "All";
 private string _sortMode = "date";
 private readonly string[] _priorities = ["All", "Emergency", "High", "Normal", "Low"];
+
+// Create job state
+private bool _showCreate;
+private bool _saving;
+private string? _createError;
+private MobileJobCreate _newJob = new();
+private string _selectedCustomerId = string.Empty;
+private string _scheduledTimeStr = string.Empty;
+private List<MobileCustomerOption> _customers = [];
+private List<MobileSiteOption> _sites = [];
 
     private IEnumerable<MobileJobCard> SortedJobs => _sortMode switch
     {
@@ -197,6 +295,70 @@ private readonly string[] _priorities = ["All", "Emergency", "High", "Normal", "
     {
         await JobService.UpdateJobStatusAsync(jobId, newStatus);
         await LoadJobs();
+    }
+
+    // ---- Job Creation ----
+    private async Task ShowCreate()
+    {
+        _showCreate = true;
+        _createError = null;
+        _newJob = new MobileJobCreate { AssignedEmployeeId = _employeeId };
+        _selectedCustomerId = string.Empty;
+        _scheduledTimeStr = string.Empty;
+        _sites = [];
+        _customers = await JobService.GetCustomerOptionsAsync();
+    }
+
+    private void CancelCreate()
+    {
+        _showCreate = false;
+        _createError = null;
+    }
+
+    private void OnScheduledTimeChanged(ChangeEventArgs e)
+    {
+        if (TimeSpan.TryParse(e.Value?.ToString(), out var ts))
+            _newJob.ScheduledTime = ts;
+        else
+            _newJob.ScheduledTime = null;
+        _scheduledTimeStr = e.Value?.ToString() ?? string.Empty;
+    }
+
+    private async Task OnCustomerChanged()
+    {
+        if (int.TryParse(_selectedCustomerId, out var cid))
+        {
+            _newJob.CustomerId = cid;
+            _sites = await JobService.GetSiteOptionsAsync(cid);
+        }
+        else
+        {
+            _newJob.CustomerId = null;
+            _newJob.SiteId = null;
+            _sites = [];
+        }
+    }
+
+    private async Task SaveJob()
+    {
+        if (string.IsNullOrWhiteSpace(_newJob.Title)) return;
+        _saving = true;
+        _createError = null;
+        try
+        {
+            var jobId = await JobService.CreateJobAsync(_newJob);
+            _showCreate = false;
+            await LoadJobs();
+            Nav.NavigateTo($"/jobs/{jobId}");
+        }
+        catch (Exception ex)
+        {
+            _createError = ex.Message;
+        }
+        finally
+        {
+            _saving = false;
+        }
     }
 
     private static string StatusColor(JobStatus status) => status switch

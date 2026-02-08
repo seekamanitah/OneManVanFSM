@@ -139,7 +139,7 @@ public class DropdownService : IDropdownService
         ["FuelType"] = ["Natural Gas", "Propane", "Electric", "Oil", "Dual Fuel"],
         ["UnitConfiguration"] = ["Split System", "Packaged Unit", "Furnace", "Air Handler", "Condenser", "Mini-Split", "Ductless", "Heat Pump", "Coil", "Boiler"],
         ["TradeType"] = ["HVAC", "Plumbing", "Electrical", "General"],
-        ["JobType"] = ["Install", "Repair", "Maintenance", "Diagnostic", "Inspection", "Tune-Up", "Replacement", "Retrofit", "Emergency"],
+        ["JobType"] = ["Service Call", "Inspection", "Repair", "Emergency", "New Install", "Changeout", "Ductwork", "Startup", "Estimate", "Maintenance", "Diagnostic", "Tune-Up", "Replacement", "Retrofit"],
         ["TimeCategory"] = ["Travel", "On-Site", "Diagnostic", "Admin", "Break", "Training"],
         ["HeatingFuelSource"] = ["Natural Gas", "Propane", "Electric", "Oil", "Geothermal", "Solar"],
         ["FilterSize"] = ["14x20x1", "14x25x1", "16x20x1", "16x25x1", "20x20x1", "20x25x1", "16x25x4", "20x20x4", "20x25x4", "Custom"],
@@ -155,5 +155,12 @@ public class DropdownService : IDropdownService
         ["PipeMaterial"] = ["Copper", "PEX", "PVC", "CPVC", "Cast Iron", "Galvanized", "ABS"],
         ["PanelType"] = ["Main Breaker", "Main Lug", "Sub-Panel"],
         ["AssetServiceType"] = ["Filter Change", "Refrigerant Charge", "Coil Cleaning", "Calibration", "Inspection", "Drain Flush", "Belt Replacement"],
+        ["RefrigerantType"] = ["R-22", "R-410A", "R-32", "R-454B", "R-407C", "R-404A", "R-134A"],
+        ["FilterType"] = ["Fiberglass", "Pleated", "HEPA", "Electrostatic", "Washable", "Carbon", "Media"],
+        ["ThermostatType"] = ["Non-Programmable", "Programmable", "Smart", "WiFi-Enabled", "Line Voltage", "Communicating"],
+        ["Brand"] = ["Carrier", "Lennox", "Trane", "Rheem", "Goodman", "Daikin", "Bryant", "York", "Amana", "American Standard", "Bosch", "Mitsubishi", "Fujitsu", "Ruud", "Heil"],
+        ["CustomerType"] = ["Individual", "Company", "Landlord"],
+        ["CompanyType"] = ["Customer", "Vendor", "Subcontractor", "Partner"],
+        ["PropertyType"] = ["Residential", "Commercial", "Industrial"],
     };
 }

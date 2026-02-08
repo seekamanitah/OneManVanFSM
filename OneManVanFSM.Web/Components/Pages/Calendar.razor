@@ -227,24 +227,57 @@ else if (mode == "detail" && selected is not null)
 else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
-        <h4 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Calendar / Scheduling</h4>
+        <div class="d-flex align-items-center gap-3">
+            <h4 class="mb-0"><i class="bi bi-calendar3 me-2"></i>Calendar / Scheduling</h4>
+            <a href="/" class="btn btn-sm btn-outline-primary" title="Switch to Dashboard">
+                <i class="bi bi-speedometer2 me-1"></i>Dashboard
+            </a>
+        </div>
         <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Event</button>
     </div>
 
+    @* View Toggle *@
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <div class="btn-group btn-group-sm" role="group">
+            <button class="btn @(_calView == CalView.List ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetCalView(CalView.List)'><i class="bi bi-list-ul me-1"></i>List</button>
+            <button class="btn @(_calView == CalView.Calendar ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetCalView(CalView.Calendar)'><i class="bi bi-calendar-month me-1"></i>Calendar</button>
+            <button class="btn @(_calView == CalView.Gantt ? "btn-primary" : "btn-outline-primary")" @onclick='() => SetCalView(CalView.Gantt)'><i class="bi bi-bar-chart-steps me-1"></i>Gantt</button>
+        </div>
+        @if (_calView == CalView.Calendar)
+        {
+            <div class="d-flex align-items-center gap-1 ms-auto">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="PrevMonth"><i class="bi bi-chevron-left"></i></button>
+                <strong class="px-2">@_calMonth.ToString("MMMM yyyy")</strong>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="NextMonth"><i class="bi bi-chevron-right"></i></button>
+                <button class="btn btn-outline-secondary btn-sm ms-2" @onclick="GoToToday">Today</button>
+            </div>
+        }
+        else if (_calView == CalView.Gantt)
+        {
+            <div class="d-flex align-items-center gap-1 ms-auto">
+                <button class="btn btn-outline-secondary btn-sm" @onclick="PrevGanttWeek"><i class="bi bi-chevron-left"></i></button>
+                <strong class="px-2">@_ganttStart.ToString("MMM dd") – @_ganttStart.AddDays(13).ToString("MMM dd, yyyy")</strong>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="NextGanttWeek"><i class="bi bi-chevron-right"></i></button>
+                <button class="btn btn-outline-secondary btn-sm ms-2" @onclick="GoToGanttToday">Today</button>
+            </div>
+        }
+    </div>
+
+    @* Filters *@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label form-label-sm mb-0">From</label>
-                    <input type="date" class="form-control form-control-sm" @bind="filterStart" />
+                    <input type="date" class="form-control form-control-sm" @bind="filterStart" @bind:after="LoadEvents" />
                 </div>
                 <div class="col-md-2">
                     <label class="form-label form-label-sm mb-0">To</label>
-                    <input type="date" class="form-control form-control-sm" @bind="filterEnd" />
+                    <input type="date" class="form-control form-control-sm" @bind="filterEnd" @bind:after="LoadEvents" />
                 </div>
                 <div class="col-md-3">
                     <label class="form-label form-label-sm mb-0">Technician</label>
-                    <select class="form-select form-select-sm" @bind="filterEmployee">
+                    <select class="form-select form-select-sm" @bind="filterEmployee" @bind:after="LoadEvents">
                         <option value="">All Techs</option>
                         @foreach (var e in _employees)
                         {
@@ -254,7 +287,7 @@ else
                 </div>
                 <div class="col-md-3">
                     <label class="form-label form-label-sm mb-0">Status</label>
-                    <select class="form-select form-select-sm" @bind="filterStatus">
+                    <select class="form-select form-select-sm" @bind="filterStatus" @bind:after="LoadEvents">
                         <option value="">All Statuses</option>
                         @foreach (var s in Enum.GetValues<CalendarEventStatus>())
                         {
@@ -262,13 +295,12 @@ else
                         }
                     </select>
                 </div>
-                <div class="col-md-2">
-                    <!-- Filter button removed for auto-search -->
-                </div>
+                <div class="col-md-2 text-end text-muted small pt-3">@(events?.Count ?? 0) event@(events?.Count != 1 ? "s" : "")</div>
             </div>
         </div>
     </div>
 
+    @* Summary Stats *@
     <div class="row g-2 mb-3">
         <div class="col-md-3">
             <div class="card border-0 shadow-sm text-center py-2">
@@ -296,41 +328,195 @@ else
         </div>
     </div>
 
-    <div class="card border-0 shadow-sm">
-        @if (events is null)
-        {
-            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
-        }
-        else if (!events.Any())
-        {
-            <div class="card-body text-center py-5 text-muted"><i class="bi bi-calendar-x" style="font-size:3rem;"></i><p class="mt-2">No events found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div>
-        }
-        else
-        {
-            @foreach (var group in events.GroupBy(e => e.StartDateTime.Date).OrderBy(g => g.Key))
+    @* ========== LIST VIEW ========== *@
+    @if (_calView == CalView.List)
+    {
+        <div class="card border-0 shadow-sm">
+            @if (events is null)
             {
-                <div class="card-header bg-light fw-semibold">
-                    <i class="bi bi-calendar-day me-1"></i>@group.Key.ToString("dddd, MMMM dd, yyyy")
-                </div>
-                <div class="list-group list-group-flush">
-                    @foreach (var ev in group.OrderBy(e => e.StartDateTime))
+                <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+            }
+            else if (!events.Any())
+            {
+                <div class="card-body text-center py-5 text-muted"><i class="bi bi-calendar-x" style="font-size:3rem;"></i><p class="mt-2">No events found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div>
+            }
+            else
+            {
+                @foreach (var group in events.GroupBy(e => e.StartDateTime.Date).OrderBy(g => g.Key))
+                {
+                    <div class="card-header bg-light fw-semibold">
+                        <i class="bi bi-calendar-day me-1"></i>@group.Key.ToString("dddd, MMMM dd, yyyy")
+                        @if (group.Key.Date == DateTime.Today) { <span class="badge bg-primary ms-2">Today</span> }
+                    </div>
+                    <div class="list-group list-group-flush">
+                        @foreach (var ev in group.OrderBy(e => e.StartDateTime))
+                        {
+                            <a class="list-group-item list-group-item-action d-flex align-items-center" href="javascript:void(0)" @onclick="() => GoToDetail(ev.Id)">
+                                @if (!string.IsNullOrWhiteSpace(ev.Color))
+                                {
+                                    <span class="d-inline-block rounded-circle me-2" style="width:10px;height:10px;background:@ev.Color;flex-shrink:0;"></span>
+                                }
+                                <span class="badge @GetStatusBadge(ev.Status) me-2">@ev.Status</span>
+                                <div class="flex-grow-1">
+                                    <strong>@(ev.Title ?? "Untitled")</strong>
+                                    <small class="text-muted ms-2">@ev.StartDateTime.ToString("h:mm tt") – @ev.EndDateTime.ToString("h:mm tt")</small>
+                                    @if (!string.IsNullOrWhiteSpace(ev.EventType)) { <small class="text-muted ms-1">· @ev.EventType</small> }
+                                </div>
+                                @if (ev.CustomerName is not null) { <span class="badge bg-light text-dark me-1">@ev.CustomerName</span> }
+                                @if (ev.EmployeeName is not null) { <span class="badge bg-secondary me-1"><i class="bi bi-person-fill me-1"></i>@ev.EmployeeName</span> }
+                                @if (ev.JobNumber is not null) { <span class="badge bg-primary"><i class="bi bi-tools me-1"></i>@ev.JobNumber</span> }
+                            </a>
+                        }
+                    </div>
+                }
+            }
+        </div>
+    }
+
+    @* ========== CALENDAR GRID VIEW ========== *@
+    else if (_calView == CalView.Calendar)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                @{
+                    var firstOfMonth = new DateTime(_calMonth.Year, _calMonth.Month, 1);
+                    var daysInMonth = DateTime.DaysInMonth(_calMonth.Year, _calMonth.Month);
+                    var startDow = (int)firstOfMonth.DayOfWeek;
+                    var totalCells = startDow + daysInMonth;
+                    var rows = (int)Math.Ceiling(totalCells / 7.0);
+                    var eventsLookup = (events ?? [])
+                        .Where(e => e.StartDateTime.Month == _calMonth.Month && e.StartDateTime.Year == _calMonth.Year)
+                        .GroupBy(e => e.StartDateTime.Day)
+                        .ToDictionary(g => g.Key, g => g.OrderBy(x => x.StartDateTime).ToList());
+                }
+                <div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid #dee2e6;">
+                    @foreach (var dayName in new[] { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" })
                     {
-                        <a class="list-group-item list-group-item-action d-flex align-items-center" href="javascript:void(0)" @onclick="() => GoToDetail(ev.Id)">
-                            <span class="badge @GetStatusBadge(ev.Status) me-2">@ev.Status</span>
-                            <div class="flex-grow-1">
-                                <strong>@(ev.Title ?? "Untitled")</strong>
-                                <small class="text-muted ms-2">@ev.StartDateTime.ToString("h:mm tt") – @ev.EndDateTime.ToString("h:mm tt")</small>
-                                @if (!string.IsNullOrWhiteSpace(ev.EventType)) { <small class="text-muted ms-1">· @ev.EventType</small> }
-                            </div>
-                            @if (ev.CustomerName is not null) { <span class="badge bg-light text-dark me-1">@ev.CustomerName</span> }
-                            @if (ev.EmployeeName is not null) { <span class="badge bg-secondary me-1"><i class="bi bi-person-fill me-1"></i>@ev.EmployeeName</span> }
-                            @if (ev.JobNumber is not null) { <span class="badge bg-primary"><i class="bi bi-tools me-1"></i>@ev.JobNumber</span> }
-                        </a>
+                        <div class="text-center fw-semibold text-muted small py-2" style="border-right:1px solid #dee2e6;background:#f8f9fa;">@dayName</div>
                     }
                 </div>
-            }
-        }
-    </div>
+                @for (int row = 0; row < rows; row++)
+                {
+                    <div style="display:grid;grid-template-columns:repeat(7,1fr);min-height:100px;">
+                        @for (int col = 0; col < 7; col++)
+                        {
+                            var cellIndex = row * 7 + col;
+                            var dayNum = cellIndex - startDow + 1;
+                            var isValidDay = dayNum >= 1 && dayNum <= daysInMonth;
+                            var isToday = isValidDay && _calMonth.Year == DateTime.Today.Year && _calMonth.Month == DateTime.Today.Month && dayNum == DateTime.Today.Day;
+                            var dayEvents = isValidDay && eventsLookup.TryGetValue(dayNum, out var de) ? de : null;
+
+                            <div class="p-1 @(isToday ? "bg-primary bg-opacity-10" : isValidDay ? "" : "bg-light")" style="border-right:1px solid #eee;border-bottom:1px solid #eee;min-height:100px;overflow:hidden;">
+                                @if (isValidDay)
+                                {
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <small class="fw-semibold @(isToday ? "text-primary" : "text-muted")">@dayNum</small>
+                                        @if (dayEvents is not null)
+                                        {
+                                            <span class="badge bg-secondary rounded-pill" style="font-size:0.65rem;">@dayEvents.Count</span>
+                                        }
+                                    </div>
+                                    @if (dayEvents is not null)
+                                    {
+                                        @foreach (var ev in dayEvents.Take(3))
+                                        {
+                                            var bgColor = !string.IsNullOrWhiteSpace(ev.Color) ? ev.Color : GetEventColor(ev.Status);
+                                            <div class="rounded px-1 mb-1 text-truncate" style="font-size:0.7rem;background:@(bgColor);color:#fff;cursor:pointer;line-height:1.4;" @onclick="() => GoToDetail(ev.Id)" title="@ev.Title @ev.StartDateTime.ToString("h:mm tt")">
+                                                @ev.StartDateTime.ToString("h:mm") @(ev.Title ?? "Event")
+                                            </div>
+                                        }
+                                        @if (dayEvents.Count > 3)
+                                        {
+                                            <small class="text-muted" style="font-size:0.65rem;">+@(dayEvents.Count - 3) more</small>
+                                        }
+                                    }
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    @* ========== GANTT VIEW ========== *@
+    else if (_calView == CalView.Gantt)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body p-0">
+                @{
+                    var ganttDays = 14;
+                    var ganttDates = Enumerable.Range(0, ganttDays).Select(i => _ganttStart.AddDays(i)).ToList();
+                    var ganttEvents = (events ?? []).Where(e => e.StartDateTime.Date <= _ganttStart.AddDays(ganttDays - 1) && e.EndDateTime.Date >= _ganttStart).ToList();
+                    var techGroups = ganttEvents
+                        .GroupBy(e => e.EmployeeName ?? "Unassigned")
+                        .OrderBy(g => g.Key)
+                        .ToList();
+                    if (techGroups.Count == 0)
+                    {
+                        techGroups = _employees.Take(5).Select(emp =>
+                            ganttEvents.Where(e => e.EmployeeName == emp.Name).GroupBy(_ => emp.Name).FirstOrDefault()
+                        ).Where(g => g is not null).ToList()!;
+                    }
+                }
+                <div style="overflow-x:auto;">
+                    <div style="display:grid;grid-template-columns:160px repeat(@ganttDays, minmax(70px, 1fr));min-width:@(160 + ganttDays * 70)px;">
+                        @* Header row *@
+                        <div class="fw-semibold small p-2 text-muted" style="background:#f8f9fa;border-right:2px solid #dee2e6;border-bottom:2px solid #dee2e6;">Technician</div>
+                        @foreach (var d in ganttDates)
+                        {
+                            var isWeekend = d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
+                            var isTodayG = d.Date == DateTime.Today;
+                            <div class="text-center small py-2 @(isTodayG ? "bg-primary bg-opacity-10 fw-bold" : isWeekend ? "bg-light" : "")" style="border-right:1px solid #eee;border-bottom:2px solid #dee2e6;">
+                                <div class="@(isTodayG ? "text-primary" : "text-muted")">@d.ToString("ddd")</div>
+                                <div class="fw-semibold">@d.Day</div>
+                            </div>
+                        }
+
+                        @* Tech rows *@
+                        @if (techGroups.Count == 0)
+                        {
+                            <div class="p-3 text-muted small" style="grid-column: 1 / -1;text-align:center;">No events in this date range. Adjust filters or date range.</div>
+                        }
+                        else
+                        {
+                            @foreach (var group in techGroups)
+                            {
+                                var techName = group.Key;
+                                var techEvents = group.OrderBy(e => e.StartDateTime).ToList();
+
+                                @* Tech name cell *@
+                                <div class="d-flex align-items-center px-2 py-1 small fw-semibold" style="border-right:2px solid #dee2e6;border-bottom:1px solid #eee;background:#fafafa;">
+                                    <i class="bi bi-person-fill text-muted me-1"></i>@techName
+                                </div>
+
+                                @* Day cells for this tech *@
+                                @foreach (var d in ganttDates)
+                                {
+                                    var dayEvts = techEvents.Where(e => e.StartDateTime.Date <= d.Date && e.EndDateTime.Date >= d.Date).ToList();
+                                    var isWeekend = d.DayOfWeek == DayOfWeek.Saturday || d.DayOfWeek == DayOfWeek.Sunday;
+                                    var isTodayG = d.Date == DateTime.Today;
+                                    <div class="p-1 @(isTodayG ? "bg-primary bg-opacity-10" : isWeekend ? "bg-light bg-opacity-50" : "")" style="border-right:1px solid #eee;border-bottom:1px solid #eee;min-height:40px;">
+                                        @foreach (var ev in dayEvts.Take(2))
+                                        {
+                                            var bgColor = !string.IsNullOrWhiteSpace(ev.Color) ? ev.Color : GetEventColor(ev.Status);
+                                            <div class="rounded px-1 mb-1 text-truncate" style="font-size:0.65rem;background:@(bgColor);color:#fff;cursor:pointer;line-height:1.3;" @onclick="() => GoToDetail(ev.Id)" title="@ev.Title @ev.StartDateTime.ToString("h:mm tt")–@ev.EndDateTime.ToString("h:mm tt")">
+                                                @(ev.Title ?? "Event")
+                                            </div>
+                                        }
+                                        @if (dayEvts.Count > 2)
+                                        {
+                                            <small class="text-muted" style="font-size:0.6rem;">+@(dayEvts.Count - 2)</small>
+                                        }
+                                    </div>
+                                }
+                            }
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 
 @code {
@@ -349,6 +535,11 @@ else
     private DateTime? filterEnd;
     private string filterEmployee = "";
     private string filterStatus = "";
+
+    private enum CalView { List, Calendar, Gantt }
+    private CalView _calView = CalView.Calendar;
+    private DateTime _calMonth = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _ganttStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek);
 
     private List<JobListItem> _jobs = [];
     private List<EmployeeListItem> _employees = [];
@@ -474,6 +665,23 @@ else
         CalendarEventStatus.Cancelled => "bg-dark",
         _ => "bg-secondary"
     };
+
+    private string GetEventColor(CalendarEventStatus s) => s switch
+    {
+        CalendarEventStatus.Tentative => "#ffc107",
+        CalendarEventStatus.Confirmed => "#198754",
+        CalendarEventStatus.Completed => "#0dcaf0",
+        CalendarEventStatus.Cancelled => "#6c757d",
+        _ => "#6c757d"
+    };
+
+    private void SetCalView(CalView v) => _calView = v;
+    private void PrevMonth() => _calMonth = _calMonth.AddMonths(-1);
+    private void NextMonth() => _calMonth = _calMonth.AddMonths(1);
+    private void GoToToday() => _calMonth = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private void PrevGanttWeek() => _ganttStart = _ganttStart.AddDays(-7);
+    private void NextGanttWeek() => _ganttStart = _ganttStart.AddDays(7);
+    private void GoToGanttToday() => _ganttStart = DateTime.Today.AddDays(-(int)DateTime.Today.DayOfWeek);
 
     private void GoToList() => Nav.NavigateTo("/calendar");
     private void GoToNew() => Nav.NavigateTo("/calendar/new");

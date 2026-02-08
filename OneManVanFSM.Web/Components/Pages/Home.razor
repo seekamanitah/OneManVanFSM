@@ -41,9 +41,14 @@
 
         @* ===== HEADER: Title, Period Selector, Quick Actions ===== *@
         <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-            <h5 class="mb-0 text-muted">
-                <i class="bi bi-speedometer2 me-2"></i>Dashboard
-            </h5>
+            <div class="d-flex align-items-center gap-3">
+                <h5 class="mb-0 text-muted">
+                    <i class="bi bi-speedometer2 me-2"></i>Dashboard
+                </h5>
+                <a href="/calendar" class="btn btn-sm btn-outline-primary" title="Switch to Calendar">
+                    <i class="bi bi-calendar3 me-1"></i>Calendar
+                </a>
+            </div>
             <div class="d-flex gap-2 align-items-center">
                 <div class="btn-group btn-group-sm" role="group">
                     <button class="btn @(_period == DashboardPeriod.Today ? "btn-primary" : "btn-outline-secondary")"
@@ -241,7 +246,7 @@
                                     <tbody>
                                         @foreach (var invoice in _data.UnpaidInvoices.Take(5))
                                         {
-                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/financials/" + invoice.Id))">
+                                            <tr class="cursor-pointer" @onclick="@(() => GoTo("/financials/invoices/" + invoice.Id))">
                                                 <td class="fw-medium">@invoice.InvoiceNumber</td>
                                                 <td>@invoice.Customer?.Name</td>
                                                 <td class="text-end fw-medium text-danger">@invoice.BalanceDue.ToString("C")</td>
@@ -774,7 +779,7 @@ private bool _automationRan;
         var url = activity.EntityType switch
         {
             "Job" => "/jobs/" + activity.EntityId,
-            "Invoice" => "/financials/" + activity.EntityId,
+            "Invoice" => "/financials/invoices/" + activity.EntityId,
             "Estimate" => "/estimates/" + activity.EntityId,
             _ => null
         };

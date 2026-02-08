@@ -4,9 +4,43 @@ namespace OneManVanFSM.Services;
 
 public interface IMobileAssetService
 {
+    Task<List<MobileAssetCard>> GetAssetsAsync(MobileAssetFilter? filter = null);
+    Task<MobileAssetStats> GetStatsAsync();
     Task<MobileAssetDetail?> GetAssetDetailAsync(int assetId);
     Task<List<MobileServiceLogItem>> GetServiceLogsAsync(int assetId);
     Task<AssetServiceLog> AddServiceLogAsync(MobileServiceLogCreate model);
+}
+
+public class MobileAssetCard
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? AssetType { get; set; }
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public string? SerialNumber { get; set; }
+    public AssetStatus Status { get; set; }
+    public string? CustomerName { get; set; }
+    public string? SiteName { get; set; }
+    public int? SiteId { get; set; }
+    public DateTime? WarrantyExpiry { get; set; }
+    public DateTime? LastServiceDate { get; set; }
+    public DateTime? NextServiceDue { get; set; }
+}
+
+public class MobileAssetFilter
+{
+    public string? Search { get; set; }
+    public AssetStatus? Status { get; set; }
+    public string? AssetType { get; set; }
+}
+
+public class MobileAssetStats
+{
+    public int TotalAssets { get; set; }
+    public int ActiveCount { get; set; }
+    public int MaintenanceNeededCount { get; set; }
+    public int ExpiringWarrantyCount { get; set; }
 }
 
 public class MobileAssetDetail

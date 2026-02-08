@@ -6,6 +6,63 @@ namespace OneManVanFSM.Services;
 
 public class MobileAssetService(AppDbContext db) : IMobileAssetService
 {
+    public async Task<List<MobileAssetCard>> GetAssetsAsync(MobileAssetFilter? filter = null)
+    {
+        var query = db.Assets.Where(a => !a.IsArchived).AsQueryable();
+
+        if (filter?.Status.HasValue == true)
+            query = query.Where(a => a.Status == filter.Status.Value);
+
+        if (!string.IsNullOrWhiteSpace(filter?.AssetType))
+            query = query.Where(a => a.AssetType == filter.AssetType);
+
+        if (!string.IsNullOrWhiteSpace(filter?.Search))
+        {
+            var s = filter.Search.Trim().ToLower();
+            query = query.Where(a => a.Name.ToLower().Contains(s)
+                || (a.SerialNumber != null && a.SerialNumber.ToLower().Contains(s))
+                || (a.Brand != null && a.Brand.ToLower().Contains(s))
+                || (a.Model != null && a.Model.ToLower().Contains(s))
+                || (a.AssetType != null && a.AssetType.ToLower().Contains(s)));
+        }
+
+        return await query
+            .Include(a => a.Customer)
+            .Include(a => a.Site)
+            .OrderBy(a => a.Name)
+            .Select(a => new MobileAssetCard
+            {
+                Id = a.Id,
+                Name = a.Name,
+                AssetType = a.AssetType,
+                Brand = a.Brand,
+                Model = a.Model,
+                SerialNumber = a.SerialNumber,
+                Status = a.Status,
+                CustomerName = a.Customer != null ? a.Customer.Name : null,
+                SiteName = a.Site != null ? a.Site.Name : null,
+                SiteId = a.SiteId,
+                WarrantyExpiry = a.WarrantyExpiry,
+                LastServiceDate = a.LastServiceDate,
+                NextServiceDue = a.NextServiceDue,
+            })
+            .ToListAsync();
+    }
+
+    public async Task<MobileAssetStats> GetStatsAsync()
+    {
+        var assets = await db.Assets.Where(a => !a.IsArchived).ToListAsync();
+        var now = DateTime.UtcNow;
+
+        return new MobileAssetStats
+        {
+            TotalAssets = assets.Count,
+            ActiveCount = assets.Count(a => a.Status == AssetStatus.Active),
+            MaintenanceNeededCount = assets.Count(a => a.Status == AssetStatus.MaintenanceNeeded),
+            ExpiringWarrantyCount = assets.Count(a => a.WarrantyExpiry.HasValue && a.WarrantyExpiry.Value < now.AddDays(90) && a.WarrantyExpiry.Value > now),
+        };
+    }
+
     public async Task<MobileAssetDetail?> GetAssetDetailAsync(int assetId)
     {
         var asset = await db.Assets

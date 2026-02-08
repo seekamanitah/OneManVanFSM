@@ -38,8 +38,18 @@
                 </div>
                 <div style="flex:1; min-width:0;">
                     <h6 class="fw-bold mb-1">@_detail.Name</h6>
+                    @if (_detail.FirstName != null || _detail.LastName != null)
+                    {
+                        <p class="card-subtitle mb-1" style="font-size:0.8rem;">@_detail.FirstName @_detail.LastName</p>
+                    }
                     <div class="d-flex flex-wrap gap-1 mb-1">
                         <span class="badge bg-light text-dark" style="font-size:0.65rem;">@_detail.Type</span>
+                        @if (_detail.CompanyName != null)
+                        {
+                            <span class="badge bg-info-subtle text-info" style="font-size:0.65rem; cursor:pointer;" @onclick="GoToCompany">
+                                <i class="bi bi-building me-1"></i>@_detail.CompanyName
+                            </span>
+                        }
                         @if (_detail.Tags != null)
                         {
                             @foreach (var tag in ParseTags(_detail.Tags))
@@ -246,6 +256,12 @@ else
                             <i class="bi bi-chevron-right text-muted" style="font-size:0.8rem;"></i>
                         </div>
                         <div class="d-flex flex-wrap gap-1 mt-1">
+                            @if (cust.CompanyName != null)
+                            {
+                                <span class="badge bg-info-subtle text-info" style="font-size:0.6rem;">
+                                    <i class="bi bi-building me-1"></i>@cust.CompanyName
+                                </span>
+                            }
                             @if (cust.HasActiveAgreement)
                             {
                                 <span class="badge bg-success-subtle text-success" style="font-size:0.6rem;">
@@ -332,6 +348,11 @@ else
     private void GoToCustomer(int id) => Nav.NavigateTo("/customers/" + id);
     private void GoToSite(int id) => Nav.NavigateTo("/sites/" + id);
     private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);
+    private void GoToCompany()
+    {
+        if (_detail?.CompanyId.HasValue == true)
+            Nav.NavigateTo("/companies/" + _detail.CompanyId.Value);
+    }
 
     private string GetMapsUrl()
     {

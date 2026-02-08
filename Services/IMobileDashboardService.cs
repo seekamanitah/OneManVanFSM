@@ -34,6 +34,7 @@ public class MobileJobCard
     public string JobNumber { get; set; } = string.Empty;
     public string? Title { get; set; }
     public string? CustomerName { get; set; }
+    public string? CompanyName { get; set; }
     public string? SiteAddress { get; set; }
     public JobStatus Status { get; set; }
     public JobPriority Priority { get; set; }

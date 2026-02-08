@@ -13,6 +13,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
 
         var todayJobs = await db.Jobs
             .Include(j => j.Customer)
+            .Include(j => j.Company)
             .Include(j => j.Site)
             .Where(j => !j.IsArchived
                 && j.AssignedEmployeeId == employeeId
@@ -29,6 +30,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
                 JobNumber = j.JobNumber,
                 Title = j.Title,
                 CustomerName = j.Customer != null ? j.Customer.Name : null,
+                CompanyName = j.Company != null ? j.Company.Name : null,
                 SiteAddress = j.Site != null ? (j.Site.Address + ", " + j.Site.City) : null,
                 Status = j.Status,
                 Priority = j.Priority,
@@ -80,6 +82,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
 
         var upcomingJobs = await db.Jobs
             .Include(j => j.Customer)
+            .Include(j => j.Company)
             .Include(j => j.Site)
             .Where(j => !j.IsArchived
                 && j.AssignedEmployeeId == employeeId
@@ -98,6 +101,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
                 JobNumber = j.JobNumber,
                 Title = j.Title,
                 CustomerName = j.Customer != null ? j.Customer.Name : null,
+                CompanyName = j.Company != null ? j.Company.Name : null,
                 SiteAddress = j.Site != null ? (j.Site.Address + ", " + j.Site.City) : null,
                 Status = j.Status,
                 Priority = j.Priority,

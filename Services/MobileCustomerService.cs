@@ -13,6 +13,7 @@ public class MobileCustomerService : IMobileCustomerService
     public async Task<List<MobileCustomerCard>> GetCustomersAsync(string? search = null)
     {
         var query = _db.Customers
+            .Include(c => c.Company)
             .Where(c => !c.IsArchived)
             .AsQueryable();
 
@@ -21,6 +22,8 @@ public class MobileCustomerService : IMobileCustomerService
             var term = search.ToLower();
             query = query.Where(c =>
                 c.Name.ToLower().Contains(term) ||
+                (c.FirstName != null && c.FirstName.ToLower().Contains(term)) ||
+                (c.LastName != null && c.LastName.ToLower().Contains(term)) ||
                 (c.PrimaryPhone != null && c.PrimaryPhone.Contains(term)) ||
                 (c.PrimaryEmail != null && c.PrimaryEmail.ToLower().Contains(term)) ||
                 (c.Address != null && c.Address.ToLower().Contains(term)));
@@ -33,12 +36,16 @@ public class MobileCustomerService : IMobileCustomerService
             {
                 Id = c.Id,
                 Name = c.Name,
+                FirstName = c.FirstName,
+                LastName = c.LastName,
                 Type = c.Type,
                 Phone = c.PrimaryPhone,
                 Email = c.PrimaryEmail,
                 Address = c.Address != null
                     ? c.Address + (c.City != null ? ", " + c.City : "")
                     : null,
+                CompanyId = c.CompanyId,
+                CompanyName = c.Company != null ? c.Company.Name : null,
                 SiteCount = c.Sites.Count(s => !s.IsArchived),
                 OpenJobCount = c.Jobs.Count(j => j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled),
                 HasActiveAgreement = c.ServiceAgreements.Any(sa => sa.Status == AgreementStatus.Active && sa.EndDate > now),
@@ -50,6 +57,7 @@ public class MobileCustomerService : IMobileCustomerService
     public async Task<MobileCustomerDetail?> GetCustomerDetailAsync(int id)
     {
         var customer = await _db.Customers
+            .Include(c => c.Company)
             .Include(c => c.Sites.Where(s => !s.IsArchived))
                 .ThenInclude(s => s.Assets)
             .Include(c => c.Jobs.OrderByDescending(j => j.ScheduledDate).Take(5))
@@ -63,6 +71,8 @@ public class MobileCustomerService : IMobileCustomerService
         {
             Id = customer.Id,
             Name = customer.Name,
+            FirstName = customer.FirstName,
+            LastName = customer.LastName,
             Type = customer.Type,
             PrimaryPhone = customer.PrimaryPhone,
             SecondaryPhone = customer.SecondaryPhone,
@@ -72,6 +82,8 @@ public class MobileCustomerService : IMobileCustomerService
             City = customer.City,
             State = customer.State,
             Zip = customer.Zip,
+            CompanyId = customer.CompanyId,
+            CompanyName = customer.Company?.Name,
             SinceDate = customer.SinceDate,
             BalanceOwed = customer.BalanceOwed,
             Tags = customer.Tags,

@@ -24,34 +24,54 @@ public class ProductListItem
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Brand { get; set; }
+    public string? ModelNumber { get; set; }
     public string? PartNumber { get; set; }
     public string? Category { get; set; }
+    public string? EquipmentType { get; set; }
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
+    public decimal MSRP { get; set; }
     public decimal MarkupPercent { get; set; }
     public string? Unit { get; set; }
     public string? SupplierName { get; set; }
     public bool IsTemplate { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsDiscontinued { get; set; }
     public int InventoryCount { get; set; }
 }
 
 public class ProductEditModel
 {
-    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Product name is required.")]
-    public string Name { get; set; } = string.Empty;
+    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Manufacturer is required.")]
     public string? Brand { get; set; }
+    [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Model Number is required.")]
+    public string? ModelNumber { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? ProductNumber { get; set; }
     public string? PartNumber { get; set; }
     public string? Barcode { get; set; }
     public string? Category { get; set; }
+    public string? EquipmentType { get; set; }
+    public string? FuelType { get; set; }
+    public string? Description { get; set; }
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
+    public decimal MSRP { get; set; }
     public decimal MarkupPercent { get; set; }
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }
-    public int LaborWarrantyYears { get; set; } = 1;
-    public int PartsWarrantyYears { get; set; } = 10;
-    public int CompressorWarrantyYears { get; set; } = 10;
+    public string? Tonnage { get; set; }
+    public string? RefrigerantType { get; set; }
+    public string? SEERRating { get; set; }
+    public string? AFUERating { get; set; }
+    public string? Voltage { get; set; }
+    public int LaborWarrantyYears { get; set; }
+    public int PartsWarrantyYears { get; set; }
+    public int CompressorWarrantyYears { get; set; }
+    public bool RegistrationRequired { get; set; }
+    public bool IsActive { get; set; } = true;
+    public bool IsDiscontinued { get; set; }
     public bool IsTemplate { get; set; } = true;
     public string? Notes { get; set; }
 }
@@ -61,18 +81,32 @@ public class ProductDetail
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Brand { get; set; }
+    public string? ModelNumber { get; set; }
+    public string? ProductNumber { get; set; }
     public string? PartNumber { get; set; }
     public string? Barcode { get; set; }
     public string? Category { get; set; }
+    public string? EquipmentType { get; set; }
+    public string? FuelType { get; set; }
+    public string? Description { get; set; }
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
+    public decimal MSRP { get; set; }
     public decimal MarkupPercent { get; set; }
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }
+    public string? Tonnage { get; set; }
+    public string? RefrigerantType { get; set; }
+    public string? SEERRating { get; set; }
+    public string? AFUERating { get; set; }
+    public string? Voltage { get; set; }
     public int LaborWarrantyYears { get; set; }
     public int PartsWarrantyYears { get; set; }
     public int CompressorWarrantyYears { get; set; }
+    public bool RegistrationRequired { get; set; }
+    public bool IsActive { get; set; }
+    public bool IsDiscontinued { get; set; }
     public bool IsTemplate { get; set; }
     public string? Notes { get; set; }
     public int InventoryCount { get; set; }

@@ -21,10 +21,14 @@
             <EditForm Model="form" OnValidSubmit="SaveEmployee">
                 <DataAnnotationsValidator />
                 <div class="row g-2">
-                    <div class="col-md-6">
-                        <label class="form-label">Name <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="form.Name" class="form-control" />
-                        <ValidationMessage For="() => form.Name" />
+                    <div class="col-md-3">
+                        <label class="form-label">First Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="form.FirstName" class="form-control" placeholder="First name" />
+                        <ValidationMessage For="() => form.FirstName" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Last Name</label>
+                        <InputText @bind-Value="form.LastName" class="form-control" placeholder="Last name" />
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Role</label>
@@ -40,7 +44,8 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Phone</label>
-                        <InputText @bind-Value="form.Phone" class="form-control" />
+                        <input type="tel" class="form-control" value="@form.Phone"
+                               @oninput="e => form.Phone = FormatPhone(e.Value?.ToString())" placeholder="(555) 123-4567" />
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Email</label>
@@ -96,7 +101,8 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Emergency Contact Phone</label>
-                        <InputText @bind-Value="form.EmergencyContactPhone" class="form-control" placeholder="(555) 123-4567" />
+                        <input type="tel" class="form-control" value="@form.EmergencyContactPhone"
+                               @oninput="e => form.EmergencyContactPhone = FormatPhone(e.Value?.ToString())" placeholder="(555) 123-4567" />
                     </div>
                 </div>
                 <div class="mt-3">
@@ -227,7 +233,7 @@ else if (mode == "detail" && detail is not null)
                                 <option value="">— No Job —</option>
                                 @foreach (var j in jobOptions)
                                 {
-                                    <option value="@j.Id">@j.Name</option>
+                                    <option value="@j.Id">@j.Display</option>
                                 }
                             </select>
                         </div>
@@ -460,7 +466,7 @@ else if (mode == "detail" && detail is not null)
                                     <option value="">— No Job —</option>
                                     @foreach (var j in jobOptions)
                                     {
-                                        <option value="@j.Id">@j.Name</option>
+                                        <option value="@j.Id">@j.Display</option>
                                     }
                                 </select>
                             </div>
@@ -590,7 +596,7 @@ else
 
     // Time clock state
     private EmployeeTimeEntry? activeClock;
-    private List<EmployeeOption> jobOptions = [];
+    private List<JobOption> jobOptions = [];
     private string clockInJobId = "";
     private string clockInNotes = "";
     private bool isClocking;
@@ -666,7 +672,7 @@ else
         mode = detail is not null ? "detail" : "list";
         if (mode == "list") { await LoadEmployees(); return; }
         detailTab = "jobs";
-        jobOptions = await JobSvc.GetTechniciansAsync();
+        jobOptions = await JobSvc.GetJobOptionsAsync();
         var clock = await EmployeeSvc.GetActiveClockAsync(id);
         activeClock = clock is not null ? new EmployeeTimeEntry
         {
@@ -686,7 +692,8 @@ else
         editId = id;
         form = new EmployeeEditModel
         {
-            Name = d.Name, Role = d.Role, Phone = d.Phone, Email = d.Email,
+            Name = d.Name, FirstName = d.FirstName ?? d.Name, LastName = d.LastName,
+            Role = d.Role, Phone = d.Phone, Email = d.Email,
             Address = d.Address, HourlyRate = d.HourlyRate, HireDate = d.HireDate,
             Status = d.Status, Territory = d.Territory,
             Certifications = d.Certifications,
@@ -814,4 +821,16 @@ else
         JobStatus.Scheduled or JobStatus.EnRoute => "bg-info",
         _ => "bg-secondary"
     };
+
+    private static string? FormatPhone(string? raw)
+    {
+        if (string.IsNullOrEmpty(raw)) return raw;
+        var digits = new string(raw.Where(char.IsDigit).ToArray());
+        return digits.Length switch
+        {
+            >= 10 => $"({digits[..3]}) {digits[3..6]}-{digits[6..Math.Min(10, digits.Length)]}",
+            >= 7 => $"{digits[..3]}-{digits[3..Math.Min(7, digits.Length)]}",
+            _ => digits
+        };
+    }
 }

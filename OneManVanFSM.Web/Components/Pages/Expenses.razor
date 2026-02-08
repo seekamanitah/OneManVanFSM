@@ -1,0 +1,867 @@
+@page "/financials/expenses"
+@page "/financials/expenses/{Id:int}"
+@rendermode InteractiveServer
+@inject IFinancialService FinSvc
+@inject ICustomerService CustomerSvc
+@inject IJobService JobSvc
+@inject IEmployeeService EmpSvc
+@inject IInventoryService InvSvc
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+@inject ICompanyProfileService CompanyProfileSvc
+
+<PageTitle>Expenses - OneManVanFSM</PageTitle>
+
+@if (mode == "detail" && expenseDetail is not null)
+{
+    <div class="d-flex align-items-center mb-3 no-print">
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <h4 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Expense Details</h4>
+        <span class="badge @GetExpBadge(expenseDetail.Status) ms-2">@expenseDetail.Status</span>
+        <div class="ms-auto d-flex gap-1">
+            <div class="dropdown d-inline-block">
+                <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown" title="Print template style"><i class="bi bi-palette me-1"></i>@_printTemplate</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><button class="dropdown-item @(_printTemplate == "Professional" ? "active" : "")" @onclick='() => SetPrintTemplate("Professional")'>Professional (Navy)</button></li>
+                    <li><button class="dropdown-item @(_printTemplate == "Classic" ? "active" : "")" @onclick='() => SetPrintTemplate("Classic")'>Classic (B&W)</button></li>
+                    <li><button class="dropdown-item @(_printTemplate == "Modern" ? "active" : "")" @onclick='() => SetPrintTemplate("Modern")'>Modern (Teal)</button></li>
+                </ul>
+            </div>
+            <button class="btn btn-outline-success btn-sm" @onclick="PrintExpense" title="Print / PDF"><i class="bi bi-printer me-1"></i>Print</button>
+            <button class="btn btn-outline-primary btn-sm" @onclick="EditExpenseFromDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
+            @if (expenseDetail.Status == ExpenseStatus.Pending)
+            {
+                <button class="btn btn-success btn-sm" @onclick="() => ChangeExpenseStatus(ExpenseStatus.Approved)"><i class="bi bi-check-circle me-1"></i>Approve</button>
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => ChangeExpenseStatus(ExpenseStatus.Denied)"><i class="bi bi-x-circle me-1"></i>Deny</button>
+            }
+            @if (expenseDetail.Status == ExpenseStatus.Approved)
+            {
+                <button class="btn btn-info btn-sm" @onclick="() => ChangeExpenseStatus(ExpenseStatus.Reimbursed)"><i class="bi bi-cash me-1"></i>Mark Reimbursed</button>
+            }
+        </div>
+    </div>
+
+    @* -- Print-Only Professional Expense Report -- *@
+    <div class="print-doc d-none @PrintTemplateClass">
+        <div class="print-doc-banner">
+            <div class="print-doc-banner-left">
+                <p class="print-doc-type">Expense Report</p>
+                <p class="print-doc-number-line"><strong>@(expenseDetail.Category ?? "Expense")</strong> &mdash; @expenseDetail.ExpenseDate.ToString("MMM dd, yyyy")</p>
+            </div>
+            <div class="print-doc-banner-right">
+                @if (_companyProfile is not null)
+                {
+                    <p class="print-company-name">@_companyProfile.Name</p>
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <p class="print-company-detail">@_companyProfile.Address</p> }
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <p class="print-company-detail">@_companyProfile.Phone</p> }
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) { <p class="print-company-detail">@_companyProfile.Email</p> }
+                }
+            </div>
+        </div>
+        <div class="print-doc-info-bar">
+            <div class="print-info-item"><span class="print-info-label">Status</span><span class="print-info-value">@expenseDetail.Status</span></div>
+            <div class="print-info-item"><span class="print-info-label">Date</span><span class="print-info-value">@expenseDetail.ExpenseDate.ToString("MMM dd, yyyy")</span></div>
+            @if (!string.IsNullOrWhiteSpace(expenseDetail.PaymentMethod)) { <div class="print-info-item"><span class="print-info-label">Payment Method</span><span class="print-info-value">@expenseDetail.PaymentMethod</span></div> }
+            <div class="print-info-item"><span class="print-info-label">Billable</span><span class="print-info-value">@(expenseDetail.IsBillable ? "Yes" : "No")</span></div>
+        </div>
+        <div class="print-doc-addresses">
+            <div class="print-addr-block">
+                @if (!string.IsNullOrWhiteSpace(expenseDetail.VendorName) || !string.IsNullOrWhiteSpace(expenseDetail.ReceiptNumber))
+                {
+                    <span class="print-addr-label">Vendor / Receipt</span>
+                    @if (!string.IsNullOrWhiteSpace(expenseDetail.VendorName)) { <p class="print-addr-name">@expenseDetail.VendorName</p> }
+                    @if (!string.IsNullOrWhiteSpace(expenseDetail.ReceiptNumber)) { <p class="print-addr-line">Receipt #: @expenseDetail.ReceiptNumber</p> }
+                }
+            </div>
+            <div class="print-addr-block">
+                @if (expenseDetail.EmployeeName is not null || expenseDetail.CustomerName is not null)
+                {
+                    <span class="print-addr-label">Details</span>
+                    @if (expenseDetail.EmployeeName is not null) { <p class="print-addr-line">Employee: @expenseDetail.EmployeeName</p> }
+                    @if (expenseDetail.CustomerName is not null) { <p class="print-addr-line">Customer: @expenseDetail.CustomerName</p> }
+                    @if (expenseDetail.JobNumber is not null || expenseDetail.JobTitle is not null) { <p class="print-addr-line">Job: @(expenseDetail.JobNumber ?? expenseDetail.JobTitle)</p> }
+                }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(expenseDetail.Description)) { <p style="margin:0 4pt 10pt 4pt;font-size:10pt;">@expenseDetail.Description</p> }
+
+        @if (expenseDetail.Lines.Any())
+        {
+            <table class="print-doc-table">
+                <thead><tr><th>Description</th><th class="text-center">Qty</th><th class="text-end">Unit Price</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                    @foreach (var l in expenseDetail.Lines.OrderBy(x => x.SortOrder))
+                    {
+                        <tr>
+                            <td>@l.Description @if (!string.IsNullOrEmpty(l.LineType)) { <span style="font-size:7.5pt;color:#666;margin-left:4pt;">[@l.LineType]</span> }</td>
+                            <td class="text-center">@l.Quantity</td>
+                            <td class="text-end">@l.UnitPrice.ToString("C")</td>
+                            <td class="text-end">@l.LineTotal.ToString("C")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        <div class="print-doc-totals">
+            <div class="print-total-row print-total-subtotal"><span class="print-total-label">Amount</span><span class="print-total-value">@expenseDetail.Amount.ToString("C")</span></div>
+            @if (expenseDetail.TaxAmount > 0) { <div class="print-total-row"><span class="print-total-label">Tax</span><span class="print-total-value">@expenseDetail.TaxAmount.ToString("C")</span></div> }
+            <div class="print-total-row print-grand-total"><span class="print-total-label">Total</span><span class="print-total-value">@expenseDetail.Total.ToString("C")</span></div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(expenseDetail.Notes))
+        {
+            <div class="print-doc-terms">
+                <div class="print-doc-terms-block"><div class="print-terms-heading">Notes</div><p class="print-terms-text">@expenseDetail.Notes</p></div>
+            </div>
+        }
+
+        <div class="print-doc-footer">
+            @if (_companyProfile is not null)
+            {
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <span class="print-footer-item"><i class="bi bi-telephone print-footer-icon"></i> @_companyProfile.Phone</span> }
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) { <span class="print-footer-item"><i class="bi bi-envelope print-footer-icon"></i> @_companyProfile.Email</span> }
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <span class="print-footer-item"><i class="bi bi-geo-alt print-footer-icon"></i> @_companyProfile.Address</span> }
+            }
+        </div>
+    </div>
+
+    <div class="row g-3 print-screen-only">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-sm-4"><strong>Category:</strong> @(expenseDetail.Category ?? "—")</div>
+                        <div class="col-sm-4"><strong>Date:</strong> @expenseDetail.ExpenseDate.ToString("MMM dd, yyyy")</div>
+                        <div class="col-sm-4"><strong>Payment Method:</strong> @(expenseDetail.PaymentMethod ?? "—")</div>
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(expenseDetail.Description))
+                    {
+                        <div class="mb-3"><strong>Description:</strong> @expenseDetail.Description</div>
+                    }
+                    <div class="row g-2 mb-3">
+                        @if (!string.IsNullOrWhiteSpace(expenseDetail.VendorName)) { <div class="col-sm-4"><strong>Vendor:</strong> @expenseDetail.VendorName</div> }
+                        @if (!string.IsNullOrWhiteSpace(expenseDetail.CompanyName)) { <div class="col-sm-4"><strong>Company:</strong> @expenseDetail.CompanyName</div> }
+                        @if (!string.IsNullOrWhiteSpace(expenseDetail.ReceiptNumber)) { <div class="col-sm-4"><strong>Receipt #:</strong> @expenseDetail.ReceiptNumber</div> }
+                    </div>
+                    <div class="row g-2 mb-3">
+                        @if (expenseDetail.JobId.HasValue) { <div class="col-sm-4"><strong>Job:</strong> <a href="javascript:void(0)" @onclick="() => GoToJob(expenseDetail.JobId!.Value)">@(expenseDetail.JobNumber ?? expenseDetail.JobTitle ?? "View")</a></div> }
+                        @if (expenseDetail.CustomerName is not null) { <div class="col-sm-4"><strong>Customer:</strong> <a href="javascript:void(0)" @onclick="() => GoToCustomer(expenseDetail.CustomerId!.Value)">@expenseDetail.CustomerName</a></div> }
+                        @if (expenseDetail.EmployeeName is not null) { <div class="col-sm-4"><strong>Employee:</strong> @expenseDetail.EmployeeName</div> }
+                    </div>
+                    @if (expenseDetail.InvoiceId.HasValue)
+                    {
+                        <div class="mb-3"><strong>Linked Invoice:</strong> <a href="javascript:void(0)" @onclick="() => GoToInvoice(expenseDetail.InvoiceId!.Value)">@(expenseDetail.InvoiceNumber ?? "View")</a></div>
+                    }
+                    <div class="mb-2"><span class="badge @(expenseDetail.IsBillable ? "bg-success" : "bg-secondary")">@(expenseDetail.IsBillable ? "Billable to Customer" : "Not Billable")</span></div>
+
+                    @if (expenseDetail.Lines.Any())
+                    {
+                        <h6 class="border-bottom pb-2 mb-2 mt-3">Line Items</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm mb-0">
+                                <thead class="table-light">
+                                    <tr><th>Description</th><th class="text-center" style="width:60px;">Qty</th><th class="text-end" style="width:100px;">Unit Price</th><th class="text-end" style="width:90px;">Total</th></tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var l in expenseDetail.Lines.OrderBy(x => x.SortOrder))
+                                    {
+                                        <tr>
+                                            <td>
+                                                @l.Description
+                                                @if (!string.IsNullOrEmpty(l.LineType)) { <span class="badge bg-light text-dark ms-1">@l.LineType</span> }
+                                            </td>
+                                            <td class="text-center">@l.Quantity</td>
+                                            <td class="text-end">@l.UnitPrice.ToString("C")</td>
+                                            <td class="text-end">@l.LineTotal.ToString("C")</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(expenseDetail.Notes)) { <hr class="my-2" /><p class="text-muted small mb-0"><strong>Notes:</strong> @expenseDetail.Notes</p> }
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Amount Summary</h6>
+                    <div class="d-flex justify-content-between mb-1"><span>Amount</span><span>@expenseDetail.Amount.ToString("C")</span></div>
+                    @if (expenseDetail.TaxAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax</span><span>@expenseDetail.TaxAmount.ToString("C")</span></div> }
+                    <hr class="my-2" />
+                    <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@expenseDetail.Total.ToString("C")</span></div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between text-muted small">
+                        <span><i class="bi bi-info-circle me-1"></i>Created @expenseDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
+                    <div class="d-flex justify-content-between text-muted small mt-1">
+                        <span>Updated @expenseDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-outline-secondary btn-sm" @onclick='() => Nav.NavigateTo("/financials")'><i class="bi bi-arrow-left"></i></button>
+            <h4 class="mb-0"><i class="bi bi-wallet2 me-2"></i>Expenses</h4>
+        </div>
+        <button class="btn btn-primary btn-sm" @onclick="ShowExpenseForm"><i class="bi bi-plus-lg me-1"></i>New Expense</button>
+    </div>
+
+    @if (showForm)
+    {
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-transparent d-flex justify-content-between">
+                <h6 class="mb-0">@(editingExpenseId.HasValue ? "Edit Expense" : "New Expense")</h6>
+                <button class="btn-close" @onclick="CloseForm"></button>
+            </div>
+            <div class="card-body">
+                <EditForm Model="expenseForm" OnValidSubmit="SaveExpense">
+                    <DataAnnotationsValidator />
+
+                    @* ?? Expense Details ?? *@
+                    <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-info-circle me-1"></i>Expense Details</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Date <span class="text-danger">*</span></label>
+                            <InputDate @bind-Value="expenseForm.ExpenseDate" class="form-control form-control-sm" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Category <span class="text-danger">*</span></label>
+                            <select class="form-select form-select-sm" @bind="expenseForm.Category">
+                                <option value="">Select category...</option>
+                                <option value="Materials">Materials</option>
+                                <option value="Equipment">Equipment</option>
+                                <option value="Tools">Tools</option>
+                                <option value="Fuel">Fuel</option>
+                                <option value="Vehicle">Vehicle</option>
+                                <option value="Disposal">Disposal</option>
+                                <option value="Permits">Permits</option>
+                                <option value="Supplies">Supplies</option>
+                                <option value="Subcontractor">Subcontractor</option>
+                                <option value="Insurance">Insurance</option>
+                                <option value="Office">Office</option>
+                                <option value="Travel">Travel</option>
+                                <option value="Training">Training</option>
+                                <option value="Uniforms">Uniforms</option>
+                                <option value="Refrigerant">Refrigerant</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label">Description</label>
+                            <InputText @bind-Value="expenseForm.Description" class="form-control form-control-sm" placeholder="What was this expense for?" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vendor/Supplier</label>
+                            <InputSelect @bind-Value="expenseForm.CompanyId" class="form-select form-select-sm">
+                                <option value="">Select from companies or enter manually</option>
+                                @foreach (var c in _companyOptions)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                            <small class="text-muted">Select a company from your list, or leave blank to enter manually below</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Vendor Name (Manual Entry)</label>
+                            <InputText @bind-Value="expenseForm.VendorName" class="form-control form-control-sm" placeholder="e.g., Home Depot, Johnstone Supply" />
+                            <small class="text-muted">Used when vendor is not in your company list</small>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Receipt/Invoice Number</label>
+                            <InputText @bind-Value="expenseForm.ReceiptNumber" class="form-control form-control-sm" />
+                        </div>
+                    </div>
+
+                    @* ?? Line Items ?? *@
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-3">
+                        <h6 class="mb-0"><i class="bi bi-list-check me-1"></i>Line Items</h6>
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="OpenAddItemModal"><i class="bi bi-plus-circle me-1"></i>Add Item</button>
+                    </div>
+                    @if (expenseForm.Lines.Count > 0)
+                    {
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm table-bordered mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Description</th>
+                                        <th style="width:70px;" class="text-center">Qty</th>
+                                        <th style="width:100px;" class="text-end">Unit Price</th>
+                                        <th style="width:90px;" class="text-end">Total</th>
+                                        <th style="width:40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @for (int i = 0; i < expenseForm.Lines.Count; i++)
+                                    {
+                                        var line = expenseForm.Lines[i];
+                                        var capturedIdx = i;
+                                        <tr>
+                                            <td>
+                                                @line.Description
+                                                @if (!string.IsNullOrEmpty(line.LineType)) { <span class="badge bg-light text-dark ms-1">@line.LineType</span> }
+                                            </td>
+                                            <td class="text-center">@line.Quantity</td>
+                                            <td class="text-end">@line.UnitPrice.ToString("C")</td>
+                                            <td class="text-end">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
+                                            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveExpenseLine(capturedIdx)"><i class="bi bi-x"></i></button></td>
+                                        </tr>
+                                    }
+                                </tbody>
+                                <tfoot class="table-light">
+                                    <tr><td colspan="3" class="text-end fw-semibold">Subtotal</td><td class="text-end fw-semibold">@expenseForm.Lines.Sum(l => l.Quantity * l.UnitPrice).ToString("C")</td><td></td></tr>
+                                </tfoot>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-4 mb-3">
+                            <i class="bi bi-list-check" style="font-size:2rem;"></i>
+                            <p class="mt-2 mb-0">No items yet. Click "Add Item" or enter a flat amount below.</p>
+                        </div>
+                    }
+
+                    @* ?? Amount & Tax ?? *@
+                    <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-currency-dollar me-1"></i>Amount & Tax</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Amount @(expenseForm.Lines.Count > 0 ? "(from line items)" : "")</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                @if (expenseForm.Lines.Count > 0)
+                                {
+                                    <input type="text" class="form-control form-control-sm" value="@expenseForm.Amount.ToString("F2")" readonly />
+                                }
+                                else
+                                {
+                                    <InputNumber @bind-Value="expenseForm.Amount" class="form-control form-control-sm" />
+                                }
+                            </div>
+                            @if (expenseForm.Lines.Count == 0) { <ValidationMessage For="() => expenseForm.Amount" /> }
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Tax Amount</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <InputNumber @bind-Value="expenseForm.TaxAmount" class="form-control form-control-sm" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Total</label>
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">$</span>
+                                <input type="text" class="form-control form-control-sm fw-bold" value="@((expenseForm.Amount + expenseForm.TaxAmount).ToString("F2"))" readonly />
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Payment Method</label>
+                            <select class="form-select form-select-sm" @bind="expenseForm.PaymentMethod">
+                                <option value="Cash">Cash</option>
+                                <option value="Check">Check</option>
+                                <option value="Card">Card</option>
+                                <option value="ACH">ACH</option>
+                                <option value="Zelle">Zelle</option>
+                                <option value="Company Card">Company Card</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <InputSelect @bind-Value="expenseForm.Status" class="form-select form-select-sm">
+                                @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    @* ?? Link To (Optional) ?? *@
+                    <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-link-45deg me-1"></i>Link To (Optional)</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Job</label>
+                            <InputSelect @bind-Value="expenseForm.JobId" class="form-select form-select-sm">
+                                <option value="">Not linked to a job</option>
+                                @foreach (var j in _jobOptions)
+                                {
+                                    <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Customer</label>
+                            <InputSelect @bind-Value="expenseForm.CustomerId" class="form-select form-select-sm">
+                                <option value="">Not linked to a customer</option>
+                                @foreach (var c in _customers)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Employee</label>
+                            <InputSelect @bind-Value="expenseForm.EmployeeId" class="form-select form-select-sm">
+                                <option value="">Not linked to an employee</option>
+                                @foreach (var e in _employeeOptions)
+                                {
+                                    <option value="@e.Id">@e.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <InputCheckbox @bind-Value="expenseForm.IsBillable" class="form-check-input" id="billable" />
+                                <label class="form-check-label" for="billable">Billable to Customer</label>
+                            </div>
+                        </div>
+                    </div>
+
+                    @* ?? Notes ?? *@
+                    <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-journal-text me-1"></i>Notes</h6>
+                    <div class="mb-3">
+                        <InputTextArea @bind-Value="expenseForm.Notes" class="form-control form-control-sm" rows="3" placeholder="Additional notes..." />
+                    </div>
+
+                    <div class="d-flex justify-content-between border-top pt-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseForm">Cancel</button>
+                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle me-1"></i>@(editingExpenseId.HasValue ? "Save Expense" : "Create Expense")</button>
+                    </div>
+                    @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
+                </EditForm>
+            </div>
+        </div>
+    }
+
+    @* ?? Expense List ?? *@
+    <div class="card border-0 shadow-sm mb-2">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-8">
+                    <input type="text" class="form-control form-control-sm" placeholder="Search expenses..." @bind="expenseFilter.Search" @bind:event="oninput" @bind:after="LoadExpenses" />
+                </div>
+                <div class="col-md-4">
+                    <select class="form-select form-select-sm" @bind="expenseFilterStatus" @bind:after="LoadExpenses">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="card border-0 shadow-sm">
+        @if (expenses is null)
+        {
+            <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
+        }
+        else if (!expenses.Any())
+        {
+            <div class="card-body text-center py-5 text-muted"><i class="bi bi-wallet2" style="font-size:2rem;"></i><p class="mt-2">No expenses yet.</p></div>
+        }
+        else
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th role="button" @onclick='() => ToggleSort("category")'>Category@(SortIcon("category"))</th>
+                            <th>Description</th>
+                            <th>Vendor</th>
+                            <th role="button" @onclick='() => ToggleSort("amount")'>Amount@(SortIcon("amount"))</th>
+                            <th>Status</th>
+                            <th>Billable</th>
+                            <th>Job</th>
+                            <th role="button" @onclick='() => ToggleSort("createdat")'>Date@(SortIcon("createdat"))</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var e in expenses)
+                        {
+                            <tr style="cursor:pointer" @onclick="() => ViewExpense(e.Id)">
+                                <td>@(e.Category ?? "—")</td>
+                                <td>@(e.Description ?? "—")</td>
+                                <td>@(e.VendorName ?? e.CompanyName ?? "—")</td>
+                                <td>@(e.Total > 0 ? e.Total.ToString("C") : e.Amount.ToString("C"))</td>
+                                <td><span class="badge @GetExpBadge(e.Status)">@e.Status</span></td>
+                                <td>@(e.IsBillable ? "Yes" : "—")</td>
+                                <td>@if (e.JobId.HasValue) { <a href="javascript:void(0)" @onclick:stopPropagation @onclick="() => GoToJob(e.JobId!.Value)">@(e.JobTitle ?? "View")</a> } else { <span>—</span> }</td>
+                                <td>@e.ExpenseDate.ToString("MMM dd")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
+@* ?? Add Item Modal ?? *@
+@if (_showItemModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title"><i class="bi bi-plus-circle me-1"></i>Add Line Item</h6>
+                    <button type="button" class="btn-close" @onclick="CloseItemModal"></button>
+                </div>
+                <div class="modal-body">
+                    @* Source toggle *@
+                    <ul class="nav nav-tabs nav-fill mb-3">
+                        <li class="nav-item">
+                            <button type="button" class="nav-link @(_modalItemSource == "custom" ? "active" : "")" @onclick='() => SwitchModalSource("custom")'>Custom Item</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link @(_modalItemSource == "inventory" ? "active" : "")" @onclick='() => SwitchModalSource("inventory")'>From Inventory</button>
+                        </li>
+                        <li class="nav-item">
+                            <button type="button" class="nav-link @(_modalItemSource == "product" ? "active" : "")" @onclick='() => SwitchModalSource("product")'>From Product</button>
+                        </li>
+                    </ul>
+
+                    @if (_modalItemSource == "inventory")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Select Inventory Item</label>
+                            <select class="form-select form-select-sm" @onchange="OnModalInventorySelected">
+                                <option value="">— Choose an item —</option>
+                                @foreach (var inv in _inventoryItems)
+                                {
+                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) — @inv.Price.ToString("C")</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                    @if (_modalItemSource == "product")
+                    {
+                        <div class="mb-3">
+                            <label class="form-label">Select Product</label>
+                            <select class="form-select form-select-sm" @onchange="OnModalProductSelected">
+                                <option value="">— Choose a product —</option>
+                                @foreach (var p in _productOptions)
+                                {
+                                    <option value="@p.Id">@p.Name — @p.Price.ToString("C")</option>
+                                }
+                            </select>
+                        </div>
+                    }
+
+                    <div class="mb-2">
+                        <label class="form-label">Description <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-sm" @bind="_modalLine.Description" placeholder="Item description" />
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <label class="form-label">Type</label>
+                            <select class="form-select form-select-sm" @bind="_modalLine.LineType">
+                                <option value="Material">Material</option>
+                                <option value="Equipment">Equipment</option>
+                                <option value="Fuel">Fuel</option>
+                                <option value="Disposal">Disposal</option>
+                                <option value="Permit">Permit</option>
+                                <option value="Subcontractor">Subcontractor</option>
+                                <option value="Fee">Fee</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">Unit</label>
+                            <input type="text" class="form-control form-control-sm" @bind="_modalLine.Unit" placeholder="Each, Gallon, Box" />
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-4">
+                            <label class="form-label">Quantity</label>
+                            <input type="number" class="form-control form-control-sm" step="0.01" @bind="_modalLine.Quantity" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Unit Price</label>
+                            <input type="number" class="form-control form-control-sm" step="0.01" @bind="_modalLine.UnitPrice" />
+                        </div>
+                        <div class="col-4">
+                            <label class="form-label">Total</label>
+                            <input type="text" class="form-control form-control-sm" value="@((_modalLine.Quantity * _modalLine.UnitPrice).ToString("C"))" readonly />
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label">Notes</label>
+                        <input type="text" class="form-control form-control-sm" @bind="_modalLine.Notes" placeholder="Optional notes for this item" />
+                    </div>
+                </div>
+                <div class="modal-footer py-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseItemModal">Cancel</button>
+                    <button type="button" class="btn btn-primary btn-sm" @onclick="SaveModalItem" disabled="@string.IsNullOrWhiteSpace(_modalLine.Description)"><i class="bi bi-check-circle me-1"></i>Save Item</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string mode = "list";
+    private bool showForm;
+    private string? errorMsg;
+    private List<ExpenseListItem>? expenses;
+    private ExpenseEditModel expenseForm = new();
+    private ExpenseDetail? expenseDetail;
+    private int? editingExpenseId;
+    private List<CustomerListItem> _customers = [];
+    private List<JobListItem> _jobOptions = [];
+    private List<EmployeeListItem> _employeeOptions = [];
+    private List<CompanyOption> _companyOptions = [];
+    private List<ProductOption> _productOptions = [];
+    private List<InventoryListItem> _inventoryItems = [];
+    private CompanyProfile? _companyProfile;
+    private ExpenseFilter expenseFilter = new();
+    private string expenseFilterStatus = "";
+
+    // Modal state
+    private bool _showItemModal;
+    private string _modalItemSource = "custom";
+    private ExpenseLineEditModel _modalLine = new() { LineType = "Material", Unit = "Each", Quantity = 1 };
+
+    // Print template
+    private string _printTemplate = "Professional";
+    private string PrintTemplateClass => _printTemplate switch
+    {
+        "Classic" => "print-template-classic",
+        "Modern" => "print-template-modern",
+        _ => ""
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        _customers = await CustomerSvc.GetCustomersAsync();
+        _jobOptions = await JobSvc.GetJobsAsync();
+        _employeeOptions = await EmpSvc.GetEmployeesAsync();
+        _companyOptions = await FinSvc.GetCompanyOptionsAsync();
+        _productOptions = await FinSvc.GetProductOptionsAsync();
+        _inventoryItems = await InvSvc.GetItemsAsync();
+        await LoadExpenses();
+
+        var saved = await JS.InvokeAsync<string?>("getLocalStorage", "printTemplate");
+        if (!string.IsNullOrWhiteSpace(saved)) _printTemplate = saved;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id.HasValue)
+        {
+            expenseDetail = await FinSvc.GetExpenseAsync(Id.Value);
+            mode = expenseDetail is not null ? "detail" : "list";
+            if (mode == "detail") _companyProfile = await CompanyProfileSvc.GetProfileAsync();
+        }
+        else
+        {
+            mode = "list";
+        }
+    }
+
+    private void BackToList() { mode = "list"; expenseDetail = null; Nav.NavigateTo("/financials/expenses"); }
+
+    private async Task LoadExpenses()
+    {
+        expenseFilter.Status = string.IsNullOrWhiteSpace(expenseFilterStatus) ? null : Enum.Parse<ExpenseStatus>(expenseFilterStatus);
+        expenses = await FinSvc.GetExpensesAsync(expenseFilter);
+    }
+
+    private void ShowExpenseForm()
+    {
+        showForm = true;
+        editingExpenseId = null;
+        expenseForm = new ExpenseEditModel
+        {
+            ExpenseDate = DateTime.UtcNow,
+            PaymentMethod = "Cash"
+        };
+    }
+
+    private void CloseForm() { showForm = false; errorMsg = null; }
+
+    private void EditExpenseFromDetail()
+    {
+        if (expenseDetail is null) return;
+        editingExpenseId = expenseDetail.Id;
+        expenseForm = new ExpenseEditModel
+        {
+            Category = expenseDetail.Category,
+            Description = expenseDetail.Description,
+            Amount = expenseDetail.Amount,
+            TaxAmount = expenseDetail.TaxAmount,
+            Total = expenseDetail.Total,
+            PaymentMethod = expenseDetail.PaymentMethod ?? "Cash",
+            Status = expenseDetail.Status,
+            IsBillable = expenseDetail.IsBillable,
+            VendorName = expenseDetail.VendorName,
+            ReceiptNumber = expenseDetail.ReceiptNumber,
+            Notes = expenseDetail.Notes,
+            ExpenseDate = expenseDetail.ExpenseDate,
+            EmployeeId = expenseDetail.EmployeeId,
+            JobId = expenseDetail.JobId,
+            CustomerId = expenseDetail.CustomerId,
+            CompanyId = expenseDetail.CompanyId,
+            InvoiceId = expenseDetail.InvoiceId,
+            Lines = expenseDetail.Lines.Select(l => new ExpenseLineEditModel
+            {
+                ProductId = l.ProductId,
+                InventoryItemId = l.InventoryItemId,
+                Description = l.Description,
+                LineType = l.LineType,
+                Unit = l.Unit,
+                Quantity = l.Quantity,
+                UnitPrice = l.UnitPrice,
+                Notes = l.Notes
+            }).ToList()
+        };
+        showForm = true;
+        mode = "list";
+    }
+
+    private async Task ChangeExpenseStatus(ExpenseStatus status)
+    {
+        if (expenseDetail is not null)
+        {
+            await FinSvc.UpdateExpenseStatusAsync(expenseDetail.Id, status);
+            expenseDetail = await FinSvc.GetExpenseAsync(expenseDetail.Id);
+        }
+    }
+
+    // ?? Modal line item methods ??
+    private void OpenAddItemModal()
+    {
+        _modalItemSource = "custom";
+        _modalLine = new ExpenseLineEditModel { LineType = "Material", Unit = "Each", Quantity = 1 };
+        _showItemModal = true;
+    }
+
+    private void CloseItemModal() => _showItemModal = false;
+
+    private void SwitchModalSource(string source)
+    {
+        _modalItemSource = source;
+        _modalLine = new ExpenseLineEditModel { LineType = "Material", Unit = "Each", Quantity = 1 };
+    }
+
+    private void OnModalInventorySelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var invId))
+        {
+            var item = _inventoryItems.FirstOrDefault(i => i.Id == invId);
+            if (item is not null)
+            {
+                _modalLine.InventoryItemId = invId;
+                _modalLine.Description = item.Name;
+                _modalLine.UnitPrice = item.Price > 0 ? item.Price : item.Cost;
+                _modalLine.Unit = "Each";
+                _modalLine.LineType = "Material";
+            }
+        }
+    }
+
+    private void OnModalProductSelected(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var pid))
+        {
+            var prod = _productOptions.FirstOrDefault(p => p.Id == pid);
+            if (prod is not null)
+            {
+                _modalLine.ProductId = pid;
+                _modalLine.Description = prod.Name;
+                _modalLine.UnitPrice = prod.Price;
+                _modalLine.Unit = prod.Unit ?? "Each";
+                _modalLine.LineType = "Material";
+            }
+        }
+    }
+
+    private void SaveModalItem()
+    {
+        if (string.IsNullOrWhiteSpace(_modalLine.Description)) return;
+        expenseForm.Lines.Add(new ExpenseLineEditModel
+        {
+            ProductId = _modalLine.ProductId,
+            InventoryItemId = _modalLine.InventoryItemId,
+            Description = _modalLine.Description,
+            LineType = _modalLine.LineType,
+            Unit = _modalLine.Unit,
+            Quantity = _modalLine.Quantity,
+            UnitPrice = _modalLine.UnitPrice,
+            Notes = _modalLine.Notes
+        });
+        _showItemModal = false;
+        RecalcExpenseAmount();
+    }
+
+    private void RemoveExpenseLine(int idx)
+    {
+        if (idx >= 0 && idx < expenseForm.Lines.Count) expenseForm.Lines.RemoveAt(idx);
+        RecalcExpenseAmount();
+    }
+
+    private void RecalcExpenseAmount()
+    {
+        if (expenseForm.Lines.Count > 0)
+            expenseForm.Amount = expenseForm.Lines.Sum(l => l.Quantity * l.UnitPrice);
+        expenseForm.Total = expenseForm.Amount + expenseForm.TaxAmount;
+    }
+
+    private async Task SaveExpense()
+    {
+        try
+        {
+            errorMsg = null;
+            RecalcExpenseAmount();
+            if (editingExpenseId.HasValue)
+                await FinSvc.UpdateExpenseAsync(editingExpenseId.Value, expenseForm);
+            else
+                await FinSvc.CreateExpenseAsync(expenseForm);
+            showForm = false;
+            await LoadExpenses();
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+    }
+
+    private void ViewExpense(int id) => Nav.NavigateTo($"/financials/expenses/{id}");
+    private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
+    private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
+    private void GoToInvoice(int id) => Nav.NavigateTo($"/financials/invoices/{id}");
+
+    private async Task PrintExpense() => await JS.InvokeVoidAsync("triggerPrint");
+
+    private async Task SetPrintTemplate(string template)
+    {
+        _printTemplate = template;
+        await JS.InvokeVoidAsync("setLocalStorage", "printTemplate", template);
+    }
+
+    private string GetExpBadge(ExpenseStatus s) => s switch
+    {
+        ExpenseStatus.Pending => "bg-warning text-dark", ExpenseStatus.Approved => "bg-success",
+        ExpenseStatus.Reimbursed => "bg-info", ExpenseStatus.Denied => "bg-danger",
+        _ => "bg-secondary"
+    };
+
+    private async Task ToggleSort(string column)
+    {
+        if (expenseFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true) expenseFilter.SortDescending = !expenseFilter.SortDescending;
+        else { expenseFilter.SortBy = column; expenseFilter.SortDescending = false; }
+        await LoadExpenses();
+    }
+
+    private MarkupString SortIcon(string column) =>
+        expenseFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true
+            ? new MarkupString(expenseFilter.SortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>")
+            : default;
+}

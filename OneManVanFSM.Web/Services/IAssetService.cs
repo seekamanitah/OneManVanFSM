@@ -10,6 +10,11 @@ public interface IAssetService
     Task<Asset> UpdateAssetAsync(int id, AssetEditModel model);
     Task<bool> ArchiveAssetAsync(int id);
     Task<List<AssetTimelineEntry>> GetUnifiedTimelineAsync(int assetId);
+    // Asset linking (peer-to-peer equipment grouping)
+    Task<List<LinkedAssetDto>> GetLinkedAssetsAsync(int assetId);
+    Task LinkAssetsAsync(int assetId, int linkedAssetId, string? linkType = null, string? label = null);
+    Task UnlinkAssetAsync(int assetId, int linkedAssetId);
+    Task<List<AssetOption>> GetAssetOptionsAsync(int? customerId = null, int? siteId = null);
 }
 
 public class AssetFilter
@@ -52,8 +57,13 @@ public class AssetDetail
     public string? FilterSize { get; set; }
     public decimal? Tonnage { get; set; }
     public decimal? SEER { get; set; }
+    public decimal? SEER2 { get; set; }
     public decimal? AFUE { get; set; }
     public decimal? HSPF { get; set; }
+    public decimal? HSPF2 { get; set; }
+    public decimal? EER { get; set; }
+    public string? AssetTag { get; set; }
+    public string? Nickname { get; set; }
     public string? Voltage { get; set; }
     public string? Phase { get; set; }
     public string? LocationOnSite { get; set; }
@@ -64,6 +74,14 @@ public class AssetDetail
     public int? GallonCapacity { get; set; }
     public string? RefrigerantType { get; set; }
     public decimal? RefrigerantQuantity { get; set; }
+    public string? FilterType { get; set; }
+    public int? FilterChangeIntervalMonths { get; set; }
+    public DateTime? FilterLastChanged { get; set; }
+    public DateTime? FilterNextDue { get; set; }
+    public string? ThermostatBrand { get; set; }
+    public string? ThermostatModel { get; set; }
+    public string? ThermostatType { get; set; }
+    public bool ThermostatWiFiEnabled { get; set; }
     public DateTime? InstallDate { get; set; }
     public DateTime? LastServiceDate { get; set; }
     public DateTime? NextServiceDue { get; set; }
@@ -73,6 +91,12 @@ public class AssetDetail
     public DateTime? LaborWarrantyExpiry { get; set; }
     public DateTime? PartsWarrantyExpiry { get; set; }
     public DateTime? CompressorWarrantyExpiry { get; set; }
+    public int? LaborWarrantyTermYears { get; set; }
+    public int? PartsWarrantyTermYears { get; set; }
+    public int? CompressorWarrantyTermYears { get; set; }
+    public bool RegisteredOnline { get; set; }
+    public string? InstalledBy { get; set; }
+    public bool WarrantedByCompany { get; set; }
     public AssetStatus Status { get; set; }
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
@@ -90,6 +114,7 @@ public class AssetDetail
     public List<AssetLinkedJob> LinkedJobs { get; set; } = [];
     public List<AssetServiceLogItem> ServiceHistory { get; set; } = [];
     public List<AssetTimelineEntry> UnifiedTimeline { get; set; } = [];
+    public List<LinkedAssetDto> LinkedAssets { get; set; } = [];
 }
 
 public class AssetLinkedJob
@@ -144,8 +169,13 @@ public class AssetEditModel
     public string? FilterSize { get; set; }
     public decimal? Tonnage { get; set; }
     public decimal? SEER { get; set; }
+    public decimal? SEER2 { get; set; }
     public decimal? AFUE { get; set; }
     public decimal? HSPF { get; set; }
+    public decimal? HSPF2 { get; set; }
+    public decimal? EER { get; set; }
+    public string? AssetTag { get; set; }
+    public string? Nickname { get; set; }
     public string? Voltage { get; set; }
     public string? Phase { get; set; }
     public string? LocationOnSite { get; set; }
@@ -156,16 +186,52 @@ public class AssetEditModel
     public int? GallonCapacity { get; set; }
     public string? RefrigerantType { get; set; }
     public decimal? RefrigerantQuantity { get; set; }
+    public string? FilterType { get; set; }
+    public int? FilterChangeIntervalMonths { get; set; }
+    public DateTime? FilterLastChanged { get; set; }
+    public DateTime? FilterNextDue { get; set; }
+    public string? ThermostatBrand { get; set; }
+    public string? ThermostatModel { get; set; }
+    public string? ThermostatType { get; set; }
+    public bool ThermostatWiFiEnabled { get; set; }
     public DateTime? InstallDate { get; set; }
     public DateTime? LastServiceDate { get; set; }
     public DateTime? NextServiceDue { get; set; }
     public DateTime? WarrantyStartDate { get; set; }
     public int? WarrantyTermYears { get; set; }
     public DateTime? WarrantyExpiry { get; set; }
+    public int? LaborWarrantyTermYears { get; set; }
+    public int? PartsWarrantyTermYears { get; set; }
+    public int? CompressorWarrantyTermYears { get; set; }
+    public bool RegisteredOnline { get; set; }
+    public string? InstalledBy { get; set; }
+    public bool WarrantedByCompany { get; set; }
     public AssetStatus Status { get; set; } = AssetStatus.Active;
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
     public int? ProductId { get; set; }
     public int? CustomerId { get; set; }
     public int? SiteId { get; set; }
+    public List<int> JobIds { get; set; } = [];
+}
+
+public class LinkedAssetDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? AssetType { get; set; }
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public string? LocationOnSite { get; set; }
+    public string? LinkType { get; set; }
+    public string? Label { get; set; }
+    public AssetStatus Status { get; set; }
+}
+
+public class AssetOption
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? AssetType { get; set; }
+    public string Display => string.IsNullOrEmpty(AssetType) ? Name : $"{Name} — {AssetType}";
 }

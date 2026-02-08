@@ -40,30 +40,35 @@
     }
 
     @* Filters *@
-    <div class="row g-2 mb-3">
-        <div class="col-md-4">
-            <div class="input-group input-group-sm">
-                <span class="input-group-text"><i class="bi bi-search"></i></span>
-                <input type="text" class="form-control" placeholder="Search records..." @bind="historyFilter.Search" @bind:event="oninput" @bind:after="LoadRecords" />
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Search records..." @bind="historyFilter.Search" @bind:event="oninput" @bind:after="LoadRecords" />
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="selectedTypeFilter" @bind:after="OnTypeFilterChanged">
+                        <option value="">All Types</option>
+                        @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>())
+                        {
+                            <option value="@t">@FormatType(t)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select form-select-sm" @bind="selectedStatusFilter" @bind:after="OnStatusFilterChanged">
+                        <option value="">All Statuses</option>
+                        @foreach (var s in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4 text-end text-muted small">@(records?.Count ?? 0) record@(records?.Count != 1 ? "s" : "")</div>
             </div>
-        </div>
-        <div class="col-md-2">
-            <select class="form-select form-select-sm" @bind="selectedTypeFilter" @bind:after="OnTypeFilterChanged">
-                <option value="">All Types</option>
-                @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>())
-                {
-                    <option value="@t">@FormatType(t)</option>
-                }
-            </select>
-        </div>
-        <div class="col-md-2">
-            <select class="form-select form-select-sm" @bind="selectedStatusFilter" @bind:after="OnStatusFilterChanged">
-                <option value="">All Statuses</option>
-                @foreach (var s in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>())
-                {
-                    <option value="@s">@s</option>
-                }
-            </select>
         </div>
     </div>
 
@@ -85,16 +90,16 @@
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
-                        <th>Record #</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                        <th>Date</th>
+                        <th role="button" @onclick='() => ToggleSort("RecordNumber")'>Record # @SortIcon("RecordNumber")</th>
+                        <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
+                        <th role="button" @onclick='() => ToggleSort("Status")'>Status @SortIcon("Status")</th>
+                        <th role="button" @onclick='() => ToggleSort("ServiceDate")'>Date @SortIcon("ServiceDate")</th>
                         <th>Customer</th>
                         <th>Site</th>
                         <th>Asset</th>
                         <th>Tech</th>
                         <th>Issue</th>
-                        <th>Cost</th>
+                        <th role="button" @onclick='() => ToggleSort("Cost")'>Cost @SortIcon("Cost")</th>
                         <th class="text-end">Actions</th>
                     </tr>
                 </thead>
@@ -115,7 +120,15 @@
                             <td class="text-end" @onclick:stopPropagation="true">
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" title="Edit" @onclick="() => ShowEdit(rec.Id)"><i class="bi bi-pencil"></i></button>
-                                    <button class="btn btn-outline-danger" title="Delete" @onclick="() => DeleteRecord(rec.Id)"><i class="bi bi-trash"></i></button>
+                                    @if (_confirmDeleteId == rec.Id)
+                                    {
+                                        <button class="btn btn-danger" title="Confirm Delete" @onclick="() => ConfirmDeleteRecord(rec.Id)"><i class="bi bi-check-lg"></i></button>
+                                        <button class="btn btn-outline-secondary" title="Cancel" @onclick="() => _confirmDeleteId = null"><i class="bi bi-x-lg"></i></button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-outline-danger" title="Delete" @onclick="() => _confirmDeleteId = rec.Id"><i class="bi bi-trash"></i></button>
+                                    }
                                 </div>
                             </td>
                         </tr>
@@ -225,6 +238,10 @@ else if (viewMode == "detail" && recordDetail is not null)
                     else { <span>—</span> }
                 </div>
             </div>
+            <div class="d-flex justify-content-between text-muted small mt-2 pt-2 border-top">
+                <span><strong>Created:</strong> @recordDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+                <span><strong>Updated:</strong> @recordDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</span>
+            </div>
         </div>
     </div>
 
@@ -328,14 +345,6 @@ else if (viewMode == "detail" && recordDetail is not null)
             <div class="card-body"><p class="text-muted small mb-0">@recordDetail.Notes</p></div>
         </div>
     }
-
-    <div class="card border-0 shadow-sm mb-3">
-        <div class="card-body">
-            <h6 class="text-muted"><i class="bi bi-info-circle me-1"></i>Record Info</h6>
-            <p class="mb-1 small"><strong>Created:</strong> @recordDetail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-            <p class="mb-0 small"><strong>Updated:</strong> @recordDetail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</p>
-        </div>
-    </div>
 }
 else if (viewMode is "create" or "edit")
 {
@@ -349,7 +358,7 @@ else if (viewMode is "create" or "edit")
                 <DataAnnotationsValidator />
                 <ValidationSummary class="text-danger mb-3" />
 
-                <div class="row g-3">
+                <div class="row g-2">
                     <div class="col-md-3">
                         <label class="form-label">Record # <span class="text-danger">*</span></label>
                         <InputText class="form-control" @bind-Value="editModel.RecordNumber" />
@@ -489,6 +498,7 @@ else if (viewMode is "create" or "edit")
     private ServiceHistoryKpis? kpis;
     private bool showAddAction;
     private ClaimActionEditModel newAction = new();
+    private int? _confirmDeleteId;
 
     private ServiceHistoryFilter historyFilter = new();
     private string selectedTypeFilter = "";
@@ -579,9 +589,10 @@ else if (viewMode is "create" or "edit")
         catch (Exception ex) { errorMessage = ex.Message; }
     }
 
-    private async Task DeleteRecord(int id)
+    private async Task ConfirmDeleteRecord(int id)
     {
         await HistoryService.DeleteRecordAsync(id);
+        _confirmDeleteId = null;
         await LoadRecords();
         await LoadKpis();
     }
@@ -628,17 +639,34 @@ else if (viewMode is "create" or "edit")
     private void GoToJob(int id) => Navigation.NavigateTo($"/jobs/{id}");
     private void GoToEmployee(int id) => Navigation.NavigateTo($"/employees/{id}");
 
-    private void OnTypeFilterChanged()
+    private async Task OnTypeFilterChanged()
     {
         historyFilter.Type = string.IsNullOrEmpty(selectedTypeFilter) ? null : Enum.Parse<OneManVanFSM.Shared.Models.ServiceHistoryType>(selectedTypeFilter);
-        _ = LoadRecords();
+        await LoadRecords();
     }
 
-    private void OnStatusFilterChanged()
+    private async Task OnStatusFilterChanged()
     {
         historyFilter.Status = string.IsNullOrEmpty(selectedStatusFilter) ? null : Enum.Parse<OneManVanFSM.Shared.Models.ServiceHistoryStatus>(selectedStatusFilter);
-        _ = LoadRecords();
+        await LoadRecords();
     }
+
+    private async Task ToggleSort(string column)
+    {
+        if (historyFilter.SortBy == column) historyFilter.SortDescending = !historyFilter.SortDescending;
+        else { historyFilter.SortBy = column; historyFilter.SortDescending = false; }
+        await LoadRecords();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var css = historyFilter.SortBy == column
+            ? (historyFilter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up opacity-25";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {css} ms-1{(historyFilter.SortBy == column ? " text-primary" : "")}");
+        builder.CloseElement();
+    };
 
     private static string FormatType(OneManVanFSM.Shared.Models.ServiceHistoryType histType) => histType switch
     {

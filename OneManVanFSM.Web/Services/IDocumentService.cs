@@ -44,6 +44,7 @@ public class DocumentDetail
     public string Name { get; set; } = string.Empty;
     public DocumentCategory Category { get; set; }
     public string? FilePath { get; set; }
+    public string? StoredFileName { get; set; }
     public string? FileType { get; set; }
     public long? FileSize { get; set; }
     public int Version { get; set; }

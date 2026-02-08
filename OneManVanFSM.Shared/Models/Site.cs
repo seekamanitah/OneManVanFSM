@@ -26,6 +26,7 @@ public class Site
     public bool? HasAtticAccess { get; set; }
     public bool? HasCrawlSpace { get; set; }
     public bool? HasBasement { get; set; }
+    public bool IsNewConstruction { get; set; }
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
