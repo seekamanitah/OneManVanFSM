@@ -43,6 +43,7 @@ public class AppDbContext : DbContext
     public DbSet<AssetLink> AssetLinks => Set<AssetLink>();
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<DropdownOption> DropdownOptions => Set<DropdownOption>();
+    public DbSet<ItemAssociation> ItemAssociations => Set<ItemAssociation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -158,6 +159,24 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
+        // MaterialList
+        modelBuilder.Entity<MaterialList>(e =>
+        {
+            e.HasIndex(ml => ml.Status);
+            e.HasOne(ml => ml.Job)
+                .WithMany()
+                .HasForeignKey(ml => ml.JobId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(ml => ml.Customer)
+                .WithMany()
+                .HasForeignKey(ml => ml.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(ml => ml.Site)
+                .WithMany()
+                .HasForeignKey(ml => ml.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         // MaterialListItem
         modelBuilder.Entity<MaterialListItem>(e =>
         {
@@ -165,6 +184,21 @@ public class AppDbContext : DbContext
                 .WithMany(ml => ml.Items)
                 .HasForeignKey(mli => mli.MaterialListId)
                 .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(mli => mli.Product)
+                .WithMany()
+                .HasForeignKey(mli => mli.ProductId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(mli => mli.InventoryItem)
+                .WithMany()
+                .HasForeignKey(mli => mli.InventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ItemAssociation
+        modelBuilder.Entity<ItemAssociation>(e =>
+        {
+            e.HasIndex(ia => new { ia.ItemName, ia.AssociatedItemName, ia.TradeType }).IsUnique();
+            e.HasIndex(ia => ia.TradeType);
         });
 
         // Invoice

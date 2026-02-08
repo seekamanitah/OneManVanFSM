@@ -20,10 +20,13 @@ public class MaterialListService : IMaterialListService
                 query = query.Where(m => m.Name.ToLower().Contains(term));
             }
             if (filter.IsTemplate.HasValue) query = query.Where(m => m.IsTemplate == filter.IsTemplate.Value);
+            if (filter.Status.HasValue) query = query.Where(m => m.Status == filter.Status.Value);
+            if (!string.IsNullOrWhiteSpace(filter.TradeType)) query = query.Where(m => m.TradeType == filter.TradeType);
             query = filter.SortBy?.ToLower() switch
             {
                 "name" => filter.SortDescending ? query.OrderByDescending(m => m.Name) : query.OrderBy(m => m.Name),
                 "total" => filter.SortDescending ? query.OrderByDescending(m => m.Total) : query.OrderBy(m => m.Total),
+                "status" => filter.SortDescending ? query.OrderByDescending(m => m.Status) : query.OrderBy(m => m.Status),
                 _ => filter.SortDescending ? query.OrderByDescending(m => m.CreatedAt) : query.OrderBy(m => m.CreatedAt)
             };
         }
@@ -32,11 +35,13 @@ public class MaterialListService : IMaterialListService
         return await query.Select(m => new MaterialListListItem
         {
             Id = m.Id, Name = m.Name, IsTemplate = m.IsTemplate,
+            Status = m.Status, TradeType = m.TradeType,
             PricingMethod = m.PricingMethod,
             TotalMaterialCost = m.Subtotal, TotalLaborCost = 0,
             GrandTotal = m.Total, ItemCount = m.Items.Count,
             CustomerName = m.Customer != null ? m.Customer.Name : null,
             SiteName = m.Site != null ? m.Site.Name : null,
+            JobNumber = m.Job != null ? m.Job.JobNumber : null,
             CreatedAt = m.CreatedAt
         }).ToListAsync();
     }
@@ -44,9 +49,11 @@ public class MaterialListService : IMaterialListService
     public async Task<MaterialListDetail?> GetListAsync(int id)
     {
         var m = await _db.MaterialLists
+            .Include(ml => ml.Job)
             .Include(ml => ml.Customer)
             .Include(ml => ml.Site)
             .Include(ml => ml.Items).ThenInclude(i => i.Product)
+            .Include(ml => ml.Items).ThenInclude(i => i.InventoryItem)
             .FirstOrDefaultAsync(ml => ml.Id == id && !ml.IsArchived);
 
         if (m is null) return null;
@@ -61,6 +68,7 @@ public class MaterialListService : IMaterialListService
         return new MaterialListDetail
         {
             Id = m.Id, Name = m.Name, IsTemplate = m.IsTemplate,
+            Status = m.Status, TradeType = m.TradeType,
             PricingMethod = m.PricingMethod,
             TotalMaterialCost = m.Subtotal, TotalLaborCost = 0,
             GrandTotal = m.Total,
@@ -70,6 +78,8 @@ public class MaterialListService : IMaterialListService
             InternalNotes = m.InternalNotes,
             ExternalNotes = m.ExternalNotes,
             PONumber = m.PONumber,
+            JobId = m.JobId,
+            JobNumber = m.Job?.JobNumber,
             CustomerId = m.CustomerId,
             CustomerName = m.Customer?.Name,
             CustomerAddress = custAddr,
@@ -77,13 +87,16 @@ public class MaterialListService : IMaterialListService
             SiteName = m.Site?.Name,
             SiteAddress = siteAddr,
             CreatedAt = m.CreatedAt, UpdatedAt = m.UpdatedAt,
-            Items = m.Items.Select(i => new MaterialListItemDto
+            Items = m.Items.OrderBy(i => i.SortOrder).Select(i => new MaterialListItemDto
             {
                 Id = i.Id, Section = i.Section, ItemName = i.ItemName,
                 Quantity = i.Quantity, Unit = i.Unit, BaseCost = i.BaseCost,
                 LaborHours = i.LaborHours ?? 0m, FlatPrice = i.FlatPrice ?? 0m,
-                MarkupPercent = i.MarkupPercent, ProductId = i.ProductId,
-                ProductName = i.Product?.Name
+                MarkupPercent = i.MarkupPercent, SortOrder = i.SortOrder,
+                ProductId = i.ProductId, ProductName = i.Product?.Name,
+                InventoryItemId = i.InventoryItemId,
+                InventoryStockQty = i.InventoryItem?.Quantity,
+                Notes = i.Notes
             }).ToList()
         };
     }
@@ -93,10 +106,11 @@ public class MaterialListService : IMaterialListService
         var list = new MaterialList
         {
             Name = model.Name, IsTemplate = model.IsTemplate,
+            Status = model.Status, TradeType = model.TradeType,
             PricingMethod = model.PricingMethod, Notes = model.Notes,
             InternalNotes = model.InternalNotes, ExternalNotes = model.ExternalNotes,
             PONumber = model.PONumber,
-            CustomerId = model.CustomerId, SiteId = model.SiteId,
+            JobId = model.JobId, CustomerId = model.CustomerId, SiteId = model.SiteId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
         };
         _db.MaterialLists.Add(list);
@@ -108,10 +122,11 @@ public class MaterialListService : IMaterialListService
     {
         var list = await _db.MaterialLists.FindAsync(id) ?? throw new InvalidOperationException("Material list not found.");
         list.Name = model.Name; list.IsTemplate = model.IsTemplate;
+        list.Status = model.Status; list.TradeType = model.TradeType;
         list.PricingMethod = model.PricingMethod; list.Notes = model.Notes;
         list.InternalNotes = model.InternalNotes; list.ExternalNotes = model.ExternalNotes;
         list.PONumber = model.PONumber;
-        list.CustomerId = model.CustomerId; list.SiteId = model.SiteId;
+        list.JobId = model.JobId; list.CustomerId = model.CustomerId; list.SiteId = model.SiteId;
         list.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return list;
@@ -144,6 +159,8 @@ public class MaterialListService : IMaterialListService
             MarkupPercent = model.MarkupPercent,
             Notes = model.Notes,
             ProductId = model.ProductId,
+            InventoryItemId = model.InventoryItemId,
+            SortOrder = model.SortOrder,
         };
         _db.MaterialListItems.Add(item);
         RecalcTotals(list);
@@ -154,7 +171,9 @@ public class MaterialListService : IMaterialListService
             Id = item.Id, Section = item.Section, ItemName = item.ItemName,
             Quantity = item.Quantity, Unit = item.Unit, BaseCost = item.BaseCost,
             LaborHours = item.LaborHours ?? 0m, FlatPrice = item.FlatPrice ?? 0m,
-            MarkupPercent = item.MarkupPercent, ProductId = item.ProductId,
+            MarkupPercent = item.MarkupPercent, SortOrder = item.SortOrder,
+            ProductId = item.ProductId, InventoryItemId = item.InventoryItemId,
+            Notes = item.Notes,
         };
     }
 
@@ -173,6 +192,8 @@ public class MaterialListService : IMaterialListService
         item.MarkupPercent = model.MarkupPercent;
         item.Notes = model.Notes;
         item.ProductId = model.ProductId;
+        item.InventoryItemId = model.InventoryItemId;
+        item.SortOrder = model.SortOrder;
 
         var list = await _db.MaterialLists.Include(m => m.Items).FirstAsync(m => m.Id == listId);
         RecalcTotals(list);
@@ -183,7 +204,9 @@ public class MaterialListService : IMaterialListService
             Id = item.Id, Section = item.Section, ItemName = item.ItemName,
             Quantity = item.Quantity, Unit = item.Unit, BaseCost = item.BaseCost,
             LaborHours = item.LaborHours ?? 0m, FlatPrice = item.FlatPrice ?? 0m,
-            MarkupPercent = item.MarkupPercent, ProductId = item.ProductId,
+            MarkupPercent = item.MarkupPercent, SortOrder = item.SortOrder,
+            ProductId = item.ProductId, InventoryItemId = item.InventoryItemId,
+            Notes = item.Notes,
         };
     }
 
@@ -197,6 +220,193 @@ public class MaterialListService : IMaterialListService
         RecalcTotals(list);
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    // --- Template cloning ---
+    public async Task<MaterialList> CloneFromTemplateAsync(int templateListId, string newName)
+    {
+        var template = await _db.MaterialLists
+            .Include(m => m.Items)
+            .FirstOrDefaultAsync(m => m.Id == templateListId && !m.IsArchived)
+            ?? throw new InvalidOperationException("Template not found.");
+
+        var clone = new MaterialList
+        {
+            Name = newName,
+            IsTemplate = false,
+            Status = MaterialListStatus.Draft,
+            TradeType = template.TradeType,
+            PricingMethod = template.PricingMethod,
+            MarkupPercent = template.MarkupPercent,
+            TaxPercent = template.TaxPercent,
+            ContingencyPercent = template.ContingencyPercent,
+            Notes = template.Notes,
+            InternalNotes = template.InternalNotes,
+            ExternalNotes = template.ExternalNotes,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.MaterialLists.Add(clone);
+        await _db.SaveChangesAsync();
+
+        foreach (var srcItem in template.Items)
+        {
+            _db.MaterialListItems.Add(new MaterialListItem
+            {
+                MaterialListId = clone.Id,
+                Section = srcItem.Section,
+                ItemName = srcItem.ItemName,
+                Quantity = srcItem.Quantity,
+                Unit = srcItem.Unit,
+                BaseCost = srcItem.BaseCost,
+                LaborHours = srcItem.LaborHours,
+                FlatPrice = srcItem.FlatPrice,
+                MarkupPercent = srcItem.MarkupPercent,
+                Notes = srcItem.Notes,
+                ProductId = srcItem.ProductId,
+                InventoryItemId = srcItem.InventoryItemId,
+                SortOrder = srcItem.SortOrder,
+            });
+        }
+
+        RecalcTotals(clone);
+        await _db.SaveChangesAsync();
+        return clone;
+    }
+
+    // --- Status workflow ---
+    public async Task<bool> UpdateStatusAsync(int id, MaterialListStatus status)
+    {
+        var list = await _db.MaterialLists.FindAsync(id);
+        if (list is null) return false;
+        list.Status = status;
+        list.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    // --- Product picker ---
+    public async Task<List<MaterialProductOption>> GetProductOptionsAsync(string? search = null)
+    {
+        var query = _db.Products.Where(p => !p.IsArchived && p.IsActive).AsQueryable();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim().ToLower();
+            query = query.Where(p => p.Name.ToLower().Contains(term)
+                || (p.Category != null && p.Category.ToLower().Contains(term))
+                || (p.PartNumber != null && p.PartNumber.ToLower().Contains(term)));
+        }
+
+        return await query.OrderBy(p => p.Name).Take(50).Select(p => new MaterialProductOption
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Category = p.Category,
+            Unit = p.Unit,
+            Cost = p.Cost,
+            Price = p.Price,
+            MarkupPercent = p.MarkupPercent,
+            InventoryItemId = p.InventoryItems.Any() ? p.InventoryItems.First().Id : null,
+            StockQty = p.InventoryItems.Any() ? p.InventoryItems.Sum(i => i.Quantity) : null,
+        }).ToListAsync();
+    }
+
+    // --- Inventory stock check ---
+    public async Task<List<MaterialStockCheck>> CheckInventoryStockAsync(int listId)
+    {
+        var items = await _db.MaterialListItems
+            .Where(i => i.MaterialListId == listId && i.InventoryItemId != null)
+            .Include(i => i.InventoryItem)
+            .ToListAsync();
+
+        return items.Where(i => i.InventoryItem is not null).Select(i => new MaterialStockCheck
+        {
+            ItemId = i.Id,
+            ItemName = i.ItemName,
+            RequestedQty = i.Quantity,
+            AvailableQty = i.InventoryItem!.Quantity,
+        }).ToList();
+    }
+
+    // --- HVAC auto-pairings ---
+    public async Task<List<ItemAssociation>> GetPairingsAsync(string itemName, string tradeType = "HVAC")
+    {
+        var term = itemName.Trim().ToLower();
+        return await _db.ItemAssociations
+            .Where(ia => ia.IsActive && ia.TradeType == tradeType && ia.ItemName.ToLower().Contains(term))
+            .ToListAsync();
+    }
+
+    // --- Convert to Estimate ---
+    public async Task<int> ConvertToEstimateAsync(int listId, string? estimateTitle = null)
+    {
+        var list = await _db.MaterialLists
+            .Include(m => m.Items)
+            .FirstOrDefaultAsync(m => m.Id == listId && !m.IsArchived)
+            ?? throw new InvalidOperationException("Material list not found.");
+
+        var count = await _db.Estimates.CountAsync() + 1;
+        var estimate = new Estimate
+        {
+            EstimateNumber = $"EST-{count:D5}",
+            Title = estimateTitle ?? $"From Material List: {list.Name}",
+            Status = EstimateStatus.Draft,
+            TradeType = list.TradeType,
+            PricingMethod = list.PricingMethod,
+            MarkupPercent = list.MarkupPercent,
+            TaxPercent = list.TaxPercent,
+            ContingencyPercent = list.ContingencyPercent,
+            CustomerId = list.CustomerId,
+            SiteId = list.SiteId,
+            MaterialListId = list.Id,
+            Notes = list.Notes,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        var subtotal = 0m;
+        int order = 0;
+        foreach (var item in list.Items.OrderBy(i => i.SortOrder))
+        {
+            var lineTotal = item.BaseCost * item.Quantity;
+            subtotal += lineTotal;
+            estimate.Lines.Add(new EstimateLine
+            {
+                Description = item.ItemName,
+                LineType = "Material",
+                Unit = item.Unit,
+                Section = item.Section,
+                Quantity = item.Quantity,
+                UnitPrice = item.BaseCost,
+                LineTotal = lineTotal,
+                ProductId = item.ProductId,
+                SortOrder = order++,
+            });
+        }
+
+        estimate.Subtotal = subtotal;
+        var afterMarkup = subtotal * (1 + estimate.MarkupPercent / 100m);
+        var afterTax = afterMarkup * (1 + estimate.TaxPercent / 100m);
+        var afterContingency = afterTax * (1 + estimate.ContingencyPercent / 100m);
+        estimate.Total = Math.Round(afterContingency, 2);
+
+        _db.Estimates.Add(estimate);
+        await _db.SaveChangesAsync();
+        return estimate.Id;
+    }
+
+    // --- Job options for linkage ---
+    public async Task<List<MaterialJobOption>> GetJobOptionsAsync()
+    {
+        return await _db.Jobs.Where(j => !j.IsArchived)
+            .OrderByDescending(j => j.CreatedAt)
+            .Take(100)
+            .Select(j => new MaterialJobOption
+            {
+                Id = j.Id,
+                JobNumber = j.JobNumber,
+                Title = j.Title,
+            }).ToListAsync();
     }
 
     private static void RecalcTotals(MaterialList list)

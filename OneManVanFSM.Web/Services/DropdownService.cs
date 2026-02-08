@@ -139,6 +139,7 @@ public class DropdownService : IDropdownService
         ["FuelType"] = ["Natural Gas", "Propane", "Electric", "Oil", "Dual Fuel"],
         ["UnitConfiguration"] = ["Split System", "Packaged Unit", "Furnace", "Air Handler", "Condenser", "Mini-Split", "Ductless", "Heat Pump", "Coil", "Boiler"],
         ["TradeType"] = ["HVAC", "Plumbing", "Electrical", "General"],
+        ["MaterialListSection"] = ["General", "Ductwork", "Flex Duct", "Take Offs", "Boots", "Returns", "Trunk Line", "Hard Pipe", "Grills/Registers", "Sealing & Taping", "Support & Hangers", "Insulation", "Fittings", "Equipment", "Accessories", "Disposal", "Permits", "Misc", "Labor"],
         ["JobType"] = ["Service Call", "Inspection", "Repair", "Emergency", "New Install", "Changeout", "Ductwork", "Startup", "Estimate", "Maintenance", "Diagnostic", "Tune-Up", "Replacement", "Retrofit"],
         ["TimeCategory"] = ["Travel", "On-Site", "Diagnostic", "Admin", "Break", "Training"],
         ["HeatingFuelSource"] = ["Natural Gas", "Propane", "Electric", "Oil", "Geothermal", "Solar"],

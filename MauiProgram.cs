@@ -1,4 +1,5 @@
 ﻿using System.Data;
+using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,13 @@ namespace OneManVanFSM
     {
         public static MauiApp CreateMauiApp()
         {
+            // Force US English culture for consistent $ currency formatting
+            var usCulture = new CultureInfo("en-US");
+            CultureInfo.DefaultThreadCurrentCulture = usCulture;
+            CultureInfo.DefaultThreadCurrentUICulture = usCulture;
+            Thread.CurrentThread.CurrentCulture = usCulture;
+            Thread.CurrentThread.CurrentUICulture = usCulture;
+
             var builder = MauiApp.CreateBuilder();
             builder
                 .UseMauiApp<App>()
@@ -55,12 +63,13 @@ namespace OneManVanFSM
 
             var app = builder.Build();
 
-            // Ensure schema is up-to-date and tables exist (no data seeded)
+            // Ensure schema is up-to-date and tables exist, then seed data
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 EnsureSchemaUpToDate(db);
                 db.Database.EnsureCreated();
+                SeedMobileData(db);
             }
 
             return app;
@@ -149,8 +158,8 @@ namespace OneManVanFSM
             db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
             {
                 Username = "admin",
-                Email = "admin@onemanvan.local",
-                PasswordHash = MobileAuthService.HashPassword("admin123"),
+                Email = "chris.eikel@bledsoe.net",
+                PasswordHash = MobileAuthService.HashPassword("!1235aSdf12sadf5!"),
                 Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                 IsActive = true,
                 Employee = tech,
@@ -209,8 +218,8 @@ namespace OneManVanFSM
                     db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
                     {
                         Username = "admin",
-                        Email = "admin@onemanvan.local",
-                        PasswordHash = MobileAuthService.HashPassword("admin123"),
+                        Email = "chris.eikel@bledsoe.net",
+                        PasswordHash = MobileAuthService.HashPassword("!1235aSdf12sadf5!"),
                         Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                         IsActive = true,
                         Employee = tech,

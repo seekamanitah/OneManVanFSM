@@ -1,8 +1,14 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.EntityFrameworkCore;
 using OneManVanFSM.Shared.Data;
 using OneManVanFSM.Web.Components;
 using OneManVanFSM.Web.Services;
+
+// Force US English culture for consistent $ currency formatting across all threads
+var usCulture = new CultureInfo("en-US");
+CultureInfo.DefaultThreadCurrentCulture = usCulture;
+CultureInfo.DefaultThreadCurrentUICulture = usCulture;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,6 +62,9 @@ builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 
 var app = builder.Build();
 
+// Force en-US culture on every request so ToString("C") always yields $
+app.UseRequestLocalization("en-US");
+
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
@@ -79,6 +88,64 @@ using (var scope = app.Services.CreateScope())
     DatabaseInitializer.EnsureSchemaUpToDate(db);
 
     db.Database.EnsureCreated();
+
+    // Seed default HVAC item associations (auto-pairings) if not already present
+    if (!db.ItemAssociations.Any())
+    {
+        db.ItemAssociations.AddRange(
+            // Flex Duct ? paired components (1:1 ratio each)
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 5\"", AssociatedItemName = "Floor Boot 4x10x5", AssociatedSection = "Boots", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 5\"", AssociatedItemName = "Take Off Round 5\"", AssociatedSection = "Take Offs", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 5\"", AssociatedItemName = "Collar 5\"", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 6\"", AssociatedItemName = "Floor Boot 4x10x6", AssociatedSection = "Boots", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 6\"", AssociatedItemName = "Take Off Round 6\"", AssociatedSection = "Take Offs", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 6\"", AssociatedItemName = "Collar 6\"", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 7\"", AssociatedItemName = "Floor Boot 4x10x7", AssociatedSection = "Boots", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 7\"", AssociatedItemName = "Take Off Round 7\"", AssociatedSection = "Take Offs", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 7\"", AssociatedItemName = "Collar 7\"", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 8\"", AssociatedItemName = "Floor Boot 4x10x8", AssociatedSection = "Boots", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 8\"", AssociatedItemName = "Take Off Round 8\"", AssociatedSection = "Take Offs", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 8\"", AssociatedItemName = "Collar 8\"", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 10\"", AssociatedItemName = "Take Off Round 10\"", AssociatedSection = "Take Offs", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 10\"", AssociatedItemName = "Collar 10\"", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 12\"", AssociatedItemName = "Take Off Round 12\"", AssociatedSection = "Take Offs", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Flex Duct 12\"", AssociatedItemName = "Collar 12\"", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            // Return Grilles ? Filter pairing
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Return Grille 20x20", AssociatedItemName = "Filter 20x20x1", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Return Grille 20x25", AssociatedItemName = "Filter 20x25x1", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Return Grille 25x20", AssociatedItemName = "Filter 20x25x1", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" },
+            new OneManVanFSM.Shared.Models.ItemAssociation { ItemName = "Return Grille 30x20", AssociatedItemName = "Filter 20x30x1", AssociatedSection = "Fittings", Ratio = 1, TradeType = "HVAC" }
+        );
+        db.SaveChanges();
+    }
+
+    // Seed default admin user if no users exist
+    if (!db.Users.Any())
+    {
+        var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL") ?? "chris.eikel@bledsoe.net";
+        var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "!1235aSdf12sadf5!";
+
+        // Create a linked employee for the admin
+        var adminEmployee = new OneManVanFSM.Shared.Models.Employee
+        {
+            Name = "Admin",
+            Role = OneManVanFSM.Shared.Models.EmployeeRole.Owner,
+            Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active,
+            Email = adminEmail,
+        };
+        db.Employees.Add(adminEmployee);
+
+        db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
+        {
+            Username = "admin",
+            Email = adminEmail,
+            PasswordHash = AuthService.HashPassword(adminPassword),
+            Role = OneManVanFSM.Shared.Models.UserRole.Owner,
+            IsActive = true,
+            Employee = adminEmployee,
+        });
+        db.SaveChanges();
+    }
 }
 
 app.Run();

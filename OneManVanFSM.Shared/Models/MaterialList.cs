@@ -5,6 +5,8 @@ public class MaterialList
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public bool IsTemplate { get; set; }
+    public MaterialListStatus Status { get; set; } = MaterialListStatus.Draft;
+    public string? TradeType { get; set; } = "HVAC"; // HVAC, Plumbing, Electrical, General
     public PricingMethod PricingMethod { get; set; } = PricingMethod.TimeBased;
     public decimal Subtotal { get; set; }
     public decimal MarkupPercent { get; set; }
@@ -20,6 +22,8 @@ public class MaterialList
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
+    public int? JobId { get; set; }
+    public Job? Job { get; set; }
     public int? CustomerId { get; set; }
     public Customer? Customer { get; set; }
     public int? SiteId { get; set; }
@@ -41,7 +45,17 @@ public class MaterialListItem
     public decimal? FlatPrice { get; set; }
     public decimal MarkupPercent { get; set; }
     public string? Notes { get; set; }
+    public int SortOrder { get; set; }
 
     public int? ProductId { get; set; }
     public Product? Product { get; set; }
+    public int? InventoryItemId { get; set; }
+    public InventoryItem? InventoryItem { get; set; }
+}
+
+public enum MaterialListStatus
+{
+    Draft,
+    Approved,
+    Ordered
 }
