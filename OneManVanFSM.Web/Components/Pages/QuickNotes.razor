@@ -7,6 +7,7 @@
 @inject IQuickNoteService NoteSvc
 @inject ICustomerService CustomerSvc
 @inject IJobService JobSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 @using Microsoft.AspNetCore.Components
 
@@ -31,18 +32,13 @@
                         <label class="form-label">Category</label>
                         <InputSelect @bind-Value="form.Category" class="form-select">
                             <option value="">None</option>
-                            <option value="Material">Material</option>
-                            <option value="Customer">Customer</option>
-                            <option value="Equipment">Equipment</option>
-                            <option value="Safety">Safety</option>
-                            <option value="Dispatch">Dispatch</option>
-                            <option value="Other">Other</option>
+                            @foreach (var c in _noteCategories) { <option value="@c">@c</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Status</label>
                         <InputSelect @bind-Value="form.Status" class="form-select">
-                            @foreach (var s in Enum.GetValues<QuickNoteStatus>()) { <option value="@s">@s</option> }
+                            @foreach (var s in _noteStatuses) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
                     <div class="col-12">
@@ -68,11 +64,7 @@
                         <label class="form-label">Link to Entity</label>
                         <InputSelect @bind-Value="form.EntityType" class="form-select">
                             <option value="">None</option>
-                            <option value="Job">Job</option>
-                            <option value="Customer">Customer</option>
-                            <option value="Asset">Asset</option>
-                            <option value="Invoice">Invoice</option>
-                            <option value="Site">Site</option>
+                            @foreach (var et in _entityTypes) { <option value="@et">@et</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
@@ -220,18 +212,13 @@ else
                 <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="filterCategory" @bind:after="LoadNotes">
                         <option value="">All Categories</option>
-                        <option value="Material">Material</option>
-                        <option value="Customer">Customer</option>
-                        <option value="Equipment">Equipment</option>
-                        <option value="Safety">Safety</option>
-                        <option value="Dispatch">Dispatch</option>
-                        <option value="Other">Other</option>
+                        @foreach (var c in _noteCategories) { <option value="@c">@c</option> }
                     </select>
                 </div>
                 <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="filterStatus" @bind:after="LoadNotes">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<QuickNoteStatus>()) { <option value="@s">@s</option> }
+                        @foreach (var s in _noteStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -314,6 +301,10 @@ else
     private bool _confirmDelete;
     private string sortBy = "created";
 
+    private List<string> _noteCategories = ["Material", "Customer", "Equipment", "Safety", "Dispatch", "Other"];
+    private List<string> _noteStatuses = Enum.GetValues<QuickNoteStatus>().Select(s => s.ToString()).ToList();
+    private List<string> _entityTypes = ["Job", "Customer", "Asset", "Invoice", "Site"];
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
@@ -354,6 +345,12 @@ else
     {
         customers ??= await CustomerSvc.GetCustomersAsync();
         jobs ??= await JobSvc.GetJobsAsync();
+        var cats = await DropdownSvc.GetOptionsAsync("QuickNoteCategory");
+        if (cats.Count > 0) _noteCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var statuses = await DropdownSvc.GetOptionsAsync("QuickNoteStatus");
+        if (statuses.Count > 0) _noteStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var ets = await DropdownSvc.GetOptionsAsync("QuickNoteEntityType");
+        if (ets.Count > 0) _entityTypes = ets.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     private async Task LoadNotes()

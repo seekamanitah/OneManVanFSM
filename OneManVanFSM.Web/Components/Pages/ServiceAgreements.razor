@@ -9,6 +9,7 @@
 @inject ISiteService SiteSvc
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject IDropdownService DropdownSvc
 
 @using Microsoft.AspNetCore.Components
 
@@ -33,13 +34,13 @@
                     <div class="col-md-3">
                         <label class="form-label">Coverage</label>
                         <InputSelect @bind-Value="form.CoverageLevel" class="form-select">
-                            @foreach (var c in Enum.GetValues<CoverageLevel>()) { <option value="@c">@c</option> }
+                            @foreach (var c in _coverageLevels) { <option value="@c">@c</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Status</label>
                         <InputSelect @bind-Value="form.Status" class="form-select">
-                            @foreach (var s in Enum.GetValues<AgreementStatus>()) { <option value="@s">@s</option> }
+                            @foreach (var s in _agreementStatuses) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
@@ -58,9 +59,7 @@
                         <label class="form-label">Billing Frequency</label>
                         <InputSelect @bind-Value="form.BillingFrequency" class="form-select">
                             <option value="">—</option>
-                            <option value="Monthly">Monthly</option>
-                            <option value="Quarterly">Quarterly</option>
-                            <option value="Annual">Annual</option>
+                            @foreach (var bf in _billingFrequencies) { <option value="@bf">@bf</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
@@ -75,10 +74,7 @@
                         <label class="form-label">Trade Type</label>
                         <InputSelect @bind-Value="form.TradeType" class="form-select">
                             <option value="">—</option>
-                            <option value="HVAC">HVAC</option>
-                            <option value="Plumbing">Plumbing</option>
-                            <option value="Electrical">Electrical</option>
-                            <option value="General">General</option>
+                            @foreach (var t in _tradeTypes) { <option value="@t">@t</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
@@ -256,13 +252,13 @@ else
                 <div class="col-md-3">
                     <select class="form-select form-select-sm" @bind="filterStatus" @bind:after="LoadAgreements">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<AgreementStatus>()) { <option value="@s">@s</option> }
+                        @foreach (var s in _agreementStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
                 <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="filterCoverage" @bind:after="LoadAgreements">
                         <option value="">All Levels</option>
-                        @foreach (var c in Enum.GetValues<CoverageLevel>()) { <option value="@c">@c</option> }
+                        @foreach (var c in _coverageLevels) { <option value="@c">@c</option> }
                     </select>
                 </div>
                 <div class="col-md-2">
@@ -339,6 +335,11 @@ else
     private string sortBy = "number";
     private bool sortDescending = false;
 
+    private List<string> _coverageLevels = Enum.GetValues<CoverageLevel>().Select(c => c.ToString()).ToList();
+    private List<string> _agreementStatuses = Enum.GetValues<AgreementStatus>().Select(s => s.ToString()).ToList();
+    private List<string> _billingFrequencies = ["Monthly", "Quarterly", "Annual"];
+    private List<string> _tradeTypes = ["HVAC", "Plumbing", "Electrical", "General"];
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
@@ -364,12 +365,14 @@ else
             _customers = await CustomerSvc.GetCustomersAsync();
             _companies = await SiteSvc.GetCompaniesForDropdownAsync();
             _sites = await SiteSvc.GetSitesAsync();
+            await LoadFormDropdowns();
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
             _customers = await CustomerSvc.GetCustomersAsync();
             _companies = await SiteSvc.GetCompaniesForDropdownAsync();
             _sites = await SiteSvc.GetSitesAsync();
+            await LoadFormDropdowns();
             await LoadForEdit(Id.Value);
         }
         else if (Id.HasValue)
@@ -380,6 +383,18 @@ else
     public void Dispose()
     {
         Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task LoadFormDropdowns()
+    {
+        var cvl = await DropdownSvc.GetOptionsAsync("CoverageLevel");
+        if (cvl.Count > 0) _coverageLevels = cvl.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var sts = await DropdownSvc.GetOptionsAsync("AgreementStatus");
+        if (sts.Count > 0) _agreementStatuses = sts.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var bf = await DropdownSvc.GetOptionsAsync("BillingFrequency");
+        if (bf.Count > 0) _billingFrequencies = bf.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var tt = await DropdownSvc.GetOptionsAsync("TradeType");
+        if (tt.Count > 0) _tradeTypes = tt.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     private async Task LoadAgreements()

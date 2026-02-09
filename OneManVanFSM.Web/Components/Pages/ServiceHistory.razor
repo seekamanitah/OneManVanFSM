@@ -6,6 +6,7 @@
 @inject IAssetService AssetSvc
 @inject IJobService JobSvc
 @inject IEmployeeService EmployeeSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Navigation
 
 <PageTitle>Service History - OneManVanFSM</PageTitle>
@@ -52,19 +53,13 @@
                 <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="selectedTypeFilter" @bind:after="OnTypeFilterChanged">
                         <option value="">All Types</option>
-                        @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>())
-                        {
-                            <option value="@t">@FormatType(t)</option>
-                        }
+                        @foreach (var t in _serviceHistoryTypes) { <option value="@t">@t</option> }
                     </select>
                 </div>
                 <div class="col-md-2">
                     <select class="form-select form-select-sm" @bind="selectedStatusFilter" @bind:after="OnStatusFilterChanged">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>())
-                        {
-                            <option value="@s">@s</option>
-                        }
+                        @foreach (var s in _serviceHistoryStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
                 <div class="col-md-4 text-end text-muted small">@(records?.Count ?? 0) record@(records?.Count != 1 ? "s" : "")</div>
@@ -366,19 +361,13 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-3">
                         <label class="form-label">Type</label>
                         <InputSelect class="form-select" @bind-Value="editModel.Type">
-                            @foreach (var t in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>())
-                            {
-                                <option value="@t">@FormatType(t)</option>
-                            }
+                            @foreach (var t in _serviceHistoryTypes) { <option value="@t">@t</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Status</label>
                         <InputSelect class="form-select" @bind-Value="editModel.Status">
-                            @foreach (var s in Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>())
-                            {
-                                <option value="@s">@s</option>
-                            }
+                            @foreach (var s in _serviceHistoryStatuses) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
@@ -387,11 +376,20 @@ else if (viewMode is "create" or "edit")
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Issue Type</label>
-                        <InputText class="form-control" @bind-Value="editModel.IssueType" placeholder="Leak, Defect, Vibration..." />
+                        <select class="form-select" @bind="editModel.IssueType">
+                            <option value="">Select...</option>
+                            @foreach (var it in _issueTypes) { <option value="@it">@it</option> }
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Vendor</label>
-                        <InputText class="form-control" @bind-Value="editModel.VendorName" />
+                        <select class="form-select" @bind="editModel.VendorName">
+                            <option value="">— Select Vendor —</option>
+                            @foreach (var v in _vendorCompanies)
+                            {
+                                <option value="@v.Name">@v.Name</option>
+                            }
+                        </select>
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">Cost</label>
@@ -510,6 +508,11 @@ else if (viewMode is "create" or "edit")
     private List<AssetListItem> _assets = [];
     private List<JobListItem> _jobs = [];
     private List<EmployeeListItem> _employees = [];
+    private List<CompanyOption> _vendorCompanies = [];
+
+    private List<string> _serviceHistoryTypes = Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryType>().Select(t => t.ToString()).ToList();
+    private List<string> _serviceHistoryStatuses = Enum.GetValues<OneManVanFSM.Shared.Models.ServiceHistoryStatus>().Select(s => s.ToString()).ToList();
+    private List<string> _issueTypes = ["Leak", "Defect", "Vibration", "Noise", "Electrical", "Compressor", "Refrigerant", "Thermostat", "Ductwork", "Other"];
 
     protected override async Task OnInitializedAsync()
     {
@@ -623,6 +626,13 @@ else if (viewMode is "create" or "edit")
         _assets = await AssetSvc.GetAssetsAsync();
         _jobs = await JobSvc.GetJobsAsync();
         _employees = await EmployeeSvc.GetEmployeesAsync();
+        _vendorCompanies = await SiteSvc.GetVendorCompaniesAsync();
+        var types = await DropdownSvc.GetOptionsAsync("ServiceHistoryType");
+        if (types.Count > 0) _serviceHistoryTypes = types.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var statuses = await DropdownSvc.GetOptionsAsync("ServiceHistoryStatus");
+        if (statuses.Count > 0) _serviceHistoryStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var issues = await DropdownSvc.GetOptionsAsync("ServiceHistoryIssueType");
+        if (issues.Count > 0) _issueTypes = issues.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     private async Task ChangeStatus(OneManVanFSM.Shared.Models.ServiceHistoryStatus status)

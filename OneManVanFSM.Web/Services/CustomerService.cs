@@ -232,6 +232,25 @@ public class CustomerService : ICustomerService
 
         _db.Customers.Add(customer);
         await _db.SaveChangesAsync();
+
+        // Auto-create a primary site if address is filled
+        if (!string.IsNullOrWhiteSpace(model.Address))
+        {
+            var site = new Site
+            {
+                Name = "Primary Residence",
+                Address = model.Address,
+                City = model.City,
+                State = model.State,
+                Zip = model.Zip,
+                CustomerId = customer.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Sites.Add(site);
+            await _db.SaveChangesAsync();
+        }
+
         return customer;
     }
 

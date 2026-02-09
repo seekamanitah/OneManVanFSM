@@ -301,10 +301,18 @@
         Navigation.LocationChanged += OnLocationChanged;
     }
 
-    private void ToggleSidebar()
+    private async Task ToggleSidebar()
     {
-        SidebarCollapsed = !SidebarCollapsed;
-        _mobileMenuOpen = !_mobileMenuOpen;
+        var isMobile = await JS.InvokeAsync<bool>("eval", "window.matchMedia('(max-width: 768px)').matches");
+        if (isMobile)
+        {
+            _mobileMenuOpen = !_mobileMenuOpen;
+            if (_mobileMenuOpen) SidebarCollapsed = false;
+        }
+        else
+        {
+            SidebarCollapsed = !SidebarCollapsed;
+        }
     }
 
     private void CloseMobileMenu()

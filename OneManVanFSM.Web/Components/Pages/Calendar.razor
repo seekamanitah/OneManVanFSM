@@ -8,6 +8,7 @@
 @inject IJobService JobSvc
 @inject IEmployeeService EmployeeSvc
 @inject IServiceAgreementService AgreementSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 
 <PageTitle>Calendar - OneManVanFSM</PageTitle>
@@ -30,19 +31,14 @@
                     <div class="col-md-3">
                         <label class="form-label">Status</label>
                         <InputSelect @bind-Value="form.Status" class="form-select">
-                            @foreach (var s in Enum.GetValues<CalendarEventStatus>()) { <option value="@s">@s</option> }
+                            @foreach (var s in _calendarStatuses) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Event Type</label>
                         <InputSelect @bind-Value="form.EventType" class="form-select">
                             <option value="">—</option>
-                            <option value="Job">Job</option>
-                            <option value="Personal">Personal</option>
-                            <option value="Meeting">Meeting</option>
-                            <option value="Reminder">Reminder</option>
-                            <option value="Block-Off">Block-Off</option>
-                            <option value="Training">Training</option>
+                            @foreach (var t in _eventTypes) { <option value="@t">@t</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-4">
@@ -544,6 +540,8 @@ else
     private List<JobListItem> _jobs = [];
     private List<EmployeeListItem> _employees = [];
     private List<AgreementListItem> _agreements = [];
+    private List<string> _eventTypes = ["Job", "Personal", "Meeting", "Reminder", "Block-Off", "Training"];
+    private List<string> _calendarStatuses = Enum.GetValues<CalendarEventStatus>().Select(s => s.ToString()).ToList();
 
     protected override void OnInitialized()
     {
@@ -629,6 +627,10 @@ else
         _jobs = await JobSvc.GetJobsAsync();
         _employees = await EmployeeSvc.GetEmployeesAsync();
         _agreements = await AgreementSvc.GetAgreementsAsync();
+        var types = await DropdownSvc.GetOptionsAsync("EventType");
+        if (types.Count > 0) _eventTypes = types.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var statuses = await DropdownSvc.GetOptionsAsync("CalendarEventStatus");
+        if (statuses.Count > 0) _calendarStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     private async Task SaveEvent()

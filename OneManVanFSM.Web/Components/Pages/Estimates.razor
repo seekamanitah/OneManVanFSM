@@ -9,6 +9,7 @@
 @inject ICompanyService CompanySvc
 @inject IAssetService AssetSvc
 @inject IInventoryService InvSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ICompanyProfileService CompanyProfileSvc
@@ -37,7 +38,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Status</label>
                         <InputSelect @bind-Value="form.Status" class="form-select form-select-sm">
-                            @foreach (var s in Enum.GetValues<EstimateStatus>()) { <option value="@s">@s</option> }
+                            @foreach (var s in _estimateStatuses) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-4">
@@ -48,7 +49,10 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Trade Type</label>
-                        <InputText @bind-Value="form.TradeType" class="form-control form-control-sm" placeholder="HVAC, Plumbing, Electrical" />
+                        <select class="form-select form-select-sm" @bind="form.TradeType">
+                            <option value="">Select...</option>
+                            @foreach (var t in _tradeTypes) { <option value="@t">@t</option> }
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Pricing Method</label>
@@ -447,7 +451,7 @@ else
                 <div class="col-md-4">
                     <select class="form-select form-select-sm" @bind="filterStatus" @bind:after="OnStatusFilterChanged">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<EstimateStatus>()) { <option value="@s">@s</option> }
+                        @foreach (var s in _estimateStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
             </div>
@@ -559,13 +563,7 @@ else
                         <div class="col-6">
                             <label class="form-label">Type</label>
                             <select class="form-select form-select-sm" @bind="_modalLine.LineType">
-                                <option value="Material">Material</option>
-                                <option value="Labor">Labor</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="Fee">Fee</option>
-                                <option value="Permit">Permit</option>
-                                <option value="Disposal">Disposal</option>
-                                <option value="Discount">Discount</option>
+                                @foreach (var lt in _lineTypes) { <option value="@lt">@lt</option> }
                             </select>
                         </div>
                         <div class="col-6">
@@ -653,6 +651,10 @@ else
     private List<InventoryListItem> _inventoryItems = [];
     private CompanyProfile? _companyProfile;
 
+    private List<string> _estimateStatuses = Enum.GetValues<EstimateStatus>().Select(s => s.ToString()).ToList();
+    private List<string> _tradeTypes = ["HVAC", "Plumbing", "Electrical", "General"];
+    private List<string> _lineTypes = ["Material", "Labor", "Equipment", "Fee", "Permit", "Disposal", "Discount"];
+
     // Modal state
     private bool _showItemModal;
     private string _modalItemSource = "custom";
@@ -719,6 +721,12 @@ else
         productOptions = await EstimateSvc.GetProductOptionsAsync();
         _assetOptions = await AssetSvc.GetAssetsAsync();
         _inventoryItems = await InvSvc.GetItemsAsync();
+        var statuses = await DropdownSvc.GetOptionsAsync("EstimateStatus");
+        if (statuses.Count > 0) _estimateStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var trades = await DropdownSvc.GetOptionsAsync("TradeType");
+        if (trades.Count > 0) _tradeTypes = trades.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var lts = await DropdownSvc.GetOptionsAsync("LineType");
+        if (lts.Count > 0) _lineTypes = lts.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     public void Dispose()

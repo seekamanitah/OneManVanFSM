@@ -6,6 +6,7 @@
 @implements IDisposable
 @inject IEmployeeService EmployeeSvc
 @inject IJobService JobSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 
 <PageTitle>Employees - OneManVanFSM</PageTitle>
@@ -33,13 +34,13 @@
                     <div class="col-md-3">
                         <label class="form-label">Role</label>
                         <InputSelect @bind-Value="form.Role" class="form-select">
-                            @foreach (var r in Enum.GetValues<EmployeeRole>()) { <option value="@r">@r</option> }
+                            @foreach (var r in _employeeRoles) { <option value="@r">@r</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Status</label>
                         <InputSelect @bind-Value="form.Status" class="form-select">
-                            @foreach (var s in Enum.GetValues<EmployeeStatus>()) { <option value="@s">@s</option> }
+                            @foreach (var s in _employeeStatuses) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-4">
@@ -523,13 +524,13 @@ else
                 <div class="col-md-4">
                     <select class="form-select form-select-sm" @bind="filterRole" @bind:after="LoadEmployees">
                         <option value="">All Roles</option>
-                        @foreach (var r in Enum.GetValues<EmployeeRole>()) { <option value="@r">@r</option> }
+                        @foreach (var r in _employeeRoles) { <option value="@r">@r</option> }
                     </select>
                 </div>
                 <div class="col-md-3">
                     <select class="form-select form-select-sm" @bind="filterStatusStr" @bind:after="LoadEmployees">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<EmployeeStatus>()) { <option value="@s">@s</option> }
+                        @foreach (var s in _employeeStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
             </div>
@@ -594,6 +595,9 @@ else
     private string? errorMsg;
     private bool _confirmArchive;
 
+    private List<string> _employeeRoles = Enum.GetValues<EmployeeRole>().Select(r => r.ToString()).ToList();
+    private List<string> _employeeStatuses = Enum.GetValues<EmployeeStatus>().Select(s => s.ToString()).ToList();
+
     // Time clock state
     private EmployeeTimeEntry? activeClock;
     private List<JobOption> jobOptions = [];
@@ -631,6 +635,7 @@ else
 
     protected override async Task OnParametersSetAsync()
     {
+        await LoadFormDropdowns();
         await DetermineView();
     }
 
@@ -664,6 +669,14 @@ else
         filter.Role = string.IsNullOrWhiteSpace(filterRole) ? null : Enum.Parse<EmployeeRole>(filterRole);
         filter.Status = string.IsNullOrWhiteSpace(filterStatusStr) ? null : Enum.Parse<EmployeeStatus>(filterStatusStr);
         employees = await EmployeeSvc.GetEmployeesAsync(filter);
+    }
+
+    private async Task LoadFormDropdowns()
+    {
+        var roles = await DropdownSvc.GetOptionsAsync("EmployeeRole");
+        if (roles.Count > 0) _employeeRoles = roles.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var statuses = await DropdownSvc.GetOptionsAsync("EmployeeStatus");
+        if (statuses.Count > 0) _employeeStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     private async Task LoadDetail(int id)

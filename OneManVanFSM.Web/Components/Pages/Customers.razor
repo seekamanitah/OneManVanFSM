@@ -40,9 +40,7 @@ else if (_view == View.List)
                 <div class="col-md-3">
                     <select class="form-select form-select-sm" @bind="_filterType" @bind:after="OnTypeFilterChanged">
                         <option value="">All Types</option>
-                        <option value="Individual">Individual</option>
-                        <option value="Company">Company</option>
-                        <option value="Landlord">Landlord</option>
+                        @foreach (var t in _customerTypeOptions) { <option value="@t">@t</option> }
                     </select>
                 </div>
                 <div class="col-md-4 text-end text-muted small">

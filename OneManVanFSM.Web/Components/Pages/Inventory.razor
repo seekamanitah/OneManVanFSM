@@ -6,6 +6,7 @@
 @implements IDisposable
 @inject IInventoryService InventorySvc
 @inject IProductService ProductSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 
 <PageTitle>Inventory - OneManVanFSM</PageTitle>
@@ -41,17 +42,7 @@
                         <label class="form-label">Category</label>
                         <select class="form-select form-select-sm" @bind="form.Category">
                             <option value="">General</option>
-                            <option value="Parts">Parts</option>
-                            <option value="Supplies">Supplies</option>
-                            <option value="Equipment">Equipment</option>
-                            <option value="Filters">Filters</option>
-                            <option value="Refrigerant">Refrigerant</option>
-                            <option value="Ductwork">Ductwork</option>
-                            <option value="Electrical">Electrical</option>
-                            <option value="Plumbing">Plumbing</option>
-                            <option value="Safety">Safety</option>
-                            <option value="Tools">Tools</option>
-                            <option value="Other">Other</option>
+                            @foreach (var opt in _inventoryCategories) { <option value="@opt">@opt</option> }
                         </select>
                     </div>
                     <div class="col-md-6">
@@ -353,6 +344,7 @@ else
     private bool _confirmArchive;
 
     private List<ProductListItem> _products = [];
+    private List<string> _inventoryCategories = ["Parts", "Supplies", "Equipment", "Filters", "Refrigerant", "Ductwork", "Electrical", "Plumbing", "Safety", "Tools", "Other"];
 
     protected override void OnInitialized()
     {
@@ -474,5 +466,7 @@ else
     private async Task LoadDropdowns()
     {
         _products = await ProductSvc.GetProductsAsync();
+        var cats = await DropdownSvc.GetOptionsAsync("InventoryCategory");
+        if (cats.Count > 0) _inventoryCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 }

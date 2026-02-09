@@ -5,6 +5,7 @@
 @rendermode InteractiveServer
 @implements IDisposable
 @inject IProductService ProductSvc
+@inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 
 <PageTitle>Products - OneManVanFSM</PageTitle>
@@ -45,39 +46,21 @@
                         <label class="form-label">Category</label>
                         <select class="form-select form-select-sm" @bind="form.Category">
                             <option value="">Unknown</option>
-                            <option value="Air Conditioner">Air Conditioner</option>
-                            <option value="Furnace">Furnace</option>
-                            <option value="Heat Pump">Heat Pump</option>
-                            <option value="Ductwork">Ductwork</option>
-                            <option value="Thermostat">Thermostat</option>
-                            <option value="Air Handler">Air Handler</option>
-                            <option value="Boiler">Boiler</option>
-                            <option value="Mini Split">Mini Split</option>
-                            <option value="Package Unit">Package Unit</option>
-                            <option value="Parts">Parts</option>
-                            <option value="Supplies">Supplies</option>
-                            <option value="Other">Other</option>
+                            @foreach (var opt in _productCategories) { <option value="@opt">@opt</option> }
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Equipment Type</label>
                         <select class="form-select form-select-sm" @bind="form.EquipmentType">
                             <option value="">Unknown</option>
-                            <option value="Residential">Residential</option>
-                            <option value="Commercial">Commercial</option>
-                            <option value="Light Commercial">Light Commercial</option>
-                            <option value="Industrial">Industrial</option>
+                            @foreach (var opt in _equipmentTypes) { <option value="@opt">@opt</option> }
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Fuel Type</label>
                         <select class="form-select form-select-sm" @bind="form.FuelType">
                             <option value="">Unknown</option>
-                            <option value="Electric">Electric</option>
-                            <option value="Natural Gas">Natural Gas</option>
-                            <option value="Propane">Propane</option>
-                            <option value="Oil">Oil</option>
-                            <option value="Dual Fuel">Dual Fuel</option>
+                            @foreach (var opt in _fuelTypes) { <option value="@opt">@opt</option> }
                         </select>
                     </div>
                     <div class="col-12">
@@ -93,13 +76,7 @@
                         <label class="form-label">Tonnage</label>
                         <select class="form-select form-select-sm" @bind="form.Tonnage">
                             <option value="">Select...</option>
-                            <option value="1.5">1.5</option>
-                            <option value="2">2</option>
-                            <option value="2.5">2.5</option>
-                            <option value="3">3</option>
-                            <option value="3.5">3.5</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
+                            @foreach (var opt in _tonnageOptions) { <option value="@opt">@opt</option> }
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -420,6 +397,11 @@ else
     private string? errorMsg;
     private bool _confirmArchive;
 
+    private List<string> _productCategories = ["Air Conditioner", "Furnace", "Heat Pump", "Ductwork", "Thermostat", "Air Handler", "Boiler", "Mini Split", "Package Unit", "Parts", "Supplies", "Other"];
+    private List<string> _equipmentTypes = ["Residential", "Commercial", "Light Commercial", "Industrial"];
+    private List<string> _fuelTypes = ["Electric", "Natural Gas", "Propane", "Oil", "Dual Fuel"];
+    private List<string> _tonnageOptions = ["1.5 Ton", "2 Ton", "2.5 Ton", "3 Ton", "3.5 Ton", "4 Ton", "5 Ton"];
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
@@ -441,11 +423,11 @@ else
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
         if (uri.AbsolutePath.Contains("/products/new", StringComparison.OrdinalIgnoreCase))
         {
-            mode = "form"; editId = null; form = new ProductEditModel { IsActive = true };
+            mode = "form"; editId = null; form = new ProductEditModel { IsActive = true }; await LoadFormDropdowns();
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
-            await LoadForEdit(Id.Value);
+            await LoadForEdit(Id.Value); await LoadFormDropdowns();
         }
         else if (Id.HasValue)
         {
@@ -463,6 +445,18 @@ else
     }
 
     private async Task LoadProducts() => products = await ProductSvc.GetProductsAsync(filter);
+
+    private async Task LoadFormDropdowns()
+    {
+        var cats = await DropdownSvc.GetOptionsAsync("ProductCategory");
+        if (cats.Count > 0) _productCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var eqTypes = await DropdownSvc.GetOptionsAsync("ProductEquipmentType");
+        if (eqTypes.Count > 0) _equipmentTypes = eqTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var fuels = await DropdownSvc.GetOptionsAsync("FuelType");
+        if (fuels.Count > 0) _fuelTypes = fuels.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var tons = await DropdownSvc.GetOptionsAsync("Tonnage");
+        if (tons.Count > 0) _tonnageOptions = tons.Where(o => o.IsActive).Select(o => o.Value).ToList();
+    }
 
     private async Task LoadDetail(int id)
     {

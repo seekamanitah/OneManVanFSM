@@ -10,6 +10,7 @@ public interface ISiteService
     Task<Site> UpdateSiteAsync(int id, SiteEditModel model);
     Task<bool> ArchiveSiteAsync(int id);
     Task<List<CompanyOption>> GetCompaniesForDropdownAsync();
+    Task<List<CompanyOption>> GetVendorCompaniesAsync();
 }
 
 public class SiteFilter

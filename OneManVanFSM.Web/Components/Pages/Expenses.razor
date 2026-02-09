@@ -9,6 +9,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ICompanyProfileService CompanyProfileSvc
+@inject IDropdownService DropdownSvc
 
 <PageTitle>Expenses - OneManVanFSM</PageTitle>
 
@@ -241,22 +242,7 @@ else
                             <label class="form-label">Category <span class="text-danger">*</span></label>
                             <select class="form-select form-select-sm" @bind="expenseForm.Category">
                                 <option value="">Select category...</option>
-                                <option value="Materials">Materials</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="Tools">Tools</option>
-                                <option value="Fuel">Fuel</option>
-                                <option value="Vehicle">Vehicle</option>
-                                <option value="Disposal">Disposal</option>
-                                <option value="Permits">Permits</option>
-                                <option value="Supplies">Supplies</option>
-                                <option value="Subcontractor">Subcontractor</option>
-                                <option value="Insurance">Insurance</option>
-                                <option value="Office">Office</option>
-                                <option value="Travel">Travel</option>
-                                <option value="Training">Training</option>
-                                <option value="Uniforms">Uniforms</option>
-                                <option value="Refrigerant">Refrigerant</option>
-                                <option value="Other">Other</option>
+                                @foreach (var c in _expenseCategories) { <option value="@c">@c</option> }
                             </select>
                         </div>
                         <div class="col-md-12">
@@ -369,19 +355,13 @@ else
                         <div class="col-md-6">
                             <label class="form-label">Payment Method</label>
                             <select class="form-select form-select-sm" @bind="expenseForm.PaymentMethod">
-                                <option value="Cash">Cash</option>
-                                <option value="Check">Check</option>
-                                <option value="Card">Card</option>
-                                <option value="ACH">ACH</option>
-                                <option value="Zelle">Zelle</option>
-                                <option value="Company Card">Company Card</option>
-                                <option value="Other">Other</option>
+                                @foreach (var pm in _paymentMethods) { <option value="@pm">@pm</option> }
                             </select>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label">Status</label>
                             <InputSelect @bind-Value="expenseForm.Status" class="form-select form-select-sm">
-                                @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
+                                @foreach (var s in _expenseStatuses) { <option value="@s">@s</option> }
                             </InputSelect>
                         </div>
                     </div>
@@ -453,7 +433,7 @@ else
                 <div class="col-md-4">
                     <select class="form-select form-select-sm" @bind="expenseFilterStatus" @bind:after="LoadExpenses">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<ExpenseStatus>()) { <option value="@s">@s</option> }
+                        @foreach (var s in _expenseStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
             </div>
@@ -564,14 +544,7 @@ else
                         <div class="col-6">
                             <label class="form-label">Type</label>
                             <select class="form-select form-select-sm" @bind="_modalLine.LineType">
-                                <option value="Material">Material</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="Fuel">Fuel</option>
-                                <option value="Disposal">Disposal</option>
-                                <option value="Permit">Permit</option>
-                                <option value="Subcontractor">Subcontractor</option>
-                                <option value="Fee">Fee</option>
-                                <option value="Other">Other</option>
+                                @foreach (var lt in _expenseLineTypes) { <option value="@lt">@lt</option> }
                             </select>
                         </div>
                         <div class="col-6">
@@ -627,6 +600,11 @@ else
     private ExpenseFilter expenseFilter = new();
     private string expenseFilterStatus = "";
 
+    private List<string> _expenseCategories = ["Materials", "Equipment", "Tools", "Fuel", "Vehicle", "Disposal", "Permits", "Supplies", "Subcontractor", "Insurance", "Office", "Travel", "Training", "Uniforms", "Refrigerant", "Other"];
+    private List<string> _paymentMethods = ["Cash", "Check", "Card", "ACH", "Zelle", "Company Card", "Other"];
+    private List<string> _expenseStatuses = Enum.GetValues<ExpenseStatus>().Select(s => s.ToString()).ToList();
+    private List<string> _expenseLineTypes = ["Material", "Equipment", "Fuel", "Disposal", "Permit", "Subcontractor", "Fee", "Other"];
+
     // Modal state
     private bool _showItemModal;
     private string _modalItemSource = "custom";
@@ -649,6 +627,14 @@ else
         _companyOptions = await FinSvc.GetCompanyOptionsAsync();
         _productOptions = await FinSvc.GetProductOptionsAsync();
         _inventoryItems = await InvSvc.GetItemsAsync();
+        var cats = await DropdownSvc.GetOptionsAsync("ExpenseCategory");
+        if (cats.Count > 0) _expenseCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var pms = await DropdownSvc.GetOptionsAsync("ExpensePaymentMethod");
+        if (pms.Count > 0) _paymentMethods = pms.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var statuses = await DropdownSvc.GetOptionsAsync("ExpenseStatus");
+        if (statuses.Count > 0) _expenseStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var elts = await DropdownSvc.GetOptionsAsync("ExpenseLineType");
+        if (elts.Count > 0) _expenseLineTypes = elts.Where(o => o.IsActive).Select(o => o.Value).ToList();
         await LoadExpenses();
 
         var saved = await JS.InvokeAsync<string?>("getLocalStorage", "printTemplate");

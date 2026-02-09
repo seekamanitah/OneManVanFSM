@@ -10,6 +10,7 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ICompanyProfileService CompanyProfileSvc
+@inject IDropdownService DropdownSvc
 
 <PageTitle>Invoices - OneManVanFSM</PageTitle>
 
@@ -450,7 +451,7 @@ else
                         <div class="col-md-4">
                             <label class="form-label">Status</label>
                             <InputSelect @bind-Value="invoiceForm.Status" class="form-select form-select-sm">
-                                @foreach (var s in Enum.GetValues<InvoiceStatus>()) { <option value="@s">@s</option> }
+                                @foreach (var s in _invoiceStatuses) { <option value="@s">@s</option> }
                             </InputSelect>
                         </div>
                     </div>
@@ -460,11 +461,7 @@ else
                         <div class="col-md-12">
                             <label class="form-label fw-semibold">Pricing Type</label>
                             <select class="form-select form-select-sm" @bind="invoiceForm.PricingType">
-                                <option value="Material & Labor (Itemized)">Material & Labor (Itemized)</option>
-                                <option value="Flat Rate">Flat Rate</option>
-                                <option value="Time & Material">Time & Material</option>
-                                <option value="Cost + Markup">Cost + Markup</option>
-                                <option value="Service Agreement (Covered)">Service Agreement (Covered)</option>
+                                @foreach (var pt in _pricingTypes) { <option value="@pt">@pt</option> }
                             </select>
                             <small class="text-muted">Choose how to structure pricing on this invoice</small>
                         </div>
@@ -494,7 +491,10 @@ else
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Payment Terms</label>
-                            <InputText @bind-Value="invoiceForm.PaymentTerms" class="form-control form-control-sm" placeholder="Net 30, Due on Receipt" />
+                            <select class="form-select form-select-sm" @bind="invoiceForm.PaymentTerms">
+                                <option value="">Select...</option>
+                                @foreach (var pt in _paymentTermsOptions) { <option value="@pt">@pt</option> }
+                            </select>
                         </div>
                     </div>
 
@@ -658,7 +658,7 @@ else
                 <div class="col-md-4">
                     <select class="form-select form-select-sm" @bind="invoiceFilterStatus" @bind:after="LoadInvoices">
                         <option value="">All Statuses</option>
-                        @foreach (var s in Enum.GetValues<InvoiceStatus>()) { <option value="@s">@s</option> }
+                        @foreach (var s in _invoiceStatuses) { <option value="@s">@s</option> }
                     </select>
                 </div>
             </div>
@@ -756,13 +756,7 @@ else
                         <div class="col-6">
                             <label class="form-label">Type</label>
                             <select class="form-select form-select-sm" @bind="_modalLine.LineType">
-                                <option value="Material">Material</option>
-                                <option value="Labor">Labor</option>
-                                <option value="Equipment">Equipment</option>
-                                <option value="Fee">Fee</option>
-                                <option value="Permit">Permit</option>
-                                <option value="Disposal">Disposal</option>
-                                <option value="Discount">Discount</option>
+                                @foreach (var lt in _lineTypes) { <option value="@lt">@lt</option> }
                             </select>
                         </div>
                         <div class="col-6">
@@ -856,6 +850,11 @@ else
     private InvoiceFilter invoiceFilter = new();
     private string invoiceFilterStatus = "";
 
+    private List<string> _invoiceStatuses = Enum.GetValues<InvoiceStatus>().Select(s => s.ToString()).ToList();
+    private List<string> _pricingTypes = ["Material & Labor (Itemized)", "Flat Rate", "Time & Material", "Cost + Markup", "Service Agreement (Covered)"];
+    private List<string> _paymentTermsOptions = ["Due on Receipt", "Net 15", "Net 30", "Net 45", "Net 60"];
+    private List<string> _lineTypes = ["Material", "Labor", "Equipment", "Fee", "Permit", "Disposal", "Discount"];
+
     // Modal state
     private bool _showItemModal;
     private string _modalItemSource = "custom";
@@ -885,6 +884,14 @@ else
         _jobOptions = await JobSvc.GetJobsAsync();
         _siteOptions = await SiteSvc.GetSitesAsync();
         _inventoryItems = await InvSvc.GetItemsAsync();
+        var statuses = await DropdownSvc.GetOptionsAsync("InvoiceStatus");
+        if (statuses.Count > 0) _invoiceStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var pricing = await DropdownSvc.GetOptionsAsync("InvoicePricingType");
+        if (pricing.Count > 0) _pricingTypes = pricing.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var terms = await DropdownSvc.GetOptionsAsync("PaymentTerms");
+        if (terms.Count > 0) _paymentTermsOptions = terms.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var lts = await DropdownSvc.GetOptionsAsync("LineType");
+        if (lts.Count > 0) _lineTypes = lts.Where(o => o.IsActive).Select(o => o.Value).ToList();
         await LoadInvoices();
 
         var saved = await JS.InvokeAsync<string?>("getLocalStorage", "printTemplate");

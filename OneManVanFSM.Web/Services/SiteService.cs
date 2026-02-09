@@ -174,4 +174,13 @@ public class SiteService : ISiteService
             .Select(c => new CompanyOption { Id = c.Id, Name = c.Name })
             .ToListAsync();
     }
+
+    public async Task<List<CompanyOption>> GetVendorCompaniesAsync()
+    {
+        return await _db.Companies
+            .Where(c => !c.IsArchived && c.Type == CompanyType.Vendor)
+            .OrderBy(c => c.Name)
+            .Select(c => new CompanyOption { Id = c.Id, Name = c.Name })
+            .ToListAsync();
+    }
 }

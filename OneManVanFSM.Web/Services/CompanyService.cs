@@ -179,6 +179,25 @@ public class CompanyService : ICompanyService
 
         _db.Companies.Add(company);
         await _db.SaveChangesAsync();
+
+        // Auto-create a primary site if address is filled
+        if (!string.IsNullOrWhiteSpace(model.Address))
+        {
+            var site = new Site
+            {
+                Name = "Primary Location",
+                Address = model.Address,
+                City = model.City,
+                State = model.State,
+                Zip = model.Zip,
+                CompanyId = company.Id,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+            _db.Sites.Add(site);
+            await _db.SaveChangesAsync();
+        }
+
         return company;
     }
 
