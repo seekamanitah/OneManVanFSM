@@ -486,6 +486,12 @@ public class DataManagementService : IDataManagementService
 
         // Clear pools again so new connections open against the restored file
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+        // Validate and migrate the restored database schema to match the current EF Core model.
+        // Without this, a backup from an older build will cause 500 errors on pages that
+        // reference columns/tables added after the backup was taken.
+        DatabaseInitializer.EnsureSchemaUpToDate(_db);
+        _db.Database.EnsureCreated();
     }
 
     public async Task PurgeDatabaseAsync()

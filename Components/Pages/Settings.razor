@@ -1,5 +1,6 @@
 @page "/settings"
 @inject IMobileSettingsService SettingsService
+@inject IMobileAuthService AuthService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -430,6 +431,9 @@ protected override async Task OnInitializedAsync()
 
         try
         {
+            var previousMode = Preferences.Default.Get("db_mode", "Local");
+            var modeChanged = previousMode != _dbMode;
+
             Preferences.Default.Set("db_mode", _dbMode);
             Preferences.Default.Set("db_server_url", _dbMode == "Remote" ? _serverUrl.Trim() : "");
             Preferences.Default.Set("db_sync_username", _dbMode == "Remote" ? _syncUsername.Trim() : "");
@@ -443,6 +447,13 @@ protected override async Task OnInitializedAsync()
                 SecureStorage.Default.Remove("db_sync_password");
             }
 
+            // Clear session when switching database modes
+            if (modeChanged)
+            {
+                await AuthService.LogoutAsync();
+                System.Diagnostics.Debug.WriteLine($"[SETTINGS] Database mode changed from {previousMode} to {_dbMode} - session cleared");
+            }
+
             // Update app info display
             if (_appInfo is not null)
             {
@@ -450,9 +461,16 @@ protected override async Task OnInitializedAsync()
             }
 
             _dbConfigSaved = true;
-            _dbConfigMessage = _dbMode == "Remote"
-                ? "Remote server configured. Restart the app to connect."
-                : "Switched to local database. Restart the app to apply.";
+            _dbConfigMessage = modeChanged
+                ? $"Switched to {_dbMode} database. You will be logged out. Please restart the app and log in again."
+                : "Connection settings saved.";
+
+            // If mode changed, redirect to login after 2 seconds
+            if (modeChanged)
+            {
+                await Task.Delay(2000);
+                Nav.NavigateTo("/login", forceLoad: true);
+            }
         }
         catch (Exception ex)
         {

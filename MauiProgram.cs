@@ -82,13 +82,14 @@ namespace OneManVanFSM
 
             var app = builder.Build();
 
-            // Ensure schema is up-to-date and tables exist, then seed data
+            // Ensure schema is up-to-date and tables exist
             using (var scope = app.Services.CreateScope())
             {
                 var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 EnsureSchemaUpToDate(db);
                 db.Database.EnsureCreated();
-                SeedMobileData(db);
+                // Only create admin user if database is empty - no automatic demo data seeding
+                EnsureAdminUserExists(db);
             }
 
             return app;
@@ -166,14 +167,8 @@ namespace OneManVanFSM
                 return;
             }
 
-            var tech = db.Employees.FirstOrDefault(e =>
-                e.Role == OneManVanFSM.Shared.Models.EmployeeRole.Tech);
-            if (tech is null)
-            {
-                System.Diagnostics.Debug.WriteLine("[SEED] WARNING: No tech employee found to link admin user.");
-                return;
-            }
-
+            // Create admin user WITHOUT requiring an employee link
+            // This allows login before demo data is seeded
             db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
             {
                 Username = "admin",
@@ -182,10 +177,10 @@ namespace OneManVanFSM
                 Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                 IsActive = true,
                 MustChangePassword = true,
-                Employee = tech,
+                EmployeeId = null, // No employee link required initially
             });
             db.SaveChanges();
-            System.Diagnostics.Debug.WriteLine("[SEED] Admin user created successfully.");
+            System.Diagnostics.Debug.WriteLine("[SEED] Admin user created successfully (no employee link).");
         }
 
         public static void SeedMobileData(AppDbContext db)
@@ -202,8 +197,7 @@ namespace OneManVanFSM
 
                 if (employeeCount > 0)
                 {
-                    System.Diagnostics.Debug.WriteLine("[SEED] Employees already exist. Ensuring admin user exists...");
-                    EnsureAdminUserExists(db);
+                    System.Diagnostics.Debug.WriteLine("[SEED] Employees already exist. Skipping demo data seed.");
                     return;
                 }
 
@@ -232,19 +226,12 @@ namespace OneManVanFSM
                 };
                 db.Employees.Add(tech);
 
-                // App User (linked to tech employee — matches web seed credentials)
-                if (!db.Users.Any())
+                // Link existing admin user to the tech employee (if admin exists and has no employee)
+                var adminUser = db.Users.FirstOrDefault(u => u.Username == "admin" && u.EmployeeId == null);
+                if (adminUser != null)
                 {
-                    db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
-                    {
-                        Username = "admin",
-                        Email = "chris.eikel@bledsoe.net",
-                        PasswordHash = MobileAuthService.HashPassword("!1235aSdf12sadf5!"),
-                        Role = OneManVanFSM.Shared.Models.UserRole.Owner,
-                        IsActive = true,
-                        MustChangePassword = true,
-                        Employee = tech,
-                    });
+                    adminUser.Employee = tech;
+                    System.Diagnostics.Debug.WriteLine("[SEED] Linked admin user to tech employee.");
                 }
 
                 // Customers

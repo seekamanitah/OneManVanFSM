@@ -198,8 +198,9 @@
             }
 
             _successMessage = _dbMode == "Remote"
-                ? "Remote server configured. Restart the app to connect."
-                : "Switched to local database. Restart the app to apply.";
+                ? "Remote server configured successfully. Please restart the app to connect."
+                : "Local database mode selected. Please restart the app to apply changes.";
+            _showServerConfig = false; // Auto-collapse after save
         }
         catch (Exception ex)
         {
@@ -208,6 +209,7 @@
         finally
         {
             _savingConfig = false;
+            StateHasChanged();
         }
     }
 }
