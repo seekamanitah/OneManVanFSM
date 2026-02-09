@@ -54,6 +54,7 @@ public class Asset
     public bool RegisteredOnline { get; set; }
     public string? InstalledBy { get; set; }
     public bool WarrantedByCompany { get; set; }
+    public bool NoWarranty { get; set; } // Flag to disable warranty for existing units not under warranty
     public AssetStatus Status { get; set; } = AssetStatus.Active;
     public decimal? Value { get; set; }
     public string? Notes { get; set; }

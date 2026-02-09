@@ -43,7 +43,8 @@ public class AssetService : IAssetService
             SerialNumber = a.SerialNumber, Status = a.Status,
             CustomerName = a.Customer != null ? a.Customer.Name : null,
             SiteName = a.Site != null ? a.Site.Name : null,
-            InstallDate = a.InstallDate, WarrantyExpiry = a.WarrantyExpiry
+            InstallDate = a.InstallDate, WarrantyExpiry = a.WarrantyExpiry,
+            NoWarranty = a.NoWarranty
         }).ToListAsync();
     }
 
@@ -77,7 +78,7 @@ public class AssetService : IAssetService
                 PartsWarrantyTermYears = a.PartsWarrantyTermYears,
                 CompressorWarrantyTermYears = a.CompressorWarrantyTermYears,
                 RegisteredOnline = a.RegisteredOnline, InstalledBy = a.InstalledBy,
-                WarrantedByCompany = a.WarrantedByCompany,
+                WarrantedByCompany = a.WarrantedByCompany, NoWarranty = a.NoWarranty,
                 Status = a.Status, Value = a.Value, Notes = a.Notes,
                 ProductId = a.ProductId, ProductName = a.Product != null ? a.Product.Name : null,
                 CustomerId = a.CustomerId, CustomerName = a.Customer != null ? a.Customer.Name : null,
@@ -155,7 +156,7 @@ public class AssetService : IAssetService
             PartsWarrantyTermYears = model.PartsWarrantyTermYears,
             CompressorWarrantyTermYears = model.CompressorWarrantyTermYears,
             RegisteredOnline = model.RegisteredOnline, InstalledBy = model.InstalledBy,
-            WarrantedByCompany = model.WarrantedByCompany,
+            WarrantedByCompany = model.WarrantedByCompany, NoWarranty = model.NoWarranty,
             Status = model.Status, Value = model.Value, Notes = model.Notes,
             ProductId = model.ProductId, CustomerId = model.CustomerId, SiteId = model.SiteId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -200,7 +201,7 @@ public class AssetService : IAssetService
         a.PartsWarrantyTermYears = model.PartsWarrantyTermYears;
         a.CompressorWarrantyTermYears = model.CompressorWarrantyTermYears;
         a.RegisteredOnline = model.RegisteredOnline; a.InstalledBy = model.InstalledBy;
-        a.WarrantedByCompany = model.WarrantedByCompany;
+        a.WarrantedByCompany = model.WarrantedByCompany; a.NoWarranty = model.NoWarranty;
         a.Status = model.Status; a.Value = model.Value; a.Notes = model.Notes;
         a.ProductId = model.ProductId; a.CustomerId = model.CustomerId; a.SiteId = model.SiteId;
         a.UpdatedAt = DateTime.UtcNow;
@@ -225,6 +226,22 @@ public class AssetService : IAssetService
     /// </summary>
     private async Task CalculateWarrantyExpiriesAsync(Asset asset)
     {
+        if (asset.NoWarranty)
+        {
+            asset.WarrantyStartDate = null;
+            asset.WarrantyExpiry = null;
+            asset.LaborWarrantyExpiry = null;
+            asset.PartsWarrantyExpiry = null;
+            asset.CompressorWarrantyExpiry = null;
+            asset.LaborWarrantyTermYears = null;
+            asset.PartsWarrantyTermYears = null;
+            asset.CompressorWarrantyTermYears = null;
+            asset.RegisteredOnline = false;
+            asset.WarrantedByCompany = false;
+            await _db.SaveChangesAsync();
+            return;
+        }
+
         var startDate = asset.WarrantyStartDate ?? asset.InstallDate;
         if (startDate is not null)
         {

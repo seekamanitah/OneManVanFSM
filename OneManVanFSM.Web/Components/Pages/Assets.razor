@@ -142,7 +142,7 @@
                             <option value="12000">12,000 BTU (1 Ton)</option>
                             <option value="18000">18,000 BTU (1.5 Ton)</option>
                             <option value="24000">24,000 BTU (2 Ton)</option>
-                            <option value="30000">30,000 BTU (3 Ton)</option>
+                            <option value="30000">30,000 BTU (2.5 Ton)</option>
                             <option value="36000">36,000 BTU (3 Ton)</option>
                             <option value="42000">42,000 BTU (3.5 Ton)</option>
                             <option value="48000">48,000 BTU (4 Ton)</option>
@@ -278,7 +278,25 @@
                 <hr class="my-3" />
                 <!-- Installation & Warranty -->
                 <h6 class="text-muted mb-2"><i class="bi bi-shield-check me-1"></i>Installation & Warranty</h6>
-                <div class="row g-2">
+                <div class="row g-2 mb-2">
+                    <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input type="checkbox" class="form-check-input" id="chkNoWarranty"
+                                   checked="@form.NoWarranty" @onchange="OnNoWarrantyToggled" />
+                            <label class="form-check-label fw-semibold @(form.NoWarranty ? "text-danger" : "text-muted")" for="chkNoWarranty">
+                                <i class="bi @(form.NoWarranty ? "bi-shield-x" : "bi-shield-check") me-1"></i>
+                                @(form.NoWarranty ? "Warranty Disabled — unit is not under warranty" : "Warranty Active")
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                @if (form.NoWarranty)
+                {
+                    <div class="alert alert-warning py-2 px-3 mb-3">
+                        <i class="bi bi-exclamation-triangle me-1"></i>All warranty fields are disabled. This unit will show as <strong>No Warranty</strong> in listings and detail views.
+                    </div>
+                }
+                <div class="row g-2" style="@(form.NoWarranty ? "opacity:0.5;pointer-events:none;" : "")">
                     <div class="col-md-3">
                         <label class="form-label">Install Date</label>
                         <InputDate @bind-Value="form.InstallDate" @bind-Value:after="OnInstallDateChanged" class="form-control" />
@@ -310,7 +328,7 @@
                 </div>
 
                 <!-- Warranty Terms Breakdown -->
-                <div class="row g-2 mt-2">
+                <div class="row g-2 mt-2" style="@(form.NoWarranty ? "opacity:0.5;pointer-events:none;" : "")">
                     <div class="col-12"><small class="text-muted fw-bold">Warranty Terms (years) — expiry dates auto-calculate from Warranty Start</small></div>
                     <div class="col-md-3">
                         <label class="form-label">Labor (years)</label>
@@ -340,7 +358,7 @@
                 </div>
 
                 <!-- Registration & Service -->
-                <div class="row g-2 mt-2">
+                <div class="row g-2 mt-2" style="@(form.NoWarranty ? "opacity:0.5;pointer-events:none;" : "")">
                     <div class="col-md-3">
                         <label class="form-label">Next Service Due</label>
                         <InputDate @bind-Value="form.NextServiceDue" class="form-control" />
@@ -422,7 +440,11 @@ else if (mode == "detail" && detail is not null)
         <h4 class="mb-0"><i class="bi bi-cpu-fill me-2"></i>@detail.Name</h4>
         <span class="badge ms-2 @GetAssetBadge(detail.Status)">@detail.Status</span>
         @{ var warrantyState = GetWarrantyState(detail); }
-        @if (warrantyState == "active")
+        @if (detail.NoWarranty)
+        {
+            <span class="badge bg-dark ms-1"><i class="bi bi-shield-x me-1"></i>No Warranty</span>
+        }
+        else if (warrantyState == "active")
         {
             <span class="badge bg-success ms-1"><i class="bi bi-shield-check me-1"></i>Warranty Active</span>
         }
@@ -566,6 +588,12 @@ else if (mode == "detail" && detail is not null)
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <h6 class="text-muted mb-2"><i class="bi bi-calendar3 me-1"></i>Key Dates & Warranty</h6>
+                    @if (detail.NoWarranty)
+                    {
+                        <div class="alert alert-secondary py-2 px-3 mb-2">
+                            <i class="bi bi-shield-x me-1"></i><strong>Warranty Disabled</strong> — This unit is not under warranty.
+                        </div>
+                    }
                     <div class="row g-2">
                         <div class="col-sm-4"><strong>Installed:</strong> @(detail.InstallDate?.ToString("MMM dd, yyyy") ?? "—")</div>
                         <div class="col-sm-4"><strong>Manufactured:</strong> @(detail.ManufactureDate?.ToString("MMM dd, yyyy") ?? "—")</div>
@@ -936,7 +964,8 @@ else
                                 <td>@(a.CustomerName ?? "—")</td>
                                 <td>@(a.SiteName ?? "—")</td>
                                 <td>
-                                    @if (a.WarrantyActive) { <span class="text-success"><i class="bi bi-shield-check"></i></span> }
+                                    @if (a.NoWarranty) { <span class="text-dark"><i class="bi bi-shield-x"></i> None</span> }
+                                    else if (a.WarrantyActive) { <span class="text-success"><i class="bi bi-shield-check"></i></span> }
                                     else { <span class="text-muted">—</span> }
                                 </td>
                             </tr>
@@ -1034,9 +1063,25 @@ private async Task DetermineView()
     if (uri.AbsolutePath.Contains("/assets/new", StringComparison.OrdinalIgnoreCase))
     {
         mode = "form"; editId = null;
-        form = new AssetEditModel { WarrantyStartDate = DateTime.UtcNow.Date };
+        form = new AssetEditModel
+        {
+            InstallDate = DateTime.UtcNow.Date,
+            WarrantyStartDate = DateTime.UtcNow.Date
+        };
         _selectedJobIds = [];
         await LoadFormDependencies();
+
+        // Prepopulate from query string (e.g., navigating from Site page)
+        var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        if (int.TryParse(qs["siteId"], out var qsSiteId))
+        {
+            form.SiteId = qsSiteId;
+            var site = _sites.FirstOrDefault(s => s.Id == qsSiteId);
+            if (site?.CustomerId.HasValue == true)
+                form.CustomerId = site.CustomerId;
+        }
+        if (int.TryParse(qs["customerId"], out var qsCustId))
+            form.CustomerId = qsCustId;
     }
     else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
     {
@@ -1109,7 +1154,30 @@ private void OnTonnageChanged()
 }
 private void OnBrandChanged() => form.Brand = string.IsNullOrEmpty(_brandValue) ? null : _brandValue;
 private void OnAssetTypeChanged() => form.AssetType = string.IsNullOrEmpty(_assetTypeValue) ? null : _assetTypeValue;
-private void OnFuelTypeChanged() => form.FuelType = string.IsNullOrEmpty(_fuelTypeValue) ? null : _fuelTypeValue;
+private void OnFuelTypeChanged()
+{
+    form.FuelType = string.IsNullOrEmpty(_fuelTypeValue) ? null : _fuelTypeValue;
+
+    // Default voltage and phase based on fuel type
+    if (!string.IsNullOrEmpty(_fuelTypeValue))
+    {
+        if (_fuelTypeValue.Equals("Electric", StringComparison.OrdinalIgnoreCase))
+        {
+            form.Voltage = "240V";
+            _voltageValue = "240V";
+            form.Phase = "Single Phase";
+            _phaseValue = "Single Phase";
+        }
+        else if (_fuelTypeValue.Equals("Natural Gas", StringComparison.OrdinalIgnoreCase)
+              || _fuelTypeValue.Equals("Propane", StringComparison.OrdinalIgnoreCase))
+        {
+            form.Voltage = "120V";
+            _voltageValue = "120V";
+            form.Phase = "Single Phase";
+            _phaseValue = "Single Phase";
+        }
+    }
+}
 private void OnUnitConfigChanged() => form.UnitConfiguration = string.IsNullOrEmpty(_unitConfigValue) ? null : _unitConfigValue;
 private void OnVoltageChanged() => form.Voltage = string.IsNullOrEmpty(_voltageValue) ? null : _voltageValue;
 private void OnPhaseChanged() => form.Phase = string.IsNullOrEmpty(_phaseValue) ? null : _phaseValue;
@@ -1164,9 +1232,35 @@ private async Task OnProductSelected(ChangeEventArgs e)
 
 private void OnInstallDateChanged()
 {
+    // Warranty start defaults to install date
+    if (form.InstallDate.HasValue)
+    {
+        form.WarrantyStartDate = form.InstallDate.Value;
+        RecalculateWarrantyExpiries();
+    }
     // Auto-set NextServiceDue to 1 year from install date
     if (form.InstallDate.HasValue && !form.NextServiceDue.HasValue)
         form.NextServiceDue = form.InstallDate.Value.AddYears(1);
+}
+
+private void OnNoWarrantyToggled(ChangeEventArgs e)
+{
+    form.NoWarranty = e.Value is true;
+    if (form.NoWarranty)
+    {
+        // Clear all warranty fields when disabling warranty
+        form.WarrantyStartDate = null;
+        form.WarrantyExpiry = null;
+        form.WarrantyTermYears = null;
+        form.LaborWarrantyTermYears = null;
+        form.PartsWarrantyTermYears = null;
+        form.CompressorWarrantyTermYears = null;
+        form.RegisteredOnline = false;
+        form.WarrantedByCompany = false;
+        _laborExpiry = null;
+        _partsExpiry = null;
+        _compressorExpiry = null;
+    }
 }
 
 private void RecalculateWarrantyExpiries()
@@ -1263,7 +1357,7 @@ private async Task LoadForEdit(int id)
         PartsWarrantyTermYears = d.PartsWarrantyTermYears,
         CompressorWarrantyTermYears = d.CompressorWarrantyTermYears,
         RegisteredOnline = d.RegisteredOnline, InstalledBy = d.InstalledBy,
-        WarrantedByCompany = d.WarrantedByCompany,
+        WarrantedByCompany = d.WarrantedByCompany, NoWarranty = d.NoWarranty,
         Status = d.Status, Value = d.Value, Notes = d.Notes,
         ProductId = d.ProductId, CustomerId = d.CustomerId, SiteId = d.SiteId
     };
@@ -1331,6 +1425,7 @@ private async Task LoadForEdit(int id)
 
     private string GetWarrantyState(AssetDetail d)
     {
+        if (d.NoWarranty) return "none";
         if (!d.WarrantyExpiry.HasValue) return "none";
         var daysLeft = (d.WarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
         if (daysLeft < 0) return "expired";

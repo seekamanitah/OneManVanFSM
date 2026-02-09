@@ -40,7 +40,8 @@ public class AssetListItem
     public string? SiteName { get; set; }
     public DateTime? InstallDate { get; set; }
     public DateTime? WarrantyExpiry { get; set; }
-    public bool WarrantyActive => WarrantyExpiry.HasValue && WarrantyExpiry.Value > DateTime.UtcNow;
+    public bool NoWarranty { get; set; }
+    public bool WarrantyActive => !NoWarranty && WarrantyExpiry.HasValue && WarrantyExpiry.Value > DateTime.UtcNow;
 }
 
 public class AssetDetail
@@ -97,6 +98,7 @@ public class AssetDetail
     public bool RegisteredOnline { get; set; }
     public string? InstalledBy { get; set; }
     public bool WarrantedByCompany { get; set; }
+    public bool NoWarranty { get; set; }
     public AssetStatus Status { get; set; }
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
@@ -206,6 +208,7 @@ public class AssetEditModel
     public bool RegisteredOnline { get; set; }
     public string? InstalledBy { get; set; }
     public bool WarrantedByCompany { get; set; }
+    public bool NoWarranty { get; set; }
     public AssetStatus Status { get; set; } = AssetStatus.Active;
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
