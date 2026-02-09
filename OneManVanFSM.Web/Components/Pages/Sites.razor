@@ -66,12 +66,12 @@ else if (_view == View.List)
                     <thead class="table-light">
                         <tr>
                             <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
-                            <th>Address</th>
+                            <th role="button" @onclick='() => ToggleSort("Address")'>Address @SortIcon("Address")</th>
                             <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
-                            <th class="d-none d-md-table-cell">Owner</th>
-                            <th class="text-center d-none d-md-table-cell">Sq Ft</th>
-                            <th class="text-center d-none d-lg-table-cell">Assets</th>
-                            <th class="text-center d-none d-lg-table-cell">Open Jobs</th>
+                            <th class="d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("Owner")'>Owner @SortIcon("Owner")</th>
+                            <th class="text-center d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("SqFt")'>Sq Ft @SortIcon("SqFt")</th>
+                            <th class="text-center d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("Assets")'>Assets @SortIcon("Assets")</th>
+                            <th class="text-center d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("OpenJobs")'>Open Jobs @SortIcon("OpenJobs")</th>
                         </tr>
                     </thead>
                     <tbody>

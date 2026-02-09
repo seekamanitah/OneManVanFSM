@@ -946,11 +946,11 @@ else
                         <tr>
                             <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
-                            <th>Model</th>
+                            <th role="button" @onclick='() => ToggleSort("Model")'>Model @SortIcon("Model")</th>
                             <th role="button" @onclick='() => ToggleSort("Status")'>Status @SortIcon("Status")</th>
-                            <th>Customer</th>
-                            <th>Site</th>
-                            <th>Warranty</th>
+                            <th role="button" @onclick='() => ToggleSort("Customer")'>Customer @SortIcon("Customer")</th>
+                            <th role="button" @onclick='() => ToggleSort("Site")'>Site @SortIcon("Site")</th>
+                            <th role="button" @onclick='() => ToggleSort("Warranty")'>Warranty @SortIcon("Warranty")</th>
                         </tr>
                     </thead>
                     <tbody>

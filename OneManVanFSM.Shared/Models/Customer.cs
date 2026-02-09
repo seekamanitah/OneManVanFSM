@@ -36,6 +36,7 @@ public class Customer
     public ICollection<ServiceAgreement> ServiceAgreements { get; set; } = [];
     public ICollection<QuickNote> QuickNotes { get; set; } = [];
     public ICollection<Document> Documents { get; set; } = [];
+    public ICollection<Asset> Assets { get; set; } = [];
 }
 
 public enum CustomerType

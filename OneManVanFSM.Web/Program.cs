@@ -93,6 +93,10 @@ app.MapPost("/auth/login", async (HttpContext context, IAuthService authService)
     if (!result.Succeeded)
         return Results.Redirect("/login?error=" + Uri.EscapeDataString(result.ErrorMessage ?? "Login failed."));
 
+    // Force first-time password change
+    if (result.User!.MustChangePassword)
+        return Results.Redirect("/setup");
+
     var redirect = result.User!.Role switch
     {
         OneManVanFSM.Shared.Models.UserRole.Tech => "/calendar",
@@ -170,6 +174,7 @@ using (var scope = app.Services.CreateScope())
             PasswordHash = AuthService.HashPassword(adminPassword),
             Role = OneManVanFSM.Shared.Models.UserRole.Owner,
             IsActive = true,
+            MustChangePassword = true,
             Employee = adminEmployee,
         });
         db.SaveChanges();

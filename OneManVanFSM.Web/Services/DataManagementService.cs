@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using ClosedXML.Excel;
@@ -385,13 +386,41 @@ public class DataManagementService : IDataManagementService
         // Flush pending changes
         await _db.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);");
 
-        return await File.ReadAllBytesAsync(dbPath);
+        // Create ZIP containing the database and company profile
+        using var ms = new MemoryStream();
+        using (var archive = new ZipArchive(ms, ZipArchiveMode.Create, leaveOpen: true))
+        {
+            // Add database file
+            var dbEntry = archive.CreateEntry("OneManVanFSM.db", CompressionLevel.Optimal);
+            await using (var entryStream = dbEntry.Open())
+            {
+                var dbBytes = await File.ReadAllBytesAsync(dbPath);
+                await entryStream.WriteAsync(dbBytes);
+            }
+
+            // Add company profile if it exists
+            var profilePath = Path.Combine(AppContext.BaseDirectory, "companyprofile.json");
+            if (File.Exists(profilePath))
+            {
+                var profileEntry = archive.CreateEntry("companyprofile.json", CompressionLevel.Optimal);
+                await using var entryStream = profileEntry.Open();
+                var profileBytes = await File.ReadAllBytesAsync(profilePath);
+                await entryStream.WriteAsync(profileBytes);
+            }
+        }
+
+        return ms.ToArray();
     }
 
     public async Task RestoreDatabaseAsync(Stream backupStream)
     {
         var connStr = _config.GetConnectionString("DefaultConnection") ?? "Data Source=OneManVanFSM.db";
         var dbPath = connStr.Replace("Data Source=", "").Trim();
+
+        // Read the uploaded stream into memory so we can inspect it
+        using var memStream = new MemoryStream();
+        await backupStream.CopyToAsync(memStream);
+        memStream.Position = 0;
 
         // Close the current DbContext connection before file operations
         var connection = _db.Database.GetDbConnection();
@@ -412,10 +441,48 @@ public class DataManagementService : IDataManagementService
         if (File.Exists(walPath)) File.Delete(walPath);
         if (File.Exists(shmPath)) File.Delete(shmPath);
 
-        // Write the restored database file
-        await using var fs = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
-        await backupStream.CopyToAsync(fs);
-        await fs.FlushAsync();
+        // Detect if the upload is a ZIP archive (starts with PK signature 0x504B)
+        var isZip = memStream.Length >= 4;
+        if (isZip)
+        {
+            var header = new byte[4];
+            memStream.Read(header, 0, 4);
+            memStream.Position = 0;
+            isZip = header[0] == 0x50 && header[1] == 0x4B && header[2] == 0x03 && header[3] == 0x04;
+        }
+
+        if (isZip)
+        {
+            using var archive = new ZipArchive(memStream, ZipArchiveMode.Read);
+
+            // Restore database file
+            var dbEntry = archive.GetEntry("OneManVanFSM.db");
+            if (dbEntry is not null)
+            {
+                await using var entryStream = dbEntry.Open();
+                await using var fs = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
+                await entryStream.CopyToAsync(fs);
+                await fs.FlushAsync();
+            }
+
+            // Restore company profile if present
+            var profileEntry = archive.GetEntry("companyprofile.json");
+            if (profileEntry is not null)
+            {
+                var profilePath = Path.Combine(AppContext.BaseDirectory, "companyprofile.json");
+                await using var entryStream = profileEntry.Open();
+                await using var fs = new FileStream(profilePath, FileMode.Create, FileAccess.Write);
+                await entryStream.CopyToAsync(fs);
+                await fs.FlushAsync();
+            }
+        }
+        else
+        {
+            // Legacy: raw .db file restore
+            await using var fs = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
+            await memStream.CopyToAsync(fs);
+            await fs.FlushAsync();
+        }
 
         // Clear pools again so new connections open against the restored file
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
@@ -486,14 +553,28 @@ public class DataManagementService : IDataManagementService
             await _db.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = ON;");
         }
 
-        // Re-seed the default admin account
+        // Re-seed the default admin account using environment variables (matches Program.cs startup seed)
+        var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL") ?? "admin@onemanvan.local";
+        var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "admin123";
+
+        var adminEmployee = new OneManVanFSM.Shared.Models.Employee
+        {
+            Name = "Admin",
+            Role = OneManVanFSM.Shared.Models.EmployeeRole.Owner,
+            Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active,
+            Email = adminEmail,
+        };
+        _db.Employees.Add(adminEmployee);
+
         _db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
         {
             Username = "admin",
-            Email = "admin@onemanvan.local",
-            PasswordHash = AuthService.HashPassword("admin123"),
+            Email = adminEmail,
+            PasswordHash = AuthService.HashPassword(adminPassword),
             Role = OneManVanFSM.Shared.Models.UserRole.Owner,
             IsActive = true,
+            MustChangePassword = true,
+            Employee = adminEmployee,
         });
         await _db.SaveChangesAsync();
     }

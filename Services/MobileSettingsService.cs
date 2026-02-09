@@ -86,13 +86,18 @@ public class MobileSettingsService : IMobileSettingsService
 
     public Task<MobileAppInfo> GetAppInfoAsync()
     {
+        var dbMode = Preferences.Default.Get("db_mode", "Local");
+        var serverUrl = Preferences.Default.Get("db_server_url", "");
+
         return Task.FromResult(new MobileAppInfo
         {
             AppVersion = AppInfo.Current.VersionString,
             BuildNumber = AppInfo.Current.BuildString,
             Framework = ".NET MAUI Blazor Hybrid",
             DatabaseEngine = "SQLite (EF Core)",
-            ApiEndpoint = "Local (Offline)",
+            ApiEndpoint = dbMode == "Remote" && !string.IsNullOrWhiteSpace(serverUrl)
+                ? $"Remote ({serverUrl})"
+                : "Local (Offline)",
         });
     }
 

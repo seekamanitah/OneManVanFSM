@@ -1,0 +1,135 @@
+@page "/setup"
+@layout Components.Layout.MobileLayout
+@inject IMobileAuthService AuthService
+@inject NavigationManager Nav
+
+<div class="login-container">
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <i class="bi bi-shield-lock" style="font-size:2.5rem; color:var(--warning, #ffc107);"></i>
+            <h4 class="mt-2 mb-0 fw-bold">First-Time Setup</h4>
+            <p class="text-muted" style="font-size:0.85rem;">
+                You must change your default password before continuing.
+            </p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger py-2" style="font-size:0.85rem;">@_error</div>
+        }
+
+        @if (!string.IsNullOrEmpty(_success))
+        {
+            <div class="alert alert-success py-2" style="font-size:0.85rem;">@_success</div>
+        }
+
+        <div class="mb-3">
+            <label class="form-label" style="font-size:0.85rem;">New Username (optional)</label>
+            <input type="text" class="form-control" @bind="_newUsername" @bind:event="oninput"
+                   placeholder="Leave blank to keep current" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" style="font-size:0.85rem;">New Email (optional)</label>
+            <input type="email" class="form-control" @bind="_newEmail" @bind:event="oninput"
+                   placeholder="Leave blank to keep current" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" style="font-size:0.85rem;">Current Password</label>
+            <input type="password" class="form-control" @bind="_currentPassword" @bind:event="oninput"
+                   placeholder="Enter current password" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" style="font-size:0.85rem;">New Password</label>
+            <input type="password" class="form-control" @bind="_newPassword" @bind:event="oninput"
+                   placeholder="Min. 6 characters" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label" style="font-size:0.85rem;">Confirm New Password</label>
+            <input type="password" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
+                   placeholder="Re-enter new password" />
+        </div>
+
+        <button class="btn btn-warning w-100 fw-semibold" @onclick="HandleSetup" disabled="@_processing">
+            @if (_processing)
+            {
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                <span>Saving...</span>
+            }
+            else
+            {
+                <i class="bi bi-check-lg me-1"></i>
+                <span>Complete Setup</span>
+            }
+        </button>
+    </div>
+</div>
+
+@code {
+    private string _newUsername = "";
+    private string _newEmail = "";
+    private string _currentPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+    private string? _error;
+    private string? _success;
+    private bool _processing;
+
+    private async Task HandleSetup()
+    {
+        _error = null;
+        _success = null;
+
+        if (string.IsNullOrWhiteSpace(_currentPassword))
+        {
+            _error = "Current password is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < 6)
+        {
+            _error = "New password must be at least 6 characters.";
+            return;
+        }
+
+        if (_newPassword != _confirmPassword)
+        {
+            _error = "New passwords do not match.";
+            return;
+        }
+
+        _processing = true;
+        StateHasChanged();
+
+        try
+        {
+            var result = await AuthService.CompleteFirstTimeSetupAsync(
+                _currentPassword, _newPassword,
+                string.IsNullOrWhiteSpace(_newUsername) ? null : _newUsername.Trim(),
+                string.IsNullOrWhiteSpace(_newEmail) ? null : _newEmail.Trim());
+
+            if (result.Succeeded)
+            {
+                _success = "Setup complete! Redirecting to login...";
+                StateHasChanged();
+                await Task.Delay(1500);
+                Nav.NavigateTo("/login", forceLoad: false);
+            }
+            else
+            {
+                _error = result.ErrorMessage ?? "Setup failed.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _error = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            _processing = false;
+        }
+    }
+}

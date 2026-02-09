@@ -73,10 +73,10 @@ else if (_view == View.List)
                             <th role="button" @onclick='() => ToggleSort("Type")'>
                                 Type @SortIcon("Type")
                             </th>
-                            <th class="d-none d-md-table-cell">Contact</th>
-                            <th class="text-center d-none d-lg-table-cell">Sites</th>
-                            <th class="text-center d-none d-lg-table-cell">Assets</th>
-                            <th class="text-center d-none d-md-table-cell">Open Jobs</th>
+                            <th class="d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("Contact")'>Contact @SortIcon("Contact")</th>
+                            <th class="text-center d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("Sites")'>Sites @SortIcon("Sites")</th>
+                            <th class="text-center d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("Assets")'>Assets @SortIcon("Assets")</th>
+                            <th class="text-center d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("OpenJobs")'>Open Jobs @SortIcon("OpenJobs")</th>
                             <th class="text-end d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("Balance")'>
                                 Balance @SortIcon("Balance")
                             </th>

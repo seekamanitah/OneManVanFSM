@@ -29,6 +29,12 @@ public interface IMobileAuthService
     /// or the user has no linked Employee record.
     /// </summary>
     Task<int?> GetEmployeeIdAsync();
+
+    /// <summary>
+    /// Complete the first-time setup by changing the default password.
+    /// Optionally update username and email.
+    /// </summary>
+    Task<MobileAuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null);
 }
 
 public class MobileAuthResult
@@ -53,4 +59,5 @@ public class MobileUserSession
     public int? EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
     public string? Territory { get; set; }
+    public bool MustChangePassword { get; set; }
 }

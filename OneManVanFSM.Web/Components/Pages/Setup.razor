@@ -1,0 +1,128 @@
+@page "/setup"
+@layout EmptyLayout
+@inject IAuthService AuthService
+@inject NavigationManager Nav
+
+<PageTitle>Initial Setup - OneManVanFSM</PageTitle>
+
+<div class="d-flex justify-content-center align-items-center vh-100 bg-light">
+    <div class="card border-0 shadow" style="max-width: 480px; width: 100%;">
+        <div class="card-body p-4 text-center">
+            <i class="bi bi-shield-lock text-warning" style="font-size: 2.5rem;"></i>
+            <h4 class="mt-2 mb-1">First-Time Setup</h4>
+            <p class="text-muted small mb-3">
+                You must change your default password before continuing.
+                Update your admin credentials below.
+            </p>
+
+            @if (!string.IsNullOrEmpty(_errorMessage))
+            {
+                <div class="alert alert-danger py-2 small">@_errorMessage</div>
+            }
+
+            <div class="mb-3 text-start">
+                <label class="form-label small text-muted">New Username (optional)</label>
+                <input type="text" class="form-control" @bind="_newUsername" placeholder="Leave blank to keep current" />
+            </div>
+
+            <div class="mb-3 text-start">
+                <label class="form-label small text-muted">New Email (optional)</label>
+                <input type="email" class="form-control" @bind="_newEmail" placeholder="Leave blank to keep current" />
+            </div>
+
+            <div class="mb-3 text-start">
+                <label class="form-label small text-muted">Current Password</label>
+                <input type="password" class="form-control" @bind="_currentPassword" placeholder="Enter current password" />
+            </div>
+
+            <div class="mb-3 text-start">
+                <label class="form-label small text-muted">New Password</label>
+                <input type="password" class="form-control" @bind="_newPassword" placeholder="Min. 6 characters" />
+            </div>
+
+            <div class="mb-3 text-start">
+                <label class="form-label small text-muted">Confirm New Password</label>
+                <input type="password" class="form-control" @bind="_confirmPassword" placeholder="Re-enter new password" />
+            </div>
+
+            <button class="btn btn-warning w-100 mb-2" @onclick="HandleSetup" disabled="@_isLoading">
+                @if (_isLoading)
+                {
+                    <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                    <span>Saving...</span>
+                }
+                else
+                {
+                    <i class="bi bi-check-lg me-1"></i>
+                    <span>Complete Setup</span>
+                }
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? Error { get; set; }
+
+    private string _newUsername = "";
+    private string _newEmail = "";
+    private string _currentPassword = "";
+    private string _newPassword = "";
+    private string _confirmPassword = "";
+    private string? _errorMessage;
+    private bool _isLoading;
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(Error))
+            _errorMessage = Error;
+    }
+
+    private async Task HandleSetup()
+    {
+        _errorMessage = null;
+
+        if (string.IsNullOrWhiteSpace(_currentPassword))
+        {
+            _errorMessage = "Current password is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_newPassword) || _newPassword.Length < 6)
+        {
+            _errorMessage = "New password must be at least 6 characters.";
+            return;
+        }
+
+        if (_newPassword != _confirmPassword)
+        {
+            _errorMessage = "New passwords do not match.";
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            var result = await AuthService.CompleteFirstTimeSetupAsync(
+                _currentPassword, _newPassword, _newUsername, _newEmail);
+
+            if (result.Succeeded)
+            {
+                Nav.NavigateTo("/login", forceLoad: true);
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Setup failed.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _errorMessage = $"An error occurred: {ex.Message}";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+}

@@ -79,6 +79,7 @@ public class MobileAuthService : IMobileAuthService
             EmployeeId = user.EmployeeId,
             EmployeeName = user.Employee?.Name,
             Territory = user.Employee?.Territory,
+            MustChangePassword = user.MustChangePassword,
         };
 
         _cachedSession = session;
@@ -178,10 +179,76 @@ public class MobileAuthService : IMobileAuthService
             EmployeeId = user.EmployeeId,
             EmployeeName = user.Employee?.Name,
             Territory = user.Employee?.Territory,
+            MustChangePassword = user.MustChangePassword,
         };
     }
 
     // --- PBKDF2 password verification (matches Web AuthService) ---
+
+    public async Task<MobileAuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null)
+    {
+        if (newPassword.Length < 6)
+            return MobileAuthResult.Failure("New password must be at least 6 characters.");
+
+        // Find the user who must change their password
+        var session = await GetCurrentUserAsync();
+        OneManVanFSM.Shared.Models.AppUser? user = null;
+
+        if (session is not null)
+        {
+            user = await _db.Users.FindAsync(session.UserId);
+        }
+
+        // Fallback: find any user with MustChangePassword=true
+        if (user is null || !user.MustChangePassword)
+        {
+            user = await _db.Users.FirstOrDefaultAsync(u => u.MustChangePassword && u.IsActive);
+        }
+
+        if (user is null)
+            return MobileAuthResult.Failure("No setup-pending account found.");
+
+        if (!VerifyPassword(currentPassword, user.PasswordHash))
+            return MobileAuthResult.Failure("Current password is incorrect.");
+
+        // Update credentials
+        user.PasswordHash = HashPassword(newPassword);
+        user.MustChangePassword = false;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(newUsername) && newUsername != user.Username)
+        {
+            var usernameTaken = await _db.Users.AnyAsync(u => u.Username == newUsername && u.Id != user.Id);
+            if (usernameTaken)
+                return MobileAuthResult.Failure("That username is already taken.");
+            user.Username = newUsername.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(newEmail) && newEmail != user.Email)
+        {
+            var emailTaken = await _db.Users.AnyAsync(u => u.Email == newEmail && u.Id != user.Id);
+            if (emailTaken)
+                return MobileAuthResult.Failure("That email is already in use.");
+            user.Email = newEmail.Trim();
+        }
+
+        await _db.SaveChangesAsync();
+
+        // Sign out so they log in with the new credentials
+        await LogoutAsync();
+
+        var successSession = new MobileUserSession
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            Email = user.Email,
+            Role = user.Role.ToString(),
+            EmployeeId = user.EmployeeId,
+            MustChangePassword = false,
+        };
+
+        return MobileAuthResult.Success(successSession);
+    }
 
     private static bool VerifyPassword(string password, string storedHash)
     {

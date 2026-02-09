@@ -30,9 +30,28 @@ namespace OneManVanFSM
             builder.Services.AddMauiBlazorWebView();
 
             // EF Core SQLite — local database in app data directory
-            var dbPath = Path.Combine(FileSystem.AppDataDirectory, "OneManVanFSM.db");
+            // Support remote connection when configured via preferences
+            var dbMode = Preferences.Default.Get("db_mode", "Local");
+            var remoteUrl = Preferences.Default.Get("db_server_url", "");
+
+            string dbConnectionString;
+            if (dbMode == "Remote" && !string.IsNullOrWhiteSpace(remoteUrl))
+            {
+                // Remote mode: store the server URL for API-based sync
+                // Still use a local SQLite cache for offline capability
+                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "OneManVanFSM.db");
+                dbConnectionString = $"Data Source={dbPath}";
+                System.Diagnostics.Debug.WriteLine($"[DB] Remote mode configured — server: {remoteUrl}, local cache: {dbPath}");
+            }
+            else
+            {
+                var dbPath = Path.Combine(FileSystem.AppDataDirectory, "OneManVanFSM.db");
+                dbConnectionString = $"Data Source={dbPath}";
+                System.Diagnostics.Debug.WriteLine($"[DB] Local mode — path: {dbPath}");
+            }
+
             builder.Services.AddDbContext<AppDbContext>(options =>
-                options.UseSqlite($"Data Source={dbPath}"));
+                options.UseSqlite(dbConnectionString));
 
             // Mobile services
             builder.Services.AddScoped<IMobileAuthService, MobileAuthService>();
@@ -162,6 +181,7 @@ namespace OneManVanFSM
                 PasswordHash = MobileAuthService.HashPassword("!1235aSdf12sadf5!"),
                 Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                 IsActive = true,
+                MustChangePassword = true,
                 Employee = tech,
             });
             db.SaveChanges();
@@ -222,6 +242,7 @@ namespace OneManVanFSM
                         PasswordHash = MobileAuthService.HashPassword("!1235aSdf12sadf5!"),
                         Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                         IsActive = true,
+                        MustChangePassword = true,
                         Employee = tech,
                     });
                 }

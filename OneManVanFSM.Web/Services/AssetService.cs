@@ -30,7 +30,11 @@ public class AssetService : IAssetService
             query = filter.SortBy?.ToLower() switch
             {
                 "type" => filter.SortDescending ? query.OrderByDescending(a => a.AssetType) : query.OrderBy(a => a.AssetType),
+                "model" => filter.SortDescending ? query.OrderByDescending(a => a.Model) : query.OrderBy(a => a.Model),
                 "status" => filter.SortDescending ? query.OrderByDescending(a => a.Status) : query.OrderBy(a => a.Status),
+                "customer" => filter.SortDescending ? query.OrderByDescending(a => a.Customer != null ? a.Customer.Name : "") : query.OrderBy(a => a.Customer != null ? a.Customer.Name : ""),
+                "site" => filter.SortDescending ? query.OrderByDescending(a => a.Site != null ? a.Site.Name : "") : query.OrderBy(a => a.Site != null ? a.Site.Name : ""),
+                "warranty" => filter.SortDescending ? query.OrderByDescending(a => a.WarrantyExpiry) : query.OrderBy(a => a.WarrantyExpiry),
                 "installdate" => filter.SortDescending ? query.OrderByDescending(a => a.InstallDate) : query.OrderBy(a => a.InstallDate),
                 _ => filter.SortDescending ? query.OrderByDescending(a => a.Name) : query.OrderBy(a => a.Name)
             };

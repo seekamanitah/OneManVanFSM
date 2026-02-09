@@ -15,6 +15,7 @@ public interface IAuthService
     Task<bool> ToggleLockAsync(int userId);
     Task<AuthResult> ChangePasswordAsync(int userId, string currentPassword, string newPassword);
     Task<bool> AdminResetPasswordAsync(int userId, string newPassword);
+    Task<AuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null);
 }
 
 public class AuthResult

@@ -220,9 +220,66 @@ public class AuthService : IAuthService
         user.PasswordHash = HashPassword(newPassword);
         user.LoginAttempts = 0;
         user.IsLocked = false;
+        user.MustChangePassword = true;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<AuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null)
+    {
+        if (newPassword.Length < 6)
+            return AuthResult.Failure("New password must be at least 6 characters.");
+
+        // Find the user who must change their password (typically the seeded admin)
+        var httpContext = _httpContextAccessor.HttpContext;
+        var userIdClaim = httpContext?.User.FindFirst(ClaimTypes.NameIdentifier);
+        AppUser? user = null;
+
+        if (userIdClaim is not null && int.TryParse(userIdClaim.Value, out var userId))
+        {
+            user = await _db.Users.FindAsync(userId);
+        }
+
+        // Fallback: find any user with MustChangePassword=true that matches the current password
+        if (user is null || !user.MustChangePassword)
+        {
+            user = await _db.Users.FirstOrDefaultAsync(u => u.MustChangePassword && u.IsActive);
+        }
+
+        if (user is null)
+            return AuthResult.Failure("No setup-pending account found.");
+
+        if (!VerifyPassword(currentPassword, user.PasswordHash))
+            return AuthResult.Failure("Current password is incorrect.");
+
+        // Update credentials
+        user.PasswordHash = HashPassword(newPassword);
+        user.MustChangePassword = false;
+        user.UpdatedAt = DateTime.UtcNow;
+
+        if (!string.IsNullOrWhiteSpace(newUsername) && newUsername != user.Username)
+        {
+            var usernameTaken = await _db.Users.AnyAsync(u => u.Username == newUsername && u.Id != user.Id);
+            if (usernameTaken)
+                return AuthResult.Failure("That username is already taken.");
+            user.Username = newUsername.Trim();
+        }
+
+        if (!string.IsNullOrWhiteSpace(newEmail) && newEmail != user.Email)
+        {
+            var emailTaken = await _db.Users.AnyAsync(u => u.Email == newEmail && u.Id != user.Id);
+            if (emailTaken)
+                return AuthResult.Failure("That email is already in use.");
+            user.Email = newEmail.Trim();
+        }
+
+        await _db.SaveChangesAsync();
+
+        // Sign out so they log in with the new credentials
+        await LogoutAsync();
+
+        return AuthResult.Success(user);
     }
 
     // --- Password hashing with PBKDF2 ---

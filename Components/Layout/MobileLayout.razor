@@ -79,8 +79,15 @@ private int _notifCount;
 private bool _showSyncToast;
 private DateTime? _lastSyncTime;
 
-private bool IsLoginPage => Nav.ToBaseRelativePath(Nav.Uri)
-    .StartsWith("login", StringComparison.OrdinalIgnoreCase);
+private bool IsLoginPage
+{
+    get
+    {
+        var path = Nav.ToBaseRelativePath(Nav.Uri);
+        return path.StartsWith("login", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("setup", StringComparison.OrdinalIgnoreCase);
+    }
+}
 
 private string NavClass(string href, string? altHref = null)
 {

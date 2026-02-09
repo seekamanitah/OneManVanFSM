@@ -33,6 +33,10 @@ public class SiteService : ISiteService
             {
                 "address" => filter.SortDescending ? query.OrderByDescending(s => s.Address) : query.OrderBy(s => s.Address),
                 "type" => filter.SortDescending ? query.OrderByDescending(s => s.PropertyType) : query.OrderBy(s => s.PropertyType),
+                "owner" => filter.SortDescending ? query.OrderByDescending(s => s.Customer != null ? s.Customer.Name : "") : query.OrderBy(s => s.Customer != null ? s.Customer.Name : ""),
+                "sqft" => filter.SortDescending ? query.OrderByDescending(s => s.SqFt) : query.OrderBy(s => s.SqFt),
+                "assets" => filter.SortDescending ? query.OrderByDescending(s => s.Assets.Count(a => !a.IsArchived)) : query.OrderBy(s => s.Assets.Count(a => !a.IsArchived)),
+                "openjobs" => filter.SortDescending ? query.OrderByDescending(s => s.Jobs.Count(j => j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled)) : query.OrderBy(s => s.Jobs.Count(j => j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled)),
                 _ => filter.SortDescending ? query.OrderByDescending(s => s.Name) : query.OrderBy(s => s.Name)
             };
         }

@@ -39,6 +39,10 @@ public class CustomerService : ICustomerService
             {
                 "type" => filter.SortDescending ? query.OrderByDescending(c => c.Type) : query.OrderBy(c => c.Type),
                 "email" => filter.SortDescending ? query.OrderByDescending(c => c.PrimaryEmail) : query.OrderBy(c => c.PrimaryEmail),
+                "contact" => filter.SortDescending ? query.OrderByDescending(c => c.PrimaryPhone) : query.OrderBy(c => c.PrimaryPhone),
+                "sites" => filter.SortDescending ? query.OrderByDescending(c => c.Sites.Count(s => !s.IsArchived)) : query.OrderBy(c => c.Sites.Count(s => !s.IsArchived)),
+                "assets" => filter.SortDescending ? query.OrderByDescending(c => c.Assets.Count(a => !a.IsArchived)) : query.OrderBy(c => c.Assets.Count(a => !a.IsArchived)),
+                "openjobs" => filter.SortDescending ? query.OrderByDescending(c => c.Jobs.Count(j => j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled)) : query.OrderBy(c => c.Jobs.Count(j => j.Status != JobStatus.Completed && j.Status != JobStatus.Cancelled)),
                 "date" => filter.SortDescending ? query.OrderByDescending(c => c.SinceDate) : query.OrderBy(c => c.SinceDate),
                 "balance" => filter.SortDescending
                     ? query.OrderByDescending(c => c.Invoices.Where(i => !i.IsArchived && i.Status != InvoiceStatus.Paid && i.Status != InvoiceStatus.Void).Sum(i => i.BalanceDue))

@@ -702,7 +702,7 @@ else if (tab == "data")
                     </button>
                 </div>
                 <div class="col-md-5">
-                    <InputFile OnChange="OnRestoreFileSelected" accept=".db,.sqlite,.sqlite3,.bak" class="form-control" />
+                    <InputFile OnChange="OnRestoreFileSelected" accept=".zip,.db,.sqlite,.sqlite3,.bak" class="form-control" />
                 </div>
                 <div class="col-md-3">
                     <button class="btn btn-danger w-100" @onclick="RestoreDatabase"
@@ -750,7 +750,7 @@ else if (tab == "data")
                     }
                 </div>
             </div>
-            <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After purge, log in with <strong>admin / admin123</strong>. Change your password immediately.</small>
+            <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After purge, the default admin account is re-created from your environment settings. You will be required to change your password on first login.</small>
 
             <hr class="my-3" />
 
@@ -786,7 +786,7 @@ else if (tab == "data")
                     }
                 </div>
             </div>
-            <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After seeding, sample customers, jobs, assets, and more will be available. Log in with <strong>admin / admin123</strong>.</small>
+            <small class="text-muted d-block mt-1"><i class="bi bi-info-circle me-1"></i>After seeding, sample customers, jobs, assets, and more will be available.</small>
         </div>
     </div>
 }
@@ -1215,7 +1215,7 @@ private Dictionary<string, bool> notificationSettings = new()
         {
             var bytes = await DataSvc.BackupDatabaseAsync();
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            await DownloadFileAsync(bytes, $"OneManVanFSM_Backup_{timestamp}.db", "application/octet-stream");
+            await DownloadFileAsync(bytes, $"OneManVanFSM_Backup_{timestamp}.zip", "application/zip");
             successMessage = "Database backup downloaded.";
         }
         catch (Exception ex) { errorMessage = $"Backup failed: {ex.Message}"; }
@@ -1461,7 +1461,7 @@ private Dictionary<string, bool> notificationSettings = new()
         try
         {
             await DataSvc.PurgeDatabaseAsync();
-            successMessage = "Database purged. All data deleted. Default admin account re-created (admin / admin123). Please log out and log back in.";
+            successMessage = "Database purged. All data deleted. Default admin account re-created from environment settings. Please log out — you will be required to change your password on next login.";
             _confirmPurge = false;
             _hasData = false;
         }

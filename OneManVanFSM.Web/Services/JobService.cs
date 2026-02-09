@@ -31,8 +31,12 @@ public class JobService : IJobService
             query = filter.SortBy?.ToLower() switch
             {
                 "jobnumber" => filter.SortDescending ? query.OrderByDescending(j => j.JobNumber) : query.OrderBy(j => j.JobNumber),
+                "title" => filter.SortDescending ? query.OrderByDescending(j => j.Title) : query.OrderBy(j => j.Title),
+                "customer" => filter.SortDescending ? query.OrderByDescending(j => j.Customer != null ? j.Customer.Name : "") : query.OrderBy(j => j.Customer != null ? j.Customer.Name : ""),
+                "site" => filter.SortDescending ? query.OrderByDescending(j => j.Site != null ? j.Site.Name : "") : query.OrderBy(j => j.Site != null ? j.Site.Name : ""),
                 "status" => filter.SortDescending ? query.OrderByDescending(j => j.Status) : query.OrderBy(j => j.Status),
                 "priority" => filter.SortDescending ? query.OrderByDescending(j => j.Priority) : query.OrderBy(j => j.Priority),
+                "tech" => filter.SortDescending ? query.OrderByDescending(j => j.AssignedEmployee != null ? j.AssignedEmployee.Name : "") : query.OrderBy(j => j.AssignedEmployee != null ? j.AssignedEmployee.Name : ""),
                 _ => filter.SortDescending ? query.OrderByDescending(j => j.ScheduledDate) : query.OrderBy(j => j.ScheduledDate)
             };
         }

@@ -12,6 +12,7 @@ public class AppUser
     public bool IsLocked { get; set; }
     public string? Preferences { get; set; } // JSON for user preferences
     public bool IsActive { get; set; } = true;
+    public bool MustChangePassword { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

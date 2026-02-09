@@ -234,6 +234,68 @@ else
         }
     </div>
 
+    <!-- Database Connection -->
+    <div class="section-header">Database Connection</div>
+    <div class="mobile-card">
+        <div class="py-1">
+            <span style="font-size:0.9rem;"><i class="bi bi-hdd-network me-2 text-primary"></i>Connection Mode</span>
+            <p class="card-subtitle mb-0">Switch between local and remote database</p>
+        </div>
+        <hr class="my-2" />
+        <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-sm flex-fill @(_dbMode == "Local" ? "btn-primary" : "btn-outline-primary")" @onclick='() => _dbMode = "Local"'>
+                <i class="bi bi-phone me-1"></i>Local
+            </button>
+            <button class="btn btn-sm flex-fill @(_dbMode == "Remote" ? "btn-primary" : "btn-outline-primary")" @onclick='() => _dbMode = "Remote"'>
+                <i class="bi bi-cloud me-1"></i>Remote
+            </button>
+        </div>
+
+        @if (_dbMode == "Remote")
+        {
+            <div class="mb-2">
+                <label class="form-label small mb-1">Server URL</label>
+                <input type="text" class="form-control form-control-sm" @bind="_serverUrl"
+                       placeholder="http://192.168.1.100:8080" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label small mb-1">Sync Username</label>
+                <input type="text" class="form-control form-control-sm" @bind="_syncUsername"
+                       placeholder="sync user" />
+            </div>
+            <div class="mb-2">
+                <label class="form-label small mb-1">Sync Password</label>
+                <input type="password" class="form-control form-control-sm" @bind="_syncPassword"
+                       placeholder="sync password" />
+            </div>
+        }
+        else
+        {
+            <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>Using local SQLite database on this device.</p>
+        }
+
+        <hr class="my-2" />
+        <button class="btn btn-sm btn-outline-primary w-100" @onclick="SaveDbConnection" disabled="@_savingDbConfig">
+            @if (_savingDbConfig)
+            {
+                <span class="spinner-border spinner-border-sm me-1"></span>
+            }
+            <i class="bi bi-check-lg me-1"></i>Save Connection
+        </button>
+        @if (_dbConfigSaved)
+        {
+            <div class="alert alert-success d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
+                <i class="bi bi-check-circle-fill me-2"></i>@_dbConfigMessage
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_dbConfigError))
+        {
+            <div class="alert alert-danger d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
+                <i class="bi bi-x-circle-fill me-2"></i>@_dbConfigError
+            </div>
+        }
+    </div>
+
     <!-- Save Button -->
     <div class="mt-3 mb-3">
         <button class="btn btn-primary w-100" @onclick="SaveSettings">
@@ -252,26 +314,50 @@ else
 }
 
 @code {
-    private MobileAppSettings _settings = new();
-    private MobileSyncStatus? _syncStatus;
-    private MobileAppInfo? _appInfo;
-    private bool _loading = true;
-    private bool _saved;
-    private bool _hasData;
-    private bool _seeding;
-    private bool _confirmSeed;
-    private bool _seedSuccess;
-    private string? _seedError;
+private MobileAppSettings _settings = new();
+private MobileSyncStatus? _syncStatus;
+private MobileAppInfo? _appInfo;
+private bool _loading = true;
+private bool _saved;
+private bool _hasData;
+private bool _seeding;
+private bool _confirmSeed;
+private bool _seedSuccess;
+private string? _seedError;
 
-    protected override async Task OnInitializedAsync()
+// Database connection state
+private string _dbMode = "Local";
+private string _serverUrl = "";
+private string _syncUsername = "";
+private string _syncPassword = "";
+private bool _savingDbConfig;
+private bool _dbConfigSaved;
+private string? _dbConfigMessage;
+private string? _dbConfigError;
+
+protected override async Task OnInitializedAsync()
+{
+    _settings = await SettingsService.GetSettingsAsync();
+    _syncStatus = await SettingsService.GetSyncStatusAsync();
+    _appInfo = await SettingsService.GetAppInfoAsync();
+    _hasData = await SettingsService.HasDataAsync();
+    await ApplyTheme(_settings.Theme);
+
+    // Load saved DB connection settings
+    _dbMode = Preferences.Default.Get("db_mode", "Local");
+    _serverUrl = Preferences.Default.Get("db_server_url", "");
+    _syncUsername = Preferences.Default.Get("db_sync_username", "");
+    try
     {
-        _settings = await SettingsService.GetSettingsAsync();
-        _syncStatus = await SettingsService.GetSyncStatusAsync();
-        _appInfo = await SettingsService.GetAppInfoAsync();
-        _hasData = await SettingsService.HasDataAsync();
-        await ApplyTheme(_settings.Theme);
-        _loading = false;
+        _syncPassword = await SecureStorage.Default.GetAsync("db_sync_password") ?? "";
     }
+    catch
+    {
+        _syncPassword = "";
+    }
+
+    _loading = false;
+}
 
     private async Task SaveSettings()
     {
@@ -333,5 +419,49 @@ else
         if (bytes < 1024) return bytes + " B";
         if (bytes < 1024 * 1024) return (bytes / 1024.0).ToString("0.#") + " KB";
         return (bytes / (1024.0 * 1024.0)).ToString("0.#") + " MB";
+    }
+
+    private async Task SaveDbConnection()
+    {
+        _savingDbConfig = true;
+        _dbConfigSaved = false;
+        _dbConfigError = null;
+        StateHasChanged();
+
+        try
+        {
+            Preferences.Default.Set("db_mode", _dbMode);
+            Preferences.Default.Set("db_server_url", _dbMode == "Remote" ? _serverUrl.Trim() : "");
+            Preferences.Default.Set("db_sync_username", _dbMode == "Remote" ? _syncUsername.Trim() : "");
+
+            if (_dbMode == "Remote" && !string.IsNullOrWhiteSpace(_syncPassword))
+            {
+                await SecureStorage.Default.SetAsync("db_sync_password", _syncPassword);
+            }
+            else
+            {
+                SecureStorage.Default.Remove("db_sync_password");
+            }
+
+            // Update app info display
+            if (_appInfo is not null)
+            {
+                _appInfo.ApiEndpoint = _dbMode == "Remote" ? _serverUrl : "Local (Offline)";
+            }
+
+            _dbConfigSaved = true;
+            _dbConfigMessage = _dbMode == "Remote"
+                ? "Remote server configured. Restart the app to connect."
+                : "Switched to local database. Restart the app to apply.";
+        }
+        catch (Exception ex)
+        {
+            _dbConfigError = $"Failed to save: {ex.Message}";
+        }
+        finally
+        {
+            _savingDbConfig = false;
+            StateHasChanged();
+        }
     }
 }
