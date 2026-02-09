@@ -106,7 +106,7 @@ else if (mode == "detail" && selectedNote is not null)
             <button class="btn btn-outline-primary btn-sm me-1" @onclick="EditNote"><i class="bi bi-pencil me-1"></i>Edit</button>
             @if (_confirmDelete)
             {
-                <button class="btn btn-danger btn-sm me-1" @onclick="() => { _confirmDelete = false; DeleteNote(); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete</button>
+                <button class="btn btn-danger btn-sm me-1" @onclick="async () => { _confirmDelete = false; await DeleteNote(); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete</button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmDelete = false">Cancel</button>
             }
             else

@@ -303,7 +303,7 @@
 
     private async Task ToggleSidebar()
     {
-        var isMobile = await JS.InvokeAsync<bool>("eval", "window.matchMedia('(max-width: 768px)').matches");
+        var isMobile = await JS.InvokeAsync<bool>("isMobile");
         if (isMobile)
         {
             _mobileMenuOpen = !_mobileMenuOpen;

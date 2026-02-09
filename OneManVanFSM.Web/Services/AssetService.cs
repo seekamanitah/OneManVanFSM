@@ -89,10 +89,10 @@ public class AssetService : IAssetService
         if (detail is null) return null;
 
         detail.LinkedJobs = await _db.JobAssets
-            .Where(ja => ja.AssetId == id)
+            .Where(ja => ja.AssetId == id && ja.Job != null)
             .Select(ja => new AssetLinkedJob
             {
-                Id = ja.Job.Id,
+                Id = ja.Job!.Id,
                 JobNumber = ja.Job.JobNumber,
                 Title = ja.Job.Title,
                 Status = ja.Job.Status,

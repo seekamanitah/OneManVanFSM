@@ -29,3 +29,7 @@ window.openMailto = function (to, subject, body) {
         + '&body=' + encodeURIComponent(body);
     window.location.href = mailto;
 };
+
+window.isMobile = function () {
+    return window.matchMedia('(max-width: 768px)').matches;
+};

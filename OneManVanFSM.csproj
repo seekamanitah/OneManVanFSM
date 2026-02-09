@@ -89,6 +89,10 @@
     </ItemGroup>
 
     <ItemGroup>
+        <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-w3q9-fxm7-j8fq" />
+    </ItemGroup>
+
+    <ItemGroup>
         <ProjectReference Include="OneManVanFSM.Shared\OneManVanFSM.Shared.csproj" />
     </ItemGroup>
 

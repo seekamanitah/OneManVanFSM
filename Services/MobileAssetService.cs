@@ -73,7 +73,7 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
         if (asset is null) return null;
 
         var linkedJobs = await db.JobAssets
-            .Where(ja => ja.AssetId == assetId)
+            .Where(ja => ja.AssetId == assetId && ja.Job != null)
             .Include(ja => ja.Job)
             .OrderByDescending(ja => ja.Job!.ScheduledDate)
             .Take(10)
@@ -81,10 +81,10 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
             {
                 JobId = ja.JobId,
                 JobNumber = ja.Job!.JobNumber,
-                Title = ja.Job.Title,
-                Status = ja.Job.Status,
+                Title = ja.Job!.Title,
+                Status = ja.Job!.Status,
                 Role = ja.Role,
-                ScheduledDate = ja.Job.ScheduledDate,
+                ScheduledDate = ja.Job!.ScheduledDate,
             })
             .ToListAsync();
 

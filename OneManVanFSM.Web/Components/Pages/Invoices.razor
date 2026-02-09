@@ -44,7 +44,7 @@
             {
                 @if (_confirmVoid)
                 {
-                    <button class="btn btn-danger btn-sm" @onclick="() => { _confirmVoid = false; ChangeInvoiceStatus(InvoiceStatus.Void); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Void</button>
+                    <button class="btn btn-danger btn-sm" @onclick="async () => { _confirmVoid = false; await ChangeInvoiceStatus(InvoiceStatus.Void); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Void</button>
                     <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmVoid = false">Cancel</button>
                 }
                 else

@@ -120,7 +120,7 @@ private string NavClass(string href, string? altHref = null)
         {
             var settings = await SettingsService.GetSettingsAsync();
             var value = settings.Theme == "Dark" ? "dark" : "";
-            await JS.InvokeVoidAsync("eval", "document.documentElement.setAttribute('data-theme', '" + value + "')");
+            await JS.InvokeVoidAsync("setThemeAttribute", value);
         }
         catch { }
     }

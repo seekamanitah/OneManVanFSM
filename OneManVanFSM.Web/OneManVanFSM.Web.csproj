@@ -20,4 +20,9 @@
     <BlazorDisableThrowNavigationException>true</BlazorDisableThrowNavigationException>
   </PropertyGroup>
 
+  <!-- Suppress known advisory from design-time-only EF Core Design transitive deps (Microsoft.Build.*) -->
+  <ItemGroup>
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-w3q9-fxm7-j8fq" />
+  </ItemGroup>
+
 </Project>

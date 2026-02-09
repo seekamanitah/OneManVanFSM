@@ -160,7 +160,7 @@ else if (mode == "detail" && detail is not null)
             }
             @if (_confirmArchive)
             {
-                <button class="btn btn-danger btn-sm me-1" @onclick="() => { _confirmArchive = false; ArchiveDetail(); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Archive</button>
+                <button class="btn btn-danger btn-sm me-1" @onclick="async () => { _confirmArchive = false; await ArchiveDetail(); }"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Archive</button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmArchive = false">Cancel</button>
             }
             else
