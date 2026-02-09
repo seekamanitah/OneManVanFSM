@@ -393,13 +393,32 @@ public class DataManagementService : IDataManagementService
         var connStr = _config.GetConnectionString("DefaultConnection") ?? "Data Source=OneManVanFSM.db";
         var dbPath = connStr.Replace("Data Source=", "").Trim();
 
+        // Close the current DbContext connection before file operations
+        var connection = _db.Database.GetDbConnection();
+        if (connection.State != System.Data.ConnectionState.Closed)
+            await connection.CloseAsync();
+
+        // Clear all SQLite connection pools so stale handles are released
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
         // Create backup of current DB first
         var backupPath = $"{dbPath}.bak.{DateTime.UtcNow:yyyyMMddHHmmss}";
         if (File.Exists(dbPath))
             File.Copy(dbPath, backupPath, true);
 
-        using var fs = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
+        // Delete WAL/SHM journal files from the old database to prevent corruption
+        var walPath = dbPath + "-wal";
+        var shmPath = dbPath + "-shm";
+        if (File.Exists(walPath)) File.Delete(walPath);
+        if (File.Exists(shmPath)) File.Delete(shmPath);
+
+        // Write the restored database file
+        await using var fs = new FileStream(dbPath, FileMode.Create, FileAccess.Write);
         await backupStream.CopyToAsync(fs);
+        await fs.FlushAsync();
+
+        // Clear pools again so new connections open against the restored file
+        Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
     }
 
     public async Task PurgeDatabaseAsync()

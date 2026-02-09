@@ -1230,7 +1230,8 @@ private Dictionary<string, bool> notificationSettings = new()
         {
             await using var stream = restoreFile.OpenReadStream(maxAllowedSize: 500 * 1024 * 1024);
             await DataSvc.RestoreDatabaseAsync(stream);
-            successMessage = "Database restored successfully. Please reload the application.";
+            // Force full page reload so all services reconnect to the restored database
+            Nav.NavigateTo("/settings", forceLoad: true);
         }
         catch (Exception ex) { errorMessage = $"Restore failed: {ex.Message}"; }
         finally { isProcessing = false; processingAction = null; restoreFile = null; }
