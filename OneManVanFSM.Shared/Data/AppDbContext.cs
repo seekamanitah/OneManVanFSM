@@ -139,6 +139,10 @@ public class AppDbContext : DbContext
                 .WithOne(inv => inv.Job)
                 .HasForeignKey<Job>(j => j.InvoiceId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(j => j.MaterialList)
+                .WithMany()
+                .HasForeignKey(j => j.MaterialListId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Estimate
