@@ -26,7 +26,7 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     .AddCookie(options =>
     {
         options.LoginPath = "/login";
-        options.LogoutPath = "/logout";
+        options.LogoutPath = "/auth/logout";
         options.AccessDeniedPath = "/login";
         options.ExpireTimeSpan = TimeSpan.FromHours(12);
         options.SlidingExpiration = true;
@@ -78,6 +78,34 @@ app.UseAntiforgery();
 app.MapStaticAssets();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
+
+// Auth endpoints — cookie operations must run in a real HTTP request, not a SignalR circuit
+app.MapPost("/auth/login", async (HttpContext context, IAuthService authService) =>
+{
+    var form = await context.Request.ReadFormAsync();
+    var usernameOrEmail = form["usernameOrEmail"].ToString();
+    var password = form["password"].ToString();
+
+    if (string.IsNullOrWhiteSpace(usernameOrEmail) || string.IsNullOrWhiteSpace(password))
+        return Results.Redirect("/login?error=" + Uri.EscapeDataString("Username and password are required."));
+
+    var result = await authService.LoginAsync(usernameOrEmail, password);
+    if (!result.Succeeded)
+        return Results.Redirect("/login?error=" + Uri.EscapeDataString(result.ErrorMessage ?? "Login failed."));
+
+    var redirect = result.User!.Role switch
+    {
+        OneManVanFSM.Shared.Models.UserRole.Tech => "/calendar",
+        _ => "/"
+    };
+    return Results.Redirect(redirect);
+}).DisableAntiforgery();
+
+app.MapGet("/auth/logout", async (IAuthService authService) =>
+{
+    await authService.LogoutAsync();
+    return Results.Redirect("/login");
+});
 
 // Ensure schema is up-to-date and tables exist (no data seeded)
 using (var scope = app.Services.CreateScope())
