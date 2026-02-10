@@ -1,6 +1,7 @@
 @page "/login/register"
 @layout EmptyLayout
 @inject IAuthService AuthService
+@inject IHttpContextAccessor HttpContextAccessor
 
 <PageTitle>Register - OneManVanFSM</PageTitle>
 
@@ -16,7 +17,14 @@
                 <div class="alert alert-success py-2 small">
                     Your registration has been submitted. An administrator will review and activate your account.
                 </div>
-                <a href="/login" class="btn btn-outline-primary w-100">Back to Login</a>
+                @if (_isAuthenticated)
+                {
+                    <a href="/settings" class="btn btn-outline-primary w-100">Back to Settings</a>
+                }
+                else
+                {
+                    <a href="/login" class="btn btn-outline-primary w-100">Back to Login</a>
+                }
             }
             else
             {
@@ -80,7 +88,9 @@
                     </button>
                 </EditForm>
 
-                <a href="/login" class="small text-decoration-none">Already have an account? Sign In</a>
+                <a href="@(_isAuthenticated ? "/settings" : "/login")" class="small text-decoration-none">
+                    @(_isAuthenticated ? "Back to Settings" : "Already have an account? Sign In")
+                </a>
             }
         </div>
     </div>
@@ -92,6 +102,12 @@ private RegisterModel _model { get; set; } = new();
 private string? _errorMessage;
 private bool _submitted;
 private bool _isLoading;
+private bool _isAuthenticated;
+
+    protected override void OnInitialized()
+    {
+        _isAuthenticated = HttpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated == true;
+    }
 
     private async Task HandleRegister()
     {

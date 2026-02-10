@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 using OneManVanFSM.Services;
 using OneManVanFSM.Shared.Data;
+using OneManVanFSM.Shared.Models;
+using OneManVanFSM.Shared.Services;
 
 namespace OneManVanFSM
 {
@@ -53,27 +55,68 @@ namespace OneManVanFSM
             builder.Services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlite(dbConnectionString));
 
-            // Mobile services
-            builder.Services.AddScoped<IMobileAuthService, MobileAuthService>();
-            builder.Services.AddScoped<IMobileDashboardService, MobileDashboardService>();
-            builder.Services.AddScoped<IMobileJobService, MobileJobService>();
-            builder.Services.AddScoped<IMobileCalendarService, MobileCalendarService>();
-            builder.Services.AddScoped<IMobileNoteService, MobileNoteService>();
-            builder.Services.AddScoped<IMobileTimeService, MobileTimeService>();
-            builder.Services.AddScoped<IMobileDocumentService, MobileDocumentService>();
-            builder.Services.AddScoped<IMobileAssetService, MobileAssetService>();
-            builder.Services.AddScoped<IMobileSearchService, MobileSearchService>();
-            builder.Services.AddScoped<IMobileInventoryService, MobileInventoryService>();
-            builder.Services.AddScoped<IMobileEstimateService, MobileEstimateService>();
-            builder.Services.AddScoped<IMobileCustomerService, MobileCustomerService>();
+            // Shared infrastructure
+            builder.Services.AddSingleton<ApiClient>();
+            builder.Services.AddScoped<IPermissionService, PermissionService>();
             builder.Services.AddScoped<IMobileSettingsService, MobileSettingsService>();
-            builder.Services.AddScoped<IMobileReportService, MobileReportService>();
-            builder.Services.AddScoped<IMobileServiceAgreementService, MobileServiceAgreementService>();
-            builder.Services.AddScoped<IMobileSiteService, MobileSiteService>();
-            builder.Services.AddScoped<IMobileCompanyService, MobileCompanyService>();
-            builder.Services.AddScoped<IMobileProductService, MobileProductService>();
-            builder.Services.AddScoped<IMobileExpenseService, MobileExpenseService>();
-            builder.Services.AddScoped<IMobileInvoiceService, MobileInvoiceService>();
+
+            var isRemote = dbMode == "Remote" && !string.IsNullOrWhiteSpace(remoteUrl);
+
+            if (isRemote)
+            {
+                // Remote mode — core services talk to the REST API; others read from synced local cache
+                builder.Services.AddSingleton<IOfflineQueueService, OfflineQueueService>();
+                builder.Services.AddSingleton<BackgroundSyncService>();
+                builder.Services.AddScoped<ISyncService, SyncService>();
+                builder.Services.AddScoped<IMobileAuthService, RemoteMobileAuthService>();
+                builder.Services.AddScoped<IMobileDashboardService, RemoteMobileDashboardService>();
+                builder.Services.AddScoped<IMobileJobService, RemoteMobileJobService>();
+                builder.Services.AddScoped<IMobileCustomerService, RemoteMobileCustomerService>();
+                builder.Services.AddScoped<IMobileTimeService, RemoteMobileTimeService>();
+
+                // Read-only / local-cache services (populated by SyncService)
+                builder.Services.AddScoped<IMobileCalendarService, MobileCalendarService>();
+                builder.Services.AddScoped<IMobileNoteService, MobileNoteService>();
+                builder.Services.AddScoped<IMobileDocumentService, MobileDocumentService>();
+                builder.Services.AddScoped<IMobileAssetService, MobileAssetService>();
+                builder.Services.AddScoped<IMobileSearchService, MobileSearchService>();
+                builder.Services.AddScoped<IMobileInventoryService, MobileInventoryService>();
+                builder.Services.AddScoped<IMobileEstimateService, MobileEstimateService>();
+                builder.Services.AddScoped<IMobileReportService, MobileReportService>();
+                builder.Services.AddScoped<IMobileServiceAgreementService, MobileServiceAgreementService>();
+                builder.Services.AddScoped<IMobileSiteService, MobileSiteService>();
+                builder.Services.AddScoped<IMobileCompanyService, MobileCompanyService>();
+                builder.Services.AddScoped<IMobileProductService, MobileProductService>();
+                builder.Services.AddScoped<IMobileExpenseService, MobileExpenseService>();
+                builder.Services.AddScoped<IMobileInvoiceService, MobileInvoiceService>();
+
+                System.Diagnostics.Debug.WriteLine("[DI] Remote mode — registered API-backed services.");
+            }
+            else
+            {
+                // Local mode — all services use direct SQLite access
+                builder.Services.AddScoped<IMobileAuthService, MobileAuthService>();
+                builder.Services.AddScoped<IMobileDashboardService, MobileDashboardService>();
+                builder.Services.AddScoped<IMobileJobService, MobileJobService>();
+                builder.Services.AddScoped<IMobileCalendarService, MobileCalendarService>();
+                builder.Services.AddScoped<IMobileNoteService, MobileNoteService>();
+                builder.Services.AddScoped<IMobileTimeService, MobileTimeService>();
+                builder.Services.AddScoped<IMobileDocumentService, MobileDocumentService>();
+                builder.Services.AddScoped<IMobileAssetService, MobileAssetService>();
+                builder.Services.AddScoped<IMobileSearchService, MobileSearchService>();
+                builder.Services.AddScoped<IMobileInventoryService, MobileInventoryService>();
+                builder.Services.AddScoped<IMobileEstimateService, MobileEstimateService>();
+                builder.Services.AddScoped<IMobileCustomerService, MobileCustomerService>();
+                builder.Services.AddScoped<IMobileReportService, MobileReportService>();
+                builder.Services.AddScoped<IMobileServiceAgreementService, MobileServiceAgreementService>();
+                builder.Services.AddScoped<IMobileSiteService, MobileSiteService>();
+                builder.Services.AddScoped<IMobileCompanyService, MobileCompanyService>();
+                builder.Services.AddScoped<IMobileProductService, MobileProductService>();
+                builder.Services.AddScoped<IMobileExpenseService, MobileExpenseService>();
+                builder.Services.AddScoped<IMobileInvoiceService, MobileInvoiceService>();
+
+                System.Diagnostics.Debug.WriteLine("[DI] Local mode — registered direct-DB services.");
+            }
 
 #if DEBUG
             builder.Services.AddBlazorWebViewDeveloperTools();
@@ -81,6 +124,9 @@ namespace OneManVanFSM
 #endif
 
             var app = builder.Build();
+
+            // Wire up global unhandled exception handlers for crash resilience
+            SetupGlobalExceptionHandling(app.Services);
 
             // Ensure schema is up-to-date and tables exist
             using (var scope = app.Services.CreateScope())
@@ -90,9 +136,41 @@ namespace OneManVanFSM
                 db.Database.EnsureCreated();
                 // Only create admin user if database is empty - no automatic demo data seeding
                 EnsureAdminUserExists(db);
+
+            // Seed default role permissions if not present
+                var permSvc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
+                permSvc.SeedDefaultsIfEmptyAsync().GetAwaiter().GetResult();
+            }
+
+            // Start background auto-sync in remote mode
+            if (isRemote)
+            {
+                var bgSync = app.Services.GetRequiredService<BackgroundSyncService>();
+                bgSync.Start();
             }
 
             return app;
+        }
+
+        /// <summary>
+        /// Registers global handlers so unhandled exceptions on background threads,
+        /// async task continuations, and the AppDomain are logged instead of silently crashing.
+        /// </summary>
+        private static void SetupGlobalExceptionHandling(IServiceProvider services)
+        {
+            var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("Global");
+
+            AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            {
+                if (args.ExceptionObject is Exception ex)
+                    logger.LogCritical(ex, "Unhandled AppDomain exception (terminating: {Terminating}).", args.IsTerminating);
+            };
+
+            TaskScheduler.UnobservedTaskException += (_, args) =>
+            {
+                logger.LogError(args.Exception, "Unobserved task exception.");
+                args.SetObserved(); // Prevent process crash on unobserved task exceptions
+            };
         }
 
         /// <summary>

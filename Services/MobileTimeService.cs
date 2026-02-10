@@ -8,6 +8,10 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
 {
     public async Task<TimeEntry?> ClockInAsync(int employeeId, int? jobId = null, string? timeCategory = null)
     {
+        // Validate the employee exists before inserting
+        if (employeeId <= 0 || !await db.Employees.AnyAsync(e => e.Id == employeeId))
+            return null;
+
         // Prevent double clock-in
         var existing = await db.TimeEntries
             .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EndTime == null);

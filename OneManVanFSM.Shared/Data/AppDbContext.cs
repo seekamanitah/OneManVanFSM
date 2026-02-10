@@ -44,10 +44,17 @@ public class AppDbContext : DbContext
     public DbSet<Supplier> Suppliers => Set<Supplier>();
     public DbSet<DropdownOption> DropdownOptions => Set<DropdownOption>();
     public DbSet<ItemAssociation> ItemAssociations => Set<ItemAssociation>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // RolePermission — unique constraint on (Role, Feature)
+        modelBuilder.Entity<RolePermission>(e =>
+        {
+            e.HasIndex(rp => new { rp.Role, rp.Feature }).IsUnique();
+        });
 
         // Company
         modelBuilder.Entity<Company>(e =>

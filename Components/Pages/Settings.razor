@@ -3,6 +3,9 @@
 @inject IMobileAuthService AuthService
 @inject NavigationManager Nav
 @inject IJSRuntime JS
+@inject ApiClient ApiClient
+@inject IServiceProvider SP
+@implements IDisposable
 
 @if (_loading)
 {
@@ -157,6 +160,114 @@ else
         }
     </div>
 
+    <!-- Remote Sync Controls (only in remote mode) -->
+    @if (_isRemoteMode)
+    {
+        <div class="section-header">Remote Sync</div>
+        <div class="mobile-card">
+            <!-- Sync Status -->
+            <div class="d-flex justify-content-between align-items-center py-1">
+                <div>
+                    <span style="font-size:0.9rem;"><i class="bi bi-arrow-repeat me-2 text-primary"></i>Auto-Sync</span>
+                    <p class="card-subtitle mb-0">Background sync interval</p>
+                </div>
+                <select class="form-select" style="width:auto; min-height:36px; font-size:0.85rem;" @bind="_settings.SyncIntervalMinutes" @bind:after="OnSyncIntervalChanged">
+                    <option value="0">Off</option>
+                    <option value="5">5 min</option>
+                    <option value="15">15 min</option>
+                    <option value="30">30 min</option>
+                    <option value="60">1 hour</option>
+                </select>
+            </div>
+            <hr class="my-2" />
+
+            <!-- Last Remote Sync -->
+            <div class="d-flex justify-content-between align-items-center py-1">
+                <span style="font-size:0.9rem;"><i class="bi bi-cloud-arrow-down me-2"></i>Last Remote Sync</span>
+                <span class="text-muted" style="font-size:0.85rem;">
+                    @if (_syncService?.LastSyncTime != null)
+                    {
+                        @_syncService.LastSyncTime.Value.ToString("MMM dd, h:mm tt")
+                    }
+                    else
+                    {
+                        @:Never
+                    }
+                </span>
+            </div>
+            <hr class="my-2" />
+
+            <!-- Background Sync Status -->
+            <div class="d-flex justify-content-between align-items-center py-1">
+                <span style="font-size:0.9rem;"><i class="bi bi-activity me-2"></i>Background Sync</span>
+                <span class="badge @(_bgSync?.IsRunning == true ? "bg-success-subtle text-success" : "bg-secondary-subtle text-secondary")" style="font-size:0.75rem;">
+                    @(_bgSync?.IsRunning == true ? "Running" : "Stopped")
+                </span>
+            </div>
+            <hr class="my-2" />
+
+            <!-- Manual Sync Button -->
+            <button class="btn btn-outline-primary w-100" @onclick="ManualSync" disabled="@_isSyncing">
+                @if (_isSyncing)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                    <span>@(_syncProgressText ?? "Syncing...")</span>
+                }
+                else
+                {
+                    <i class="bi bi-arrow-repeat me-1"></i>
+                    <span>Sync Now</span>
+                }
+            </button>
+            @if (_syncResultMessage != null)
+            {
+                <div class="alert @(_syncResultSuccess ? "alert-success" : "alert-danger") d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
+                    <i class="bi @(_syncResultSuccess ? "bi-check-circle-fill" : "bi-x-circle-fill") me-2"></i>@_syncResultMessage
+                </div>
+            }
+        </div>
+
+        <!-- Offline Queue -->
+        <div class="section-header">Offline Queue</div>
+        <div class="mobile-card">
+            <div class="d-flex justify-content-between align-items-center py-1">
+                <div>
+                    <span style="font-size:0.9rem;"><i class="bi bi-hourglass-split me-2 @(_offlinePendingCount > 0 ? "text-warning" : "text-success")"></i>Pending Changes</span>
+                    <p class="card-subtitle mb-0">Mutations waiting to be pushed to server</p>
+                </div>
+                <span class="badge @(_offlinePendingCount > 0 ? "bg-warning-subtle text-warning" : "bg-success-subtle text-success")" style="font-size:0.85rem;">
+                    @_offlinePendingCount
+                </span>
+            </div>
+            @if (_offlinePendingCount > 0)
+            {
+                <hr class="my-2" />
+                @foreach (var item in _offlineItems.Take(5))
+                {
+                    <div class="d-flex align-items-center gap-2 py-1">
+                        <i class="bi bi-arrow-up-circle text-muted" style="font-size:0.8rem;"></i>
+                        <div style="flex:1; min-width:0;">
+                            <p class="mb-0" style="font-size:0.8rem;">@item.Description</p>
+                            <p class="mb-0 text-muted" style="font-size:0.65rem;">@item.QueuedAt.ToLocalTime().ToString("MMM dd, h:mm tt") · @item.HttpMethod @item.Endpoint</p>
+                        </div>
+                    </div>
+                }
+                @if (_offlinePendingCount > 5)
+                {
+                    <p class="text-muted mb-0 mt-1" style="font-size:0.75rem;">+ @(_offlinePendingCount - 5) more item(s)</p>
+                }
+                <hr class="my-2" />
+                <button class="btn btn-sm btn-outline-warning w-100" @onclick="ProcessOfflineQueue" disabled="@_processingQueue">
+                    @if (_processingQueue)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-cloud-upload me-1"></i>Push Pending Changes
+                </button>
+            }
+        </div>
+    }
+
     <!-- Testing & Demo -->
     <div class="section-header">Testing & Demo</div>
     <div class="mobile-card">
@@ -276,13 +387,25 @@ else
         }
 
         <hr class="my-2" />
-        <button class="btn btn-sm btn-outline-primary w-100" @onclick="SaveDbConnection" disabled="@_savingDbConfig">
-            @if (_savingDbConfig)
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="SaveDbConnection" disabled="@_savingDbConfig">
+                @if (_savingDbConfig)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-check-lg me-1"></i>Save Connection
+            </button>
+            @if (_dbMode == "Remote")
             {
-                <span class="spinner-border spinner-border-sm me-1"></span>
+                <button class="btn btn-sm btn-outline-info flex-fill" @onclick="TestConnection" disabled="@_testingConnection">
+                    @if (_testingConnection)
+                    {
+                        <span class="spinner-border spinner-border-sm me-1"></span>
+                    }
+                    <i class="bi bi-wifi me-1"></i>Test
+                </button>
             }
-            <i class="bi bi-check-lg me-1"></i>Save Connection
-        </button>
+        </div>
         @if (_dbConfigSaved)
         {
             <div class="alert alert-success d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
@@ -293,6 +416,12 @@ else
         {
             <div class="alert alert-danger d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
                 <i class="bi bi-x-circle-fill me-2"></i>@_dbConfigError
+            </div>
+        }
+        @if (!string.IsNullOrEmpty(_testConnectionResult))
+        {
+            <div class="alert @(_testConnectionSuccess ? "alert-success" : "alert-warning") d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
+                <i class="bi @(_testConnectionSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>@_testConnectionResult
             </div>
         }
     </div>
@@ -335,6 +464,22 @@ private bool _savingDbConfig;
 private bool _dbConfigSaved;
 private string? _dbConfigMessage;
 private string? _dbConfigError;
+private bool _testingConnection;
+private string? _testConnectionResult;
+private bool _testConnectionSuccess;
+
+// Remote sync state
+private bool _isRemoteMode;
+private ISyncService? _syncService;
+private BackgroundSyncService? _bgSync;
+private IOfflineQueueService? _offlineQueue;
+private bool _isSyncing;
+private string? _syncProgressText;
+private string? _syncResultMessage;
+private bool _syncResultSuccess;
+private int _offlinePendingCount;
+private List<OfflineQueueItem> _offlineItems = [];
+private bool _processingQueue;
 
 protected override async Task OnInitializedAsync()
 {
@@ -346,6 +491,7 @@ protected override async Task OnInitializedAsync()
 
     // Load saved DB connection settings
     _dbMode = Preferences.Default.Get("db_mode", "Local");
+    _isRemoteMode = _dbMode == "Remote";
     _serverUrl = Preferences.Default.Get("db_server_url", "");
     _syncUsername = Preferences.Default.Get("db_sync_username", "");
     try
@@ -355,6 +501,18 @@ protected override async Task OnInitializedAsync()
     catch
     {
         _syncPassword = "";
+    }
+
+    // Resolve optional remote-mode services
+    if (_isRemoteMode)
+    {
+        _syncService = SP.GetService<ISyncService>();
+        _bgSync = SP.GetService<BackgroundSyncService>();
+        _offlineQueue = SP.GetService<IOfflineQueueService>();
+        RefreshOfflineQueueState();
+
+        if (_syncService is not null)
+            _syncService.OnSyncProgress += HandleSyncProgress;
     }
 
     _loading = false;
@@ -422,6 +580,37 @@ protected override async Task OnInitializedAsync()
         return (bytes / (1024.0 * 1024.0)).ToString("0.#") + " MB";
     }
 
+    private async Task TestConnection()
+    {
+        _testingConnection = true;
+        _testConnectionResult = null;
+        StateHasChanged();
+
+        try
+        {
+            // Temporarily save the URL so ApiClient can read it
+            var currentUrl = Preferences.Default.Get("db_server_url", "");
+            Preferences.Default.Set("db_server_url", _serverUrl.Trim());
+
+            var (reachable, message) = await ApiClient.TestConnectionAsync();
+            _testConnectionSuccess = reachable;
+            _testConnectionResult = message;
+
+            // Restore previous URL if not saved yet
+            Preferences.Default.Set("db_server_url", currentUrl);
+        }
+        catch (Exception ex)
+        {
+            _testConnectionSuccess = false;
+            _testConnectionResult = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            _testingConnection = false;
+            StateHasChanged();
+        }
+    }
+
     private async Task SaveDbConnection()
     {
         _savingDbConfig = true;
@@ -481,5 +670,96 @@ protected override async Task OnInitializedAsync()
             _savingDbConfig = false;
             StateHasChanged();
         }
+    }
+
+    private void HandleSyncProgress(SyncProgressInfo info)
+    {
+        _isSyncing = info.IsRunning;
+        _syncProgressText = info.StatusMessage;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ManualSync()
+    {
+        if (_syncService is null || _isSyncing) return;
+
+        _syncResultMessage = null;
+        _isSyncing = true;
+        StateHasChanged();
+
+        var result = await _syncService.SyncAllAsync();
+
+        _isSyncing = false;
+        _syncResultSuccess = result.Succeeded;
+        _syncResultMessage = result.Succeeded
+            ? $"Synced {result.EntitiesSynced} records successfully"
+            : $"Sync failed: {result.ErrorMessage}";
+
+        // Refresh local data after sync
+        _syncStatus = await SettingsService.GetSyncStatusAsync();
+        RefreshOfflineQueueState();
+        StateHasChanged();
+
+        if (result.Succeeded)
+        {
+            _ = ClearSyncResultMessage();
+        }
+    }
+
+    private async Task ClearSyncResultMessage()
+    {
+        await Task.Delay(4000);
+        _syncResultMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private void OnSyncIntervalChanged()
+    {
+        _bgSync?.SetInterval(_settings.SyncIntervalMinutes);
+        if (_settings.SyncIntervalMinutes > 0 && _bgSync is not null && !_bgSync.IsRunning)
+            _bgSync.Start();
+    }
+
+    private async Task ProcessOfflineQueue()
+    {
+        if (_offlineQueue is null) return;
+
+        _processingQueue = true;
+        StateHasChanged();
+
+        try
+        {
+            var pushed = await _offlineQueue.ProcessQueueAsync();
+            RefreshOfflineQueueState();
+
+            _syncResultSuccess = true;
+            _syncResultMessage = pushed > 0
+                ? $"Pushed {pushed} offline change(s) to server"
+                : "No items could be pushed (will retry on next sync)";
+            _ = ClearSyncResultMessage();
+        }
+        catch (Exception ex)
+        {
+            _syncResultSuccess = false;
+            _syncResultMessage = $"Queue processing failed: {ex.Message}";
+        }
+        finally
+        {
+            _processingQueue = false;
+            StateHasChanged();
+        }
+    }
+
+    private void RefreshOfflineQueueState()
+    {
+        if (_offlineQueue is null) return;
+        _offlinePendingCount = _offlineQueue.PendingCount;
+        _offlineItems = _offlineQueue.GetPending();
+    }
+
+    public void Dispose()
+    {
+        if (_syncService is not null)
+            _syncService.OnSyncProgress -= HandleSyncProgress;
     }
 }

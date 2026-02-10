@@ -23,6 +23,7 @@ public class MobileAppSettings
     public string DefaultCalendarView { get; set; } = "Day";
     public bool AutoClockOnEnRoute { get; set; } = true;
     public bool ShowCompletedJobs { get; set; } = true;
+    public int SyncIntervalMinutes { get; set; } = 15;
 }
 
 public class MobileSyncStatus

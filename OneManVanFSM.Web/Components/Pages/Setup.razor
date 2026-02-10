@@ -109,7 +109,9 @@
 
             if (result.Succeeded)
             {
-                Nav.NavigateTo("/login", forceLoad: true);
+                // Navigate to the HTTP logout endpoint which properly clears
+                // the auth cookie and redirects to /login.
+                Nav.NavigateTo("/auth/logout", forceLoad: true);
             }
             else
             {

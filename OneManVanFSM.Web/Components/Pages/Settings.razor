@@ -1,9 +1,11 @@
 @page "/settings"
 @rendermode InteractiveServer
+@using OneManVanFSM.Shared.Services
 @inject IDataManagementService DataSvc
 @inject IDropdownService DropdownSvc
 @inject IAuthService AuthSvc
 @inject ITemplateService TemplateSvc
+@inject IPermissionService PermSvc
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
@@ -82,6 +84,48 @@ else if (tab == "users")
                 </div>
                 <a href="/login/register" class="btn btn-primary btn-sm"><i class="bi bi-person-plus me-1"></i>Add User</a>
             </div>
+
+            @if (_showCreateUser)
+            {
+                <div class="card border-primary mt-3">
+                    <div class="card-body">
+                        <h6 class="text-primary"><i class="bi bi-person-plus me-1"></i>Create New User</h6>
+                        @if (!string.IsNullOrEmpty(_createUserError))
+                        {
+                            <div class="alert alert-danger py-2 small">@_createUserError</div>
+                        }
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-3">
+                                <label class="form-label small">Username</label>
+                                <input type="text" class="form-control form-control-sm" @bind="_newUserUsername" placeholder="Min 3 characters" />
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small">Email</label>
+                                <input type="email" class="form-control form-control-sm" @bind="_newUserEmail" placeholder="user@example.com" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Role</label>
+                                <select class="form-select form-select-sm" @bind="_newUserRole">
+                                    @foreach (var r in Enum.GetValues<UserRole>()) { <option value="@r">@r</option> }
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Password</label>
+                                <input type="password" class="form-control form-control-sm" @bind="_newUserPassword" placeholder="Min 6 characters" />
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small">Confirm</label>
+                                <input type="password" class="form-control form-control-sm" @bind="_newUserConfirmPassword" />
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-primary btn-sm me-1" @onclick="AdminCreateUser"><i class="bi bi-check-lg me-1"></i>Create</button>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => { _showCreateUser = false; _createUserError = null; }">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+
             @if (userList is null)
             {
                 <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div></div>
@@ -90,7 +134,7 @@ else if (tab == "users")
             {
                 <div class="text-center py-4 text-muted">
                     <i class="bi bi-people" style="font-size:2rem;"></i>
-                    <p class="mt-2 mb-0">No users found. <a href="/login/register">Create the first user</a>.</p>
+                    <p class="mt-2 mb-0">No users found. <a href="javascript:void(0)" @onclick="() => _showCreateUser = true">Create the first user</a>.</p>
                 </div>
             }
             else
@@ -205,6 +249,90 @@ else if (tab == "users")
                             <button class="btn btn-primary btn-sm" @onclick="ChangeMyPassword"><i class="bi bi-check-lg me-1"></i>Update Password</button>
                         </div>
                     </div>
+                </div>
+            </div>
+
+            <hr class="my-3" />
+
+            @* Role Permission Matrix *@
+            <div class="card border-0 bg-light">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <h6 class="mb-0"><i class="bi bi-shield-check me-1"></i>Role Permission Matrix</h6>
+                            <small class="text-muted">Configure what each role can view, edit, and delete. Owner always has full access.</small>
+                        </div>
+                        <div>
+                            @if (_permSaving)
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <button class="btn btn-primary btn-sm" @onclick="SavePermissions" disabled="@_permSaving">
+                                <i class="bi bi-check-lg me-1"></i>Save Permissions
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm ms-1" @onclick="ResetPermissionsToDefaults">
+                                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Defaults
+                            </button>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(_permError))
+                    {
+                        <div class="alert alert-danger py-2 small">@_permError</div>
+                    }
+                    @if (_permMatrix is not null)
+                    {
+                        <div class="table-responsive" style="max-height:500px; overflow-y:auto;">
+                            <table class="table table-sm table-bordered table-hover mb-0 align-middle" style="font-size:0.8rem;">
+                                <thead class="table-light sticky-top">
+                                    <tr>
+                                        <th style="min-width:130px;">Feature</th>
+                                        @foreach (var role in _permRoles)
+                                        {
+                                            <th colspan="3" class="text-center">@role</th>
+                                        }
+                                    </tr>
+                                    <tr>
+                                        <th></th>
+                                        @foreach (var role in _permRoles)
+                                        {
+                                            <th class="text-center" style="font-size:0.7rem;">View</th>
+                                            <th class="text-center" style="font-size:0.7rem;">Edit</th>
+                                            <th class="text-center" style="font-size:0.7rem;">Del</th>
+                                        }
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var feature in Features.All)
+                                    {
+                                        <tr>
+                                            <td class="fw-bold">@feature</td>
+                                            @foreach (var role in _permRoles)
+                                            {
+                                                var key = (role, feature);
+                                                var isOwner = role == UserRole.Owner;
+                                                <td class="text-center">
+                                                    <input type="checkbox" checked="@GetPerm(key).CanView" disabled="@isOwner"
+                                                           @onchange="e => SetPerm(key, v: (bool)(e.Value ?? false), null, null)" />
+                                                </td>
+                                                <td class="text-center">
+                                                    <input type="checkbox" checked="@GetPerm(key).CanEdit" disabled="@isOwner"
+                                                           @onchange="e => SetPerm(key, null, ed: (bool)(e.Value ?? false), null)" />
+                                                </td>
+                                                <td class="text-center">
+                                                    <input type="checkbox" checked="@GetPerm(key).CanDelete" disabled="@isOwner"
+                                                           @onchange="e => SetPerm(key, null, null, del: (bool)(e.Value ?? false))" />
+                                                </td>
+                                            }
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading permissions...</div>
+                    }
                 </div>
             </div>
         </div>
@@ -883,12 +1011,27 @@ private Dictionary<string, bool> notificationSettings = new()
     private string _resetNewPassword = "";
     private string _resetConfirmPassword = "";
 
+    // Admin create user state
+    private bool _showCreateUser;
+    private string _newUserUsername = "";
+    private string _newUserEmail = "";
+    private string _newUserPassword = "";
+    private string _newUserConfirmPassword = "";
+    private UserRole _newUserRole = UserRole.Tech;
+    private string? _createUserError;
+
     // Purge state
     private bool _confirmPurge;
 
     // Seed demo data state
     private bool _confirmSeed;
     private bool? _hasData;
+
+    // Permission matrix state
+    private Dictionary<(UserRole, string), RolePermission>? _permMatrix;
+    private readonly UserRole[] _permRoles = [UserRole.Owner, UserRole.Admin, UserRole.Manager, UserRole.Dispatcher, UserRole.Tech];
+    private bool _permSaving;
+    private string? _permError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -910,6 +1053,8 @@ private Dictionary<string, bool> notificationSettings = new()
         tab = "users";
         if (userList is null)
             userList = await AuthSvc.GetUsersAsync();
+        if (_permMatrix is null)
+            await LoadPermissions();
     }
 
     private async Task ToggleActive(int userId)
@@ -1406,6 +1551,108 @@ private Dictionary<string, bool> notificationSettings = new()
             }
         }
         catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task AdminCreateUser()
+    {
+        _createUserError = null; errorMessage = null; successMessage = null;
+        if (string.IsNullOrWhiteSpace(_newUserUsername) || _newUserUsername.Length < 3)
+        {
+            _createUserError = "Username must be at least 3 characters.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_newUserEmail))
+        {
+            _createUserError = "Email is required.";
+            return;
+        }
+        if (string.IsNullOrWhiteSpace(_newUserPassword) || _newUserPassword.Length < 6)
+        {
+            _createUserError = "Password must be at least 6 characters.";
+            return;
+        }
+        if (_newUserPassword != _newUserConfirmPassword)
+        {
+            _createUserError = "Passwords do not match.";
+            return;
+        }
+        try
+        {
+            var result = await AuthSvc.AdminCreateUserAsync(_newUserUsername, _newUserEmail, _newUserPassword, _newUserRole);
+            if (result.Succeeded)
+            {
+                successMessage = $"User \"{_newUserUsername}\" created and activated.";
+                _showCreateUser = false;
+                _newUserUsername = ""; _newUserEmail = ""; _newUserPassword = ""; _newUserConfirmPassword = "";
+                _newUserRole = UserRole.Tech; _createUserError = null;
+                userList = await AuthSvc.GetUsersAsync();
+            }
+            else
+            {
+                _createUserError = result.ErrorMessage ?? "User creation failed.";
+            }
+        }
+        catch (Exception ex) { _createUserError = ex.Message; }
+    }
+
+    // ---- Permission Matrix ----
+    private async Task LoadPermissions()
+    {
+        var all = await PermSvc.GetAllPermissionsAsync();
+        _permMatrix = new Dictionary<(UserRole, string), RolePermission>();
+        foreach (var rp in all)
+            _permMatrix[(rp.Role, rp.Feature)] = rp;
+
+        // Ensure every role/feature combo exists in the matrix (for display)
+        foreach (var role in _permRoles)
+            foreach (var feature in Features.All)
+                _permMatrix.TryAdd((role, feature), new RolePermission { Role = role, Feature = feature });
+    }
+
+    private RolePermission GetPerm((UserRole role, string feature) key)
+    {
+        if (_permMatrix is not null && _permMatrix.TryGetValue(key, out var p))
+            return p;
+        return new RolePermission { Role = key.role, Feature = key.feature };
+    }
+
+    private void SetPerm((UserRole role, string feature) key, bool? v, bool? ed, bool? del)
+    {
+        if (_permMatrix is null) return;
+        if (!_permMatrix.TryGetValue(key, out var p))
+        {
+            p = new RolePermission { Role = key.role, Feature = key.feature };
+            _permMatrix[key] = p;
+        }
+        if (v.HasValue) p.CanView = v.Value;
+        if (ed.HasValue) p.CanEdit = ed.Value;
+        if (del.HasValue) p.CanDelete = del.Value;
+    }
+
+    private async Task SavePermissions()
+    {
+        if (_permMatrix is null) return;
+        _permSaving = true; _permError = null;
+        try
+        {
+            await PermSvc.SavePermissionsAsync(_permMatrix.Values.ToList());
+            successMessage = "Role permissions saved successfully.";
+        }
+        catch (Exception ex) { _permError = $"Failed to save: {ex.Message}"; }
+        finally { _permSaving = false; }
+    }
+
+    private async Task ResetPermissionsToDefaults()
+    {
+        _permError = null;
+        try
+        {
+            var defaults = Features.GetDefaults();
+            await PermSvc.SavePermissionsAsync(defaults);
+            await LoadPermissions();
+            successMessage = "Permissions reset to defaults.";
+        }
+        catch (Exception ex) { _permError = $"Reset failed: {ex.Message}"; }
     }
 
     // ---- Company Profile ----

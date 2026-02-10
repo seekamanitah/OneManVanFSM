@@ -487,11 +487,12 @@ public class DataManagementService : IDataManagementService
         // Clear pools again so new connections open against the restored file
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
-        // Validate and migrate the restored database schema to match the current EF Core model.
-        // Without this, a backup from an older build will cause 500 errors on pages that
-        // reference columns/tables added after the backup was taken.
-        DatabaseInitializer.EnsureSchemaUpToDate(_db);
-        _db.Database.EnsureCreated();
+        // Clear EF change tracker — the database file was swapped underneath this context.
+        _db.ChangeTracker.Clear();
+
+        // Non-destructively add any tables/columns the current EF model expects but the
+        // older backup is missing, so pages referencing newer schema elements don't 500.
+        DatabaseInitializer.MigrateSchemaPreservingData(_db);
     }
 
     public async Task PurgeDatabaseAsync()
@@ -559,9 +560,13 @@ public class DataManagementService : IDataManagementService
             await _db.Database.ExecuteSqlRawAsync("PRAGMA foreign_keys = ON;");
         }
 
+        // Clear the EF change tracker so stale entities (from prior queries in this
+        // Blazor circuit) don't conflict with the freshly-reset auto-increment IDs.
+        _db.ChangeTracker.Clear();
+
         // Re-seed the default admin account using environment variables (matches Program.cs startup seed)
-        var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL") ?? "admin@onemanvan.local";
-        var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "admin123";
+        var adminEmail = Environment.GetEnvironmentVariable("ADMIN_EMAIL") ?? "chris.eikel@bledsoe.net";
+        var adminPassword = Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "!1235aSdf12sadf5!";
 
         var adminEmployee = new OneManVanFSM.Shared.Models.Employee
         {
@@ -587,13 +592,19 @@ public class DataManagementService : IDataManagementService
 
     public async Task<bool> HasDataAsync()
     {
-        return await _db.Employees.AnyAsync() || await _db.Customers.AnyAsync();
+        // Only check for Customers (actual demo/business data).
+        // The admin Employee created during purge should NOT count as "demo data loaded".
+        return await _db.Customers.AnyAsync();
     }
 
     public async Task<bool> SeedDemoDataAsync()
     {
         try
         {
+            // Clear stale tracked entities from prior operations in this Blazor circuit
+            // to prevent identity-map conflicts when the DB assigns auto-increment IDs.
+            _db.ChangeTracker.Clear();
+
             if (await _db.Customers.AnyAsync()) return false;
 
             var today = DateTime.UtcNow.Date;
@@ -812,8 +823,8 @@ public class DataManagementService : IDataManagementService
                 _db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
                 {
                     Username = "admin",
-                    Email = "admin@onemanvan.local",
-                    PasswordHash = AuthService.HashPassword("admin123"),
+                    Email = Environment.GetEnvironmentVariable("ADMIN_EMAIL") ?? "chris.eikel@bledsoe.net",
+                    PasswordHash = AuthService.HashPassword(Environment.GetEnvironmentVariable("ADMIN_PASSWORD") ?? "!1235aSdf12sadf5!"),
                     Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                     IsActive = true,
                 });

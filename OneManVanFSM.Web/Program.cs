@@ -1,7 +1,11 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
 using OneManVanFSM.Shared.Data;
+using OneManVanFSM.Shared.Services;
 using OneManVanFSM.Web.Components;
 using OneManVanFSM.Web.Services;
 
@@ -16,12 +20,24 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// API controllers for mobile sync
+builder.Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        o.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
+// JWT service
+builder.Services.AddSingleton<IJwtService, JwtService>();
+
 // Database
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")
         ?? "Data Source=OneManVanFSM.db"));
 
-// Authentication
+// Authentication — Cookie for Blazor UI, JWT Bearer for API
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -30,6 +46,21 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
         options.AccessDeniedPath = "/login";
         options.ExpireTimeSpan = TimeSpan.FromHours(12);
         options.SlidingExpiration = true;
+    })
+    .AddJwtBearer(options =>
+    {
+        var jwtService = new JwtService();
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtService.Issuer,
+            ValidAudience = jwtService.Audience,
+            IssuerSigningKey = jwtService.GetSigningKey(),
+            ClockSkew = TimeSpan.FromMinutes(5)
+        };
     });
 builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
@@ -59,6 +90,7 @@ builder.Services.AddScoped<IDataManagementService, DataManagementService>();
 builder.Services.AddScoped<IDropdownService, DropdownService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 
 var app = builder.Build();
 
@@ -76,6 +108,7 @@ app.UseAuthorization();
 app.UseAntiforgery();
 
 app.MapStaticAssets();
+app.MapControllers(); // REST API endpoints for mobile sync
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
@@ -109,6 +142,22 @@ app.MapGet("/auth/logout", async (IAuthService authService) =>
 {
     await authService.LogoutAsync();
     return Results.Redirect("/login");
+});
+
+// Health check endpoint for Docker healthcheck and mobile connectivity test
+app.MapGet("/health", async (AppDbContext db) =>
+{
+    try
+    {
+        var canConnect = await db.Database.CanConnectAsync();
+        return canConnect
+            ? Results.Ok(new { status = "healthy", database = "connected", timestamp = DateTime.UtcNow })
+            : Results.Json(new { status = "degraded", database = "unreachable", timestamp = DateTime.UtcNow }, statusCode: 503);
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "unhealthy", database = "error", error = ex.Message, timestamp = DateTime.UtcNow }, statusCode: 503);
+    }
 });
 
 // Ensure schema is up-to-date and tables exist (no data seeded)
@@ -179,6 +228,10 @@ using (var scope = app.Services.CreateScope())
         });
         db.SaveChanges();
     }
+
+    // Seed default role permissions if not already present
+    var permSvc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
+    permSvc.SeedDefaultsIfEmptyAsync().GetAwaiter().GetResult();
 }
 
 app.Run();

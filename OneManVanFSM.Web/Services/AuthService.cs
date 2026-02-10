@@ -226,6 +226,38 @@ public class AuthService : IAuthService
         return true;
     }
 
+    public async Task<AuthResult> AdminCreateUserAsync(string username, string email, string password, UserRole role)
+    {
+        if (string.IsNullOrWhiteSpace(username) || username.Length < 3)
+            return AuthResult.Failure("Username must be at least 3 characters.");
+
+        if (string.IsNullOrWhiteSpace(email))
+            return AuthResult.Failure("Email is required.");
+
+        if (password.Length < 6)
+            return AuthResult.Failure("Password must be at least 6 characters.");
+
+        var exists = await _db.Users.AnyAsync(u =>
+            u.Username == username || u.Email == email);
+
+        if (exists)
+            return AuthResult.Failure("Username or email already exists.");
+
+        var user = new AppUser
+        {
+            Username = username.Trim(),
+            Email = email.Trim(),
+            PasswordHash = HashPassword(password),
+            Role = role,
+            IsActive = true, // Admin-created users are active immediately
+        };
+
+        _db.Users.Add(user);
+        await _db.SaveChangesAsync();
+
+        return AuthResult.Success(user);
+    }
+
     public async Task<AuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null)
     {
         if (newPassword.Length < 6)
@@ -276,8 +308,10 @@ public class AuthService : IAuthService
 
         await _db.SaveChangesAsync();
 
-        // Sign out so they log in with the new credentials
-        await LogoutAsync();
+        // NOTE: Do NOT call LogoutAsync() here — this method runs inside a
+        // Blazor Server interactive circuit where HttpContext.SignOutAsync()
+        // cannot modify response headers. The caller (Setup.razor) navigates
+        // to the /auth/logout HTTP endpoint which properly clears the cookie.
 
         return AuthResult.Success(user);
     }
@@ -293,7 +327,7 @@ public class AuthService : IAuthService
         return Convert.ToBase64String(combined);
     }
 
-    private static bool VerifyPassword(string password, string storedHash)
+    internal static bool VerifyPassword(string password, string storedHash)
     {
         var combined = Convert.FromBase64String(storedHash);
         var salt = combined[..16];

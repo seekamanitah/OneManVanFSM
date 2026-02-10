@@ -1,9 +1,13 @@
 ﻿@page "/"
+@using OneManVanFSM.Shared.Services
 @inject IMobileDashboardService DashboardService
 @inject IMobileTimeService TimeService
 @inject IMobileJobService JobService
 @inject IMobileAuthService AuthService
+@inject IPermissionService PermSvc
 @inject NavigationManager Nav
+@inject IServiceProvider SP
+@implements IDisposable
 
 @if (_loading)
 {
@@ -25,6 +29,51 @@ else if (_data != null)
     @if (_lastUpdated.HasValue)
     {
         <div class="text-muted mb-2" style="font-size:0.65rem;">Updated @_lastUpdated.Value.ToString("h:mm tt")</div>
+    }
+
+    <!-- Sync Status Bar -->
+    @if (_isRemoteMode)
+    {
+        <div class="mobile-card d-flex align-items-center gap-2 mb-2" style="padding:0.5rem 0.75rem; border-left:3px solid @(_syncConnected ? "#198754" : "#6c757d");">
+            <i class="bi @(_syncConnected ? "bi-cloud-check-fill text-success" : "bi-cloud-slash text-muted")" style="font-size:1rem;"></i>
+            <div style="flex:1; min-width:0;">
+                <div style="font-size:0.8rem; font-weight:600;">Remote Mode</div>
+                <div class="text-muted" style="font-size:0.65rem;">
+                    @if (_syncService?.LastSyncTime != null)
+                    {
+                        @:Last sync: @_syncService.LastSyncTime.Value.ToString("MMM dd, h:mm tt")
+                    }
+                    else
+                    {
+                        @:Not yet synced
+                    }
+                </div>
+            </div>
+            @if (_isSyncing)
+            {
+                <div class="d-flex align-items-center gap-1">
+                    <span class="spinner-border spinner-border-sm text-primary" role="status"></span>
+                    <span style="font-size:0.7rem;" class="text-primary">@(_syncStatusText ?? "Syncing...")</span>
+                </div>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-primary" style="font-size:0.7rem; padding:2px 8px;" @onclick="SyncNow">
+                    <i class="bi bi-arrow-repeat me-1"></i>Sync
+                </button>
+            }
+        </div>
+        @if (_syncResultMessage != null)
+        {
+            <div class="alert @(_syncResultSuccess ? "alert-success" : "alert-danger") d-flex align-items-center py-1 mb-2" style="font-size:0.75rem; border-radius:10px;">
+                <i class="bi @(_syncResultSuccess ? "bi-check-circle-fill" : "bi-x-circle-fill") me-2"></i>@_syncResultMessage
+            </div>
+        }
+    }
+
+    @if (!string.IsNullOrEmpty(_clockError))
+    {
+        <div class="alert alert-danger py-2 small mb-2">@_clockError</div>
     }
 
     <!-- Time Clock -->
@@ -260,50 +309,80 @@ else if (_data != null)
     <!-- Quick Actions -->
     <div class="section-header">Quick Actions</div>
     <div class="gap-grid mb-1">
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/notes")'>
-            <i class="bi bi-journal-plus text-primary" style="font-size:1.3rem;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">New Note</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/documents")'>
-            <i class="bi bi-camera text-success" style="font-size:1.3rem;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Upload Doc</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/inventory")'>
-            <i class="bi bi-box-seam text-info" style="font-size:1.3rem;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Inventory</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/estimates")'>
-            <i class="bi bi-calculator text-warning" style="font-size:1.3rem;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Estimates</div>
-        </div>
+        @if (_canView.GetValueOrDefault(Features.QuickNotes))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/notes")'>
+                <i class="bi bi-journal-plus text-primary" style="font-size:1.3rem;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">New Note</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.Documents))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/documents")'>
+                <i class="bi bi-camera text-success" style="font-size:1.3rem;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Upload Doc</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.Inventory))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/inventory")'>
+                <i class="bi bi-box-seam text-info" style="font-size:1.3rem;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Inventory</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.Estimates))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/estimates")'>
+                <i class="bi bi-calculator text-warning" style="font-size:1.3rem;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Estimates</div>
+            </div>
+        }
     </div>
     <div class="gap-grid mb-2">
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/customers")'>
-            <i class="bi bi-people" style="font-size:1.3rem; color:#6f42c1;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Customers</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/agreements")'>
-            <i class="bi bi-file-earmark-text" style="font-size:1.3rem; color:#20c997;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Agreements</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/reports")'>
-            <i class="bi bi-bar-chart" style="font-size:1.3rem; color:#fd7e14;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">My Reports</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/search")'>
-            <i class="bi bi-search text-secondary" style="font-size:1.3rem;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Search</div>
-        </div>
+        @if (_canView.GetValueOrDefault(Features.Customers))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/customers")'>
+                <i class="bi bi-people" style="font-size:1.3rem; color:#6f42c1;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Customers</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.ServiceAgreements))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/agreements")'>
+                <i class="bi bi-file-earmark-text" style="font-size:1.3rem; color:#20c997;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Agreements</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.Reports))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/reports")'>
+                <i class="bi bi-bar-chart" style="font-size:1.3rem; color:#fd7e14;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">My Reports</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.Search))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/search")'>
+                <i class="bi bi-search text-secondary" style="font-size:1.3rem;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Search</div>
+            </div>
+        }
     </div>
     <div class="gap-grid mb-2">
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/expenses")'>
-            <i class="bi bi-wallet2 text-danger" style="font-size:1.3rem;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Expenses</div>
-        </div>
-        <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/invoices")'>
-            <i class="bi bi-receipt" style="font-size:1.3rem; color:#0d6efd;"></i>
-            <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Invoices</div>
-        </div>
+        @if (_canView.GetValueOrDefault(Features.Expenses))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/expenses")'>
+                <i class="bi bi-wallet2 text-danger" style="font-size:1.3rem;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Expenses</div>
+            </div>
+        }
+        @if (_canView.GetValueOrDefault(Features.Invoices))
+        {
+            <div class="mobile-card text-center" style="cursor:pointer; padding:0.75rem;" @onclick='() => Nav.NavigateTo("/invoices")'>
+                <i class="bi bi-receipt" style="font-size:1.3rem; color:#0d6efd;"></i>
+                <div style="font-size:0.75rem; font-weight:600;" class="mt-1">Invoices</div>
+            </div>
+        }
     </div>
 }
 
@@ -313,12 +392,84 @@ private MobileDashboardData? _data;
 private bool _loading = true;
 private string? _techName;
 private DateTime? _lastUpdated;
+private string? _clockError;
+private Dictionary<string, bool> _canView = new();
+private UserRole _userRole;
+
+// Sync state
+private ISyncService? _syncService;
+private bool _isRemoteMode;
+private bool _syncConnected;
+private bool _isSyncing;
+private string? _syncStatusText;
+private string? _syncResultMessage;
+private bool _syncResultSuccess;
 
 protected override async Task OnInitializedAsync()
 {
     _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    InitSyncState();
+    await LoadPermissions();
     await LoadDashboard();
 }
+
+    private void InitSyncState()
+    {
+        _isRemoteMode = Preferences.Default.Get("db_mode", "Local") == "Remote";
+        if (_isRemoteMode)
+        {
+            _syncService = SP.GetService<ISyncService>();
+            _syncConnected = _syncService is not null;
+            if (_syncService is not null)
+            {
+                _syncService.OnSyncProgress += HandleSyncProgress;
+            }
+        }
+    }
+
+    private void HandleSyncProgress(SyncProgressInfo info)
+    {
+        _isSyncing = info.IsRunning;
+        _syncStatusText = info.StatusMessage;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private async Task SyncNow()
+    {
+        if (_syncService is null || _isSyncing) return;
+
+        _syncResultMessage = null;
+        _isSyncing = true;
+        StateHasChanged();
+
+        var result = await _syncService.SyncAllAsync();
+
+        _isSyncing = false;
+        _syncResultSuccess = result.Succeeded;
+        _syncResultMessage = result.Succeeded
+            ? $"Synced {result.EntitiesSynced} records successfully"
+            : $"Sync failed: {result.ErrorMessage}";
+        StateHasChanged();
+
+        if (result.Succeeded)
+        {
+            await LoadDashboard();
+            _ = ClearSyncMessage();
+        }
+    }
+
+    private async Task ClearSyncMessage()
+    {
+        await Task.Delay(4000);
+        _syncResultMessage = null;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        if (_syncService is not null)
+            _syncService.OnSyncProgress -= HandleSyncProgress;
+    }
 
     private async Task LoadDashboard()
     {
@@ -332,7 +483,31 @@ protected override async Task OnInitializedAsync()
 
     private async Task RefreshDashboard()
     {
-        await LoadDashboard();
+        if (_isRemoteMode && _syncService is not null && !_isSyncing)
+        {
+            await SyncNow();
+        }
+        else
+        {
+            await LoadDashboard();
+        }
+    }
+
+    private async Task LoadPermissions()
+    {
+        var session = await AuthService.GetCurrentUserAsync();
+        if (session is not null && Enum.TryParse<UserRole>(session.Role, out var role))
+        {
+            _userRole = role;
+            foreach (var f in Features.All)
+                _canView[f] = await PermSvc.CanViewAsync(role, f);
+        }
+        else
+        {
+            // Default to showing everything if we can't determine role
+            foreach (var f in Features.All)
+                _canView[f] = true;
+        }
     }
 
     private static string Greeting()
@@ -360,14 +535,40 @@ protected override async Task OnInitializedAsync()
 
     private async Task ClockIn()
     {
-        await TimeService.ClockInAsync(_employeeId);
-        await LoadDashboard();
+        _clockError = null;
+        if (_employeeId <= 0)
+        {
+            _clockError = "Your account is not linked to an employee record. Ask an admin to link your user to an Employee in Settings.";
+            return;
+        }
+        try
+        {
+            var result = await TimeService.ClockInAsync(_employeeId);
+            if (result is null)
+            {
+                _clockError = "Clock in failed. Your employee record may be missing.";
+                return;
+            }
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _clockError = $"Clock in failed: {ex.Message}";
+        }
     }
 
     private async Task ClockOut()
     {
-        await TimeService.ClockOutAsync(_employeeId);
-        await LoadDashboard();
+        _clockError = null;
+        try
+        {
+            await TimeService.ClockOutAsync(_employeeId);
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _clockError = $"Clock out failed: {ex.Message}";
+        }
     }
 
     private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);

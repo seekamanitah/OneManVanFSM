@@ -1,11 +1,13 @@
 ﻿@inherits LayoutComponentBase
 @implements IDisposable
+@using OneManVanFSM.Shared.Services
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
+@inject IPermissionService PermSvc
 
 <AuthorizeView>
     <Authorized>
-        @{ _userName = context.User.Identity?.Name ?? "User"; _userRole = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User"; }
+        @{ _userName = context.User.Identity?.Name ?? "User"; _userRole = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User"; if (!_permsLoaded) { _ = LoadPermissions(); } }
     </Authorized>
 </AuthorizeView>
 
@@ -26,103 +28,181 @@
         </div>
 
         <nav class="sidebar-nav">
-            @* Dashboard & Calendar — primary views *@
+            @* Dashboard & Calendar — primary views (always visible) *@
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Dashboard">
                 <i class="bi bi-speedometer2"></i>@if (!SidebarCollapsed) { <span>Dashboard</span> }
             </NavLink>
-            <NavLink class="nav-link" href="calendar" title="Calendar">
-                <i class="bi bi-calendar3"></i>@if (!SidebarCollapsed) { <span>Calendar</span> }
-            </NavLink>
+            @if (Can(Features.Calendar))
+            {
+                <NavLink class="nav-link" href="calendar" title="Calendar">
+                    <i class="bi bi-calendar3"></i>@if (!SidebarCollapsed) { <span>Calendar</span> }
+                </NavLink>
+            }
 
             @* Clients *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Clients" : "")</div>
-            <NavLink class="nav-link" href="customers" title="Customers">
-                <i class="bi bi-people-fill"></i>@if (!SidebarCollapsed) { <span>Customers</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="companies" title="Companies">
-                <i class="bi bi-building"></i>@if (!SidebarCollapsed) { <span>Companies</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="sites" title="Sites">
-                <i class="bi bi-geo-alt-fill"></i>@if (!SidebarCollapsed) { <span>Sites</span> }
-            </NavLink>
+            @if (Can(Features.Customers) || Can(Features.Companies) || Can(Features.Sites))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Clients" : "")</div>
+                @if (Can(Features.Customers))
+                {
+                    <NavLink class="nav-link" href="customers" title="Customers">
+                        <i class="bi bi-people-fill"></i>@if (!SidebarCollapsed) { <span>Customers</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Companies))
+                {
+                    <NavLink class="nav-link" href="companies" title="Companies">
+                        <i class="bi bi-building"></i>@if (!SidebarCollapsed) { <span>Companies</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Sites))
+                {
+                    <NavLink class="nav-link" href="sites" title="Sites">
+                        <i class="bi bi-geo-alt-fill"></i>@if (!SidebarCollapsed) { <span>Sites</span> }
+                    </NavLink>
+                }
+            }
 
             @* Inventory & Products *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Inventory & Products" : "")</div>
-            <NavLink class="nav-link" href="products" title="Products">
-                <i class="bi bi-box-seam-fill"></i>@if (!SidebarCollapsed) { <span>Products</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="inventory" title="Inventory">
-                <i class="bi bi-boxes"></i>@if (!SidebarCollapsed) { <span>Inventory</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="materiallists" title="Material Lists">
-                <i class="bi bi-list-check"></i>@if (!SidebarCollapsed) { <span>Material Lists</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="templates" title="Templates">
-                <i class="bi bi-copy"></i>@if (!SidebarCollapsed) { <span>Templates</span> }
-            </NavLink>
+            @if (Can(Features.Products) || Can(Features.Inventory) || Can(Features.MaterialLists) || Can(Features.Templates))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Inventory & Products" : "")</div>
+                @if (Can(Features.Products))
+                {
+                    <NavLink class="nav-link" href="products" title="Products">
+                        <i class="bi bi-box-seam-fill"></i>@if (!SidebarCollapsed) { <span>Products</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Inventory))
+                {
+                    <NavLink class="nav-link" href="inventory" title="Inventory">
+                        <i class="bi bi-boxes"></i>@if (!SidebarCollapsed) { <span>Inventory</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.MaterialLists))
+                {
+                    <NavLink class="nav-link" href="materiallists" title="Material Lists">
+                        <i class="bi bi-list-check"></i>@if (!SidebarCollapsed) { <span>Material Lists</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Templates))
+                {
+                    <NavLink class="nav-link" href="templates" title="Templates">
+                        <i class="bi bi-copy"></i>@if (!SidebarCollapsed) { <span>Templates</span> }
+                    </NavLink>
+                }
+            }
 
             @* Bidding & Planning *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Bidding & Planning" : "")</div>
-            <NavLink class="nav-link" href="estimates" title="Estimates">
-                <i class="bi bi-calculator-fill"></i>@if (!SidebarCollapsed) { <span>Estimates</span> }
-            </NavLink>
+            @if (Can(Features.Estimates))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Bidding & Planning" : "")</div>
+                <NavLink class="nav-link" href="estimates" title="Estimates">
+                    <i class="bi bi-calculator-fill"></i>@if (!SidebarCollapsed) { <span>Estimates</span> }
+                </NavLink>
+            }
 
             @* Operations *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Operations" : "")</div>
-            <NavLink class="nav-link" href="jobs" title="Jobs">
-                <i class="bi bi-wrench-adjustable-circle-fill"></i>@if (!SidebarCollapsed) { <span>Jobs</span> }
-            </NavLink>
+            @if (Can(Features.Jobs))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Operations" : "")</div>
+                <NavLink class="nav-link" href="jobs" title="Jobs">
+                    <i class="bi bi-wrench-adjustable-circle-fill"></i>@if (!SidebarCollapsed) { <span>Jobs</span> }
+                </NavLink>
+            }
 
             @* Services & History *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Services" : "")</div>
-            <NavLink class="nav-link" href="serviceagreements" title="Service Agreements">
-                <i class="bi bi-file-earmark-check-fill"></i>@if (!SidebarCollapsed) { <span>Agreements</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="assets" title="Assets">
-                <i class="bi bi-cpu-fill"></i>@if (!SidebarCollapsed) { <span>Assets</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="servicehistory" title="Service History">
-                <i class="bi bi-wrench-adjustable"></i>@if (!SidebarCollapsed) { <span>Service History</span> }
-            </NavLink>
+            @if (Can(Features.ServiceAgreements) || Can(Features.Assets) || Can(Features.ServiceHistory))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Services" : "")</div>
+                @if (Can(Features.ServiceAgreements))
+                {
+                    <NavLink class="nav-link" href="serviceagreements" title="Service Agreements">
+                        <i class="bi bi-file-earmark-check-fill"></i>@if (!SidebarCollapsed) { <span>Agreements</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Assets))
+                {
+                    <NavLink class="nav-link" href="assets" title="Assets">
+                        <i class="bi bi-cpu-fill"></i>@if (!SidebarCollapsed) { <span>Assets</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.ServiceHistory))
+                {
+                    <NavLink class="nav-link" href="servicehistory" title="Service History">
+                        <i class="bi bi-wrench-adjustable"></i>@if (!SidebarCollapsed) { <span>Service History</span> }
+                    </NavLink>
+                }
+            }
 
             @* Financials *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Financials" : "")</div>
-            <NavLink class="nav-link" href="financials" Match="NavLinkMatch.All" title="Overview">
-                <i class="bi bi-cash-stack"></i>@if (!SidebarCollapsed) { <span>Overview</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="financials/invoices" title="Invoices">
-                <i class="bi bi-receipt"></i>@if (!SidebarCollapsed) { <span>Invoices</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="financials/expenses" title="Expenses">
-                <i class="bi bi-wallet2"></i>@if (!SidebarCollapsed) { <span>Expenses</span> }
-            </NavLink>
+            @if (Can(Features.Financials) || Can(Features.Invoices) || Can(Features.Expenses))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Financials" : "")</div>
+                @if (Can(Features.Financials))
+                {
+                    <NavLink class="nav-link" href="financials" Match="NavLinkMatch.All" title="Overview">
+                        <i class="bi bi-cash-stack"></i>@if (!SidebarCollapsed) { <span>Overview</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Invoices))
+                {
+                    <NavLink class="nav-link" href="financials/invoices" title="Invoices">
+                        <i class="bi bi-receipt"></i>@if (!SidebarCollapsed) { <span>Invoices</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Expenses))
+                {
+                    <NavLink class="nav-link" href="financials/expenses" title="Expenses">
+                        <i class="bi bi-wallet2"></i>@if (!SidebarCollapsed) { <span>Expenses</span> }
+                    </NavLink>
+                }
+            }
 
             @* Team & HR *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Team & HR" : "")</div>
-            <NavLink class="nav-link" href="employees" title="Employees">
-                <i class="bi bi-person-badge-fill"></i>@if (!SidebarCollapsed) { <span>Employees</span> }
-            </NavLink>
+            @if (Can(Features.Employees))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Team & HR" : "")</div>
+                <NavLink class="nav-link" href="employees" title="Employees">
+                    <i class="bi bi-person-badge-fill"></i>@if (!SidebarCollapsed) { <span>Employees</span> }
+                </NavLink>
+            }
 
             @* Documents & Notes *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Documents & Notes" : "")</div>
-            <NavLink class="nav-link" href="documents" title="Documents">
-                <i class="bi bi-folder-fill"></i>@if (!SidebarCollapsed) { <span>Documents</span> }
-            </NavLink>
-            <NavLink class="nav-link" href="quicknotes" title="Quick Notes">
-                <i class="bi bi-sticky-fill"></i>@if (!SidebarCollapsed) { <span>Quick Notes</span> }
-            </NavLink>
+            @if (Can(Features.Documents) || Can(Features.QuickNotes))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Documents & Notes" : "")</div>
+                @if (Can(Features.Documents))
+                {
+                    <NavLink class="nav-link" href="documents" title="Documents">
+                        <i class="bi bi-folder-fill"></i>@if (!SidebarCollapsed) { <span>Documents</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.QuickNotes))
+                {
+                    <NavLink class="nav-link" href="quicknotes" title="Quick Notes">
+                        <i class="bi bi-sticky-fill"></i>@if (!SidebarCollapsed) { <span>Quick Notes</span> }
+                    </NavLink>
+                }
+            }
 
             @* Insights *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Insights" : "")</div>
-            <NavLink class="nav-link" href="reports" title="Reports">
-                <i class="bi bi-graph-up"></i>@if (!SidebarCollapsed) { <span>Reports</span> }
-            </NavLink>
+            @if (Can(Features.Reports))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Insights" : "")</div>
+                <NavLink class="nav-link" href="reports" title="Reports">
+                    <i class="bi bi-graph-up"></i>@if (!SidebarCollapsed) { <span>Reports</span> }
+                </NavLink>
+            }
 
             @* Admin *@
-            <div class="nav-section-header">@(!SidebarCollapsed ? "Admin" : "")</div>
-            <NavLink class="nav-link" href="settings" title="Settings">
-                <i class="bi bi-gear-fill"></i>@if (!SidebarCollapsed) { <span>Settings</span> }
-            </NavLink>
+            @if (Can(Features.Settings))
+            {
+                <div class="nav-section-header">@(!SidebarCollapsed ? "Admin" : "")</div>
+                <NavLink class="nav-link" href="settings" title="Settings">
+                    <i class="bi bi-gear-fill"></i>@if (!SidebarCollapsed) { <span>Settings</span> }
+                </NavLink>
+            }
         </nav>
     </aside>
 
@@ -265,15 +345,36 @@
 </div>
 
 @code {
-    private bool SidebarCollapsed { get; set; }
-    private bool _mobileMenuOpen;
-    private bool _darkMode;
-    private string _userName = "User";
-    private string _userRole = "User";
-    private string _searchText = string.Empty;
-    private string _selectedPeriod = "today";
-    private string _selectedPeriodLabel = "Today";
-    private List<AppNotification> _notifications = [];
+private bool SidebarCollapsed { get; set; }
+private bool _mobileMenuOpen;
+private bool _darkMode;
+private string _userName = "User";
+private string _userRole = "User";
+private string _searchText = string.Empty;
+private string _selectedPeriod = "today";
+private string _selectedPeriodLabel = "Today";
+private List<AppNotification> _notifications = [];
+
+// Permission state
+private bool _permsLoaded;
+private Dictionary<string, bool> _viewPerms = new();
+
+private bool Can(string feature) => _viewPerms.GetValueOrDefault(feature, true);
+
+private async Task LoadPermissions()
+{
+    if (_permsLoaded) return;
+    _permsLoaded = true;
+
+    if (Enum.TryParse<UserRole>(_userRole, out var role))
+    {
+        foreach (var f in Features.All)
+        {
+            _viewPerms[f] = await PermSvc.CanViewAsync(role, f);
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+}
 
     private class AppNotification
     {

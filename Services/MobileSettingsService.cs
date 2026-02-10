@@ -18,6 +18,7 @@ public class MobileSettingsService : IMobileSettingsService
     private const string PrefDefaultCalendarView = "settings_default_calendar_view";
     private const string PrefAutoClockOnEnRoute = "settings_auto_clock_en_route";
     private const string PrefShowCompletedJobs = "settings_show_completed_jobs";
+    private const string PrefSyncIntervalMinutes = "sync_interval_minutes";
 
     public MobileSettingsService(AppDbContext db)
     {
@@ -50,6 +51,7 @@ public class MobileSettingsService : IMobileSettingsService
             DefaultCalendarView = Preferences.Default.Get(PrefDefaultCalendarView, "Day"),
             AutoClockOnEnRoute = Preferences.Default.Get(PrefAutoClockOnEnRoute, true),
             ShowCompletedJobs = Preferences.Default.Get(PrefShowCompletedJobs, true),
+            SyncIntervalMinutes = Preferences.Default.Get(PrefSyncIntervalMinutes, 15),
         };
     }
 
@@ -64,6 +66,7 @@ public class MobileSettingsService : IMobileSettingsService
         Preferences.Default.Set(PrefDefaultCalendarView, settings.DefaultCalendarView);
         Preferences.Default.Set(PrefAutoClockOnEnRoute, settings.AutoClockOnEnRoute);
         Preferences.Default.Set(PrefShowCompletedJobs, settings.ShowCompletedJobs);
+        Preferences.Default.Set(PrefSyncIntervalMinutes, settings.SyncIntervalMinutes);
     }
 
     public async Task<MobileSyncStatus> GetSyncStatusAsync()
@@ -72,12 +75,24 @@ public class MobileSettingsService : IMobileSettingsService
         var customerCount = await _db.Customers.CountAsync();
         var assetCount = await _db.Assets.CountAsync();
 
+        long cacheSizeBytes = 0;
+        try
+        {
+            var dbFile = new FileInfo(Path.Combine(FileSystem.AppDataDirectory, "OneManVanFSM.db"));
+            if (dbFile.Exists)
+                cacheSizeBytes = dbFile.Length;
+        }
+        catch
+        {
+            // File may be locked or inaccessible — report 0
+        }
+
         return new MobileSyncStatus
         {
             LastSyncTime = DateTime.Now,
             PendingChanges = 0,
             SyncState = "Synced",
-            CacheSizeBytes = new FileInfo(Path.Combine(FileSystem.AppDataDirectory, "OneManVanFSM.db")).Length,
+            CacheSizeBytes = cacheSizeBytes,
             CachedJobs = jobCount,
             CachedCustomers = customerCount,
             CachedAssets = assetCount,
