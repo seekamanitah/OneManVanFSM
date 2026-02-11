@@ -26,7 +26,15 @@
                 <div class="row g-2 mb-3">
                     <div class="col-md-6">
                         <label class="form-label">Manufacturer <span class="text-danger">*</span></label>
-                        <InputText @bind-Value="form.Brand" class="form-control form-control-sm" placeholder="Search or enter manufacturer..." />
+                        <select class="form-select form-select-sm" value="@_brandSelectValue" @onchange="OnBrandSelectChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _brandOptions) { <option value="@o">@o</option> }
+                            <option value="__custom__">? Add New...</option>
+                        </select>
+                        @if (_showCustomBrand)
+                        {
+                            <InputText @bind-Value="form.Brand" class="form-control form-control-sm mt-1" placeholder="Enter new manufacturer name" />
+                        }
                         <ValidationMessage For="() => form.Brand" />
                     </div>
                     <div class="col-md-6">
@@ -81,7 +89,15 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Refrigerant Type</label>
-                        <InputText @bind-Value="form.RefrigerantType" class="form-control form-control-sm" placeholder="Unknown" />
+                        <select class="form-select form-select-sm" value="@_refrigerantSelectValue" @onchange="OnRefrigerantSelectChanged">
+                            <option value="">Unknown</option>
+                            @foreach (var o in _refrigerantOptions) { <option value="@o">@o</option> }
+                            <option value="__custom__">? Add New...</option>
+                        </select>
+                        @if (_showCustomRefrigerant)
+                        {
+                            <InputText @bind-Value="form.RefrigerantType" class="form-control form-control-sm mt-1" placeholder="Enter refrigerant type" />
+                        }
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">SEER Rating</label>
@@ -93,7 +109,15 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Voltage</label>
-                        <InputText @bind-Value="form.Voltage" class="form-control form-control-sm" />
+                        <select class="form-select form-select-sm" value="@_voltageSelectValue" @onchange="OnVoltageSelectChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _voltageOptions) { <option value="@o">@o</option> }
+                            <option value="__custom__">? Add New...</option>
+                        </select>
+                        @if (_showCustomVoltage)
+                        {
+                            <InputText @bind-Value="form.Voltage" class="form-control form-control-sm mt-1" placeholder="Enter voltage" />
+                        }
                     </div>
                 </div>
 
@@ -111,6 +135,14 @@
                     <div class="col-md-4">
                         <label class="form-label">Suggested Sell Price</label>
                         <InputNumber @bind-Value="form.Price" class="form-control form-control-sm" />
+                    </div>
+                    <div class="col-12 mt-1">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="form.TaxIncludedInPrice" @bind-Value:after="OnProductTaxToggled" class="form-check-input" id="productTaxIncluded" />
+                            <label class="form-check-label text-muted small" for="productTaxIncluded">
+                                <i class="bi bi-percent me-1"></i>Auto-calculate tax into price (@(_defaultTaxRate)% tax rate from Settings)
+                            </label>
+                        </div>
                     </div>
                 </div>
 
@@ -401,6 +433,25 @@ else
     private List<string> _equipmentTypes = ["Residential", "Commercial", "Light Commercial", "Industrial"];
     private List<string> _fuelTypes = ["Electric", "Natural Gas", "Propane", "Oil", "Dual Fuel"];
     private List<string> _tonnageOptions = ["1.5 Ton", "2 Ton", "2.5 Ton", "3 Ton", "3.5 Ton", "4 Ton", "5 Ton"];
+    private List<string> _brandOptions = [];
+    private List<string> _refrigerantOptions = [];
+    private List<string> _voltageOptions = [];
+    private string _brandSelectValue = "";
+    private string _refrigerantSelectValue = "";
+    private string _voltageSelectValue = "";
+    private bool _showCustomBrand;
+    private bool _showCustomRefrigerant;
+    private bool _showCustomVoltage;
+    private decimal _defaultTaxRate = 9.75m;
+
+    private void OnProductTaxToggled()
+    {
+        if (form.Price <= 0 || _defaultTaxRate <= 0) return;
+        var multiplier = 1 + (_defaultTaxRate / 100m);
+        form.Price = form.TaxIncludedInPrice
+            ? Math.Round(form.Price * multiplier, 2)
+            : Math.Round(form.Price / multiplier, 2);
+    }
 
     protected override void OnInitialized()
     {
@@ -456,6 +507,65 @@ else
         if (fuels.Count > 0) _fuelTypes = fuels.Where(o => o.IsActive).Select(o => o.Value).ToList();
         var tons = await DropdownSvc.GetOptionsAsync("Tonnage");
         if (tons.Count > 0) _tonnageOptions = tons.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var brands = await DropdownSvc.GetOptionsAsync("Brand");
+        if (brands.Count > 0) _brandOptions = brands.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var refrigerants = await DropdownSvc.GetOptionsAsync("RefrigerantType");
+        if (refrigerants.Count > 0) _refrigerantOptions = refrigerants.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var voltages = await DropdownSvc.GetOptionsAsync("Voltage");
+        if (voltages.Count > 0) _voltageOptions = voltages.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        SyncProductDropdowns();
+    }
+
+    private void SyncProductDropdowns()
+    {
+        // Sync brand
+        if (!string.IsNullOrWhiteSpace(form.Brand) && _brandOptions.Contains(form.Brand, StringComparer.OrdinalIgnoreCase))
+            _brandSelectValue = form.Brand;
+        else if (!string.IsNullOrWhiteSpace(form.Brand))
+            { _brandSelectValue = "__custom__"; _showCustomBrand = true; }
+        else
+            _brandSelectValue = "";
+        // Sync refrigerant
+        if (!string.IsNullOrWhiteSpace(form.RefrigerantType) && _refrigerantOptions.Contains(form.RefrigerantType, StringComparer.OrdinalIgnoreCase))
+            _refrigerantSelectValue = form.RefrigerantType;
+        else if (!string.IsNullOrWhiteSpace(form.RefrigerantType))
+            { _refrigerantSelectValue = "__custom__"; _showCustomRefrigerant = true; }
+        else
+            _refrigerantSelectValue = "";
+        // Sync voltage
+        if (!string.IsNullOrWhiteSpace(form.Voltage) && _voltageOptions.Contains(form.Voltage, StringComparer.OrdinalIgnoreCase))
+            _voltageSelectValue = form.Voltage;
+        else if (!string.IsNullOrWhiteSpace(form.Voltage))
+            { _voltageSelectValue = "__custom__"; _showCustomVoltage = true; }
+        else
+            _voltageSelectValue = "";
+    }
+
+    private void OnBrandSelectChanged(ChangeEventArgs e)
+    {
+        _brandSelectValue = e.Value?.ToString() ?? "";
+        if (_brandSelectValue == "__custom__")
+            { _showCustomBrand = true; form.Brand = null; }
+        else
+            { _showCustomBrand = false; form.Brand = string.IsNullOrEmpty(_brandSelectValue) ? null : _brandSelectValue; }
+    }
+
+    private void OnRefrigerantSelectChanged(ChangeEventArgs e)
+    {
+        _refrigerantSelectValue = e.Value?.ToString() ?? "";
+        if (_refrigerantSelectValue == "__custom__")
+            { _showCustomRefrigerant = true; form.RefrigerantType = null; }
+        else
+            { _showCustomRefrigerant = false; form.RefrigerantType = string.IsNullOrEmpty(_refrigerantSelectValue) ? null : _refrigerantSelectValue; }
+    }
+
+    private void OnVoltageSelectChanged(ChangeEventArgs e)
+    {
+        _voltageSelectValue = e.Value?.ToString() ?? "";
+        if (_voltageSelectValue == "__custom__")
+            { _showCustomVoltage = true; form.Voltage = null; }
+        else
+            { _showCustomVoltage = false; form.Voltage = string.IsNullOrEmpty(_voltageSelectValue) ? null : _voltageSelectValue; }
     }
 
     private async Task LoadDetail(int id)
@@ -478,7 +588,8 @@ else
             EquipmentType = p.EquipmentType, FuelType = p.FuelType,
             Description = p.Description,
             Cost = p.Cost, Price = p.Price, MSRP = p.MSRP,
-            MarkupPercent = p.MarkupPercent, Unit = p.Unit, Specs = p.Specs,
+            MarkupPercent = p.MarkupPercent, TaxIncludedInPrice = p.TaxIncludedInPrice,
+            Unit = p.Unit, Specs = p.Specs,
             SupplierName = p.SupplierName, IsTemplate = p.IsTemplate,
             Tonnage = p.Tonnage, RefrigerantType = p.RefrigerantType,
             SEERRating = p.SEERRating, AFUERating = p.AFUERating, Voltage = p.Voltage,

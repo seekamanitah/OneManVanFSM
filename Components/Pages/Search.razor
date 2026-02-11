@@ -3,12 +3,15 @@
 @inject NavigationManager Nav
 
 <!-- Search Input -->
-<div class="mobile-card" style="padding:0.65rem 1rem;">
+<div class="mobile-card" style="padding:0.5rem 0.75rem;">
     <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-link text-muted p-0" @onclick="GoBack" style="font-size:1.1rem;">
+            <i class="bi bi-arrow-left"></i>
+        </button>
         <i class="bi bi-search text-muted"></i>
         <input type="search" class="form-control border-0 shadow-none" placeholder="Search jobs, sites, assets, notes…"
                @bind="_query" @bind:event="oninput" @bind:after="OnSearchChanged"
-               style="font-size:0.95rem; padding:0.4rem 0;" />
+               style="font-size:0.9rem; padding:0.3rem 0; min-height:auto;" />
         @if (!string.IsNullOrEmpty(_query))
         {
             <button class="btn btn-sm btn-link text-muted p-0" @onclick="ClearSearch">
@@ -254,6 +257,8 @@ private void SaveRecentSearches()
     {
         Nav.NavigateTo(path);
     }
+
+    private void GoBack() => Nav.NavigateTo("/");
 
     public void Dispose()
     {

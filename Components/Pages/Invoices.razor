@@ -1,5 +1,8 @@
 @page "/invoices"
 @inject IMobileInvoiceService InvoiceSvc
+@inject IMobileCustomerService CustomerService
+@inject IMobileJobService JobService
+@inject IMobileSiteService SiteService
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -14,6 +17,14 @@ else if (_mode == "detail" && _detail != null)
         <span style="font-size:0.95rem; font-weight:700;">@_detail.InvoiceNumber</span>
         <span class="badge ms-auto @GetStatusBadge(_detail.Status)" style="font-size:0.7rem;">@_detail.Status</span>
     </div>
+
+    @if (_detail.NeedsReview)
+    {
+        <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center" style="font-size:0.8rem; border-radius:10px;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <span>Created on mobile — add line items, tax, and pricing details on the web app.</span>
+        </div>
+    }
 
     <!-- Amount Card -->
     <div class="mobile-card mb-2" style="border-left:3px solid @(_detail.BalanceDue > 0 ? "#dc3545" : "#198754");">
@@ -171,6 +182,47 @@ else if (_mode == "detail" && _detail != null)
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-receipt me-1"></i>Quick Draft Invoice</h6>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.CustomerId">
+                    <option value="">Customer *</option>
+                    @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.JobId">
+                    <option value="">Job (optional)</option>
+                    @foreach (var j in _jobOpts) { <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.SiteId">
+                    <option value="">Site (optional)</option>
+                    @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_newInvoice.Notes"></textarea>
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Creates a Draft invoice (Net 30). Add line items, tax, and pricing on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveInvoice" disabled="@(!_newInvoice.CustomerId.HasValue)">
+                    <i class="bi bi-check-lg me-1"></i>Create Draft
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- List View -->
     <div class="d-flex justify-content-between align-items-center mb-2">
         <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-receipt me-1"></i>Invoices</span>
@@ -260,6 +312,13 @@ else
             <p>No invoices found</p>
         </div>
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Invoice" @onclick="ShowCreateInvoice">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -270,6 +329,12 @@ else
     private List<MobileInvoiceCard> _invoices = [];
     private MobileInvoiceDetail? _detail;
     private MobileInvoiceFilter _filter = new();
+    private bool _showCreate;
+    private MobileInvoiceQuickCreate _newInvoice = new();
+    private List<MobileCustomerCard> _custOpts = [];
+    private List<MobileSiteCard> _siteOpts = [];
+    private List<MobileJobCard> _jobOpts = [];
+    private string? _saveError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -305,6 +370,29 @@ else
     {
         _filter.Status = status;
         await LoadInvoices();
+    }
+
+    private async Task ShowCreateInvoice()
+    {
+        _newInvoice = new();
+        _saveError = null;
+        _custOpts = await CustomerService.GetCustomersAsync();
+        _siteOpts = await SiteService.GetSitesAsync();
+        _jobOpts = await JobService.GetAllJobCardsAsync();
+        _showCreate = true;
+    }
+
+    private async Task SaveInvoice()
+    {
+        if (!_newInvoice.CustomerId.HasValue) { _saveError = "Customer is required."; return; }
+        try
+        {
+            _saveError = null;
+            await InvoiceSvc.QuickCreateAsync(_newInvoice);
+            _showCreate = false;
+            await LoadData();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 
     private static string GetStatusBadge(InvoiceStatus s) => s switch

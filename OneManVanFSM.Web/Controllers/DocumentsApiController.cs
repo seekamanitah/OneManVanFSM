@@ -10,7 +10,8 @@ namespace OneManVanFSM.Web.Controllers;
 public class DocumentsApiController : SyncApiController
 {
     private readonly AppDbContext _db;
-    public DocumentsApiController(AppDbContext db) => _db = db;
+    private readonly IWebHostEnvironment _env;
+    public DocumentsApiController(AppDbContext db, IWebHostEnvironment env) { _db = db; _env = env; }
 
     [HttpGet]
     public async Task<ActionResult<SyncResponse<Document>>> GetAll([FromQuery] DateTime? since)
@@ -76,5 +77,40 @@ public class DocumentsApiController : SyncApiController
         _db.Documents.Remove(doc);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("{id:int}/file")]
+    public async Task<IActionResult> DownloadFile(int id)
+    {
+        var doc = await _db.Documents.AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
+        if (doc is null || string.IsNullOrEmpty(doc.StoredFileName))
+            return NotFound();
+
+        var filePath = Path.Combine(_env.WebRootPath, "uploads", doc.StoredFileName);
+        if (!System.IO.File.Exists(filePath))
+            return NotFound();
+
+        var contentType = (doc.FileType?.ToUpperInvariant()) switch
+        {
+            "PDF" => "application/pdf",
+            "JPG" or "JPEG" => "image/jpeg",
+            "PNG" => "image/png",
+            "GIF" => "image/gif",
+            "WEBP" => "image/webp",
+            "BMP" => "image/bmp",
+            "DOC" => "application/msword",
+            "DOCX" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "XLS" => "application/vnd.ms-excel",
+            "XLSX" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "CSV" => "text/csv",
+            "TXT" => "text/plain",
+            "ZIP" => "application/zip",
+            "RAR" => "application/x-rar-compressed",
+            _ => "application/octet-stream"
+        };
+
+        var fileName = doc.FilePath ?? doc.Name + "." + (doc.FileType?.ToLowerInvariant() ?? "bin");
+        var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+        return File(stream, contentType, fileName);
     }
 }

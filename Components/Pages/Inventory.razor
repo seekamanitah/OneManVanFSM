@@ -9,6 +9,59 @@
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-box-seam me-1"></i>Quick Add Inventory Item</h6>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Item name *" @bind="_newItem.Name" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="SKU (optional)" @bind="_newItem.SKU" />
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-6">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newItem.Location">
+                        @foreach (var loc in Enum.GetValues<InventoryLocation>()) { <option value="@loc">@loc</option> }
+                    </select>
+                </div>
+                <div class="col-6">
+                    <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Shelf / Bin" @bind="_newItem.ShelfBin" />
+                </div>
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-4">
+                    <input type="number" step="1" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Qty" @bind="_newItem.Quantity" />
+                </div>
+                <div class="col-4">
+                    <div class="input-group">
+                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 6px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Cost" @bind="_newItem.Cost" />
+                    </div>
+                </div>
+                <div class="col-4">
+                    <div class="input-group">
+                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 6px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Price" @bind="_newItem.Price" />
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Complete thresholds, supplier, expiry, and barcode details on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveItem" disabled="@string.IsNullOrWhiteSpace(_newItem.Name)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- Stats Row -->
     <div class="gap-grid mb-2">
         <div class="stat-card">
@@ -160,6 +213,13 @@ else
             <p>No inventory items found</p>
         </div>
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Item" @onclick="ShowCreateItem">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -169,6 +229,9 @@ else
     private string _search = string.Empty;
     private string _locationFilter = string.Empty;
     private bool _lowStockOnly;
+    private bool _showCreate;
+    private MobileInventoryQuickCreate _newItem = new();
+    private string? _saveError;
 
     protected override async Task OnInitializedAsync()
     {
@@ -222,6 +285,22 @@ else
         if (pct <= 50) return "#dc3545";
         if (pct <= 100) return "#ffc107";
         return "#198754";
+    }
+
+    private void ShowCreateItem() { _newItem = new(); _saveError = null; _showCreate = true; }
+
+    private async Task SaveItem()
+    {
+        if (string.IsNullOrWhiteSpace(_newItem.Name)) { _saveError = "Name is required."; return; }
+        try
+        {
+            _saveError = null;
+            await InventoryService.QuickCreateAsync(_newItem);
+            _showCreate = false;
+            _stats = await InventoryService.GetStatsAsync();
+            await LoadInventory();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 
     private async Task AdjustQuantity(int itemId, decimal delta)

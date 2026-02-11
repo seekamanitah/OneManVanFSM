@@ -40,6 +40,7 @@ public class ProductService : IProductService
             Id = p.Id, Name = p.Name, Brand = p.Brand, ModelNumber = p.ModelNumber,
             PartNumber = p.PartNumber, Category = p.Category, EquipmentType = p.EquipmentType,
             Cost = p.Cost, Price = p.Price, MSRP = p.MSRP, MarkupPercent = p.MarkupPercent,
+            TaxIncludedInPrice = p.TaxIncludedInPrice,
             Unit = p.Unit, SupplierName = p.SupplierName, IsTemplate = p.IsTemplate,
             IsActive = p.IsActive, IsDiscontinued = p.IsDiscontinued,
             InventoryCount = p.InventoryItems.Count(i => !i.IsArchived)
@@ -57,6 +58,7 @@ public class ProductService : IProductService
                 EquipmentType = p.EquipmentType, FuelType = p.FuelType,
                 Description = p.Description,
                 Cost = p.Cost, Price = p.Price, MSRP = p.MSRP, MarkupPercent = p.MarkupPercent,
+                TaxIncludedInPrice = p.TaxIncludedInPrice,
                 Unit = p.Unit, Specs = p.Specs, SupplierName = p.SupplierName,
                 Tonnage = p.Tonnage, RefrigerantType = p.RefrigerantType,
                 SEERRating = p.SEERRating, AFUERating = p.AFUERating, Voltage = p.Voltage,
@@ -82,7 +84,8 @@ public class ProductService : IProductService
             EquipmentType = model.EquipmentType, FuelType = model.FuelType,
             Description = model.Description,
             Cost = model.Cost, Price = model.Price, MSRP = model.MSRP,
-            MarkupPercent = model.MarkupPercent, Unit = model.Unit,
+            MarkupPercent = model.MarkupPercent, TaxIncludedInPrice = model.TaxIncludedInPrice,
+            Unit = model.Unit,
             Specs = model.Specs, SupplierName = model.SupplierName,
             Tonnage = model.Tonnage, RefrigerantType = model.RefrigerantType,
             SEERRating = model.SEERRating, AFUERating = model.AFUERating,
@@ -108,7 +111,8 @@ public class ProductService : IProductService
         p.EquipmentType = model.EquipmentType; p.FuelType = model.FuelType;
         p.Description = model.Description;
         p.Cost = model.Cost; p.Price = model.Price; p.MSRP = model.MSRP;
-        p.MarkupPercent = model.MarkupPercent; p.Unit = model.Unit;
+        p.MarkupPercent = model.MarkupPercent; p.TaxIncludedInPrice = model.TaxIncludedInPrice;
+        p.Unit = model.Unit;
         p.Specs = model.Specs; p.SupplierName = model.SupplierName;
         p.Tonnage = model.Tonnage; p.RefrigerantType = model.RefrigerantType;
         p.SEERRating = model.SEERRating; p.AFUERating = model.AFUERating;

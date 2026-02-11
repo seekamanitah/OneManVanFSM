@@ -7,6 +7,7 @@ public interface IMobileInventoryService
     Task<List<MobileInventoryItem>> GetInventoryAsync(MobileInventoryFilter? filter = null);
     Task<MobileInventoryStats> GetStatsAsync();
     Task AdjustQuantityAsync(int itemId, decimal delta);
+    Task<InventoryItem> QuickCreateAsync(MobileInventoryQuickCreate model);
 }
 
 public class MobileInventoryItem
@@ -39,4 +40,16 @@ public class MobileInventoryStats
     public int LowStockCount { get; set; }
     public int TruckItems { get; set; }
     public decimal TotalValue { get; set; }
+}
+
+public class MobileInventoryQuickCreate
+{
+    public string Name { get; set; } = string.Empty;
+    public string? SKU { get; set; }
+    public InventoryLocation Location { get; set; } = InventoryLocation.Warehouse;
+    public decimal Quantity { get; set; }
+    public decimal Cost { get; set; }
+    public decimal Price { get; set; }
+    public string? ShelfBin { get; set; }
+    public string? Notes { get; set; }
 }

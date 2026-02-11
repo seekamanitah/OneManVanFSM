@@ -1,5 +1,7 @@
 @page "/assets"
 @inject IMobileAssetService AssetService
+@inject IMobileCustomerService CustomerService
+@inject IMobileSiteService SiteService
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -10,6 +12,50 @@
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-cpu-fill me-1"></i>Quick Add Asset</h6>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAsset.CustomerId">
+                    <option value="">Customer (optional)</option>
+                    @foreach (var c in _customerOpts) { <option value="@c.Id">@c.Name</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAsset.SiteId">
+                    <option value="">Site (optional)</option>
+                    @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Brand" @bind="_newAsset.Brand" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Model" @bind="_newAsset.Model" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Serial Number *" @bind="_newAsset.SerialNumber" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Equipment type (e.g., AC Unit, Furnace)" @bind="_newAsset.AssetType" />
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Complete specs, warranty, and efficiency details on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveAsset" disabled="@string.IsNullOrWhiteSpace(_newAsset.SerialNumber)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- Stats Row -->
     <div class="gap-grid mb-2">
         <div class="stat-card">
@@ -143,6 +189,13 @@ else
             <p>No assets found</p>
         </div>
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Asset" @onclick="ShowCreateAsset">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -152,6 +205,11 @@ else
     private string _search = string.Empty;
     private string _statusFilter = string.Empty;
     private string _sortMode = "name";
+    private bool _showCreate;
+    private MobileAssetQuickCreate _newAsset = new();
+    private List<MobileCustomerCard> _customerOpts = [];
+    private List<MobileSiteCard> _siteOpts = [];
+    private string? _saveError;
 
     private IEnumerable<MobileAssetCard> SortedAssets => _sortMode switch
     {
@@ -198,6 +256,29 @@ else
 
         _assets = await AssetService.GetAssetsAsync(filter);
         _loading = false;
+    }
+
+    private async Task ShowCreateAsset()
+    {
+        _newAsset = new();
+        _saveError = null;
+        _customerOpts = await CustomerService.GetCustomersAsync();
+        _siteOpts = await SiteService.GetSitesAsync();
+        _showCreate = true;
+    }
+
+    private async Task SaveAsset()
+    {
+        if (string.IsNullOrWhiteSpace(_newAsset.SerialNumber)) { _saveError = "Serial number is required."; return; }
+        try
+        {
+            _saveError = null;
+            await AssetService.QuickCreateAsync(_newAsset);
+            _showCreate = false;
+            _stats = await AssetService.GetStatsAsync();
+            await LoadAssets();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 
     private void GoToAsset(int id) => Nav.NavigateTo($"/assets/{id}");

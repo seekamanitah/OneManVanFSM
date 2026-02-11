@@ -43,6 +43,7 @@ public class InventoryService : IInventoryService
             ProductName = i.Product != null ? i.Product.Name : null,
             Location = i.Location, Quantity = i.Quantity, MinThreshold = i.MinThreshold,
             MaxCapacity = i.MaxCapacity, Cost = i.Cost, Price = i.Price,
+            TaxIncludedInPrice = i.TaxIncludedInPrice,
             LotNumber = i.LotNumber, ExpiryDate = i.ExpiryDate
         }).ToListAsync();
     }
@@ -58,6 +59,7 @@ public class InventoryService : IInventoryService
                 PreferredSupplier = i.PreferredSupplier, Location = i.Location,
                 Quantity = i.Quantity, MinThreshold = i.MinThreshold, MaxCapacity = i.MaxCapacity,
                 Cost = i.Cost, Price = i.Price, MarkupPercent = i.MarkupPercent,
+                TaxIncludedInPrice = i.TaxIncludedInPrice,
                 LotNumber = i.LotNumber, ExpiryDate = i.ExpiryDate,
                 LastRestockedDate = i.LastRestockedDate,
                 Notes = i.Notes,
@@ -77,6 +79,7 @@ public class InventoryService : IInventoryService
             Location = model.Location, Quantity = model.Quantity,
             MinThreshold = model.MinThreshold, MaxCapacity = model.MaxCapacity,
             Cost = model.Cost, Price = model.Price, MarkupPercent = model.MarkupPercent,
+            TaxIncludedInPrice = model.TaxIncludedInPrice,
             LotNumber = model.LotNumber, ExpiryDate = model.ExpiryDate,
             Notes = model.Notes, ProductId = model.ProductId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -96,6 +99,7 @@ public class InventoryService : IInventoryService
         item.Location = model.Location; item.Quantity = model.Quantity;
         item.MinThreshold = model.MinThreshold; item.MaxCapacity = model.MaxCapacity;
         item.Cost = model.Cost; item.Price = model.Price; item.MarkupPercent = model.MarkupPercent;
+        item.TaxIncludedInPrice = model.TaxIncludedInPrice;
         item.LotNumber = model.LotNumber; item.ExpiryDate = model.ExpiryDate;
         item.Notes = model.Notes; item.ProductId = model.ProductId;
         item.UpdatedAt = DateTime.UtcNow;

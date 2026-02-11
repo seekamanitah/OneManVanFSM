@@ -25,6 +25,14 @@ else
         </button>
     </div>
 
+    @if (_asset.NeedsReview)
+    {
+        <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center" style="font-size:0.8rem; border-radius:10px;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <span>Created on mobile — complete specs, warranty, and efficiency details on the web app.</span>
+        </div>
+    }
+
     <!-- Asset Header Card -->
     <div class="mobile-card">
         <div class="mobile-card-header">

@@ -6,6 +6,7 @@ public interface IMobileCustomerService
 {
     Task<List<MobileCustomerCard>> GetCustomersAsync(string? search = null);
     Task<MobileCustomerDetail?> GetCustomerDetailAsync(int id);
+    Task<Customer> QuickCreateAsync(MobileCustomerQuickCreate model);
 }
 
 public class MobileCustomerCard
@@ -47,6 +48,7 @@ public class MobileCustomerDetail
     public decimal BalanceOwed { get; set; }
     public string? Tags { get; set; }
     public string? Notes { get; set; }
+    public bool NeedsReview { get; set; }
     public List<MobileCustomerSite> Sites { get; set; } = [];
     public List<MobileCustomerJob> RecentJobs { get; set; } = [];
     public List<MobileCustomerAgreement> Agreements { get; set; } = [];
@@ -82,4 +84,17 @@ public class MobileCustomerAgreement
     public DateTime EndDate { get; set; }
     public int VisitsIncluded { get; set; }
     public int VisitsUsed { get; set; }
+}
+
+public class MobileCustomerQuickCreate
+{
+    public string Name { get; set; } = string.Empty;
+    public CustomerType Type { get; set; } = CustomerType.Individual;
+    public string? PrimaryPhone { get; set; }
+    public string? PrimaryEmail { get; set; }
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Zip { get; set; }
+    public string? Notes { get; set; }
 }

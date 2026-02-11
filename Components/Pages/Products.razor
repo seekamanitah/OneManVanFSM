@@ -9,6 +9,49 @@
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-box-seam me-1"></i>Quick Add Product</h6>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Product name *" @bind="_newProduct.Name" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Brand / Manufacturer" @bind="_newProduct.Brand" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Model number" @bind="_newProduct.ModelNumber" />
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-6">
+                    <div class="input-group">
+                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 8px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Cost" @bind="_newProduct.Cost" />
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="input-group">
+                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 8px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Price" @bind="_newProduct.Price" />
+                    </div>
+                </div>
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Complete specs, warranty terms, and supplier details on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveProduct" disabled="@string.IsNullOrWhiteSpace(_newProduct.Name)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- Stats Row -->
     <div class="gap-grid mb-2">
         <div class="stat-card">
@@ -137,6 +180,13 @@ else
             <p>No products found</p>
         </div>
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Product" @onclick="ShowCreateProduct">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -147,6 +197,9 @@ else
     private string _search = string.Empty;
     private string _categoryFilter = string.Empty;
     private string _sortMode = "name";
+    private bool _showCreate;
+    private MobileProductQuickCreate _newProduct = new();
+    private string? _saveError;
 
     private IEnumerable<IGrouping<string?, MobileProductCard>> GroupedProducts =>
         _sortMode == "category"
@@ -202,5 +255,21 @@ else
 
         _products = await ProductService.GetProductsAsync(filter);
         _loading = false;
+    }
+
+    private void ShowCreateProduct() { _newProduct = new(); _saveError = null; _showCreate = true; }
+
+    private async Task SaveProduct()
+    {
+        if (string.IsNullOrWhiteSpace(_newProduct.Name)) { _saveError = "Name is required."; return; }
+        try
+        {
+            _saveError = null;
+            await ProductService.QuickCreateAsync(_newProduct);
+            _showCreate = false;
+            _stats = await ProductService.GetStatsAsync();
+            await LoadProducts();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 }

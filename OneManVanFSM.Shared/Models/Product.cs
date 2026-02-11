@@ -17,6 +17,7 @@ public class Product
     public decimal Price { get; set; } // Suggested Sell Price
     public decimal MSRP { get; set; }
     public decimal MarkupPercent { get; set; }
+    public bool TaxIncludedInPrice { get; set; } // When true, Price includes tax calculated from settings tax rate
     public string? Unit { get; set; } // Count, Boxes, Ft, Rolls, etc.
     public string? Specs { get; set; } // JSON for flexible specs
     public string? SupplierName { get; set; }
@@ -40,6 +41,8 @@ public class Product
     public bool IsTemplate { get; set; } = true;
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
+    public bool NeedsReview { get; set; }
+    public string? CreatedFrom { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

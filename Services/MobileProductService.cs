@@ -72,4 +72,27 @@ public class MobileProductService(AppDbContext db) : IMobileProductService
             AvgMarkup = products.Count > 0 ? products.Average(p => p.MarkupPercent) : 0,
         };
     }
+
+    public async Task<Product> QuickCreateAsync(MobileProductQuickCreate model)
+    {
+        var product = new Product
+        {
+            Name = model.Name,
+            Brand = model.Brand,
+            ModelNumber = model.ModelNumber,
+            Category = model.Category,
+            EquipmentType = model.EquipmentType,
+            Cost = model.Cost,
+            Price = model.Price,
+            Notes = model.Notes,
+            IsActive = true,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        db.Products.Add(product);
+        await db.SaveChangesAsync();
+        return product;
+    }
 }

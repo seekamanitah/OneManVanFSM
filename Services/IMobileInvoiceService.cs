@@ -7,6 +7,7 @@ public interface IMobileInvoiceService
     Task<MobileInvoiceStats> GetStatsAsync();
     Task<List<MobileInvoiceCard>> GetInvoicesAsync(MobileInvoiceFilter? filter = null);
     Task<MobileInvoiceDetail?> GetInvoiceDetailAsync(int id);
+    Task<Invoice> QuickCreateAsync(MobileInvoiceQuickCreate model);
 }
 
 public class MobileInvoiceStats
@@ -50,6 +51,7 @@ public class MobileInvoiceDetail
     public decimal BalanceDue { get; set; }
     public string? Notes { get; set; }
     public string? Terms { get; set; }
+    public bool NeedsReview { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerPhone { get; set; }
@@ -88,4 +90,12 @@ public class MobileInvoiceFilter
 {
     public string? Search { get; set; }
     public InvoiceStatus? Status { get; set; }
+}
+
+public class MobileInvoiceQuickCreate
+{
+    public int? CustomerId { get; set; }
+    public int? JobId { get; set; }
+    public int? SiteId { get; set; }
+    public string? Notes { get; set; }
 }

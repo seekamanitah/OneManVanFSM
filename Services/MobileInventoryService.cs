@@ -66,4 +66,26 @@ public class MobileInventoryService : IMobileInventoryService
         item.Quantity = Math.Max(0, item.Quantity + delta);
         await _db.SaveChangesAsync();
     }
+
+    public async Task<InventoryItem> QuickCreateAsync(MobileInventoryQuickCreate model)
+    {
+        var item = new InventoryItem
+        {
+            Name = model.Name,
+            SKU = model.SKU,
+            Location = model.Location,
+            Quantity = model.Quantity,
+            Cost = model.Cost,
+            Price = model.Price,
+            ShelfBin = model.ShelfBin,
+            Notes = model.Notes,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.InventoryItems.Add(item);
+        await _db.SaveChangesAsync();
+        return item;
+    }
 }

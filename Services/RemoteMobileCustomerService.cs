@@ -88,7 +88,32 @@ public class RemoteMobileCustomerService : IMobileCustomerService
             CompanyId = customer.CompanyId, CompanyName = customer.Company?.Name,
             SinceDate = customer.SinceDate, BalanceOwed = customer.BalanceOwed,
             Tags = customer.Tags, Notes = customer.Notes,
+            NeedsReview = customer.NeedsReview,
             Sites = sites, RecentJobs = recentJobs, Agreements = agreements
         };
+    }
+
+    public async Task<Customer> QuickCreateAsync(MobileCustomerQuickCreate model)
+    {
+        var customer = new Customer
+        {
+            Name = model.Name,
+            Type = model.Type,
+            PrimaryPhone = model.PrimaryPhone,
+            PrimaryEmail = model.PrimaryEmail,
+            Address = model.Address,
+            City = model.City,
+            State = model.State,
+            Zip = model.Zip,
+            Notes = model.Notes,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            SinceDate = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.Customers.Add(customer);
+        await _db.SaveChangesAsync();
+        return customer;
     }
 }

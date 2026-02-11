@@ -1,5 +1,6 @@
 @page "/sites"
 @inject IMobileSiteService SiteService
+@inject IMobileCustomerService CustomerService
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -10,6 +11,48 @@
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-building-add me-1"></i>Quick Add Site</h6>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Site name *" @bind="_newSite.Name" />
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newSite.CustomerId">
+                    <option value="">Customer (optional)</option>
+                    @foreach (var c in _customerOptions) { <option value="@c.Id">@c.Name</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Address" @bind="_newSite.Address" />
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-5"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="City" @bind="_newSite.City" /></div>
+                <div class="col-3"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="State" @bind="_newSite.State" /></div>
+                <div class="col-4"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Zip" @bind="_newSite.Zip" /></div>
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newSite.PropertyType">
+                    @foreach (var t in Enum.GetValues<PropertyType>()) { <option value="@t">@t</option> }
+                </select>
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Complete details (access codes, equipment locations, etc.) on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveSite" disabled="@string.IsNullOrWhiteSpace(_newSite.Name)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- Stats Row -->
     <div class="gap-grid mb-2">
         <div class="stat-card">
@@ -115,6 +158,13 @@ else
             <p>No sites found</p>
         </div>
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Site" @onclick="ShowCreateSite">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -124,6 +174,10 @@ else
     private string _search = string.Empty;
     private string _typeFilter = string.Empty;
     private string _sortMode = "name";
+    private bool _showCreate;
+    private MobileSiteQuickCreate _newSite = new();
+    private List<MobileCustomerCard> _customerOptions = [];
+    private string? _saveError;
 
     private IEnumerable<MobileSiteCard> SortedSites => _sortMode switch
     {
@@ -170,6 +224,28 @@ else
 
         _sites = await SiteService.GetSitesAsync(filter);
         _loading = false;
+    }
+
+    private async Task ShowCreateSite()
+    {
+        _newSite = new();
+        _saveError = null;
+        _customerOptions = await CustomerService.GetCustomersAsync();
+        _showCreate = true;
+    }
+
+    private async Task SaveSite()
+    {
+        if (string.IsNullOrWhiteSpace(_newSite.Name)) { _saveError = "Name is required."; return; }
+        try
+        {
+            _saveError = null;
+            await SiteService.QuickCreateAsync(_newSite);
+            _showCreate = false;
+            _stats = await SiteService.GetStatsAsync();
+            await LoadSites();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");

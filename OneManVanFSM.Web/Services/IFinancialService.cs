@@ -162,7 +162,7 @@ public class InvoiceEditModel
     public string? PricingType { get; set; } = "Material & Labor (Itemized)";
     public decimal Subtotal { get; set; }
     public decimal TaxAmount { get; set; }
-    public decimal TaxRate { get; set; } = 7.0m;
+    public decimal TaxRate { get; set; } = 9.75m;
     public bool TaxIncludedInPrice { get; set; } = true;
     public decimal MarkupAmount { get; set; }
     public decimal? DiscountAmount { get; set; }

@@ -50,13 +50,23 @@
                     {
                         <div class="col-12">
                             <label class="form-label">File <span class="text-danger">*</span></label>
-                            <InputFile OnChange="OnFileSelected" class="form-control" accept="*/*" />
-                            @if (uploadFile is not null)
+                            <InputFile OnChange="OnFileSelected" class="form-control"
+                                       accept=".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.jpg,.jpeg,.png,.gif,.webp,.bmp,.zip,.rar" />
+                            @if (!string.IsNullOrEmpty(_fileError))
                             {
-                                <small class="text-muted d-block mt-1">
-                                    <i class="bi bi-file-earmark me-1"></i>@uploadFile.Name — @FormatSize(uploadFile.Size)
+                                <div class="alert alert-danger py-1 px-2 mt-1 mb-0 small">
+                                    <i class="bi bi-exclamation-triangle me-1"></i>@_fileError
+                                </div>
+                            }
+                            else if (uploadFile is not null)
+                            {
+                                <small class="text-success d-block mt-1">
+                                    <i class="bi bi-check-circle me-1"></i>@uploadFile.Name — @FormatSize(uploadFile.Size)
                                 </small>
                             }
+                            <small class="text-muted d-block mt-1">
+                                Max 100 MB · PDF, Word, Excel, images, text, and archives accepted
+                            </small>
                         </div>
                     }
                     <div class="col-md-4">
@@ -352,6 +362,7 @@ else
     private int? editId;
     private string? errorMsg;
     private IBrowserFile? uploadFile;
+    private string? _fileError;
     private bool isUploading;
     private bool isDownloading;
     private bool _previewExpanded;
@@ -413,9 +424,30 @@ else
         if (als.Count > 0) _accessLevels = als.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
+    private static readonly long MaxFileSize = 100 * 1024 * 1024; // 100 MB
+    private static readonly HashSet<string> AllowedExtensions = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".zip", ".rar"];
+
     private void OnFileSelected(InputFileChangeEventArgs e)
     {
-        uploadFile = e.File;
+        _fileError = null;
+        uploadFile = null;
+
+        var file = e.File;
+        var ext = Path.GetExtension(file.Name)?.ToLowerInvariant();
+
+        if (file.Size > MaxFileSize)
+        {
+            _fileError = $"File is too large ({FormatSize(file.Size)}). Maximum allowed size is {FormatSize(MaxFileSize)}.";
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(ext) && !AllowedExtensions.Contains(ext))
+        {
+            _fileError = $"File type '{ext}' is not supported. Accepted: PDF, Word, Excel, images, text, and archives.";
+            return;
+        }
+
+        uploadFile = file;
         if (string.IsNullOrWhiteSpace(form.Name))
             form.Name = Path.GetFileNameWithoutExtension(uploadFile.Name);
     }
@@ -456,6 +488,7 @@ else
         {
             errorMsg = null;
             isUploading = true;
+            StateHasChanged();
             if (editId.HasValue)
             {
                 await DocSvc.CreateDocumentAsync(form); // Update via create for metadata-only edits
@@ -464,12 +497,17 @@ else
             else
             {
                 if (uploadFile is null) { errorMsg = "Please select a file to upload."; return; }
-                await using var stream = uploadFile.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+                if (!string.IsNullOrEmpty(_fileError)) { errorMsg = _fileError; return; }
+                await using var stream = uploadFile.OpenReadStream(maxAllowedSize: MaxFileSize);
                 await DocSvc.UploadDocumentAsync(form, stream, uploadFile.Name, uploadFile.Size);
                 Nav.NavigateTo("/documents");
             }
         }
-        catch (Exception ex) { errorMsg = ex.Message; }
+        catch (IOException)
+        {
+            errorMsg = $"File exceeds the maximum upload size of {FormatSize(MaxFileSize)}. Please select a smaller file.";
+        }
+        catch (Exception ex) { errorMsg = $"Upload failed: {ex.Message}"; }
         finally { isUploading = false; }
     }
 

@@ -168,7 +168,7 @@ public class ApiClient
     }
 
     /// <summary>
-    /// Test connectivity to the server's health endpoint.
+    /// Test connectivity to the server's health endpoint with detailed diagnostics.
     /// </summary>
     public async Task<(bool IsReachable, string Message)> TestConnectionAsync()
     {
@@ -176,27 +176,49 @@ public class ApiClient
         {
             var url = BaseUrl;
             if (string.IsNullOrWhiteSpace(url))
-                return (false, "No server URL configured.");
+                return (false, "No server URL configured. Enter a URL like http://192.168.1.100:6000");
 
-            var response = await _http.GetAsync($"{url}/health");
+            if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
+                !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                return (false, $"URL must start with http:// or https:// — got: {url}");
+
+            _logger.LogInformation("Testing connection to {Url}/health...", url);
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            var response = await _http.GetAsync($"{url}/health", cts.Token);
+
             if (response.IsSuccessStatusCode)
-                return (true, "Server is reachable and healthy.");
+            {
+                var body = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Health check succeeded: {Body}", body);
+                return (true, $"Server is reachable and healthy (HTTP {(int)response.StatusCode}).");
+            }
 
-            return (false, $"Server returned {response.StatusCode}.");
+            var errorBody = await response.Content.ReadAsStringAsync();
+            _logger.LogWarning("Health check returned {StatusCode}: {Body}", (int)response.StatusCode, errorBody);
+            return (false, $"Server returned HTTP {(int)response.StatusCode} ({response.StatusCode}). Response: {Truncate(errorBody, 200)}");
         }
         catch (HttpRequestException ex)
         {
-            return (false, $"Connection failed: {ex.Message}");
+            _logger.LogWarning(ex, "Connection test failed with HttpRequestException.");
+            var inner = ex.InnerException?.Message;
+            var detail = !string.IsNullOrEmpty(inner) ? $"{ex.Message} ? {inner}" : ex.Message;
+            return (false, $"Connection failed: {detail}");
         }
-        catch (TaskCanceledException)
+        catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)
         {
-            return (false, "Connection timed out.");
+            _logger.LogWarning("Connection test timed out after 10 seconds.");
+            return (false, "Connection timed out after 10 seconds. Server may be unreachable or the port may be blocked.");
         }
         catch (Exception ex)
         {
-            return (false, $"Unexpected error: {ex.Message}");
+            _logger.LogError(ex, "Unexpected error during connection test.");
+            return (false, $"Unexpected error: {ex.GetType().Name} — {ex.Message}");
         }
     }
+
+    private static string Truncate(string value, int maxLength)
+        => value.Length <= maxLength ? value : value[..maxLength] + "...";
 
     // ?????????????????????? HTTP helpers ??????????????????????
 
@@ -252,6 +274,14 @@ public class ApiClient
         var request = CreateRequest(HttpMethod.Delete, path);
         var response = await SendWithRetryAsync(request);
         response.EnsureSuccessStatusCode();
+    }
+
+    public async Task<Stream?> GetStreamAsync(string path)
+    {
+        var request = CreateRequest(HttpMethod.Get, path);
+        var response = await SendWithRetryAsync(request);
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadAsStreamAsync();
     }
 
     // ?????????????????????? Internal ??????????????????????

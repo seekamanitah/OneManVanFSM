@@ -88,6 +88,7 @@ public class MobileCustomerService : IMobileCustomerService
             BalanceOwed = customer.BalanceOwed,
             Tags = customer.Tags,
             Notes = customer.Notes,
+            NeedsReview = customer.NeedsReview,
             Sites = customer.Sites.Select(s => new MobileCustomerSite
             {
                 Id = s.Id,
@@ -120,5 +121,29 @@ public class MobileCustomerService : IMobileCustomerService
                 VisitsUsed = sa.VisitsUsed,
             }).ToList(),
         };
+    }
+
+    public async Task<Customer> QuickCreateAsync(MobileCustomerQuickCreate model)
+    {
+        var customer = new Customer
+        {
+            Name = model.Name,
+            Type = model.Type,
+            PrimaryPhone = model.PrimaryPhone,
+            PrimaryEmail = model.PrimaryEmail,
+            Address = model.Address,
+            City = model.City,
+            State = model.State,
+            Zip = model.Zip,
+            Notes = model.Notes,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            SinceDate = DateTime.UtcNow,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.Customers.Add(customer);
+        await _db.SaveChangesAsync();
+        return customer;
     }
 }

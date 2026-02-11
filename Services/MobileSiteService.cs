@@ -73,4 +73,26 @@ public class MobileSiteService(AppDbContext db) : IMobileSiteService
             TotalAssets = totalAssets,
         };
     }
+
+    public async Task<Site> QuickCreateAsync(MobileSiteQuickCreate model)
+    {
+        var site = new Site
+        {
+            Name = model.Name,
+            CustomerId = model.CustomerId,
+            Address = model.Address,
+            City = model.City,
+            State = model.State,
+            Zip = model.Zip,
+            PropertyType = model.PropertyType,
+            Notes = model.Notes,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        db.Sites.Add(site);
+        await db.SaveChangesAsync();
+        return site;
+    }
 }

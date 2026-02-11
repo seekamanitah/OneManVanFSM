@@ -159,6 +159,7 @@ public class MobileSiteDetail
     public bool? HasCrawlSpace { get; set; }
     public bool? HasBasement { get; set; }
     public string? Notes { get; set; }
+    public bool NeedsReview { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public int? CompanyId { get; set; }

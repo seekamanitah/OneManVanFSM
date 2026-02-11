@@ -8,6 +8,8 @@ public interface IMobileDocumentService
     Task<MobileDocumentItem?> GetDocumentAsync(int id);
     Task<Document> CreateDocumentAsync(MobileDocumentCreate model);
     Task<bool> DeleteDocumentAsync(int id);
+    Task<string?> GetCachedFilePathAsync(int docId, string? storedFileName);
+    Task OpenDocumentAsync(int docId, string? storedFileName, string? fileType);
 }
 
 public class MobileDocumentItem

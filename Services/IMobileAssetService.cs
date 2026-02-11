@@ -9,6 +9,7 @@ public interface IMobileAssetService
     Task<MobileAssetDetail?> GetAssetDetailAsync(int assetId);
     Task<List<MobileServiceLogItem>> GetServiceLogsAsync(int assetId);
     Task<AssetServiceLog> AddServiceLogAsync(MobileServiceLogCreate model);
+    Task<Asset> QuickCreateAsync(MobileAssetQuickCreate model);
 }
 
 public class MobileAssetCard
@@ -85,6 +86,7 @@ public class MobileAssetDetail
     public DateTime? CompressorWarrantyExpiry { get; set; }
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
+    public bool NeedsReview { get; set; }
 
     // Owner context
     public string? SiteName { get; set; }
@@ -146,4 +148,16 @@ public class MobileServiceLogCreate
     public decimal? RefrigerantAmountAdded { get; set; }
     public decimal? RefrigerantBeforeReading { get; set; }
     public decimal? RefrigerantAfterReading { get; set; }
+}
+
+public class MobileAssetQuickCreate
+{
+    public string? Name { get; set; }
+    public int? CustomerId { get; set; }
+    public int? SiteId { get; set; }
+    public string? Brand { get; set; }
+    public string? Model { get; set; }
+    public string? SerialNumber { get; set; }
+    public string? AssetType { get; set; }
+    public string? Notes { get; set; }
 }

@@ -36,7 +36,7 @@
                                 <option value="@p.Id" selected="@(form.ProductId == p.Id)">@p.Name @(!string.IsNullOrWhiteSpace(p.Brand) ? $"({p.Brand})" : "")</option>
                             }
                         </select>
-                        <small class="text-muted">Auto-fills brand, model, tonnage, SEER, and warranty info</small>
+                        <small class="text-muted">Auto-fills brand, model, equipment type, fuel type, tonnage, SEER, AFUE, refrigerant, voltage, and warranty info</small>
                     </div>
                 </div>
 
@@ -1219,15 +1219,50 @@ private async Task OnProductSelected(ChangeEventArgs e)
     if (product is null) return;
 
     // Auto-fill fields from product
-    form.Brand = product.Brand;
     form.Name = string.IsNullOrWhiteSpace(form.Name) ? product.Name : form.Name;
+    form.Brand = product.Brand;
+    form.Model = product.ModelNumber;
+    form.AssetType = product.EquipmentType;
+    form.FuelType = product.FuelType;
+    form.RefrigerantType = product.RefrigerantType;
+    form.Voltage = product.Voltage;
+
+    // Parse tonnage: Product stores "2.5 Ton" or "3 Ton" ? Asset stores BTU as decimal
+    if (!string.IsNullOrWhiteSpace(product.Tonnage))
+    {
+        var tonStr = product.Tonnage.Replace("Ton", "", StringComparison.OrdinalIgnoreCase).Trim();
+        if (decimal.TryParse(tonStr, out var tons))
+            form.Tonnage = tons * 12000m; // Convert tons to BTU
+    }
+
+    // Parse SEER rating: Product stores as string ? Asset as decimal
+    if (!string.IsNullOrWhiteSpace(product.SEERRating) && decimal.TryParse(product.SEERRating, out var seer))
+        form.SEER = seer;
+
+    // Parse AFUE rating: Product stores as string ? Asset as decimal
+    if (!string.IsNullOrWhiteSpace(product.AFUERating) && decimal.TryParse(product.AFUERating, out var afue))
+        form.AFUE = afue;
+
+    // Warranty
     form.LaborWarrantyTermYears = product.LaborWarrantyYears;
     form.PartsWarrantyTermYears = product.PartsWarrantyYears;
     form.CompressorWarrantyTermYears = product.CompressorWarrantyYears;
 
-    // Sync dropdown selects
-    _brandValue = form.Brand ?? "";
-    RecalculateWarrantyExpiries();
+    // Inject product values into dropdown options if not already present
+    EnsureDropdownOption(_brandOptions, form.Brand);
+    EnsureDropdownOption(_assetTypeOptions, form.AssetType);
+    EnsureDropdownOption(_fuelTypeOptions, form.FuelType);
+    EnsureDropdownOption(_refrigerantOptions, form.RefrigerantType);
+    EnsureDropdownOption(_voltageOptions, form.Voltage);
+
+    // Sync all dropdown selects to match the filled values
+    SyncDropdownSelects();
+}
+
+private static void EnsureDropdownOption(List<string> options, string? value)
+{
+    if (!string.IsNullOrWhiteSpace(value) && !options.Contains(value, StringComparer.OrdinalIgnoreCase))
+        options.Add(value);
 }
 
 private void OnInstallDateChanged()

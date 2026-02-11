@@ -84,6 +84,7 @@ public class MobileEstimateService : IMobileEstimateService
             DepositRequired = e.DepositRequired,
             ExpiryDate = e.ExpiryDate,
             Notes = e.Notes,
+            NeedsReview = e.NeedsReview,
             CreatedAt = e.CreatedAt,
             Lines = e.Lines.OrderBy(l => l.SortOrder).Select(l => new MobileEstimateLine
             {
@@ -96,5 +97,28 @@ public class MobileEstimateService : IMobileEstimateService
                 Unit = l.Unit,
             }).ToList(),
         };
+    }
+
+    public async Task<Estimate> QuickCreateAsync(MobileEstimateQuickCreate model)
+    {
+        var count = await _db.Estimates.CountAsync() + 1;
+        var estimate = new Estimate
+        {
+            EstimateNumber = $"EST-{count:D5}",
+            Title = model.Title ?? "Untitled Estimate",
+            Status = EstimateStatus.Draft,
+            Priority = model.Priority,
+            TradeType = model.TradeType,
+            CustomerId = model.CustomerId,
+            SiteId = model.SiteId,
+            Notes = model.Notes,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.Estimates.Add(estimate);
+        await _db.SaveChangesAsync();
+        return estimate;
     }
 }

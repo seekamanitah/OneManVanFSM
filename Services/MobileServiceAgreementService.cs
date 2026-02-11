@@ -105,4 +105,32 @@ public class MobileServiceAgreementService : IMobileServiceAgreementService
             }).ToList(),
         };
     }
+
+    public async Task<ServiceAgreement> QuickCreateAsync(MobileAgreementQuickCreate model)
+    {
+        var count = await _db.ServiceAgreements.CountAsync() + 1;
+        var agreement = new ServiceAgreement
+        {
+            AgreementNumber = $"SA-{count:D5}",
+            Title = model.Title ?? "Untitled Agreement",
+            CoverageLevel = model.CoverageLevel,
+            TradeType = model.TradeType,
+            CustomerId = model.CustomerId,
+            SiteId = model.SiteId,
+            VisitsIncluded = model.VisitsIncluded,
+            Fee = model.Fee,
+            BillingFrequency = model.BillingFrequency,
+            Notes = model.Notes,
+            Status = AgreementStatus.Active,
+            StartDate = DateTime.UtcNow,
+            EndDate = DateTime.UtcNow.AddYears(1),
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.ServiceAgreements.Add(agreement);
+        await _db.SaveChangesAsync();
+        return agreement;
+    }
 }

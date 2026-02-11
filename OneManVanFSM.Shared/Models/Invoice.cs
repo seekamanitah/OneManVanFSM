@@ -24,6 +24,8 @@ public class Invoice
     public bool IncludeSiteLocation { get; set; } = true;
     public bool IncludeAssetInfo { get; set; } = true;
     public bool IsArchived { get; set; }
+    public bool NeedsReview { get; set; }
+    public string? CreatedFrom { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

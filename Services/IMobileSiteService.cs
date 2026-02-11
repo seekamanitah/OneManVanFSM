@@ -6,6 +6,7 @@ public interface IMobileSiteService
 {
     Task<List<MobileSiteCard>> GetSitesAsync(MobileSiteFilter? filter = null);
     Task<MobileSiteStats> GetStatsAsync();
+    Task<Site> QuickCreateAsync(MobileSiteQuickCreate model);
 }
 
 public class MobileSiteCard
@@ -38,4 +39,16 @@ public class MobileSiteStats
     public int ResidentialCount { get; set; }
     public int CommercialCount { get; set; }
     public int TotalAssets { get; set; }
+}
+
+public class MobileSiteQuickCreate
+{
+    public string Name { get; set; } = string.Empty;
+    public int? CustomerId { get; set; }
+    public string? Address { get; set; }
+    public string? City { get; set; }
+    public string? State { get; set; }
+    public string? Zip { get; set; }
+    public PropertyType PropertyType { get; set; } = PropertyType.Residential;
+    public string? Notes { get; set; }
 }

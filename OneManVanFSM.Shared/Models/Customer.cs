@@ -23,6 +23,8 @@ public class Customer
     public string? Tags { get; set; } // JSON: "VIP", "Warranty Customer", "Propane", etc.
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
+    public bool NeedsReview { get; set; }
+    public string? CreatedFrom { get; set; } // "web", "mobile"
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

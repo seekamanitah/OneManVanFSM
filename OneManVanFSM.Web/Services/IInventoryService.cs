@@ -38,6 +38,7 @@ public class InventoryListItem
     public decimal Price { get; set; }
     public string? LotNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
+    public bool TaxIncludedInPrice { get; set; }
     public bool IsLowStock => Quantity <= MinThreshold;
 }
 
@@ -60,6 +61,7 @@ public class InventoryDetail
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
     public decimal MarkupPercent { get; set; }
+    public bool TaxIncludedInPrice { get; set; }
     public string? LotNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public DateTime? LastRestockedDate { get; set; }
@@ -89,6 +91,7 @@ public class InventoryEditModel
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
     public decimal MarkupPercent { get; set; }
+    public bool TaxIncludedInPrice { get; set; }
     public string? LotNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public string? Notes { get; set; }

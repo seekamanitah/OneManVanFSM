@@ -82,6 +82,14 @@
                         <label class="form-label">Supplier</label>
                         <InputText @bind-Value="form.PreferredSupplier" class="form-control form-control-sm" placeholder="Search suppliers..." />
                     </div>
+                    <div class="col-12 mt-1">
+                        <div class="form-check">
+                            <InputCheckbox @bind-Value="form.TaxIncludedInPrice" @bind-Value:after="OnInventoryTaxToggled" class="form-check-input" id="inventoryTaxIncluded" />
+                            <label class="form-check-label text-muted small" for="inventoryTaxIncluded">
+                                <i class="bi bi-percent me-1"></i>Auto-calculate tax into price (@(_defaultTaxRate)% tax rate from Settings)
+                            </label>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="d-flex justify-content-between border-top pt-3">
@@ -345,6 +353,16 @@ else
 
     private List<ProductListItem> _products = [];
     private List<string> _inventoryCategories = ["Parts", "Supplies", "Equipment", "Filters", "Refrigerant", "Ductwork", "Electrical", "Plumbing", "Safety", "Tools", "Other"];
+    private decimal _defaultTaxRate = 9.75m;
+
+    private void OnInventoryTaxToggled()
+    {
+        if (form.Price <= 0 || _defaultTaxRate <= 0) return;
+        var multiplier = 1 + (_defaultTaxRate / 100m);
+        form.Price = form.TaxIncludedInPrice
+            ? Math.Round(form.Price * multiplier, 2)
+            : Math.Round(form.Price / multiplier, 2);
+    }
 
     protected override void OnInitialized()
     {
@@ -417,6 +435,7 @@ else
             Location = d.Location, Quantity = d.Quantity,
             MinThreshold = d.MinThreshold, MaxCapacity = d.MaxCapacity,
             Cost = d.Cost, Price = d.Price, MarkupPercent = d.MarkupPercent,
+            TaxIncludedInPrice = d.TaxIncludedInPrice,
             LotNumber = d.LotNumber, ExpiryDate = d.ExpiryDate,
             Notes = d.Notes, ProductId = d.ProductId
         };

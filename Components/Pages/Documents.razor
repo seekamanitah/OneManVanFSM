@@ -4,7 +4,7 @@
 @inject NavigationManager Nav
 
 <!-- Notes / Documents Toggle -->
-<div class="sub-tab-bar mb-3">
+<div class="sub-tab-bar mb-1">
     <button class="sub-tab" @onclick='() => Nav.NavigateTo("/notes")'>
         <i class="bi bi-journal-text me-1"></i>Notes
     </button>
@@ -14,35 +14,35 @@
 </div>
 
 <!-- Filter Bar -->
-<div class="d-flex gap-2 mb-3">
-    <select class="form-select" style="max-width:140px;" @bind="_categoryFilter" @bind:after="LoadDocuments">
+<div class="d-flex gap-2 mb-2">
+    <select class="form-select" style="max-width:120px; min-height:36px; font-size:0.85rem; padding:4px 8px;" @bind="_categoryFilter" @bind:after="LoadDocuments">
         <option value="">All Types</option>
         @foreach (var c in Enum.GetValues<DocumentCategory>())
         {
             <option value="@c">@c</option>
         }
     </select>
-    <input type="search" class="form-control" placeholder="Search documents…" @bind="_search"
+    <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search documents…" @bind="_search"
            @bind:event="oninput" @bind:after="LoadDocuments" />
-    <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadDocuments" title="Refresh">
+    <button class="btn btn-outline-secondary btn-sm" @onclick="LoadDocuments" title="Refresh">
         <i class="bi bi-arrow-clockwise"></i>
     </button>
-    <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="CycleSort" title="Sort">
+    <button class="btn btn-outline-secondary btn-sm" @onclick="CycleSort" title="Sort">
         <i class="bi @SortIcon"></i>
     </button>
 </div>
 
 @if (_showCreate)
 {
-    <div class="mobile-card">
-        <h6 class="fw-bold mb-3">New Document</h6>
+    <div class="mobile-card" style="padding:0.75rem;">
+        <h6 class="fw-bold mb-2" style="font-size:0.85rem;">New Document</h6>
 
-        <div class="mb-2">
-            <input type="text" class="form-control" placeholder="Document name" @bind="_newDoc.Name" />
+        <div class="mb-1">
+            <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Document name" @bind="_newDoc.Name" />
         </div>
 
-        <div class="mb-2">
-            <select class="form-select" @bind="_newDoc.Category">
+        <div class="mb-1">
+            <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newDoc.Category">
                 @foreach (var c in Enum.GetValues<DocumentCategory>())
                 {
                     <option value="@c">@c</option>
@@ -50,8 +50,8 @@
             </select>
         </div>
 
-        <div class="mb-2">
-            <select class="form-select" @bind="_newDoc.FileType">
+        <div class="mb-1">
+            <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newDoc.FileType">
                 <option value="">File Type</option>
                 <option value="Photo">Photo</option>
                 <option value="PDF">PDF</option>
@@ -61,15 +61,15 @@
             </select>
         </div>
 
-        <div class="mb-3">
-            <textarea class="form-control" rows="2" placeholder="Notes (optional)" @bind="_newDoc.Notes"></textarea>
+        <div class="mb-1">
+            <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_newDoc.Notes"></textarea>
         </div>
 
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary flex-fill" @onclick="SaveDocument" disabled="@string.IsNullOrWhiteSpace(_newDoc.Name)">
+        <div class="d-flex gap-2 mt-1">
+            <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveDocument" disabled="@string.IsNullOrWhiteSpace(_newDoc.Name)">
                 <i class="bi bi-check-lg me-1"></i>Save
             </button>
-            <button class="btn btn-outline-secondary" @onclick="CancelCreate">Cancel</button>
+            <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="CancelCreate">Cancel</button>
         </div>
 
         @if (_saveError != null)
@@ -147,9 +147,38 @@ else if (_documents.Any())
             @if (_expandedDocId == doc.Id && IsPreviewable(doc.FileType) && !string.IsNullOrEmpty(doc.StoredFileName))
             {
                 <div style="margin-top:8px; border-top:1px solid #eee; padding-top:8px;">
-                    <div class="text-center text-muted small mb-2">
-                        <i class="bi bi-info-circle me-1"></i>Preview available on web app
-                    </div>
+                    @if (IsImageFile(doc.FileType))
+                    {
+                        @if (_previewImageData.TryGetValue(doc.Id, out var imgSrc) && imgSrc is not null)
+                        {
+                            <img src="@imgSrc" alt="@doc.Name" style="width:100%; border-radius:6px;" />
+                        }
+                        else if (_previewLoading.Contains(doc.Id))
+                        {
+                            <div class="text-center py-3"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-primary btn-sm w-100" @onclick="() => LoadImagePreview(doc)" @onclick:stopPropagation="true">
+                                <i class="bi bi-image me-1"></i>Load Preview
+                            </button>
+                        }
+                    }
+                    else if (IsPdfFile(doc.FileType))
+                    {
+                        <button class="btn btn-outline-primary btn-sm w-100" @onclick="() => OpenDocument(doc)" @onclick:stopPropagation="true"
+                                disabled="@_previewLoading.Contains(doc.Id)">
+                            @if (_previewLoading.Contains(doc.Id))
+                            {
+                                <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Open PDF
+                        </button>
+                    }
+                    <button class="btn btn-outline-secondary btn-sm w-100 mt-1" @onclick="() => OpenDocument(doc)" @onclick:stopPropagation="true"
+                            disabled="@_previewLoading.Contains(doc.Id)">
+                        <i class="bi bi-box-arrow-up-right me-1"></i>Open in Viewer
+                    </button>
                 </div>
             }
             else if (_expandedDocId == doc.Id)
@@ -158,6 +187,13 @@ else if (_documents.Any())
                     <div class="text-center text-muted small">
                         <i class="bi bi-eye-slash me-1"></i>No preview available for this file type
                     </div>
+                    @if (!string.IsNullOrEmpty(doc.StoredFileName))
+                    {
+                        <button class="btn btn-outline-secondary btn-sm w-100 mt-1" @onclick="() => OpenDocument(doc)" @onclick:stopPropagation="true"
+                                disabled="@_previewLoading.Contains(doc.Id)">
+                            <i class="bi bi-box-arrow-up-right me-1"></i>Open in Viewer
+                        </button>
+                    }
                 </div>
             }
         </div>
@@ -168,9 +204,6 @@ else if (!_showCreate)
     <div class="empty-state">
         <i class="bi bi-file-earmark-text d-block"></i>
         <p>No documents yet</p>
-        <button class="btn btn-primary btn-sm mt-2" @onclick="ShowCreate">
-            <i class="bi bi-plus-lg me-1"></i>Add Document
-        </button>
     </div>
 }
 
@@ -192,6 +225,8 @@ private string _search = string.Empty;
 private string _categoryFilter = string.Empty;
 private string _sort = "newest";
 private int? _expandedDocId;
+private Dictionary<int, string?> _previewImageData = new();
+private HashSet<int> _previewLoading = [];
 
     private List<MobileDocumentItem> SortedDocuments => _sort switch
     {
@@ -310,5 +345,60 @@ private int? _expandedDocId;
             route = "/assets/" + entityId;
         if (route != null)
             Nav.NavigateTo(route);
+    }
+
+    private async Task LoadImagePreview(MobileDocumentItem doc)
+    {
+        if (_previewLoading.Contains(doc.Id)) return;
+        _previewLoading.Add(doc.Id);
+        StateHasChanged();
+
+        try
+        {
+            var path = await DocumentService.GetCachedFilePathAsync(doc.Id, doc.StoredFileName);
+            if (path is not null && File.Exists(path))
+            {
+                var bytes = await File.ReadAllBytesAsync(path);
+                var mime = doc.FileType?.ToUpperInvariant() switch
+                {
+                    "PNG" => "image/png",
+                    "GIF" => "image/gif",
+                    "WEBP" => "image/webp",
+                    "BMP" => "image/bmp",
+                    _ => "image/jpeg"
+                };
+                _previewImageData[doc.Id] = $"data:{mime};base64,{Convert.ToBase64String(bytes)}";
+            }
+            else
+            {
+                _previewImageData[doc.Id] = null;
+            }
+        }
+        catch
+        {
+            _previewImageData[doc.Id] = null;
+        }
+        finally
+        {
+            _previewLoading.Remove(doc.Id);
+            StateHasChanged();
+        }
+    }
+
+    private async Task OpenDocument(MobileDocumentItem doc)
+    {
+        if (_previewLoading.Contains(doc.Id)) return;
+        _previewLoading.Add(doc.Id);
+        StateHasChanged();
+
+        try
+        {
+            await DocumentService.OpenDocumentAsync(doc.Id, doc.StoredFileName, doc.FileType);
+        }
+        finally
+        {
+            _previewLoading.Remove(doc.Id);
+            StateHasChanged();
+        }
     }
 }

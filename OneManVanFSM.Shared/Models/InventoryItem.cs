@@ -21,9 +21,12 @@ public class InventoryItem
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
     public decimal MarkupPercent { get; set; }
+    public bool TaxIncludedInPrice { get; set; } // When true, Price includes tax calculated from settings tax rate
     public DateTime? LastRestockedDate { get; set; }
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
+    public bool NeedsReview { get; set; }
+    public string? CreatedFrom { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

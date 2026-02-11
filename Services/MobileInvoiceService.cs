@@ -89,6 +89,7 @@ public class MobileInvoiceService : IMobileInvoiceService
             BalanceDue = i.BalanceDue,
             Notes = i.Notes,
             Terms = i.Terms,
+            NeedsReview = i.NeedsReview,
             CustomerId = i.CustomerId,
             CustomerName = i.Customer?.Name,
             CustomerPhone = i.Customer?.PrimaryPhone,
@@ -118,5 +119,29 @@ public class MobileInvoiceService : IMobileInvoiceService
                 PaymentDate = p.PaymentDate,
             }).ToList(),
         };
+    }
+
+    public async Task<Invoice> QuickCreateAsync(MobileInvoiceQuickCreate model)
+    {
+        var count = await _db.Invoices.CountAsync() + 1;
+        var invoice = new Invoice
+        {
+            InvoiceNumber = $"INV-{count:D5}",
+            Status = InvoiceStatus.Draft,
+            InvoiceDate = DateTime.UtcNow,
+            DueDate = DateTime.UtcNow.AddDays(30),
+            PaymentTerms = "Net 30",
+            CustomerId = model.CustomerId,
+            JobId = model.JobId,
+            SiteId = model.SiteId,
+            Notes = model.Notes,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        _db.Invoices.Add(invoice);
+        await _db.SaveChangesAsync();
+        return invoice;
     }
 }

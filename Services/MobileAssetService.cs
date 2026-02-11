@@ -158,6 +158,7 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
             CompressorWarrantyExpiry = asset.CompressorWarrantyExpiry,
             Value = asset.Value,
             Notes = asset.Notes,
+            NeedsReview = asset.NeedsReview,
             SiteName = asset.Site?.Name,
             SiteAddress = asset.Site != null ? $"{asset.Site.Address}, {asset.Site.City}" : null,
             SiteId = asset.SiteId,
@@ -222,5 +223,28 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
 
         await db.SaveChangesAsync();
         return log;
+    }
+
+    public async Task<Asset> QuickCreateAsync(MobileAssetQuickCreate model)
+    {
+        var asset = new Asset
+        {
+            Name = model.Name ?? $"{model.Brand} {model.Model}".Trim(),
+            CustomerId = model.CustomerId,
+            SiteId = model.SiteId,
+            Brand = model.Brand,
+            Model = model.Model,
+            SerialNumber = model.SerialNumber,
+            AssetType = model.AssetType,
+            Notes = model.Notes,
+            Status = AssetStatus.Active,
+            NeedsReview = true,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        db.Assets.Add(asset);
+        await db.SaveChangesAsync();
+        return asset;
     }
 }

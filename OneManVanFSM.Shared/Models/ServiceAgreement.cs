@@ -20,6 +20,8 @@ public class ServiceAgreement
     public AgreementStatus Status { get; set; } = AgreementStatus.Active;
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
+    public bool NeedsReview { get; set; }
+    public string? CreatedFrom { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

@@ -6,6 +6,7 @@ public interface IMobileProductService
 {
     Task<List<MobileProductCard>> GetProductsAsync(MobileProductFilter? filter = null);
     Task<MobileProductStats> GetStatsAsync();
+    Task<Product> QuickCreateAsync(MobileProductQuickCreate model);
 }
 
 public class MobileProductCard
@@ -35,4 +36,16 @@ public class MobileProductStats
     public int Categories { get; set; }
     public int InStockProducts { get; set; }
     public decimal AvgMarkup { get; set; }
+}
+
+public class MobileProductQuickCreate
+{
+    public string Name { get; set; } = string.Empty;
+    public string? Brand { get; set; }
+    public string? ModelNumber { get; set; }
+    public string? Category { get; set; }
+    public string? EquipmentType { get; set; }
+    public decimal Cost { get; set; }
+    public decimal Price { get; set; }
+    public string? Notes { get; set; }
 }

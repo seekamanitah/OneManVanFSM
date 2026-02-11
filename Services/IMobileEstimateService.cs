@@ -6,6 +6,7 @@ public interface IMobileEstimateService
 {
     Task<List<MobileEstimateCard>> GetEstimatesAsync(MobileEstimateFilter? filter = null);
     Task<MobileEstimateDetail?> GetEstimateDetailAsync(int id);
+    Task<Estimate> QuickCreateAsync(MobileEstimateQuickCreate model);
 }
 
 public class MobileEstimateCard
@@ -48,6 +49,7 @@ public class MobileEstimateDetail
     public decimal? DepositRequired { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public string? Notes { get; set; }
+    public bool NeedsReview { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<MobileEstimateLine> Lines { get; set; } = [];
 }
@@ -67,4 +69,14 @@ public class MobileEstimateFilter
 {
     public string? Search { get; set; }
     public EstimateStatus? Status { get; set; }
+}
+
+public class MobileEstimateQuickCreate
+{
+    public string? Title { get; set; }
+    public int? CustomerId { get; set; }
+    public int? SiteId { get; set; }
+    public string? TradeType { get; set; }
+    public JobPriority Priority { get; set; } = JobPriority.Standard;
+    public string? Notes { get; set; }
 }

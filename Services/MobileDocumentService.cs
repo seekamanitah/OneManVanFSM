@@ -4,7 +4,7 @@ using OneManVanFSM.Shared.Models;
 
 namespace OneManVanFSM.Services;
 
-public class MobileDocumentService(AppDbContext db) : IMobileDocumentService
+public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocumentService
 {
     public async Task<List<MobileDocumentItem>> GetDocumentsAsync(MobileDocumentFilter? filter = null)
     {
@@ -100,4 +100,65 @@ public class MobileDocumentService(AppDbContext db) : IMobileDocumentService
         await db.SaveChangesAsync();
         return true;
     }
+
+    public async Task<string?> GetCachedFilePathAsync(int docId, string? storedFileName)
+    {
+        if (string.IsNullOrEmpty(storedFileName)) return null;
+
+        var cacheDir = Path.Combine(FileSystem.CacheDirectory, "documents");
+        Directory.CreateDirectory(cacheDir);
+        var cachedPath = Path.Combine(cacheDir, storedFileName);
+
+        if (File.Exists(cachedPath))
+            return cachedPath;
+
+        try
+        {
+            var stream = await api.GetStreamAsync($"api/documents/{docId}/file");
+            if (stream is null) return null;
+
+            await using var fs = new FileStream(cachedPath, FileMode.Create, FileAccess.Write);
+            await stream.CopyToAsync(fs);
+            return cachedPath;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public async Task OpenDocumentAsync(int docId, string? storedFileName, string? fileType)
+    {
+        var path = await GetCachedFilePathAsync(docId, storedFileName);
+        if (path is null) return;
+
+        try
+        {
+            await Launcher.Default.OpenAsync(new OpenFileRequest
+            {
+                File = new ReadOnlyFile(path, GetMimeType(fileType))
+            });
+        }
+        catch
+        {
+            // Device has no app to handle this file type — ignore gracefully
+        }
+    }
+
+    private static string GetMimeType(string? fileType) => fileType?.ToUpperInvariant() switch
+    {
+        "PDF" => "application/pdf",
+        "JPG" or "JPEG" => "image/jpeg",
+        "PNG" => "image/png",
+        "GIF" => "image/gif",
+        "WEBP" => "image/webp",
+        "BMP" => "image/bmp",
+        "DOC" => "application/msword",
+        "DOCX" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "XLS" => "application/vnd.ms-excel",
+        "XLSX" => "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "CSV" => "text/csv",
+        "TXT" => "text/plain",
+        _ => "application/octet-stream"
+    };
 }

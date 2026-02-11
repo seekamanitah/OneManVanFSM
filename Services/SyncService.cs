@@ -20,7 +20,7 @@ public class SyncService : ISyncService
     private static readonly string[] EntityTypes =
     [
         "Customers", "Companies", "Sites", "Jobs", "Employees",
-        "Assets", "Estimates", "Invoices", "Expenses", "Inventory",
+        "Assets", "Products", "Estimates", "Invoices", "Expenses", "Inventory",
         "QuickNotes", "Documents", "TimeEntries", "ServiceAgreements", "MaterialLists"
     ];
 
@@ -105,6 +105,7 @@ public class SyncService : ISyncService
                 "Jobs" => await PullAndMerge<Job>($"api/jobs{sinceParam}", e => e.Id, (db, e) => db.Jobs),
                 "Employees" => await PullAndMerge<Employee>($"api/employees{sinceParam}", e => e.Id, (db, e) => db.Employees),
                 "Assets" => await PullAndMerge<Asset>($"api/assets{sinceParam}", e => e.Id, (db, e) => db.Assets),
+                "Products" => await PullAndMerge<Product>($"api/products{sinceParam}", e => e.Id, (db, e) => db.Products),
                 "Estimates" => await PullAndMerge<Estimate>($"api/estimates{sinceParam}", e => e.Id, (db, e) => db.Estimates),
                 "Invoices" => await PullAndMerge<Invoice>($"api/invoices{sinceParam}", e => e.Id, (db, e) => db.Invoices),
                 "Expenses" => await PullAndMerge<Expense>($"api/expenses{sinceParam}", e => e.Id, (db, e) => db.Expenses),

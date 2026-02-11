@@ -368,12 +368,15 @@ else
             <div class="mb-2">
                 <label class="form-label small mb-1">Server URL</label>
                 <input type="text" class="form-control form-control-sm" @bind="_serverUrl"
-                       placeholder="http://192.168.1.100:8080" />
+                       placeholder="http://192.168.1.100:6000" />
+                <small class="text-muted d-block mt-1">
+                    <i class="bi bi-info-circle me-1"></i>Use your server's LAN IP and exposed port (not localhost)
+                </small>
             </div>
             <div class="mb-2">
                 <label class="form-label small mb-1">Sync Username</label>
                 <input type="text" class="form-control form-control-sm" @bind="_syncUsername"
-                       placeholder="sync user" />
+                       placeholder="sync_user" />
             </div>
             <div class="mb-2">
                 <label class="form-label small mb-1">Sync Password</label>
@@ -420,8 +423,33 @@ else
         }
         @if (!string.IsNullOrEmpty(_testConnectionResult))
         {
-            <div class="alert @(_testConnectionSuccess ? "alert-success" : "alert-warning") d-flex align-items-center mt-2 mb-0" style="font-size:0.85rem; padding:8px 12px; border-radius:10px;">
-                <i class="bi @(_testConnectionSuccess ? "bi-check-circle-fill" : "bi-exclamation-triangle-fill") me-2"></i>@_testConnectionResult
+            <div class="alert @(_testConnectionSuccess ? "alert-success" : "alert-danger") mt-2 mb-0" style="font-size:0.82rem; padding:10px 12px; border-radius:10px;">
+                <div class="d-flex align-items-center mb-1">
+                    <i class="bi @(_testConnectionSuccess ? "bi-check-circle-fill text-success" : "bi-x-circle-fill text-danger") me-2"></i>
+                    <strong>@(_testConnectionSuccess ? "Connected" : "Connection Failed")</strong>
+                </div>
+                <div class="ps-4">
+                    <div>@_testConnectionResult</div>
+                    @if (!string.IsNullOrWhiteSpace(_serverUrl))
+                    {
+                        <div class="text-muted mt-1"><i class="bi bi-link-45deg me-1"></i>URL: @_serverUrl.Trim()/health</div>
+                    }
+                    @if (!_testConnectionSuccess)
+                    {
+                        <hr class="my-2" />
+                        <div class="small text-muted">
+                            <strong>Troubleshooting:</strong>
+                            <ul class="mb-0 ps-3 mt-1">
+                                <li>URL must start with <code>http://</code> or <code>https://</code></li>
+                                <li>Use your server's LAN IP (not <code>localhost</code>)</li>
+                                <li>Port must match Docker mapping (e.g., <code>6000</code> for test)</li>
+                                <li>Ensure phone is on the same Wi-Fi network</li>
+                                <li>Check server firewall allows the port</li>
+                                <li>Verify Docker container is running</li>
+                            </ul>
+                        </div>
+                    }
+                </div>
             </div>
         }
     </div>

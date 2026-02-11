@@ -59,6 +59,8 @@ public class Asset
     public decimal? Value { get; set; }
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
+    public bool NeedsReview { get; set; }
+    public string? CreatedFrom { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 

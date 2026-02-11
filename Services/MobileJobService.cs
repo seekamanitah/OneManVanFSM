@@ -239,6 +239,7 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
             HasCrawlSpace = site.HasCrawlSpace,
             HasBasement = site.HasBasement,
             Notes = site.Notes,
+            NeedsReview = site.NeedsReview,
             CustomerId = site.CustomerId,
             CustomerName = site.Customer?.Name,
             CompanyId = site.CompanyId,

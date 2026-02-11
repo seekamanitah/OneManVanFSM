@@ -20,6 +20,18 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Increase SignalR message size for file uploads (default 32KB is too small)
+builder.Services.AddSignalR(o =>
+{
+    o.MaximumReceiveMessageSize = 10 * 1024 * 1024; // 10 MB per SignalR message
+});
+
+// Kestrel body size for API file uploads
+builder.WebHost.ConfigureKestrel(o =>
+{
+    o.Limits.MaxRequestBodySize = 100 * 1024 * 1024; // 100 MB
+});
+
 // API controllers for mobile sync
 builder.Services.AddControllers()
     .AddJsonOptions(o =>

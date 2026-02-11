@@ -6,6 +6,7 @@ public interface IMobileServiceAgreementService
 {
     Task<List<MobileAgreementCard>> GetAgreementsAsync(string? statusFilter = null, string? search = null);
     Task<MobileAgreementDetail?> GetAgreementDetailAsync(int id);
+    Task<ServiceAgreement> QuickCreateAsync(MobileAgreementQuickCreate model);
 }
 
 public class MobileAgreementCard
@@ -62,4 +63,17 @@ public class MobileAgreementAsset
     public string AssetName { get; set; } = "";
     public string? AssetType { get; set; }
     public string? CoverageNotes { get; set; }
+}
+
+public class MobileAgreementQuickCreate
+{
+    public string? Title { get; set; }
+    public int? CustomerId { get; set; }
+    public int? SiteId { get; set; }
+    public CoverageLevel CoverageLevel { get; set; } = CoverageLevel.Basic;
+    public string? TradeType { get; set; }
+    public int VisitsIncluded { get; set; } = 2;
+    public decimal Fee { get; set; }
+    public string? BillingFrequency { get; set; } = "Annual";
+    public string? Notes { get; set; }
 }

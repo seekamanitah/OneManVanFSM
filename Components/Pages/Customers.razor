@@ -30,6 +30,14 @@
             </button>
         </div>
 
+        @if (_detail.NeedsReview)
+        {
+            <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center" style="font-size:0.8rem; border-radius:10px;">
+                <i class="bi bi-exclamation-triangle me-2"></i>
+                <span>Created on mobile — complete details (tags, preferred contact, etc.) on the web app.</span>
+            </div>
+        }
+
         <!-- Customer Header -->
         <div class="mobile-card">
             <div class="d-flex align-items-start gap-3">
@@ -220,11 +228,53 @@
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-person-plus me-1"></i>Quick Add Customer</h6>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Customer name *" @bind="_newCust.Name" />
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newCust.Type">
+                    @foreach (var t in Enum.GetValues<CustomerType>()) { <option value="@t">@t</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <input type="tel" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Phone" @bind="_newCust.PrimaryPhone" />
+            </div>
+            <div class="mb-1">
+                <input type="email" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Email" @bind="_newCust.PrimaryEmail" />
+            </div>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Address" @bind="_newCust.Address" />
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-5"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="City" @bind="_newCust.City" /></div>
+                <div class="col-3"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="State" @bind="_newCust.State" /></div>
+                <div class="col-4"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Zip" @bind="_newCust.Zip" /></div>
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Complete details (tags, preferred contact, etc.) on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveCustomer" disabled="@string.IsNullOrWhiteSpace(_newCust.Name)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- List View -->
-    <div class="d-flex gap-2 mb-3">
-        <input type="search" class="form-control" placeholder="Search customers…" @bind="_search"
-               @bind:event="oninput" @bind:after="LoadCustomers" />
-        <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadCustomers" title="Refresh">
+    <div class="d-flex gap-2 mb-2">
+        <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search customers…"
+               @bind="_search" @bind:event="oninput" @bind:after="LoadCustomers" />
+        <button class="btn btn-outline-secondary btn-sm" @onclick="LoadCustomers" title="Refresh">
             <i class="bi bi-arrow-clockwise"></i>
         </button>
     </div>
@@ -311,6 +361,13 @@ else
             <p>No customers found</p>
         </div>
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Customer" @onclick="ShowCreate">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -321,6 +378,9 @@ else
     private bool _loading = true;
     private bool _loadingDetail = true;
     private string _search = string.Empty;
+    private bool _showCreate;
+    private MobileCustomerQuickCreate _newCust = new();
+    private string? _saveError;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -343,6 +403,21 @@ else
         _customers = await CustomerService.GetCustomersAsync(
             string.IsNullOrWhiteSpace(_search) ? null : _search);
         _loading = false;
+    }
+
+    private void ShowCreate() { _newCust = new(); _saveError = null; _showCreate = true; }
+
+    private async Task SaveCustomer()
+    {
+        if (string.IsNullOrWhiteSpace(_newCust.Name)) { _saveError = "Name is required."; return; }
+        try
+        {
+            _saveError = null;
+            var created = await CustomerService.QuickCreateAsync(_newCust);
+            _showCreate = false;
+            await LoadCustomers();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 
     private void GoToCustomer(int id) => Nav.NavigateTo("/customers/" + id);

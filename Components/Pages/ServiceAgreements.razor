@@ -1,6 +1,8 @@
 @page "/agreements"
 @page "/agreements/{Id:int}"
 @inject IMobileServiceAgreementService AgreementService
+@inject IMobileCustomerService CustomerService
+@inject IMobileSiteService SiteService
 @inject NavigationManager Nav
 
 @if (Id.HasValue)
@@ -200,6 +202,74 @@
 }
 else
 {
+    @if (_showCreate)
+    {
+        <div class="mobile-card" style="padding:0.75rem;">
+            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-shield-check me-1"></i>Quick Add Agreement</h6>
+            <div class="mb-1">
+                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Title *" @bind="_newAgr.Title" />
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAgr.CustomerId">
+                    <option value="">Customer *</option>
+                    @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
+                </select>
+            </div>
+            <div class="mb-1">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAgr.SiteId">
+                    <option value="">Site (optional)</option>
+                    @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                </select>
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-6">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAgr.CoverageLevel">
+                        @foreach (var cl in Enum.GetValues<CoverageLevel>()) { <option value="@cl">@cl</option> }
+                    </select>
+                </div>
+                <div class="col-6">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAgr.TradeType">
+                        <option value="">Trade Type</option>
+                        <option value="HVAC">HVAC</option>
+                        <option value="Plumbing">Plumbing</option>
+                        <option value="Electrical">Electrical</option>
+                    </select>
+                </div>
+            </div>
+            <div class="row g-1 mb-1">
+                <div class="col-4">
+                    <input type="number" step="1" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Visits" @bind="_newAgr.VisitsIncluded" />
+                </div>
+                <div class="col-4">
+                    <div class="input-group">
+                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 6px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Fee" @bind="_newAgr.Fee" />
+                    </div>
+                </div>
+                <div class="col-4">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newAgr.BillingFrequency">
+                        <option value="Annual">Annual</option>
+                        <option value="Monthly">Monthly</option>
+                        <option value="Quarterly">Quarterly</option>
+                    </select>
+                </div>
+            </div>
+            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                <i class="bi bi-info-circle me-1"></i>Creates an Active 1-year agreement (SA-XXXXX). Add covered assets, add-ons, and discount details on the web app.
+            </div>
+            <div class="d-flex gap-2 mt-1">
+                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveAgreement" disabled="@(string.IsNullOrWhiteSpace(_newAgr.Title) || !_newAgr.CustomerId.HasValue)">
+                    <i class="bi bi-check-lg me-1"></i>Save
+                </button>
+                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+            </div>
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+            }
+        </div>
+    }
+
     <!-- LIST VIEW -->
     <!-- Search -->
     <div class="mb-3">
@@ -278,6 +348,13 @@ else
             </div>
         }
     }
+
+    @if (!_showCreate)
+    {
+        <button class="fab" title="New Agreement" @onclick="ShowCreateAgreement">
+            <i class="bi bi-plus-lg"></i>
+        </button>
+    }
 }
 
 @code {
@@ -290,6 +367,11 @@ else
     private string _statusFilter = "All";
     private string _searchText = "";
     private readonly string[] _filters = ["All", "Active", "Expiring", "Expired", "Cancelled"];
+    private bool _showCreate;
+    private MobileAgreementQuickCreate _newAgr = new();
+    private List<MobileCustomerCard> _custOpts = [];
+    private List<MobileSiteCard> _siteOpts = [];
+    private string? _saveError;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -321,6 +403,29 @@ else
     private async Task OnSearchKeyUp()
     {
         await LoadAgreements();
+    }
+
+    private async Task ShowCreateAgreement()
+    {
+        _newAgr = new();
+        _saveError = null;
+        _custOpts = await CustomerService.GetCustomersAsync();
+        _siteOpts = await SiteService.GetSitesAsync();
+        _showCreate = true;
+    }
+
+    private async Task SaveAgreement()
+    {
+        if (string.IsNullOrWhiteSpace(_newAgr.Title) || !_newAgr.CustomerId.HasValue)
+        { _saveError = "Title and Customer are required."; return; }
+        try
+        {
+            _saveError = null;
+            await AgreementService.QuickCreateAsync(_newAgr);
+            _showCreate = false;
+            await LoadAgreements();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
     }
 
     private void GoToDetail(int id) => Nav.NavigateTo("/agreements/" + id);

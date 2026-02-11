@@ -4,11 +4,11 @@
 @inject NavigationManager Nav
 
 <!-- Priority Filter Chips -->
-<div class="d-flex gap-2 mb-2 flex-wrap">
+<div class="d-flex gap-1 mb-1 flex-wrap">
     @foreach (var p in _priorities)
     {
         <button class="btn btn-sm @(p == _priorityFilter ? "btn-primary" : "btn-outline-secondary")"
-                style="border-radius:20px; font-size:0.75rem; padding:4px 12px;"
+                style="border-radius:20px; font-size:0.7rem; padding:2px 10px; min-height:28px;"
                 @onclick="() => SetPriority(p)">
             @p
         </button>
@@ -16,17 +16,17 @@
 </div>
 
 <!-- Filter Bar -->
-<div class="d-flex gap-2 mb-3">
-    <select class="form-select" style="max-width:140px;" @bind="_statusFilter" @bind:after="LoadJobs">
+<div class="d-flex gap-2 mb-2">
+    <select class="form-select" style="max-width:120px; min-height:36px; font-size:0.85rem; padding:4px 8px;" @bind="_statusFilter" @bind:after="LoadJobs">
         <option value="">All Status</option>
         @foreach (var s in Enum.GetValues<JobStatus>())
         {
             <option value="@s">@s</option>
         }
     </select>
-    <input type="search" class="form-control" placeholder="Search jobs…" @bind="_search"
+    <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search jobs…" @bind="_search"
            @bind:event="oninput" @bind:after="LoadJobs" />
-    <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadJobs" title="Refresh">
+    <button class="btn btn-outline-secondary" style="min-width:34px; min-height:36px; padding:2px 6px;" @onclick="LoadJobs" title="Refresh">
         <i class="bi bi-arrow-clockwise"></i>
     </button>
 </div>
@@ -120,32 +120,29 @@ else if (_jobs.Any())
 }
 else
 {
-    <div class="empty-state">
-        <i class="bi bi-wrench-adjustable d-block"></i>
+    <div class="empty-state" style="padding:1rem;">
+        <i class="bi bi-wrench-adjustable d-block" style="font-size:1.8rem;"></i>
         <p>No jobs found</p>
-        <button class="btn btn-primary btn-sm mt-2" @onclick="ShowCreate">
-            <i class="bi bi-plus-lg me-1"></i>Create a Job
-        </button>
     </div>
 }
 
 @* New Job Form *@
 @if (_showCreate)
 {
-    <div class="mobile-card" style="border-left:3px solid var(--primary);">
-        <h6 class="fw-bold mb-3"><i class="bi bi-plus-circle me-1"></i>New Job</h6>
+    <div class="mobile-card" style="border-left:3px solid var(--primary); padding:0.75rem;">
+        <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-plus-circle me-1"></i>New Job</h6>
 
-        <div class="mb-2">
-            <input type="text" class="form-control" placeholder="Job title…" @bind="_newJob.Title" />
+        <div class="mb-1">
+            <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Job title…" @bind="_newJob.Title" />
         </div>
 
-        <div class="mb-2">
-            <textarea class="form-control" rows="2" placeholder="Description (optional)" @bind="_newJob.Description"></textarea>
+        <div class="mb-1">
+            <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Description (optional)" @bind="_newJob.Description"></textarea>
         </div>
 
-        <div class="row g-2 mb-2">
+        <div class="row g-2 mb-1">
             <div class="col-6">
-                <select class="form-select" @bind="_newJob.Priority">
+                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newJob.Priority">
                     @foreach (var p in Enum.GetValues<JobPriority>())
                     {
                         <option value="@p">@p</option>
@@ -153,23 +150,23 @@ else
                 </select>
             </div>
             <div class="col-6">
-                <input type="number" class="form-control" placeholder="Est. hours" step="0.5" min="0"
+                <input type="number" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Est. hours" step="0.5" min="0"
                        @bind="_newJob.EstimatedDuration" />
             </div>
         </div>
 
-        <div class="row g-2 mb-2">
+        <div class="row g-2 mb-1">
             <div class="col-6">
-                <input type="date" class="form-control" @bind="_newJob.ScheduledDate" />
+                <input type="date" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newJob.ScheduledDate" />
             </div>
             <div class="col-6">
-                <input type="time" class="form-control" value="@_scheduledTimeStr"
+                <input type="time" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" value="@_scheduledTimeStr"
                        @onchange="OnScheduledTimeChanged" />
             </div>
         </div>
 
-        <div class="mb-2">
-            <select class="form-select" @bind="_selectedCustomerId" @bind:after="OnCustomerChanged">
+        <div class="mb-1">
+            <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_selectedCustomerId" @bind:after="OnCustomerChanged">
                 <option value="">— Customer —</option>
                 @foreach (var c in _customers)
                 {
@@ -178,8 +175,8 @@ else
             </select>
         </div>
 
-        <div class="mb-2">
-            <select class="form-select" @bind="_newJob.SiteId">
+        <div class="mb-1">
+            <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newJob.SiteId">
                 <option value="">— Site —</option>
                 @foreach (var s in _sites)
                 {
@@ -188,8 +185,8 @@ else
             </select>
         </div>
 
-        <div class="d-flex gap-2">
-            <button class="btn btn-primary flex-fill" @onclick="SaveJob"
+        <div class="d-flex gap-2 mt-1">
+            <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveJob"
                     disabled="@(string.IsNullOrWhiteSpace(_newJob.Title) || _saving)">
                 @if (_saving)
                 {
@@ -197,7 +194,7 @@ else
                 }
                 <i class="bi bi-check-lg me-1"></i>Create Job
             </button>
-            <button class="btn btn-outline-secondary" @onclick="CancelCreate">Cancel</button>
+            <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="CancelCreate">Cancel</button>
         </div>
 
         @if (_createError != null)
