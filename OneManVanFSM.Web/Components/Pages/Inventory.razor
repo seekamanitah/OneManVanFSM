@@ -163,9 +163,9 @@ else if (mode == "detail" && detail is not null)
                     {
                         <hr class="my-2" />
                         <div class="row g-2">
-                            <div class="col-sm-4"><small class="text-muted d-block">Lot</small><span>@(detail.LotNumber ?? "—")</span></div>
-                            <div class="col-sm-4"><small class="text-muted d-block">Expiry</small><span>@(detail.ExpiryDate?.ToString("MMM dd, yyyy") ?? "—")</span></div>
-                            <div class="col-sm-4"><small class="text-muted d-block">Last Restocked</small><span>@(detail.LastRestockedDate?.ToString("MMM dd, yyyy") ?? "—")</span></div>
+                            <div class="col-sm-4"><small class="text-muted d-block">Lot</small><span>@(detail.LotNumber ?? "â€”")</span></div>
+                            <div class="col-sm-4"><small class="text-muted d-block">Expiry</small><span>@(detail.ExpiryDate?.ToString("MMM dd, yyyy") ?? "â€”")</span></div>
+                            <div class="col-sm-4"><small class="text-muted d-block">Last Restocked</small><span>@(detail.LastRestockedDate?.ToString("MMM dd, yyyy") ?? "â€”")</span></div>
                         </div>
                     }
                 </div>
@@ -179,7 +179,7 @@ else if (mode == "detail" && detail is not null)
                             <small class="text-muted d-block">Product Template</small>
                             @if (detail.ProductId.HasValue && detail.ProductName is not null)
                             { <a href="javascript:void(0)" @onclick="() => GoToProduct(detail.ProductId.Value)">@detail.ProductName</a> }
-                            else { <span>—</span> }
+                            else { <span>â€”</span> }
                         </div>
                     </div>
                 </div>
@@ -217,7 +217,13 @@ else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-boxes me-2"></i>Inventory</h4>
-        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>Add Item</button>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedInventory" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedInventory"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!filter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>Add Item</button> }
+        </div>
     </div>
 
     @if (dashboard is not null)
@@ -283,6 +289,28 @@ else
         </div>
     </div>
 
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> item(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
         @if (items is null)
         {
@@ -301,6 +329,7 @@ else
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th>SKU</th>
                             <th>Category</th>
@@ -314,13 +343,14 @@ else
                     <tbody>
                         @foreach (var i in items)
                         {
-                            <tr style="cursor:pointer" @onclick="() => GoToDetail(i.Id)">
-                                <td>
+                            <tr class="@(_selectedIds.Contains(i.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(i.Id)" @onchange="() => ToggleRowSelection(i.Id)" /></td>
+                                <td style="cursor:pointer" @onclick="() => GoToDetail(i.Id)">
                                     <strong>@i.Name</strong>
                                     @if (i.ProductName is not null) { <br /><small class="text-muted">@i.ProductName</small> }
                                 </td>
-                                <td>@(i.SKU ?? "—")</td>
-                                <td>@(i.Category ?? "—")</td>
+                                <td>@(i.SKU ?? "â€”")</td>
+                                <td>@(i.Category ?? "â€”")</td>
                                 <td>@i.Location</td>
                                 <td>
                                     <span class="@(i.IsLowStock ? "text-danger fw-bold" : "")">@i.Quantity</span>
@@ -335,6 +365,10 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
 }
 
 @code {
@@ -350,6 +384,13 @@ else
     private int? editId;
     private string? errorMsg;
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => items is not null && items.Count > 0 && items.All(i => _selectedIds.Contains(i.Id));
 
     private List<ProductListItem> _products = [];
     private List<string> _inventoryCategories = ["Parts", "Supplies", "Equipment", "Filters", "Refrigerant", "Ductwork", "Electrical", "Plumbing", "Safety", "Tools", "Other"];
@@ -488,4 +529,13 @@ else
         var cats = await DropdownSvc.GetOptionsAsync("InventoryCategory");
         if (cats.Count > 0) _inventoryCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (items is null) return; if (_allSelected) _selectedIds.Clear(); else foreach (var i in items) _selectedIds.Add(i.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await LoadItems(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await InventorySvc.BulkArchiveItemsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} item(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadItems(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await InventorySvc.BulkRestoreItemsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} item(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadItems(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await InventorySvc.BulkDeleteItemsPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} item(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadItems(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }

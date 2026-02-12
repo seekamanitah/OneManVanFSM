@@ -101,7 +101,7 @@ public class DataManagementService : IDataManagementService
             .Where(p => IsSimpleType(p.PropertyType))
             .ToArray();
 
-        // Header row — bold with auto-filter
+        // Header row â€” bold with auto-filter
         for (int col = 0; col < props.Length; col++)
         {
             var cell = ws.Cell(1, col + 1);
@@ -182,6 +182,228 @@ public class DataManagementService : IDataManagementService
         return t.IsPrimitive || t == typeof(string) || t == typeof(decimal) ||
                t == typeof(DateTime) || t == typeof(DateOnly) || t == typeof(TimeSpan) ||
                t == typeof(Guid) || t.IsEnum;
+    }
+
+    public async Task<ImportResult> ImportFileAsync(Stream fileStream, string fileName)
+    {
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        if (ext is ".xlsx" or ".xls")
+            return await ImportXlsxAsync(fileStream, fileName);
+        return await ImportCsvAsync(fileStream, fileName);
+    }
+
+    public async Task<ImportResult> ImportXlsxAsync(Stream xlsxStream, string fileName)
+    {
+        var result = new ImportResult();
+
+        try
+        {
+            // Copy to MemoryStream so ClosedXML can seek
+            using var ms = new MemoryStream();
+            await xlsxStream.CopyToAsync(ms);
+            ms.Position = 0;
+
+            using var workbook = new XLWorkbook(ms);
+
+            foreach (var ws in workbook.Worksheets)
+            {
+                var sheetName = ws.Name.Trim();
+                if (!TableMap.ContainsKey(sheetName))
+                {
+                    // Try detecting table name from header row
+                    var detectedName = DetectTableNameFromHeaders(ws);
+                    if (detectedName is not null)
+                        sheetName = detectedName;
+                    else
+                    {
+                        // For single-sheet files try the filename
+                        var fileBaseName = Path.GetFileNameWithoutExtension(fileName);
+                        if (TableMap.ContainsKey(fileBaseName))
+                            sheetName = fileBaseName;
+                        else
+                        {
+                            result.Warnings.Add($"Skipping sheet '{ws.Name}': could not match to a known table.");
+                            continue;
+                        }
+                    }
+                }
+
+                var imported = await ImportTableFromWorksheet(sheetName, ws, result);
+                if (imported > 0)
+                {
+                    result.Tables.Add(sheetName);
+                    result.RecordsImported += imported;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            result.Errors.Add($"Failed to read Excel file: {ex.Message}");
+        }
+
+        result.Success = result.Errors.Count == 0;
+        return result;
+    }
+
+    private string? DetectTableNameFromHeaders(IXLWorksheet ws)
+    {
+        var headerRow = ws.Row(1);
+        if (headerRow.IsEmpty()) return null;
+
+        var lastCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
+        if (lastCol == 0) return null;
+
+        var headers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        for (int col = 1; col <= lastCol; col++)
+        {
+            var val = headerRow.Cell(col).GetString().Trim();
+            if (!string.IsNullOrEmpty(val)) headers.Add(val);
+        }
+
+        foreach (var (tableName, queryFunc) in TableMap)
+        {
+            var sampleType = queryFunc(_db).ElementType;
+            var props = sampleType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => IsSimpleType(p.PropertyType))
+                .Select(p => p.Name)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var overlap = headers.Intersect(props, StringComparer.OrdinalIgnoreCase).Count();
+            if (overlap >= Math.Min(3, props.Count))
+                return tableName;
+        }
+        return null;
+    }
+
+    private async Task<int> ImportTableFromWorksheet(string tableName, IXLWorksheet ws, ImportResult result)
+    {
+        if (!TableMap.TryGetValue(tableName, out var queryFunc))
+        {
+            result.Warnings.Add($"Skipping unknown table: {tableName}");
+            return 0;
+        }
+
+        var entityType = queryFunc(_db).ElementType;
+        var props = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => IsSimpleType(p.PropertyType) && p.CanWrite)
+            .ToDictionary(p => p.Name.ToLower(), p => p);
+
+        var lastCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
+        if (lastCol == 0 || lastRow < 2) return 0;
+
+        // Read headers from row 1
+        var headers = new string[lastCol];
+        for (int col = 1; col <= lastCol; col++)
+            headers[col - 1] = ws.Cell(1, col).GetString().Trim();
+
+        int count = 0;
+        for (int row = 2; row <= lastRow; row++)
+        {
+            try
+            {
+                var entity = Activator.CreateInstance(entityType)!;
+                bool hasAnyValue = false;
+
+                for (int col = 0; col < headers.Length; col++)
+                {
+                    var headerKey = headers[col].ToLower();
+                    if (headerKey == "id") continue;
+                    if (!props.TryGetValue(headerKey, out var prop)) continue;
+
+                    var cell = ws.Cell(row, col + 1);
+                    if (cell.IsEmpty()) continue;
+
+                    try
+                    {
+                        var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                        object? converted = null;
+
+                        if (targetType.IsEnum)
+                        {
+                            converted = Enum.Parse(targetType, cell.GetString().Trim(), ignoreCase: true);
+                        }
+                        else if (targetType == typeof(DateTime))
+                        {
+                            converted = cell.DataType == XLDataType.DateTime
+                                ? cell.GetDateTime()
+                                : DateTime.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else if (targetType == typeof(bool))
+                        {
+                            converted = cell.DataType == XLDataType.Boolean
+                                ? cell.GetBoolean()
+                                : bool.Parse(cell.GetString().Trim());
+                        }
+                        else if (targetType == typeof(decimal))
+                        {
+                            converted = cell.DataType == XLDataType.Number
+                                ? (decimal)cell.GetDouble()
+                                : decimal.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else if (targetType == typeof(int))
+                        {
+                            converted = cell.DataType == XLDataType.Number
+                                ? (int)cell.GetDouble()
+                                : int.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else if (targetType == typeof(long))
+                        {
+                            converted = cell.DataType == XLDataType.Number
+                                ? (long)cell.GetDouble()
+                                : long.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else if (targetType == typeof(double))
+                        {
+                            converted = cell.DataType == XLDataType.Number
+                                ? cell.GetDouble()
+                                : double.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else if (targetType == typeof(float))
+                        {
+                            converted = cell.DataType == XLDataType.Number
+                                ? (float)cell.GetDouble()
+                                : float.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else if (targetType == typeof(TimeSpan))
+                        {
+                            converted = TimeSpan.Parse(cell.GetString().Trim(), CultureInfo.InvariantCulture);
+                        }
+                        else
+                        {
+                            var strVal = cell.GetString().Trim();
+                            if (!string.IsNullOrEmpty(strVal))
+                                converted = Convert.ChangeType(strVal, targetType, CultureInfo.InvariantCulture);
+                        }
+
+                        if (converted is not null)
+                        {
+                            prop.SetValue(entity, converted);
+                            hasAnyValue = true;
+                        }
+                    }
+                    catch
+                    {
+                        // Skip unparseable cell values
+                    }
+                }
+
+                if (hasAnyValue)
+                {
+                    _db.Add(entity);
+                    count++;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Warnings.Add($"Row {row} in {tableName}: {ex.Message}");
+            }
+        }
+
+        if (count > 0)
+            await _db.SaveChangesAsync();
+
+        return count;
     }
 
     public async Task<ImportResult> ImportCsvAsync(Stream csvStream, string fileName)
@@ -487,7 +709,7 @@ public class DataManagementService : IDataManagementService
         // Clear pools again so new connections open against the restored file
         Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
 
-        // Clear EF change tracker — the database file was swapped underneath this context.
+        // Clear EF change tracker â€” the database file was swapped underneath this context.
         _db.ChangeTracker.Clear();
 
         // Non-destructively add any tables/columns the current EF model expects but the
@@ -540,7 +762,7 @@ public class DataManagementService : IDataManagementService
                 }
                 catch
                 {
-                    // Table may not exist if schema evolved — skip silently
+                    // Table may not exist if schema evolved â€” skip silently
                 }
             }
 
@@ -610,8 +832,8 @@ public class DataManagementService : IDataManagementService
             var today = DateTime.UtcNow.Date;
 
             // Employees
-            var emp1 = new OneManVanFSM.Shared.Models.Employee { Name = "Mike Johnson", Role = OneManVanFSM.Shared.Models.EmployeeRole.Tech, Phone = "(555) 234-5678", Email = "mike@onemanvan.local", HourlyRate = 32m, OvertimeRate = 48m, Territory = "East County", HireDate = today.AddYears(-3), Certifications = "[\"EPA 608 Universal\",\"NATE HVAC\"]", Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active, LicenseNumber = "EPA-608-U-44210", LicenseExpiry = today.AddYears(2), VehicleAssigned = "Van #1 — 2022 Ford Transit", EmergencyContactName = "Sarah Johnson", EmergencyContactPhone = "(555) 234-0001" };
-            var emp2 = new OneManVanFSM.Shared.Models.Employee { Name = "Carlos Rivera", Role = OneManVanFSM.Shared.Models.EmployeeRole.Tech, Phone = "(555) 345-6789", Email = "carlos@onemanvan.local", HourlyRate = 30m, OvertimeRate = 45m, Territory = "West County", HireDate = today.AddYears(-2), Certifications = "[\"EPA 608 Type II\"]", Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active, LicenseNumber = "EPA-608-II-55320", LicenseExpiry = today.AddMonths(14), VehicleAssigned = "Van #2 — 2021 Chevy Express", EmergencyContactName = "Maria Rivera", EmergencyContactPhone = "(555) 345-0002" };
+            var emp1 = new OneManVanFSM.Shared.Models.Employee { Name = "Mike Johnson", Role = OneManVanFSM.Shared.Models.EmployeeRole.Tech, Phone = "(555) 234-5678", Email = "mike@onemanvan.local", HourlyRate = 32m, OvertimeRate = 48m, Territory = "East County", HireDate = today.AddYears(-3), Certifications = "[\"EPA 608 Universal\",\"NATE HVAC\"]", Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active, LicenseNumber = "EPA-608-U-44210", LicenseExpiry = today.AddYears(2), VehicleAssigned = "Van #1 â€” 2022 Ford Transit", EmergencyContactName = "Sarah Johnson", EmergencyContactPhone = "(555) 234-0001" };
+            var emp2 = new OneManVanFSM.Shared.Models.Employee { Name = "Carlos Rivera", Role = OneManVanFSM.Shared.Models.EmployeeRole.Tech, Phone = "(555) 345-6789", Email = "carlos@onemanvan.local", HourlyRate = 30m, OvertimeRate = 45m, Territory = "West County", HireDate = today.AddYears(-2), Certifications = "[\"EPA 608 Type II\"]", Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active, LicenseNumber = "EPA-608-II-55320", LicenseExpiry = today.AddMonths(14), VehicleAssigned = "Van #2 â€” 2021 Chevy Express", EmergencyContactName = "Maria Rivera", EmergencyContactPhone = "(555) 345-0002" };
             var emp3 = new OneManVanFSM.Shared.Models.Employee { Name = "Jake Miller", Role = OneManVanFSM.Shared.Models.EmployeeRole.Apprentice, Phone = "(555) 456-7890", Email = "jake@onemanvan.local", HourlyRate = 22m, Territory = "East County", HireDate = today.AddMonths(-6), Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active, EmergencyContactName = "Tom Miller", EmergencyContactPhone = "(555) 456-0003" };
             _db.Employees.AddRange(emp1, emp2, emp3);
 
@@ -620,16 +842,16 @@ public class DataManagementService : IDataManagementService
             var cust2 = new OneManVanFSM.Shared.Models.Customer { Name = "Bob Reynolds", Type = OneManVanFSM.Shared.Models.CustomerType.Individual, PrimaryPhone = "(555) 222-3333", PrimaryEmail = "breynolds@email.com", PreferredContactMethod = "Phone", ReferralSource = "Google", Address = "456 Maple Ave", City = "Springfield", State = "IL", Zip = "62701", SinceDate = today.AddYears(-1), BalanceOwed = 450m };
             var cust3 = new OneManVanFSM.Shared.Models.Customer { Name = "Heritage Oaks HOA", Type = OneManVanFSM.Shared.Models.CustomerType.Company, PrimaryPhone = "(555) 333-4444", PrimaryEmail = "board@heritageoaks.org", PreferredContactMethod = "Email", ReferralSource = "Angi", Address = "100 Heritage Blvd", City = "Springfield", State = "IL", Zip = "62711", SinceDate = today.AddYears(-3), Tags = "[\"Commercial\",\"Service Agreement\"]", TaxExempt = true };
             var cust4 = new OneManVanFSM.Shared.Models.Customer { Name = "First Baptist Church", Type = OneManVanFSM.Shared.Models.CustomerType.Company, PrimaryPhone = "(555) 444-5555", PrimaryEmail = "office@firstbaptist.org", PreferredContactMethod = "Phone", Address = "900 Church Ln", City = "Springfield", State = "IL", Zip = "62702", SinceDate = today.AddMonths(-8), TaxExempt = true, BalanceOwed = 725m, Tags = "[\"Commercial\"]" };
-            var cust5 = new OneManVanFSM.Shared.Models.Customer { Name = "Linda Parker", Type = OneManVanFSM.Shared.Models.CustomerType.Landlord, PrimaryPhone = "(555) 555-6666", SecondaryPhone = "(555) 555-6667", PrimaryEmail = "lparker@rentals.com", PreferredContactMethod = "Text", ReferralSource = "Repeat Customer", Address = "200 Pine St", City = "Springfield", State = "IL", Zip = "62703", SinceDate = today.AddMonths(-3), Notes = "Multi-site landlord – 3 rental properties", Tags = "[\"Landlord\",\"Multi-Site\"]" };
+            var cust5 = new OneManVanFSM.Shared.Models.Customer { Name = "Linda Parker", Type = OneManVanFSM.Shared.Models.CustomerType.Landlord, PrimaryPhone = "(555) 555-6666", SecondaryPhone = "(555) 555-6667", PrimaryEmail = "lparker@rentals.com", PreferredContactMethod = "Text", ReferralSource = "Repeat Customer", Address = "200 Pine St", City = "Springfield", State = "IL", Zip = "62703", SinceDate = today.AddMonths(-3), Notes = "Multi-site landlord â€“ 3 rental properties", Tags = "[\"Landlord\",\"Multi-Site\"]" };
             var cust6 = new OneManVanFSM.Shared.Models.Customer { Name = "Sunrise Senior Living", Type = OneManVanFSM.Shared.Models.CustomerType.Company, PrimaryPhone = "(555) 666-7777", PrimaryEmail = "facilities@sunrisesl.com", PreferredContactMethod = "Email", ReferralSource = "Referral", Address = "500 Sunrise Dr", City = "Springfield", State = "IL", Zip = "62705", Tags = "[\"Commercial\",\"Priority\"]" };
             var cust7 = new OneManVanFSM.Shared.Models.Customer { Name = "David Kim", Type = OneManVanFSM.Shared.Models.CustomerType.Individual, PrimaryPhone = "(555) 777-8888", PrimaryEmail = "dkim@email.com", PreferredContactMethod = "No Preference", Address = "789 Elm St", City = "Springfield", State = "IL", Zip = "62706" };
             var cust8 = new OneManVanFSM.Shared.Models.Customer { Name = "Oakwood Dental", Type = OneManVanFSM.Shared.Models.CustomerType.Company, PrimaryPhone = "(555) 888-9999", PrimaryEmail = "admin@oakwooddental.com", PreferredContactMethod = "Email", ReferralSource = "Google", Address = "321 Business Park Dr", City = "Springfield", State = "IL", Zip = "62707", BalanceOwed = 290m, Tags = "[\"Commercial\"]" };
             _db.Customers.AddRange(cust1, cust2, cust3, cust4, cust5, cust6, cust7, cust8);
 
             // Sites
-            var site1 = new OneManVanFSM.Shared.Models.Site { Name = "Chen Residence", Address = "123 Oak St", City = "Springfield", State = "IL", Zip = "62704", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 2200, Zones = 2, Stories = 2, EquipmentLocation = "Basement", Customer = cust1, GasLineLocation = "Left side of house near meter", ElectricalPanelLocation = "Basement — east wall", WaterShutoffLocation = "Basement — near hot water heater", HeatingFuelSource = "Natural Gas", YearBuilt = 1998, HasAtticAccess = true, HasCrawlSpace = false, HasBasement = true };
-            var site2 = new OneManVanFSM.Shared.Models.Site { Name = "Reynolds Home", Address = "456 Maple Ave", City = "Springfield", State = "IL", Zip = "62701", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1800, Zones = 1, Stories = 1, EquipmentLocation = "Attic", Customer = cust2, GasLineLocation = "Rear of house", ElectricalPanelLocation = "Garage", WaterShutoffLocation = "Under kitchen sink", HeatingFuelSource = "Natural Gas", YearBuilt = 2005, HasAtticAccess = true, HasCrawlSpace = true, HasBasement = false, Notes = "Attic ladder loose — safety concern" };
-            var site3 = new OneManVanFSM.Shared.Models.Site { Name = "Heritage Oaks Clubhouse", Address = "100 Heritage Blvd", City = "Springfield", State = "IL", Zip = "62711", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Commercial, SqFt = 5000, Zones = 4, Stories = 1, Customer = cust3, AccessCodes = "Gate: 4521#", EquipmentLocation = "Rooftop", ElectricalPanelLocation = "Utility closet — main hall", HeatingFuelSource = "Electric", YearBuilt = 2010 };
+            var site1 = new OneManVanFSM.Shared.Models.Site { Name = "Chen Residence", Address = "123 Oak St", City = "Springfield", State = "IL", Zip = "62704", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 2200, Zones = 2, Stories = 2, EquipmentLocation = "Basement", Customer = cust1, GasLineLocation = "Left side of house near meter", ElectricalPanelLocation = "Basement â€” east wall", WaterShutoffLocation = "Basement â€” near hot water heater", HeatingFuelSource = "Natural Gas", YearBuilt = 1998, HasAtticAccess = true, HasCrawlSpace = false, HasBasement = true };
+            var site2 = new OneManVanFSM.Shared.Models.Site { Name = "Reynolds Home", Address = "456 Maple Ave", City = "Springfield", State = "IL", Zip = "62701", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1800, Zones = 1, Stories = 1, EquipmentLocation = "Attic", Customer = cust2, GasLineLocation = "Rear of house", ElectricalPanelLocation = "Garage", WaterShutoffLocation = "Under kitchen sink", HeatingFuelSource = "Natural Gas", YearBuilt = 2005, HasAtticAccess = true, HasCrawlSpace = true, HasBasement = false, Notes = "Attic ladder loose â€” safety concern" };
+            var site3 = new OneManVanFSM.Shared.Models.Site { Name = "Heritage Oaks Clubhouse", Address = "100 Heritage Blvd", City = "Springfield", State = "IL", Zip = "62711", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Commercial, SqFt = 5000, Zones = 4, Stories = 1, Customer = cust3, AccessCodes = "Gate: 4521#", EquipmentLocation = "Rooftop", ElectricalPanelLocation = "Utility closet â€” main hall", HeatingFuelSource = "Electric", YearBuilt = 2010 };
             var site4 = new OneManVanFSM.Shared.Models.Site { Name = "First Baptist Main Hall", Address = "900 Church Ln", City = "Springfield", State = "IL", Zip = "62702", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Commercial, SqFt = 8000, Zones = 6, Stories = 2, Customer = cust4, EquipmentLocation = "Rooftop", GasLineLocation = "West side of building", ElectricalPanelLocation = "Basement electrical room", HeatingFuelSource = "Natural Gas", YearBuilt = 1985, HasBasement = true };
             var site5 = new OneManVanFSM.Shared.Models.Site { Name = "Parker Rental Unit A", Address = "201 Pine St", City = "Springfield", State = "IL", Zip = "62703", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1100, Zones = 1, Stories = 1, Customer = cust5, AccessCodes = "Lock box: 9876", HeatingFuelSource = "Propane", YearBuilt = 1992, HasCrawlSpace = true, HasBasement = false };
             var site6 = new OneManVanFSM.Shared.Models.Site { Name = "Parker Rental Unit B", Address = "203 Pine St", City = "Springfield", State = "IL", Zip = "62703", PropertyType = OneManVanFSM.Shared.Models.PropertyType.Residential, SqFt = 1200, Zones = 1, Stories = 1, Customer = cust5, AccessCodes = "Lock box: 5432", HeatingFuelSource = "Propane", YearBuilt = 1992, HasCrawlSpace = true, HasBasement = false };
@@ -654,20 +876,20 @@ public class DataManagementService : IDataManagementService
             );
 
             // Assets
-            var asset1 = new OneManVanFSM.Shared.Models.Asset { Name = "Carrier 3-Ton AC", AssetType = "AC Unit", Brand = "Carrier", Model = "24ACC636A003", SerialNumber = "SN-AC-4421", Tonnage = 3m, SEER = 16m, BTURating = 36000, FuelType = "Electric", UnitConfiguration = "Split", FilterSize = "20x25x4", Voltage = "240V", Phase = "Single Phase", LocationOnSite = "Side Yard — South", RefrigerantType = "R-410A", RefrigerantQuantity = 6.2m, ManufactureDate = today.AddYears(-5), InstallDate = today.AddYears(-4), WarrantyStartDate = today.AddYears(-4), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(1), LastServiceDate = today.AddDays(-1), NextServiceDue = today, Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 4200m, Customer = cust1, Site = site1, Product = prod6 };
+            var asset1 = new OneManVanFSM.Shared.Models.Asset { Name = "Carrier 3-Ton AC", AssetType = "AC Unit", Brand = "Carrier", Model = "24ACC636A003", SerialNumber = "SN-AC-4421", Tonnage = 3m, SEER = 16m, BTURating = 36000, FuelType = "Electric", UnitConfiguration = "Split", FilterSize = "20x25x4", Voltage = "240V", Phase = "Single Phase", LocationOnSite = "Side Yard â€” South", RefrigerantType = "R-410A", RefrigerantQuantity = 6.2m, ManufactureDate = today.AddYears(-5), InstallDate = today.AddYears(-4), WarrantyStartDate = today.AddYears(-4), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(1), LastServiceDate = today.AddDays(-1), NextServiceDue = today, Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 4200m, Customer = cust1, Site = site1, Product = prod6 };
             var asset2 = new OneManVanFSM.Shared.Models.Asset { Name = "Trane XV80 Furnace", AssetType = "Furnace", Brand = "Trane", Model = "TUD2B060A9V3VB", SerialNumber = "SN-FURN-7782", BTURating = 80000, AFUE = 80m, FuelType = "Natural Gas", UnitConfiguration = "Split", FilterSize = "16x25x1", Voltage = "120V", Phase = "Single Phase", LocationOnSite = "Basement", ManufactureDate = today.AddYears(-6), InstallDate = today.AddYears(-5), WarrantyStartDate = today.AddYears(-5), WarrantyTermYears = 5, WarrantyExpiry = today.AddMonths(-2), LastServiceDate = today.AddDays(-1), NextServiceDue = today.AddMonths(1), Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 2800m, Customer = cust1, Site = site1, Notes = "Warranty recently expired" };
-            var asset3 = new OneManVanFSM.Shared.Models.Asset { Name = "Lennox XC21 AC", AssetType = "AC Unit", Brand = "Lennox", Model = "XC21-036-230", SerialNumber = "SN-AC-9931", Tonnage = 3m, SEER = 21m, BTURating = 36000, FuelType = "Electric", UnitConfiguration = "Split", FilterSize = "20x20x4", Voltage = "240V", Phase = "Single Phase", LocationOnSite = "Backyard — Concrete Pad", RefrigerantType = "R-410A", RefrigerantQuantity = 7.1m, ManufactureDate = today.AddYears(-2).AddMonths(-3), InstallDate = today.AddYears(-2), WarrantyStartDate = today.AddYears(-2), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(3), LastServiceDate = today.AddMonths(-4), NextServiceDue = today.AddMonths(8), Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 5500m, Customer = cust2, Site = site2 };
-            var asset4 = new OneManVanFSM.Shared.Models.Asset { Name = "Rooftop Unit #1", AssetType = "RTU", Brand = "Carrier", Model = "48HCDD08A2A6", SerialNumber = "SN-RTU-3301", Tonnage = 7.5m, SEER = 14m, BTURating = 90000, FuelType = "Natural Gas", UnitConfiguration = "Packaged", Voltage = "208V", Phase = "Three Phase", LocationOnSite = "Rooftop — NW Corner", ManufactureDate = today.AddYears(-9), InstallDate = today.AddYears(-8), WarrantyStartDate = today.AddYears(-8), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(-3), Status = OneManVanFSM.Shared.Models.AssetStatus.MaintenanceNeeded, Value = 8500m, Customer = cust4, Site = site4, Notes = "Needs condenser coil cleaning" };
-            var asset5 = new OneManVanFSM.Shared.Models.Asset { Name = "Mini-Split Unit A", AssetType = "Ductless Mini-Split", Brand = "Mitsubishi", Model = "MSZ-GL12NA", SerialNumber = "SN-MS-5501", Tonnage = 1m, SEER = 23m, HSPF = 10.6m, BTURating = 12000, FuelType = "Electric", UnitConfiguration = "Mini-Split", Voltage = "240V", Phase = "Single Phase", LocationOnSite = "Living Room — Wall Mount", RefrigerantType = "R-410A", ManufactureDate = today.AddYears(-1).AddMonths(-2), InstallDate = today.AddYears(-1), WarrantyStartDate = today.AddYears(-1), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(4), Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 3200m, Customer = cust5, Site = site5 };
+            var asset3 = new OneManVanFSM.Shared.Models.Asset { Name = "Lennox XC21 AC", AssetType = "AC Unit", Brand = "Lennox", Model = "XC21-036-230", SerialNumber = "SN-AC-9931", Tonnage = 3m, SEER = 21m, BTURating = 36000, FuelType = "Electric", UnitConfiguration = "Split", FilterSize = "20x20x4", Voltage = "240V", Phase = "Single Phase", LocationOnSite = "Backyard â€” Concrete Pad", RefrigerantType = "R-410A", RefrigerantQuantity = 7.1m, ManufactureDate = today.AddYears(-2).AddMonths(-3), InstallDate = today.AddYears(-2), WarrantyStartDate = today.AddYears(-2), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(3), LastServiceDate = today.AddMonths(-4), NextServiceDue = today.AddMonths(8), Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 5500m, Customer = cust2, Site = site2 };
+            var asset4 = new OneManVanFSM.Shared.Models.Asset { Name = "Rooftop Unit #1", AssetType = "RTU", Brand = "Carrier", Model = "48HCDD08A2A6", SerialNumber = "SN-RTU-3301", Tonnage = 7.5m, SEER = 14m, BTURating = 90000, FuelType = "Natural Gas", UnitConfiguration = "Packaged", Voltage = "208V", Phase = "Three Phase", LocationOnSite = "Rooftop â€” NW Corner", ManufactureDate = today.AddYears(-9), InstallDate = today.AddYears(-8), WarrantyStartDate = today.AddYears(-8), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(-3), Status = OneManVanFSM.Shared.Models.AssetStatus.MaintenanceNeeded, Value = 8500m, Customer = cust4, Site = site4, Notes = "Needs condenser coil cleaning" };
+            var asset5 = new OneManVanFSM.Shared.Models.Asset { Name = "Mini-Split Unit A", AssetType = "Ductless Mini-Split", Brand = "Mitsubishi", Model = "MSZ-GL12NA", SerialNumber = "SN-MS-5501", Tonnage = 1m, SEER = 23m, HSPF = 10.6m, BTURating = 12000, FuelType = "Electric", UnitConfiguration = "Mini-Split", Voltage = "240V", Phase = "Single Phase", LocationOnSite = "Living Room â€” Wall Mount", RefrigerantType = "R-410A", ManufactureDate = today.AddYears(-1).AddMonths(-2), InstallDate = today.AddYears(-1), WarrantyStartDate = today.AddYears(-1), WarrantyTermYears = 5, WarrantyExpiry = today.AddYears(4), Status = OneManVanFSM.Shared.Models.AssetStatus.Active, Value = 3200m, Customer = cust5, Site = site5 };
             _db.Assets.AddRange(asset1, asset2, asset3, asset4, asset5);
 
             // Jobs
-            var job1 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0041", Title = "AC Repair – Low Refrigerant", Description = "Customer reports warm air from vents. Check refrigerant levels and inspect for leaks.", Status = OneManVanFSM.Shared.Models.JobStatus.Completed, Priority = OneManVanFSM.Shared.Models.JobPriority.High, TradeType = "HVAC", JobType = "Repair", SystemType = "Split System", ScheduledDate = today.AddDays(-1), ScheduledTime = new TimeSpan(9, 0, 0), EstimatedDuration = 2.5m, EstimatedTotal = 350m, ActualDuration = 2.5m, ActualTotal = 324m, CompletedDate = today.AddDays(-1), Customer = cust1, Site = site1, AssignedEmployee = emp1 };
+            var job1 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0041", Title = "AC Repair â€“ Low Refrigerant", Description = "Customer reports warm air from vents. Check refrigerant levels and inspect for leaks.", Status = OneManVanFSM.Shared.Models.JobStatus.Completed, Priority = OneManVanFSM.Shared.Models.JobPriority.High, TradeType = "HVAC", JobType = "Repair", SystemType = "Split System", ScheduledDate = today.AddDays(-1), ScheduledTime = new TimeSpan(9, 0, 0), EstimatedDuration = 2.5m, EstimatedTotal = 350m, ActualDuration = 2.5m, ActualTotal = 324m, CompletedDate = today.AddDays(-1), Customer = cust1, Site = site1, AssignedEmployee = emp1 };
             var job2 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0042", Title = "Thermostat Replacement", Description = "Replace old mercury thermostat with Honeywell T6 Pro.", Status = OneManVanFSM.Shared.Models.JobStatus.Scheduled, Priority = OneManVanFSM.Shared.Models.JobPriority.Standard, TradeType = "HVAC", JobType = "Install", ScheduledDate = today, ScheduledTime = new TimeSpan(10, 30, 0), EstimatedDuration = 1m, EstimatedTotal = 245m, Customer = cust2, Site = site2, AssignedEmployee = emp2 };
-            var job3 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0043", Title = "Seasonal Maintenance – Clubhouse", Description = "Spring maintenance: inspect HVAC system, replace filters, check refrigerant.", Status = OneManVanFSM.Shared.Models.JobStatus.Scheduled, Priority = OneManVanFSM.Shared.Models.JobPriority.Standard, TradeType = "HVAC", JobType = "Maintenance", SystemType = "Commercial RTU", ScheduledDate = today.AddDays(1), ScheduledTime = new TimeSpan(8, 0, 0), EstimatedDuration = 3m, EstimatedTotal = 450m, Customer = cust3, Site = site3, AssignedEmployee = emp1 };
-            var job4 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0044", Title = "Emergency – No Heat", Description = "Furnace not igniting. Tenant reports no heat since last night.", Status = OneManVanFSM.Shared.Models.JobStatus.EnRoute, Priority = OneManVanFSM.Shared.Models.JobPriority.Emergency, TradeType = "HVAC", JobType = "Repair", ScheduledDate = today, ScheduledTime = new TimeSpan(7, 0, 0), EstimatedDuration = 2m, EstimatedTotal = 500m, Customer = cust5, Site = site5, AssignedEmployee = emp1 };
+            var job3 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0043", Title = "Seasonal Maintenance â€“ Clubhouse", Description = "Spring maintenance: inspect HVAC system, replace filters, check refrigerant.", Status = OneManVanFSM.Shared.Models.JobStatus.Scheduled, Priority = OneManVanFSM.Shared.Models.JobPriority.Standard, TradeType = "HVAC", JobType = "Maintenance", SystemType = "Commercial RTU", ScheduledDate = today.AddDays(1), ScheduledTime = new TimeSpan(8, 0, 0), EstimatedDuration = 3m, EstimatedTotal = 450m, Customer = cust3, Site = site3, AssignedEmployee = emp1 };
+            var job4 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0044", Title = "Emergency â€“ No Heat", Description = "Furnace not igniting. Tenant reports no heat since last night.", Status = OneManVanFSM.Shared.Models.JobStatus.EnRoute, Priority = OneManVanFSM.Shared.Models.JobPriority.Emergency, TradeType = "HVAC", JobType = "Repair", ScheduledDate = today, ScheduledTime = new TimeSpan(7, 0, 0), EstimatedDuration = 2m, EstimatedTotal = 500m, Customer = cust5, Site = site5, AssignedEmployee = emp1 };
             var job5 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0045", Title = "Duct Leak Inspection", Description = "Annual duct leak inspection for commercial facility.", Status = OneManVanFSM.Shared.Models.JobStatus.Scheduled, Priority = OneManVanFSM.Shared.Models.JobPriority.Standard, TradeType = "HVAC", JobType = "Diagnostic", SystemType = "Trunk Duct", ScheduledDate = today.AddDays(3), ScheduledTime = new TimeSpan(13, 0, 0), EstimatedDuration = 4m, EstimatedTotal = 600m, PermitRequired = false, Customer = cust4, Site = site4, AssignedEmployee = emp2 };
-            var job6 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0046", Title = "New AC Install – Bldg B", Status = OneManVanFSM.Shared.Models.JobStatus.Approved, Priority = OneManVanFSM.Shared.Models.JobPriority.Standard, TradeType = "HVAC", JobType = "Install", EstimatedTotal = 5500m, PermitRequired = true, PermitNumber = "MECH-2025-0891", Customer = cust6, Site = site7 };
+            var job6 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0046", Title = "New AC Install â€“ Bldg B", Status = OneManVanFSM.Shared.Models.JobStatus.Approved, Priority = OneManVanFSM.Shared.Models.JobPriority.Standard, TradeType = "HVAC", JobType = "Install", EstimatedTotal = 5500m, PermitRequired = true, PermitNumber = "MECH-2025-0891", Customer = cust6, Site = site7 };
             var job7 = new OneManVanFSM.Shared.Models.Job { JobNumber = "J-2025-0047", Title = "Mini-Split Install", Status = OneManVanFSM.Shared.Models.JobStatus.Quoted, Priority = OneManVanFSM.Shared.Models.JobPriority.Low, TradeType = "HVAC", JobType = "Install", EstimatedTotal = 3200m, PermitRequired = true, Customer = cust5, Site = site6 };
             _db.Jobs.AddRange(job1, job2, job3, job4, job5, job6, job7);
 
@@ -677,7 +899,7 @@ public class DataManagementService : IDataManagementService
             var est3 = new OneManVanFSM.Shared.Models.Estimate { EstimateNumber = "EST-2025-0017", Title = "Commercial Rooftop Unit", Status = OneManVanFSM.Shared.Models.EstimateStatus.Draft, TradeType = "HVAC", VersionNumber = 1, SqFt = 15000, Zones = 8, Stories = 3, SystemType = "Packaged RTU", PricingMethod = OneManVanFSM.Shared.Models.PricingMethod.FlatRate, Subtotal = 9800m, MarkupPercent = 15m, TaxPercent = 8m, Total = 12000m, DepositRequired = 3500m, Customer = cust6, Site = site7 };
             _db.Estimates.AddRange(est1, est2, est3);
 
-            var inv_1 = new OneManVanFSM.Shared.Models.Invoice { InvoiceNumber = "INV-2025-0024", Status = OneManVanFSM.Shared.Models.InvoiceStatus.Overdue, InvoiceDate = today.AddDays(-15), DueDate = today.AddDays(-10), PaymentTerms = "Net 5", Subtotal = 300m, TaxAmount = 24m, Total = 324m, BalanceDue = 324m, Customer = cust1, Job = job1, Notes = "AC Repair – overdue" };
+            var inv_1 = new OneManVanFSM.Shared.Models.Invoice { InvoiceNumber = "INV-2025-0024", Status = OneManVanFSM.Shared.Models.InvoiceStatus.Overdue, InvoiceDate = today.AddDays(-15), DueDate = today.AddDays(-10), PaymentTerms = "Net 5", Subtotal = 300m, TaxAmount = 24m, Total = 324m, BalanceDue = 324m, Customer = cust1, Job = job1, Notes = "AC Repair â€“ overdue" };
             var inv_2 = new OneManVanFSM.Shared.Models.Invoice { InvoiceNumber = "INV-2025-0025", Status = OneManVanFSM.Shared.Models.InvoiceStatus.Sent, InvoiceDate = today.AddDays(-7), DueDate = today.AddDays(-5), PaymentTerms = "Due on Receipt", Subtotal = 400m, TaxAmount = 50m, Total = 450m, BalanceDue = 450m, Customer = cust2 };
             var inv_3 = new OneManVanFSM.Shared.Models.Invoice { InvoiceNumber = "INV-2025-0027", Status = OneManVanFSM.Shared.Models.InvoiceStatus.Sent, InvoiceDate = today.AddDays(-5), DueDate = today.AddDays(2), PaymentTerms = "Net 7", Subtotal = 650m, TaxAmount = 75m, Total = 725m, BalanceDue = 725m, Customer = cust4, Site = site4 };
             var inv_4 = new OneManVanFSM.Shared.Models.Invoice { InvoiceNumber = "INV-2025-0028", Status = OneManVanFSM.Shared.Models.InvoiceStatus.Invoiced, InvoiceDate = today.AddDays(-3), DueDate = today.AddDays(10), PaymentTerms = "Net 15", Subtotal = 260m, TaxAmount = 30m, Total = 290m, BalanceDue = 290m, Customer = cust8, DiscountAmount = 0m };
@@ -687,12 +909,12 @@ public class DataManagementService : IDataManagementService
                 new OneManVanFSM.Shared.Models.TimeEntry { Employee = emp1, Job = job1, StartTime = today.AddDays(-1).AddHours(8).AddMinutes(30), EndTime = today.AddDays(-1).AddHours(9), Hours = 0.5m, IsBillable = false, TimeCategory = "Travel", Notes = "Drive to Chen residence" },
                 new OneManVanFSM.Shared.Models.TimeEntry { Employee = emp1, Job = job1, StartTime = today.AddDays(-1).AddHours(9), EndTime = today.AddDays(-1).AddHours(11).AddMinutes(30), Hours = 2.5m, IsBillable = true, TimeCategory = "On-Site", Notes = "Diagnosed low refrigerant, recharged system" },
                 new OneManVanFSM.Shared.Models.TimeEntry { Employee = emp1, Job = job4, StartTime = today.AddHours(7), EndTime = today.AddHours(8).AddMinutes(45), Hours = 1.75m, IsBillable = true, TimeCategory = "On-Site", Notes = "Emergency furnace no-heat call" },
-                new OneManVanFSM.Shared.Models.TimeEntry { Employee = emp2, StartTime = today.AddDays(-2).AddHours(8), EndTime = today.AddDays(-2).AddHours(16).AddMinutes(30), Hours = 8.5m, IsBillable = true, TimeCategory = "On-Site", Notes = "Full day — maintenance rounds" },
+                new OneManVanFSM.Shared.Models.TimeEntry { Employee = emp2, StartTime = today.AddDays(-2).AddHours(8), EndTime = today.AddDays(-2).AddHours(16).AddMinutes(30), Hours = 8.5m, IsBillable = true, TimeCategory = "On-Site", Notes = "Full day â€” maintenance rounds" },
                 new OneManVanFSM.Shared.Models.TimeEntry { Employee = emp1, StartTime = today.AddDays(-3).AddHours(9), EndTime = today.AddDays(-3).AddHours(17), Hours = 8m, IsBillable = true, TimeCategory = "On-Site", Notes = "Service calls (3 jobs)" }
             );
 
             _db.CalendarEvents.AddRange(
-                new OneManVanFSM.Shared.Models.CalendarEvent { Title = "Team Safety Meeting", StartDateTime = today.AddDays(2).AddHours(8), EndDateTime = today.AddDays(2).AddHours(9), Duration = 1m, Status = OneManVanFSM.Shared.Models.CalendarEventStatus.Confirmed, EventType = "Meeting", Color = "#6f42c1", Employee = emp1, Notes = "Monthly safety briefing — PPE review" },
+                new OneManVanFSM.Shared.Models.CalendarEvent { Title = "Team Safety Meeting", StartDateTime = today.AddDays(2).AddHours(8), EndDateTime = today.AddDays(2).AddHours(9), Duration = 1m, Status = OneManVanFSM.Shared.Models.CalendarEventStatus.Confirmed, EventType = "Meeting", Color = "#6f42c1", Employee = emp1, Notes = "Monthly safety briefing â€” PPE review" },
                 new OneManVanFSM.Shared.Models.CalendarEvent { Title = "NATE Certification Renewal", StartDateTime = today.AddDays(14).AddHours(9), EndDateTime = today.AddDays(14).AddHours(12), Duration = 3m, Status = OneManVanFSM.Shared.Models.CalendarEventStatus.Tentative, EventType = "Training", Color = "#fd7e14", Employee = emp1, Notes = "Online renewal exam" },
                 new OneManVanFSM.Shared.Models.CalendarEvent { Title = "Van #2 Service Appointment", StartDateTime = today.AddDays(5).AddHours(7), EndDateTime = today.AddDays(5).AddHours(9), Duration = 2m, Status = OneManVanFSM.Shared.Models.CalendarEventStatus.Confirmed, EventType = "Personal", Color = "#20c997", Employee = emp2, Notes = "Oil change + tire rotation" },
                 new OneManVanFSM.Shared.Models.CalendarEvent { Title = "Heritage Oaks Follow-Up Inspection", StartDateTime = today.AddDays(7).AddHours(10), EndDateTime = today.AddDays(7).AddHours(11).AddMinutes(30), Duration = 1.5m, Status = OneManVanFSM.Shared.Models.CalendarEventStatus.Tentative, EventType = "Job", Color = "#0d6efd", Employee = emp1, Job = job3, Notes = "Post-maintenance inspection" },
@@ -701,7 +923,7 @@ public class DataManagementService : IDataManagementService
 
             _db.QuickNotes.AddRange(
                 new OneManVanFSM.Shared.Models.QuickNote { Title = "Refrigerant leak at condenser", Text = "Found small leak at service valve on Chen AC. Recharged 1.5 lbs R-410A.", Category = "Repair", EntityType = "Job", EntityId = 1, Job = job1, CreatedByEmployee = emp1, Status = OneManVanFSM.Shared.Models.QuickNoteStatus.Active, IsUrgent = false, CreatedAt = today.AddDays(-1).AddHours(11) },
-                new OneManVanFSM.Shared.Models.QuickNote { Title = "Igniter replacement needed", Text = "Parker furnace — hot surface igniter cracked. Replaced with Honeywell Q3400A.", Category = "Repair", EntityType = "Job", EntityId = 4, Job = job4, CreatedByEmployee = emp1, Status = OneManVanFSM.Shared.Models.QuickNoteStatus.Active, IsUrgent = true, CreatedAt = today.AddHours(8) },
+                new OneManVanFSM.Shared.Models.QuickNote { Title = "Igniter replacement needed", Text = "Parker furnace â€” hot surface igniter cracked. Replaced with Honeywell Q3400A.", Category = "Repair", EntityType = "Job", EntityId = 4, Job = job4, CreatedByEmployee = emp1, Status = OneManVanFSM.Shared.Models.QuickNoteStatus.Active, IsUrgent = true, CreatedAt = today.AddHours(8) },
                 new OneManVanFSM.Shared.Models.QuickNote { Title = "Heritage Oaks access reminder", Text = "Gate code changed to 4521#. Previous code 1234# no longer works.", Category = "General", CreatedByEmployee = emp1, Status = OneManVanFSM.Shared.Models.QuickNoteStatus.Active, IsUrgent = false, CreatedAt = today.AddDays(-2).AddHours(14) },
                 new OneManVanFSM.Shared.Models.QuickNote { Title = "Safety concern - Reynolds attic", Text = "Attic access ladder is loose at Reynolds home. Almost slipped.", Category = "Safety", CreatedByEmployee = emp2, Status = OneManVanFSM.Shared.Models.QuickNoteStatus.Active, IsUrgent = true, CreatedAt = today.AddDays(-3).AddHours(10) },
                 new OneManVanFSM.Shared.Models.QuickNote { Title = "Follow-up: Chen filter order", Text = "Martha Chen requested quote for annual filter delivery.", Category = "Follow-Up", EntityType = "Customer", EntityId = 1, Customer = cust1, CreatedByEmployee = emp1, Status = OneManVanFSM.Shared.Models.QuickNoteStatus.Draft, IsUrgent = false, CreatedAt = today.AddDays(-1).AddHours(12) }
@@ -733,10 +955,10 @@ public class DataManagementService : IDataManagementService
 
             // Estimate Lines, Invoice Lines, Expenses, Payments, JobAssets, AssetServiceLogs, Service Agreements, Suppliers, Templates, DropdownOptions
             _db.EstimateLines.AddRange(
-                new OneManVanFSM.Shared.Models.EstimateLine { EstimateId = est1.Id, Section = "Equipment", Description = "Carrier 24ACC636A003 — 3-Ton 16 SEER AC Unit", LineType = "Material", Unit = "Each", Quantity = 1, UnitPrice = 3200m, LineTotal = 3200m, SortOrder = 1 },
+                new OneManVanFSM.Shared.Models.EstimateLine { EstimateId = est1.Id, Section = "Equipment", Description = "Carrier 24ACC636A003 â€” 3-Ton 16 SEER AC Unit", LineType = "Material", Unit = "Each", Quantity = 1, UnitPrice = 3200m, LineTotal = 3200m, SortOrder = 1 },
                 new OneManVanFSM.Shared.Models.EstimateLine { EstimateId = est1.Id, Section = "Labor", Description = "AC System Removal + Install (2 techs)", LineType = "Labor", Unit = "Hour", Quantity = 8, UnitPrice = 125m, LineTotal = 1000m, SortOrder = 2 },
                 new OneManVanFSM.Shared.Models.EstimateLine { EstimateId = est2.Id, Section = "Labor", Description = "Ductwork Inspection + Leak Testing", LineType = "Labor", Unit = "Hour", Quantity = 3, UnitPrice = 125m, LineTotal = 375m, SortOrder = 1 },
-                new OneManVanFSM.Shared.Models.EstimateLine { EstimateId = est3.Id, Section = "Equipment", Description = "Commercial RTU — 7.5 Ton", LineType = "Material", Unit = "Each", Quantity = 1, UnitPrice = 6500m, LineTotal = 6500m, SortOrder = 1 }
+                new OneManVanFSM.Shared.Models.EstimateLine { EstimateId = est3.Id, Section = "Equipment", Description = "Commercial RTU â€” 7.5 Ton", LineType = "Material", Unit = "Each", Quantity = 1, UnitPrice = 6500m, LineTotal = 6500m, SortOrder = 1 }
             );
 
             _db.InvoiceLines.AddRange(
@@ -766,13 +988,13 @@ public class DataManagementService : IDataManagementService
             );
 
             // Service Agreements
-            var sa1 = new OneManVanFSM.Shared.Models.ServiceAgreement { AgreementNumber = "SA-2025-001", Title = "Annual Maintenance — Chen Residence", CoverageLevel = OneManVanFSM.Shared.Models.CoverageLevel.Premium, StartDate = today.AddMonths(-6), EndDate = today.AddMonths(6), VisitsIncluded = 4, VisitsUsed = 2, Fee = 349m, TradeType = "HVAC", BillingFrequency = "Annual", DiscountPercent = 10m, RenewalDate = today.AddMonths(6), AutoRenew = true, Status = OneManVanFSM.Shared.Models.AgreementStatus.Active, Customer = cust1, Site = site1 };
-            var sa2 = new OneManVanFSM.Shared.Models.ServiceAgreement { AgreementNumber = "SA-2025-002", Title = "Commercial HVAC Maintenance — Heritage Oaks", CoverageLevel = OneManVanFSM.Shared.Models.CoverageLevel.Gold, StartDate = today.AddMonths(-2), EndDate = today.AddMonths(10), VisitsIncluded = 6, VisitsUsed = 1, Fee = 1200m, TradeType = "HVAC", BillingFrequency = "Quarterly", DiscountPercent = 15m, RenewalDate = today.AddMonths(10), AutoRenew = true, Status = OneManVanFSM.Shared.Models.AgreementStatus.Active, Customer = cust3, Site = site3 };
+            var sa1 = new OneManVanFSM.Shared.Models.ServiceAgreement { AgreementNumber = "SA-2025-001", Title = "Annual Maintenance â€” Chen Residence", CoverageLevel = OneManVanFSM.Shared.Models.CoverageLevel.Premium, StartDate = today.AddMonths(-6), EndDate = today.AddMonths(6), VisitsIncluded = 4, VisitsUsed = 2, Fee = 349m, TradeType = "HVAC", BillingFrequency = "Annual", DiscountPercent = 10m, RenewalDate = today.AddMonths(6), AutoRenew = true, Status = OneManVanFSM.Shared.Models.AgreementStatus.Active, Customer = cust1, Site = site1 };
+            var sa2 = new OneManVanFSM.Shared.Models.ServiceAgreement { AgreementNumber = "SA-2025-002", Title = "Commercial HVAC Maintenance â€” Heritage Oaks", CoverageLevel = OneManVanFSM.Shared.Models.CoverageLevel.Gold, StartDate = today.AddMonths(-2), EndDate = today.AddMonths(10), VisitsIncluded = 6, VisitsUsed = 1, Fee = 1200m, TradeType = "HVAC", BillingFrequency = "Quarterly", DiscountPercent = 15m, RenewalDate = today.AddMonths(10), AutoRenew = true, Status = OneManVanFSM.Shared.Models.AgreementStatus.Active, Customer = cust3, Site = site3 };
             _db.ServiceAgreements.AddRange(sa1, sa2);
 
             _db.ServiceAgreementAssets.AddRange(
-                new OneManVanFSM.Shared.Models.ServiceAgreementAsset { ServiceAgreement = sa1, Asset = asset1, CoverageNotes = "Full coverage — AC tune-ups, refrigerant top-off" },
-                new OneManVanFSM.Shared.Models.ServiceAgreementAsset { ServiceAgreement = sa1, Asset = asset2, CoverageNotes = "Full coverage — furnace tune-ups" }
+                new OneManVanFSM.Shared.Models.ServiceAgreementAsset { ServiceAgreement = sa1, Asset = asset1, CoverageNotes = "Full coverage â€” AC tune-ups, refrigerant top-off" },
+                new OneManVanFSM.Shared.Models.ServiceAgreementAsset { ServiceAgreement = sa1, Asset = asset2, CoverageNotes = "Full coverage â€” furnace tune-ups" }
             );
 
             // Suppliers

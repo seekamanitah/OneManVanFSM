@@ -58,7 +58,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Billing Frequency</label>
                         <InputSelect @bind-Value="form.BillingFrequency" class="form-select">
-                            <option value="">—</option>
+                            <option value="">â€”</option>
                             @foreach (var bf in _billingFrequencies) { <option value="@bf">@bf</option> }
                         </InputSelect>
                     </div>
@@ -73,7 +73,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Trade Type</label>
                         <InputSelect @bind-Value="form.TradeType" class="form-select">
-                            <option value="">—</option>
+                            <option value="">â€”</option>
                             @foreach (var t in _tradeTypes) { <option value="@t">@t</option> }
                         </InputSelect>
                     </div>
@@ -84,7 +84,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="form.CustomerId" class="form-select">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -94,7 +94,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Company</label>
                         <InputSelect @bind-Value="form.CompanyId" class="form-select">
-                            <option value="">— Select Company —</option>
+                            <option value="">â€” Select Company â€”</option>
                             @foreach (var co in _companies)
                             {
                                 <option value="@co.Id">@co.Name</option>
@@ -104,7 +104,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Site</label>
                         <InputSelect @bind-Value="form.SiteId" class="form-select">
-                            <option value="">— Select Site —</option>
+                            <option value="">â€” Select Site â€”</option>
                             @foreach (var si in _sites)
                             {
                                 <option value="@si.Id">@si.Name</option>
@@ -209,7 +209,7 @@ else if (mode == "detail" && detail is not null)
                                     {
                                         <tr>
                                             <td><a href="javascript:void(0)" @onclick="() => GoToAsset(ca.AssetId)">@(ca.AssetName ?? $"Asset #{ca.AssetId}")</a></td>
-                                            <td><small class="text-muted">@(ca.CoverageNotes ?? "—")</small></td>
+                                            <td><small class="text-muted">@(ca.CoverageNotes ?? "â€”")</small></td>
                                         </tr>
                                     }
                                 </tbody>
@@ -241,7 +241,13 @@ else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>Service Agreements</h4>
-        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Agreement</button>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedSA" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedSA"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!filter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Agreement</button> }
+        </div>
     </div>
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
@@ -267,6 +273,29 @@ else
             </div>
         </div>
     </div>
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> agreement(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
         @if (agreements is null)
         {
@@ -281,6 +310,7 @@ else
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                 <thead class="table-light"><tr>
+                    <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
                     <th role="button" @onclick='() => ToggleSort("number")'>Number@(SortIcon("number"))</th>
                     <th role="button" @onclick='() => ToggleSort("title")'>Title@(SortIcon("title"))</th>
                     <th role="button" @onclick='() => ToggleSort("customer")'>Customer@(SortIcon("customer"))</th>
@@ -295,12 +325,13 @@ else
                     <tbody>
                         @foreach (var a in agreements)
                         {
-                            <tr style="cursor:pointer" @onclick="() => GoToDetail(a.Id)">
-                                <td><strong>@a.AgreementNumber</strong></td>
-                                <td>@(a.Title ?? "—")</td>
-                                <td>@(a.CustomerName ?? "—")</td>
-                                <td>@(a.CompanyName ?? "—")</td>
-                                <td><small>@(a.TradeType ?? "—")</small></td>
+                            <tr class="@(_selectedIds.Contains(a.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(a.Id)" @onchange="() => ToggleRowSelection(a.Id)" /></td>
+                                <td style="cursor:pointer" @onclick="() => GoToDetail(a.Id)"><strong>@a.AgreementNumber</strong></td>
+                                <td>@(a.Title ?? "â€”")</td>
+                                <td>@(a.CustomerName ?? "â€”")</td>
+                                <td>@(a.CompanyName ?? "â€”")</td>
+                                <td><small>@(a.TradeType ?? "â€”")</small></td>
                                 <td><span class="badge @GetCoverageBadge(a.CoverageLevel)">@a.CoverageLevel</span></td>
                                 <td><span class="badge @GetStatusBadge(a.Status)">@a.Status</span></td>
                                 <td>@a.VisitsUsed/@a.VisitsIncluded</td>
@@ -313,12 +344,23 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
 }
 
 @code {
     [Parameter]
     public int? Id { get; set; }
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => agreements is not null && agreements.Count > 0 && agreements.All(a => _selectedIds.Contains(a.Id));
 
     private string mode = "list";
     private List<AgreementListItem>? agreements;
@@ -502,7 +544,7 @@ else
         if (!string.IsNullOrEmpty(detail.CustomerName)) lines.AppendLine($"Customer: {detail.CustomerName}");
         if (!string.IsNullOrEmpty(detail.CompanyName)) lines.AppendLine($"Company: {detail.CompanyName}");
         if (!string.IsNullOrEmpty(detail.SiteName)) lines.AppendLine($"Site: {detail.SiteName}");
-        lines.AppendLine($"Period: {detail.StartDate:MMM dd, yyyy} – {detail.EndDate:MMM dd, yyyy}");
+        lines.AppendLine($"Period: {detail.StartDate:MMM dd, yyyy} â€“ {detail.EndDate:MMM dd, yyyy}");
         lines.AppendLine($"Fee: {detail.Fee:C}");
         if (!string.IsNullOrEmpty(detail.BillingFrequency)) lines.AppendLine($"Billing: {detail.BillingFrequency}");
         lines.AppendLine($"Visits: {detail.VisitsUsed} / {detail.VisitsIncluded}");
@@ -525,5 +567,14 @@ else
 
     private MarkupString SortIcon(string column) =>
         sortBy == column ? new MarkupString(sortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>") : default;
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (agreements is null) return; if (_allSelected) _selectedIds.Clear(); else foreach (var a in agreements) _selectedIds.Add(a.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await LoadAgreements(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await AgreementSvc.BulkArchiveAgreementsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} agreement(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadAgreements(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await AgreementSvc.BulkRestoreAgreementsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} agreement(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadAgreements(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await AgreementSvc.BulkDeleteAgreementsPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} agreement(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadAgreements(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }
 

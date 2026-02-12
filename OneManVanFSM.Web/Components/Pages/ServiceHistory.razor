@@ -106,12 +106,12 @@
                             <td><span class="badge @GetTypeBadge(rec.Type)">@FormatType(rec.Type)</span></td>
                             <td><span class="badge @GetStatusBadge(rec.Status)">@rec.Status</span></td>
                             <td>@rec.ServiceDate.ToString("MMM dd, yyyy")</td>
-                            <td>@(rec.CustomerName ?? "—")</td>
-                            <td>@(rec.SiteName ?? "—")</td>
-                            <td>@(rec.AssetName ?? "—")</td>
-                            <td><small>@(rec.TechName ?? "—")</small></td>
-                            <td>@(rec.IssueType ?? "—")</td>
-                            <td>@(rec.Cost?.ToString("C") ?? "—")</td>
+                            <td>@(rec.CustomerName ?? "â€”")</td>
+                            <td>@(rec.SiteName ?? "â€”")</td>
+                            <td>@(rec.AssetName ?? "â€”")</td>
+                            <td><small>@(rec.TechName ?? "â€”")</small></td>
+                            <td>@(rec.IssueType ?? "â€”")</td>
+                            <td>@(rec.Cost?.ToString("C") ?? "â€”")</td>
                             <td class="text-end" @onclick:stopPropagation="true">
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" title="Edit" @onclick="() => ShowEdit(rec.Id)"><i class="bi bi-pencil"></i></button>
@@ -175,19 +175,19 @@ else if (viewMode == "detail" && recordDetail is not null)
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Issue Type</small>
-                    <span>@(recordDetail.IssueType ?? "—")</span>
+                    <span>@(recordDetail.IssueType ?? "â€”")</span>
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Vendor</small>
-                    <span>@(recordDetail.VendorName ?? "—")</span>
+                    <span>@(recordDetail.VendorName ?? "â€”")</span>
                 </div>
                 <div class="col-md-6">
                     <small class="text-muted d-block">Description</small>
-                    <span>@(recordDetail.Description ?? "—")</span>
+                    <span>@(recordDetail.Description ?? "â€”")</span>
                 </div>
                 <div class="col-md-6">
                     <small class="text-muted d-block">Resolution Notes</small>
-                    <span>@(recordDetail.ResolutionNotes ?? "—")</span>
+                    <span>@(recordDetail.ResolutionNotes ?? "â€”")</span>
                 </div>
             </div>
         </div>
@@ -202,35 +202,35 @@ else if (viewMode == "detail" && recordDetail is not null)
                     <small class="text-muted d-block">Customer</small>
                     @if (recordDetail.CustomerId.HasValue && recordDetail.CustomerName is not null)
                     { <a href="javascript:void(0)" @onclick="() => GoToCustomer(recordDetail.CustomerId.Value)">@recordDetail.CustomerName</a> }
-                    else { <span>—</span> }
+                    else { <span>â€”</span> }
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Company</small>
-                    <span>@(recordDetail.CompanyName ?? "—")</span>
+                    <span>@(recordDetail.CompanyName ?? "â€”")</span>
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Site</small>
                     @if (recordDetail.SiteId.HasValue && recordDetail.SiteName is not null)
                     { <a href="javascript:void(0)" @onclick="() => GoToSite(recordDetail.SiteId.Value)">@recordDetail.SiteName</a> }
-                    else { <span>—</span> }
+                    else { <span>â€”</span> }
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Asset</small>
                     @if (recordDetail.AssetId.HasValue && recordDetail.AssetName is not null)
                     { <a href="javascript:void(0)" @onclick="() => GoToAsset(recordDetail.AssetId.Value)">@recordDetail.AssetName</a> }
-                    else { <span>—</span> }
+                    else { <span>â€”</span> }
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Job</small>
                     @if (recordDetail.JobId.HasValue && recordDetail.JobNumber is not null)
                     { <a href="javascript:void(0)" @onclick="() => GoToJob(recordDetail.JobId.Value)">@recordDetail.JobNumber</a> }
-                    else { <span>—</span> }
+                    else { <span>â€”</span> }
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Technician</small>
                     @if (recordDetail.TechId.HasValue && recordDetail.TechName is not null)
                     { <a href="javascript:void(0)" @onclick="() => GoToEmployee(recordDetail.TechId.Value)">@recordDetail.TechName</a> }
-                    else { <span>—</span> }
+                    else { <span>â€”</span> }
                 </div>
             </div>
             <div class="d-flex justify-content-between text-muted small mt-2 pt-2 border-top">
@@ -247,11 +247,11 @@ else if (viewMode == "detail" && recordDetail is not null)
             <div class="row g-3">
                 <div class="col-md-4">
                     <small class="text-muted d-block">Cost</small>
-                    <strong>@(recordDetail.Cost?.ToString("C") ?? "—")</strong>
+                    <strong>@(recordDetail.Cost?.ToString("C") ?? "â€”")</strong>
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Reimbursement</small>
-                    <strong class="text-success">@(recordDetail.Reimbursement?.ToString("C") ?? "—")</strong>
+                    <strong class="text-success">@(recordDetail.Reimbursement?.ToString("C") ?? "â€”")</strong>
                 </div>
                 <div class="col-md-4">
                     <small class="text-muted d-block">Net</small>
@@ -278,9 +278,9 @@ else if (viewMode == "detail" && recordDetail is not null)
                         {
                             <tr>
                                 <td><strong>@act.Action</strong></td>
-                                <td>@(act.Response ?? "—")</td>
+                                <td>@(act.Response ?? "â€”")</td>
                                 <td>@act.ActionDate.ToString("MMM dd, yyyy")</td>
-                                <td>@(act.PerformedBy ?? "—")</td>
+                                <td>@(act.PerformedBy ?? "â€”")</td>
                             </tr>
                         }
                     </tbody>
@@ -384,7 +384,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Vendor</label>
                         <select class="form-select" @bind="editModel.VendorName">
-                            <option value="">— Select Vendor —</option>
+                            <option value="">â€” Select Vendor â€”</option>
                             @foreach (var v in _vendorCompanies)
                             {
                                 <option value="@v.Name">@v.Name</option>
@@ -414,7 +414,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
                         <InputSelect class="form-select" @bind-Value="editModel.CustomerId">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -424,7 +424,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Company</label>
                         <InputSelect class="form-select" @bind-Value="editModel.CompanyId">
-                            <option value="">— Select Company —</option>
+                            <option value="">â€” Select Company â€”</option>
                             @foreach (var co in _companies)
                             {
                                 <option value="@co.Id">@co.Name</option>
@@ -434,7 +434,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Site</label>
                         <InputSelect class="form-select" @bind-Value="editModel.SiteId">
-                            <option value="">— Select Site —</option>
+                            <option value="">â€” Select Site â€”</option>
                             @foreach (var si in _sites)
                             {
                                 <option value="@si.Id">@si.Name</option>
@@ -444,7 +444,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Asset</label>
                         <InputSelect class="form-select" @bind-Value="editModel.AssetId">
-                            <option value="">— Select Asset —</option>
+                            <option value="">â€” Select Asset â€”</option>
                             @foreach (var a in _assets)
                             {
                                 <option value="@a.Id">@a.Name</option>
@@ -454,17 +454,17 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Job</label>
                         <InputSelect class="form-select" @bind-Value="editModel.JobId">
-                            <option value="">— Select Job —</option>
+                            <option value="">â€” Select Job â€”</option>
                             @foreach (var j in _jobs)
                             {
-                                <option value="@j.Id">@j.JobNumber — @(j.Title ?? "")</option>
+                                <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "")</option>
                             }
                         </InputSelect>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Technician</label>
                         <InputSelect class="form-select" @bind-Value="editModel.TechId">
-                            <option value="">— Select Tech —</option>
+                            <option value="">â€” Select Tech â€”</option>
                             @foreach (var e in _employees)
                             {
                                 <option value="@e.Id">@e.Name</option>

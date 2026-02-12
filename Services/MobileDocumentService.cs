@@ -141,7 +141,7 @@ public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocu
         }
         catch
         {
-            // Device has no app to handle this file type — ignore gracefully
+            // Device has no app to handle this file type â€” ignore gracefully
         }
     }
 

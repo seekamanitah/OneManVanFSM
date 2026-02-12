@@ -49,7 +49,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")
         ?? "Data Source=OneManVanFSM.db"));
 
-// Authentication — Cookie for Blazor UI, JWT Bearer for API
+// Authentication â€” Cookie for Blazor UI, JWT Bearer for API
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
@@ -124,7 +124,7 @@ app.MapControllers(); // REST API endpoints for mobile sync
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
-// Auth endpoints — cookie operations must run in a real HTTP request, not a SignalR circuit
+// Auth endpoints â€” cookie operations must run in a real HTTP request, not a SignalR circuit
 app.MapPost("/auth/login", async (HttpContext context, IAuthService authService) =>
 {
     var form = await context.Request.ReadFormAsync();

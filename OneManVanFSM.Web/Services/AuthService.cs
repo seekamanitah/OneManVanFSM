@@ -46,7 +46,7 @@ public class AuthService : IAuthService
             return AuthResult.Failure("Invalid username or password.");
         }
 
-        // Successful login — reset attempts, update last login
+        // Successful login â€” reset attempts, update last login
         user.LoginAttempts = 0;
         user.LastLogin = DateTime.UtcNow;
         user.UpdatedAt = DateTime.UtcNow;
@@ -308,7 +308,7 @@ public class AuthService : IAuthService
 
         await _db.SaveChangesAsync();
 
-        // NOTE: Do NOT call LogoutAsync() here — this method runs inside a
+        // NOTE: Do NOT call LogoutAsync() here â€” this method runs inside a
         // Blazor Server interactive circuit where HttpContext.SignOutAsync()
         // cannot modify response headers. The caller (Setup.razor) navigates
         // to the /auth/logout HTTP endpoint which properly clears the cookie.

@@ -12,7 +12,8 @@ public class SiteService : ISiteService
 
     public async Task<List<SiteListItem>> GetSitesAsync(SiteFilter? filter = null)
     {
-        var query = _db.Sites.Where(s => !s.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Sites.Where(s => s.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -169,6 +170,48 @@ public class SiteService : ISiteService
         site.IsArchived = true; site.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreSiteAsync(int id)
+    {
+        var s = await _db.Sites.FindAsync(id);
+        if (s is null) return false;
+        s.IsArchived = false; s.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteSitePermanentlyAsync(int id)
+    {
+        var s = await _db.Sites.FindAsync(id);
+        if (s is null) return false;
+        _db.Sites.Remove(s);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveSitesAsync(List<int> ids)
+    {
+        var items = await _db.Sites.Where(s => ids.Contains(s.Id) && !s.IsArchived).ToListAsync();
+        foreach (var s in items) { s.IsArchived = true; s.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreSitesAsync(List<int> ids)
+    {
+        var items = await _db.Sites.Where(s => ids.Contains(s.Id) && s.IsArchived).ToListAsync();
+        foreach (var s in items) { s.IsArchived = false; s.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteSitesPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Sites.Where(s => ids.Contains(s.Id)).ToListAsync();
+        _db.Sites.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     public async Task<List<CompanyOption>> GetCompaniesForDropdownAsync()

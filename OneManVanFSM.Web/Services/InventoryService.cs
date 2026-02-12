@@ -11,7 +11,8 @@ public class InventoryService : IInventoryService
 
     public async Task<List<InventoryListItem>> GetItemsAsync(InventoryFilter? filter = null)
     {
-        var query = _db.InventoryItems.Where(i => !i.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.InventoryItems.Where(i => i.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -114,6 +115,48 @@ public class InventoryService : IInventoryService
         item.IsArchived = true; item.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreItemAsync(int id)
+    {
+        var i = await _db.InventoryItems.FindAsync(id);
+        if (i is null) return false;
+        i.IsArchived = false; i.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteItemPermanentlyAsync(int id)
+    {
+        var i = await _db.InventoryItems.FindAsync(id);
+        if (i is null) return false;
+        _db.InventoryItems.Remove(i);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveItemsAsync(List<int> ids)
+    {
+        var items = await _db.InventoryItems.Where(i => ids.Contains(i.Id) && !i.IsArchived).ToListAsync();
+        foreach (var i in items) { i.IsArchived = true; i.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreItemsAsync(List<int> ids)
+    {
+        var items = await _db.InventoryItems.Where(i => ids.Contains(i.Id) && i.IsArchived).ToListAsync();
+        foreach (var i in items) { i.IsArchived = false; i.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteItemsPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.InventoryItems.Where(i => ids.Contains(i.Id)).ToListAsync();
+        _db.InventoryItems.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     public async Task<InventoryDashboard> GetDashboardAsync()

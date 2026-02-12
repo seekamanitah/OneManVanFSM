@@ -180,7 +180,7 @@ public class ApiClient
 
             if (!url.StartsWith("http://", StringComparison.OrdinalIgnoreCase) &&
                 !url.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                return (false, $"URL must start with http:// or https:// — got: {url}");
+                return (false, $"URL must start with http:// or https:// â€” got: {url}");
 
             _logger.LogInformation("Testing connection to {Url}/health...", url);
 
@@ -213,7 +213,7 @@ public class ApiClient
         catch (Exception ex)
         {
             _logger.LogError(ex, "Unexpected error during connection test.");
-            return (false, $"Unexpected error: {ex.GetType().Name} — {ex.Message}");
+            return (false, $"Unexpected error: {ex.GetType().Name} â€” {ex.Message}");
         }
     }
 
@@ -330,7 +330,7 @@ public class ApiClient
             {
                 response = await _http.SendAsync(msg);
 
-                // Non-transient failure — don't retry
+                // Non-transient failure â€” don't retry
                 if (!TransientStatusCodes.Contains(response.StatusCode))
                     break;
 
@@ -352,10 +352,10 @@ public class ApiClient
                 await Task.Delay(RetryDelays[attempt]);
         }
 
-        // response will be null only if all retries threw — let the final attempt propagate naturally
+        // response will be null only if all retries threw â€” let the final attempt propagate naturally
         response ??= await _http.SendAsync(RebuildRequest(request.Method, request.RequestUri!, bodyContent, contentType, skipAuth));
 
-        // Handle 401 — attempt token refresh then one final retry
+        // Handle 401 â€” attempt token refresh then one final retry
         if (response.StatusCode == HttpStatusCode.Unauthorized && !skipAuth)
         {
             if (await TryRefreshTokenAsync())

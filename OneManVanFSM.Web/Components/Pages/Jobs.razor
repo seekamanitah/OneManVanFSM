@@ -8,6 +8,7 @@
 @inject ISiteService SiteSvc
 @inject IAssetService AssetSvc
 @inject IDropdownService DropdownSvc
+@inject ICompanyProfileService CompanyProfileSvc
 @inject NavigationManager Navigation
 @inject IJSRuntime JS
 @rendermode InteractiveServer
@@ -23,7 +24,13 @@ else if (_view == View.List)
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-wrench-adjustable-circle-fill me-2"></i>Jobs</h4>
-        <a href="jobs/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Job</a>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedJobs" checked="@_filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedJobs"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!_filter.ShowArchived) { <a href="jobs/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Job</a> }
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
@@ -59,6 +66,28 @@ else if (_view == View.List)
         </div>
     </div>
 
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> job(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (_filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     @if (_jobs.Count == 0)
     {
         <div class="card border-0 shadow-sm">
@@ -76,6 +105,7 @@ else if (_view == View.List)
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
                             <th role="button" @onclick='() => ToggleSort("JobNumber")'>Job # @SortIcon("JobNumber")</th>
                             <th role="button" @onclick='() => ToggleSort("Title")'>Title @SortIcon("Title")</th>
                             <th class="d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("Customer")'>Customer @SortIcon("Customer")</th>
@@ -89,11 +119,12 @@ else if (_view == View.List)
                     <tbody>
                         @foreach (var j in _jobs)
                         {
-                            <tr role="button" @onclick="() => GoToDetail(j.Id)">
-                                <td class="fw-semibold">@j.JobNumber</td>
-                                <td>@(j.Title ?? "—")</td>
-                                <td class="d-none d-md-table-cell"><small>@(j.CustomerName ?? "—")</small></td>
-                                <td class="d-none d-lg-table-cell"><small>@(j.SiteName ?? "—")</small></td>
+                            <tr class="@(_selectedIds.Contains(j.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(j.Id)" @onchange="() => ToggleRowSelection(j.Id)" /></td>
+                                <td role="button" @onclick="() => GoToDetail(j.Id)" class="fw-semibold">@j.JobNumber</td>
+                                <td>@(j.Title ?? "â€”")</td>
+                                <td class="d-none d-md-table-cell"><small>@(j.CustomerName ?? "â€”")</small></td>
+                                <td class="d-none d-lg-table-cell"><small>@(j.SiteName ?? "â€”")</small></td>
                                 <td><span class="badge @StatusBadge(j.Status)">@j.Status</span></td>
                                 <td><span class="badge @PriorityBadge(j.Priority)">@j.Priority</span></td>
                                 <td class="d-none d-md-table-cell"><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "TBD")</small></td>
@@ -105,10 +136,14 @@ else if (_view == View.List)
             </div>
         </div>
     }
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
 }
 else if (_view == View.Detail && _detail is not null)
 {
-    <div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-3 no-print">
         <div class="d-flex align-items-center gap-2">
             <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
             <h4 class="mb-0">
@@ -155,6 +190,108 @@ else if (_view == View.Detail && _detail is not null)
             </div>
         </div>
     </div>
+
+    @* -- Print-Only Professional Job Summary -- *@
+    <div class="print-doc d-none">
+        <div class="print-doc-banner">
+            <div class="print-doc-banner-left">
+                <p class="print-doc-type">Job Summary</p>
+                <p class="print-doc-number-line"><strong>@_detail.JobNumber</strong></p>
+            </div>
+            <div class="print-doc-banner-right">
+                @if (_companyProfile is not null)
+                {
+                    <p class="print-company-name">@_companyProfile.Name</p>
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <p class="print-company-detail">@_companyProfile.Address</p> }
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <p class="print-company-detail">@_companyProfile.Phone</p> }
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) { <p class="print-company-detail">@_companyProfile.Email</p> }
+                }
+            </div>
+        </div>
+        <div class="print-doc-info-bar">
+            <div class="print-info-item"><span class="print-info-label">Status</span><span class="print-info-value">@_detail.Status</span></div>
+            <div class="print-info-item"><span class="print-info-label">Priority</span><span class="print-info-value">@_detail.Priority</span></div>
+            @if (_detail.ScheduledDate.HasValue) { <div class="print-info-item"><span class="print-info-label">Scheduled</span><span class="print-info-value">@_detail.ScheduledDate.Value.ToString("MMM dd, yyyy")</span></div> }
+            @if (!string.IsNullOrWhiteSpace(_detail.TradeType)) { <div class="print-info-item"><span class="print-info-label">Trade</span><span class="print-info-value">@_detail.TradeType</span></div> }
+            @if (!string.IsNullOrWhiteSpace(_detail.JobType)) { <div class="print-info-item"><span class="print-info-label">Type</span><span class="print-info-value">@_detail.JobType</span></div> }
+            @if (!string.IsNullOrWhiteSpace(_detail.SystemType)) { <div class="print-info-item"><span class="print-info-label">System</span><span class="print-info-value">@_detail.SystemType</span></div> }
+        </div>
+        <div class="print-doc-addresses">
+            <div class="print-addr-block">
+                @if (_detail.CustomerName is not null)
+                {
+                    <span class="print-addr-label">Customer</span>
+                    <p class="print-addr-name">@_detail.CustomerName</p>
+                }
+                @if (_detail.SiteName is not null)
+                {
+                    <p class="print-addr-line">@_detail.SiteName</p>
+                    @if (!string.IsNullOrWhiteSpace(_detail.SiteAddress)) { <p class="print-addr-line">@_detail.SiteAddress</p> }
+                }
+                @if (_detail.TechnicianName is not null) { <p class="print-addr-line" style="margin-top:3pt;">Technician: @_detail.TechnicianName</p> }
+            </div>
+            <div class="print-addr-block">
+                <span class="print-addr-label">Job Info</span>
+                @if (!string.IsNullOrWhiteSpace(_detail.Title)) { <p class="print-addr-name">@_detail.Title</p> }
+                @if (_detail.EstimatedDuration.HasValue) { <p class="print-addr-line">Est. Duration: @_detail.EstimatedDuration hrs</p> }
+                @if (_detail.EstimatedTotal.HasValue) { <p class="print-addr-line">Est. Total: @_detail.EstimatedTotal.Value.ToString("C")</p> }
+                @if (_detail.CompletedDate.HasValue) { <p class="print-addr-line">Completed: @_detail.CompletedDate.Value.ToString("MMM dd, yyyy")</p> }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_detail.Description))
+        {
+            <div class="print-doc-terms">
+                <div class="print-doc-terms-block"><div class="print-terms-heading">Description</div><p class="print-terms-text">@_detail.Description</p></div>
+            </div>
+        }
+
+        @if (_detail.LinkedAssets.Any())
+        {
+            <table class="print-doc-table">
+                <thead><tr><th>Equipment</th><th>Type</th><th>Status</th></tr></thead>
+                <tbody>
+                    @foreach (var a in _detail.LinkedAssets)
+                    {
+                        <tr><td>@a.Name</td><td>@(a.AssetType ?? "â€”")</td><td>@a.Status</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (_detail.TimeEntries.Any())
+        {
+            <table class="print-doc-table" style="margin-top:8pt;">
+                <thead><tr><th>Date</th><th>Employee</th><th class="text-end">Hours</th><th>Notes</th></tr></thead>
+                <tbody>
+                    @foreach (var t in _detail.TimeEntries)
+                    {
+                        <tr><td>@(t.StartTime?.ToString("MMM dd") ?? "â€”")</td><td>@(t.EmployeeName ?? "â€”")</td><td class="text-end">@(t.Hours?.ToString("0.0") ?? "â€”")</td><td>@(t.Notes ?? "â€”")</td></tr>
+                    }
+                </tbody>
+            </table>
+        }
+
+        @if (!string.IsNullOrEmpty(_detail.Notes))
+        {
+            <div class="print-doc-terms">
+                <div class="print-doc-terms-block"><div class="print-terms-heading">Notes</div><p class="print-terms-text">@_detail.Notes</p></div>
+            </div>
+        }
+
+        <div class="print-doc-footer">
+            @if (_companyProfile is not null)
+            {
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <span class="print-footer-item"><i class="bi bi-telephone print-footer-icon"></i> @_companyProfile.Phone</span> }
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) { <span class="print-footer-item"><i class="bi bi-envelope print-footer-icon"></i> @_companyProfile.Email</span> }
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <span class="print-footer-item"><i class="bi bi-geo-alt print-footer-icon"></i> @_companyProfile.Address</span> }
+            }
+        </div>
+        <div class="print-doc-thankyou">Thank you for your business!</div>
+    </div>
+
+    @* -- Screen-Only Detail Cards -- *@
+    <div class="print-screen-only">
 
     @if ((_detail.Status == JobStatus.Completed || _detail.Status == JobStatus.Closed) && !_detail.InvoiceId.HasValue)
     {
@@ -237,9 +374,9 @@ else if (_view == View.Detail && _detail is not null)
                                     {
                                         <tr style="cursor:pointer" @onclick="() => GoToAsset(a.Id)">
                                             <td><strong>@a.Name</strong></td>
-                                            <td>@(a.AssetType ?? "—")</td>
+                                            <td>@(a.AssetType ?? "â€”")</td>
                                             <td><span class="badge @AssetBadge(a.Status)">@a.Status</span></td>
-                                            <td class="text-muted">@(a.Role ?? "—")</td>
+                                            <td class="text-muted">@(a.Role ?? "â€”")</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -315,8 +452,8 @@ else if (_view == View.Detail && _detail is not null)
                         @foreach (var t in _detail.TimeEntries.Take(10))
                         {
                             <div class="small mb-1">
-                                <strong>@(t.EmployeeName ?? "—")</strong>
-                                @(t.Hours?.ToString("F1") ?? "—")h
+                                <strong>@(t.EmployeeName ?? "â€”")</strong>
+                                @(t.Hours?.ToString("F1") ?? "â€”")h
                                 <span class="text-muted">@(t.StartTime?.ToString("MMM dd") ?? "")</span>
                             </div>
                     }
@@ -348,7 +485,7 @@ else if (_view == View.Detail && _detail is not null)
                     <div class="col-md-3">
                         <label class="form-label small">Employee</label>
                         <select class="form-select form-select-sm" @bind="_addEmpId" @bind:after="OnAddEmpChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var t in _technicians.Where(t => !_assignedEmployees.Any(a => a.EmployeeId == t.Id)))
                             {
                                 <option value="@t.Id">@t.Name</option>
@@ -385,9 +522,9 @@ else if (_view == View.Detail && _detail is not null)
                         {
                             <tr>
                                 <td><a href="employees/@ae.EmployeeId">@ae.Name</a></td>
-                                <td>@(ae.Role ?? "—")</td>
+                                <td>@(ae.Role ?? "â€”")</td>
                                 <td><span class="badge @(ae.PayType == "FlatRate" ? "bg-warning text-dark" : "bg-info")">@ae.PayType</span></td>
-                                <td>@(ae.FlatRateAmount?.ToString("C") ?? "—")</td>
+                                <td>@(ae.FlatRateAmount?.ToString("C") ?? "â€”")</td>
                                 <td><small class="text-muted">@ae.AssignedAt.ToString("MMM dd")</small></td>
                                 <td><button class="btn btn-outline-danger btn-sm" @onclick="() => RemoveEmployee(ae.EmployeeId)"><i class="bi bi-x-lg"></i></button></td>
                             </tr>
@@ -420,6 +557,7 @@ else if (_view == View.Detail && _detail is not null)
             </div>
         </div>
     }
+    </div> @* end print-screen-only *@
 }
 else if (_view == View.Form)
 {
@@ -473,7 +611,7 @@ else if (_view == View.Form)
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Trade Type</label>
                         <InputSelect @bind-Value="_editModel.TradeType" class="form-select">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var opt in _tradeTypeOptions)
                             {
                                 <option value="@opt">@opt</option>
@@ -483,7 +621,7 @@ else if (_view == View.Form)
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Job Type</label>
                         <InputSelect @bind-Value="_editModel.JobType" class="form-select">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var opt in _jobTypeOptions)
                             {
                                 <option value="@opt">@opt</option>
@@ -493,7 +631,7 @@ else if (_view == View.Form)
                     <div class="col-md-4 mb-2">
                         <label class="form-label">System Type</label>
                         <InputSelect @bind-Value="_editModel.SystemType" class="form-select">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var opt in _systemTypeOptions)
                             {
                                 <option value="@opt">@opt</option>
@@ -506,7 +644,7 @@ else if (_view == View.Form)
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Company</label>
                         <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
-                            <option value="">— Select Company —</option>
+                            <option value="">â€” Select Company â€”</option>
                             @foreach (var co in _companies)
                             {
                                 <option value="@co.Id">@co.Name</option>
@@ -516,7 +654,7 @@ else if (_view == View.Form)
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -526,7 +664,7 @@ else if (_view == View.Form)
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Site</label>
                         <InputSelect @bind-Value="_editModel.SiteId" class="form-select">
-                            <option value="">— Select Site —</option>
+                            <option value="">â€” Select Site â€”</option>
                             @foreach (var s in _sites)
                             {
                                 <option value="@s.Id">@s.Name @(!string.IsNullOrEmpty(s.Address) ? $"({s.Address})" : "")</option>
@@ -656,6 +794,7 @@ else if (_view == View.Form)
     private string _filterStatus = "";
     private string _filterPriority = "";
     private JobDetail? _detail;
+    private CompanyProfile? _companyProfile;
     private JobEditModel _editModel = new();
     private List<EmployeeOption> _technicians = [];
     private List<CustomerListItem> _customers = [];
@@ -666,6 +805,13 @@ else if (_view == View.Form)
     private bool _permitRequired;
     private bool _confirmArchive;
     private HashSet<int> _selectedTechIds = [];
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => _jobs.Count > 0 && _jobs.All(j => _selectedIds.Contains(j.Id));
 
     // Dropdown options from settings
     private List<string> _tradeTypeOptions = ["HVAC", "Plumbing", "Electrical"];
@@ -767,6 +913,7 @@ else if (_view == View.Form)
             {
                 _assignedEmployees = _detail.AssignedEmployees;
                 _technicians = await JobService.GetTechniciansAsync();
+                _companyProfile = await CompanyProfileSvc.GetProfileAsync();
             }
         }
         else
@@ -971,4 +1118,13 @@ else if (_view == View.Form)
         if (!_selectedAssetIds.Remove(assetId))
             _selectedAssetIds.Add(assetId);
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (_allSelected) _selectedIds.Clear(); else foreach (var j in _jobs) _selectedIds.Add(j.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { _filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await ReloadList(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await JobService.BulkArchiveJobsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} job(s) archived."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await JobService.BulkRestoreJobsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} job(s) restored."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await JobService.BulkDeleteJobsPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} job(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }

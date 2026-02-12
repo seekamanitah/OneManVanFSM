@@ -18,13 +18,13 @@ public static class DatabaseInitializer
     /// </summary>
     public static void EnsureSchemaUpToDate(AppDbContext context)
     {
-        // If the database doesn't exist yet, nothing to check — EnsureCreated will handle it.
+        // If the database doesn't exist yet, nothing to check â€” EnsureCreated will handle it.
         if (!context.Database.CanConnect())
             return;
 
         if (HasSchemaMismatch(context))
         {
-            Console.WriteLine("[DatabaseInitializer] Schema mismatch detected — recreating database.");
+            Console.WriteLine("[DatabaseInitializer] Schema mismatch detected â€” recreating database.");
 
             // Close the connection so SQLite releases its file lock before deletion.
             var connection = context.Database.GetDbConnection();
@@ -94,7 +94,7 @@ public static class DatabaseInitializer
 
             var existingColumns = GetExistingColumns(connection, tableName);
             if (existingColumns.Count == 0)
-                continue; // Table missing entirely — handled in Phase 2
+                continue; // Table missing entirely â€” handled in Phase 2
 
             var storeObject = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
             foreach (var property in entityType.GetProperties())
@@ -146,7 +146,7 @@ public static class DatabaseInitializer
             }
         }
 
-        Console.WriteLine("[DatabaseInitializer] Non-destructive schema migration completed — data preserved.");
+        Console.WriteLine("[DatabaseInitializer] Non-destructive schema migration completed â€” data preserved.");
     }
 
     private static HashSet<string> GetExistingColumns(System.Data.Common.DbConnection connection, string tableName)

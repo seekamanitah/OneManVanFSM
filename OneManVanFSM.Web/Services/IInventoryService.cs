@@ -9,6 +9,11 @@ public interface IInventoryService
     Task<InventoryItem> CreateItemAsync(InventoryEditModel model);
     Task<InventoryItem> UpdateItemAsync(int id, InventoryEditModel model);
     Task<bool> ArchiveItemAsync(int id);
+    Task<bool> RestoreItemAsync(int id);
+    Task<bool> DeleteItemPermanentlyAsync(int id);
+    Task<int> BulkArchiveItemsAsync(List<int> ids);
+    Task<int> BulkRestoreItemsAsync(List<int> ids);
+    Task<int> BulkDeleteItemsPermanentlyAsync(List<int> ids);
     Task<InventoryDashboard> GetDashboardAsync();
 }
 
@@ -18,6 +23,7 @@ public class InventoryFilter
     public InventoryLocation? Location { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
     public bool LowStockOnly { get; set; }
 }
 

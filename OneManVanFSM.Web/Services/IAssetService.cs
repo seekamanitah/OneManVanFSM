@@ -9,6 +9,11 @@ public interface IAssetService
     Task<Asset> CreateAssetAsync(AssetEditModel model);
     Task<Asset> UpdateAssetAsync(int id, AssetEditModel model);
     Task<bool> ArchiveAssetAsync(int id);
+    Task<bool> RestoreAssetAsync(int id);
+    Task<bool> DeleteAssetPermanentlyAsync(int id);
+    Task<int> BulkArchiveAssetsAsync(List<int> ids);
+    Task<int> BulkRestoreAssetsAsync(List<int> ids);
+    Task<int> BulkDeleteAssetsPermanentlyAsync(List<int> ids);
     Task<List<AssetTimelineEntry>> GetUnifiedTimelineAsync(int assetId);
     // Asset linking (peer-to-peer equipment grouping)
     Task<List<LinkedAssetDto>> GetLinkedAssetsAsync(int assetId);
@@ -26,6 +31,7 @@ public class AssetFilter
     public int? SiteId { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
 }
 
 public class AssetListItem
@@ -68,7 +74,6 @@ public class AssetDetail
     public string? Voltage { get; set; }
     public string? Phase { get; set; }
     public string? LocationOnSite { get; set; }
-    public DateTime? ManufactureDate { get; set; }
     public int? AmpRating { get; set; }
     public string? PanelType { get; set; }
     public string? PipeMaterial { get; set; }
@@ -181,7 +186,6 @@ public class AssetEditModel
     public string? Voltage { get; set; }
     public string? Phase { get; set; }
     public string? LocationOnSite { get; set; }
-    public DateTime? ManufactureDate { get; set; }
     public int? AmpRating { get; set; }
     public string? PanelType { get; set; }
     public string? PipeMaterial { get; set; }
@@ -236,5 +240,5 @@ public class AssetOption
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? AssetType { get; set; }
-    public string Display => string.IsNullOrEmpty(AssetType) ? Name : $"{Name} — {AssetType}";
+    public string Display => string.IsNullOrEmpty(AssetType) ? Name : $"{Name} â€” {AssetType}";
 }

@@ -11,7 +11,8 @@ public class ProductService : IProductService
 
     public async Task<List<ProductListItem>> GetProductsAsync(ProductFilter? filter = null)
     {
-        var query = _db.Products.Where(p => !p.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Products.Where(p => p.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -134,5 +135,47 @@ public class ProductService : IProductService
         p.IsArchived = true; p.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreProductAsync(int id)
+    {
+        var p = await _db.Products.FindAsync(id);
+        if (p is null) return false;
+        p.IsArchived = false; p.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteProductPermanentlyAsync(int id)
+    {
+        var p = await _db.Products.FindAsync(id);
+        if (p is null) return false;
+        _db.Products.Remove(p);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveProductsAsync(List<int> ids)
+    {
+        var products = await _db.Products.Where(p => ids.Contains(p.Id) && !p.IsArchived).ToListAsync();
+        foreach (var p in products) { p.IsArchived = true; p.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return products.Count;
+    }
+
+    public async Task<int> BulkRestoreProductsAsync(List<int> ids)
+    {
+        var products = await _db.Products.Where(p => ids.Contains(p.Id) && p.IsArchived).ToListAsync();
+        foreach (var p in products) { p.IsArchived = false; p.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return products.Count;
+    }
+
+    public async Task<int> BulkDeleteProductsPermanentlyAsync(List<int> ids)
+    {
+        var products = await _db.Products.Where(p => ids.Contains(p.Id)).ToListAsync();
+        _db.Products.RemoveRange(products);
+        await _db.SaveChangesAsync();
+        return products.Count;
     }
 }

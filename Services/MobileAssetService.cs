@@ -147,7 +147,6 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
             GallonCapacity = asset.GallonCapacity,
             LocationOnSite = asset.LocationOnSite,
             InstallDate = asset.InstallDate,
-            ManufactureDate = asset.ManufactureDate,
             LastServiceDate = asset.LastServiceDate,
             NextServiceDue = asset.NextServiceDue,
             WarrantyStartDate = asset.WarrantyStartDate,

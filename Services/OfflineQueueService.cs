@@ -35,7 +35,7 @@ public class OfflineQueueService : IOfflineQueueService
             _queue.Add(item);
             Persist();
         }
-        _logger.LogInformation("Enqueued offline mutation: {Method} {Endpoint} — {Description}", item.HttpMethod, item.Endpoint, item.Description);
+        _logger.LogInformation("Enqueued offline mutation: {Method} {Endpoint} â€” {Description}", item.HttpMethod, item.Endpoint, item.Description);
     }
 
     public List<OfflineQueueItem> GetPending()

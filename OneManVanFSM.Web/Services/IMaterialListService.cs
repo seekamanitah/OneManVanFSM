@@ -174,5 +174,5 @@ public class MaterialJobOption
     public int Id { get; set; }
     public string JobNumber { get; set; } = string.Empty;
     public string? Title { get; set; }
-    public string Display => string.IsNullOrEmpty(Title) ? JobNumber : $"{JobNumber} – {Title}";
+    public string Display => string.IsNullOrEmpty(Title) ? JobNumber : $"{JobNumber} â€“ {Title}";
 }

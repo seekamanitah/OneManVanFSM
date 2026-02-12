@@ -11,7 +11,8 @@ public class EstimateService : IEstimateService
 
     public async Task<List<EstimateListItem>> GetEstimatesAsync(EstimateFilter? filter = null)
     {
-        var query = _db.Estimates.Where(e => !e.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Estimates.Where(e => e.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -73,6 +74,8 @@ public class EstimateService : IEstimateService
                 MaterialListId = e.MaterialListId,
                 MaterialListName = e.MaterialList != null ? e.MaterialList.Name : null,
                 CreatedAt = e.CreatedAt, UpdatedAt = e.UpdatedAt,
+                LinkedJobId = _db.Jobs.Where(j => j.EstimateId == e.Id && !j.IsArchived).Select(j => (int?)j.Id).FirstOrDefault(),
+                LinkedJobNumber = _db.Jobs.Where(j => j.EstimateId == e.Id && !j.IsArchived).Select(j => j.JobNumber).FirstOrDefault(),
                 Lines = e.Lines.OrderBy(l => l.SortOrder).Select(l => new EstimateLineDto
                 {
                     Id = l.Id, ProductId = l.ProductId,
@@ -147,6 +150,8 @@ public class EstimateService : IEstimateService
         var e = await _db.Estimates.Include(est => est.Lines).FirstOrDefaultAsync(est => est.Id == id)
             ?? throw new InvalidOperationException("Estimate not found.");
 
+        var wasNotApproved = e.Status != EstimateStatus.Approved;
+
         if (model.Lines.Count > 0)
         {
             model.Subtotal = model.Lines.Sum(l => l.Quantity * l.UnitPrice);
@@ -186,6 +191,11 @@ public class EstimateService : IEstimateService
         }
 
         await _db.SaveChangesAsync();
+
+        // Auto-create a Job when Estimate transitions to Approved
+        if (model.Status == EstimateStatus.Approved && wasNotApproved)
+            await CreateJobFromEstimateAsync(e);
+
         return e;
     }
 
@@ -248,6 +258,48 @@ public class EstimateService : IEstimateService
         e.IsArchived = true; e.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreEstimateAsync(int id)
+    {
+        var e = await _db.Estimates.FindAsync(id);
+        if (e is null) return false;
+        e.IsArchived = false; e.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteEstimatePermanentlyAsync(int id)
+    {
+        var e = await _db.Estimates.FindAsync(id);
+        if (e is null) return false;
+        _db.Estimates.Remove(e);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveEstimatesAsync(List<int> ids)
+    {
+        var items = await _db.Estimates.Where(e => ids.Contains(e.Id) && !e.IsArchived).ToListAsync();
+        foreach (var e in items) { e.IsArchived = true; e.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreEstimatesAsync(List<int> ids)
+    {
+        var items = await _db.Estimates.Where(e => ids.Contains(e.Id) && e.IsArchived).ToListAsync();
+        foreach (var e in items) { e.IsArchived = false; e.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteEstimatesPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Estimates.Where(e => ids.Contains(e.Id)).ToListAsync();
+        _db.Estimates.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     public async Task<List<ProductOption>> GetProductOptionsAsync()

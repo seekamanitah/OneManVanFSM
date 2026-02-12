@@ -148,8 +148,8 @@ else
                                         <td><strong>@p.Amount.ToString("C")</strong></td>
                                         <td>@p.Method</td>
                                         <td><span class="badge @GetPayBadge(p.Status)">@p.Status</span></td>
-                                        <td>@if (p.InvoiceId.HasValue) { <a href="javascript:void(0)" @onclick="() => ViewInvoice(p.InvoiceId.Value)">@(p.InvoiceNumber ?? "View")</a> } else { <span>—</span> }</td>
-                                        <td>@(p.Reference ?? "—")</td>
+                                        <td>@if (p.InvoiceId.HasValue) { <a href="javascript:void(0)" @onclick="() => ViewInvoice(p.InvoiceId.Value)">@(p.InvoiceNumber ?? "View")</a> } else { <span>â€”</span> }</td>
+                                        <td>@(p.Reference ?? "â€”")</td>
                                         <td>@p.PaymentDate.ToString("MMM dd")</td>
                                     </tr>
                                 }

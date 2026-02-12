@@ -27,7 +27,7 @@
                     <div class="col-md-6">
                         <label class="form-label">Manufacturer <span class="text-danger">*</span></label>
                         <select class="form-select form-select-sm" value="@_brandSelectValue" @onchange="OnBrandSelectChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _brandOptions) { <option value="@o">@o</option> }
                             <option value="__custom__">? Add New...</option>
                         </select>
@@ -58,7 +58,7 @@
                         </select>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Equipment Type</label>
+                        <label class="form-label">Equipment Category</label>
                         <select class="form-select form-select-sm" @bind="form.EquipmentType">
                             <option value="">Unknown</option>
                             @foreach (var opt in _equipmentTypes) { <option value="@opt">@opt</option> }
@@ -110,7 +110,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Voltage</label>
                         <select class="form-select form-select-sm" value="@_voltageSelectValue" @onchange="OnVoltageSelectChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _voltageOptions) { <option value="@o">@o</option> }
                             <option value="__custom__">? Add New...</option>
                         </select>
@@ -348,7 +348,18 @@ else
     <!-- LIST VIEW -->
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>Products</h4>
-        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Product</button>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedProducts" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedProducts">
+                    <i class="bi bi-archive me-1"></i>Show Archived
+                </label>
+            </div>
+            @if (!filter.ShowArchived)
+            {
+                <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Product</button>
+            }
+        </div>
     </div>
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
@@ -362,7 +373,51 @@ else
             </div>
         </div>
     </div>
+
+    @* Bulk Action Bar *@
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> product(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
+        @if (filter.ShowArchived)
+        {
+            <div class="card-header bg-warning bg-opacity-10 border-0">
+                <small class="text-muted"><i class="bi bi-archive me-1"></i>Showing archived products. Select items to restore or permanently delete.</small>
+            </div>
+        }
         @if (products is null)
         {
             <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
@@ -370,8 +425,8 @@ else
         else if (!products.Any())
         {
             <div class="card-body text-center py-5 text-muted">
-                <i class="bi bi-box-seam" style="font-size: 3rem;"></i>
-                <p class="mt-2">No products found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                <i class="bi @(filter.ShowArchived ? "bi-archive" : "bi-box-seam")" style="font-size: 3rem;"></i>
+                <p class="mt-2">@(filter.ShowArchived ? "No archived products." : "No products found.") @if (!filter.ShowArchived) { <a href="javascript:void(0)" @onclick="GoToNew">Create one</a><text>.</text> }</p>
             </div>
         }
         else
@@ -380,6 +435,9 @@ else
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;">
+                                <input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" />
+                            </th>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th>Manufacturer</th>
                             <th>Model</th>
@@ -393,18 +451,28 @@ else
                     <tbody>
                         @foreach (var p in products)
                         {
-                            <tr style="cursor:pointer" @onclick="() => GoToDetail(p.Id)">
-                                <td>
+                            <tr class="@(_selectedIds.Contains(p.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true">
+                                    <input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(p.Id)" @onchange="() => ToggleRowSelection(p.Id)" />
+                                </td>
+                                <td style="cursor:pointer" @onclick="() => GoToDetail(p.Id)">
                                     <strong>@(p.Name.Length > 0 ? p.Name : $"{p.Brand} {p.ModelNumber}")</strong>
                                 </td>
-                                <td>@(p.Brand ?? "—")</td>
-                                <td>@(p.ModelNumber ?? "—")</td>
-                                <td>@(p.Category ?? "—")</td>
+                                <td>@(p.Brand ?? "â€”")</td>
+                                <td>@(p.ModelNumber ?? "â€”")</td>
+                                <td>@(p.Category ?? "â€”")</td>
                                 <td>@p.Cost.ToString("C")</td>
                                 <td>@p.Price.ToString("C")</td>
                                 <td>
-                                    @if (p.IsActive) { <span class="badge bg-success">Active</span> }
-                                    @if (p.IsDiscontinued) { <span class="badge bg-warning text-dark">Discontinued</span> }
+                                    @if (filter.ShowArchived)
+                                    {
+                                        <span class="badge bg-secondary">Archived</span>
+                                    }
+                                    else
+                                    {
+                                        @if (p.IsActive) { <span class="badge bg-success">Active</span> }
+                                        @if (p.IsDiscontinued) { <span class="badge bg-warning text-dark">Discontinued</span> }
+                                    }
                                 </td>
                                 <td>@p.InventoryCount</td>
                             </tr>
@@ -414,6 +482,12 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2">
+            <i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg
+        </div>
+    }
 }
 
 @code {
@@ -428,6 +502,13 @@ else
     private int? editId;
     private string? errorMsg;
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => products is not null && products.Count > 0 && products.All(p => _selectedIds.Contains(p.Id));
 
     private List<string> _productCategories = ["Air Conditioner", "Furnace", "Heat Pump", "Ductwork", "Thermostat", "Air Handler", "Boiler", "Mini Split", "Package Unit", "Parts", "Supplies", "Other"];
     private List<string> _equipmentTypes = ["Residential", "Commercial", "Light Commercial", "Industrial"];
@@ -501,7 +582,7 @@ else
     {
         var cats = await DropdownSvc.GetOptionsAsync("ProductCategory");
         if (cats.Count > 0) _productCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
-        var eqTypes = await DropdownSvc.GetOptionsAsync("ProductEquipmentType");
+        var eqTypes = await DropdownSvc.GetOptionsAsync("EquipmentCategory");
         if (eqTypes.Count > 0) _equipmentTypes = eqTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
         var fuels = await DropdownSvc.GetOptionsAsync("FuelType");
         if (fuels.Count > 0) _fuelTypes = fuels.Where(o => o.IsActive).Select(o => o.Value).ToList();
@@ -651,4 +732,77 @@ else
         builder.AddAttribute(1, "class", $"bi {css} ms-1{(filter.SortBy == column ? " text-primary" : "")}");
         builder.CloseElement();
     };
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id)
+    {
+        if (!_selectedIds.Remove(id)) _selectedIds.Add(id);
+        _confirmBulkDelete = false;
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (products is null) return;
+        if (_allSelected)
+            _selectedIds.Clear();
+        else
+            foreach (var p in products) _selectedIds.Add(p.Id);
+        _confirmBulkDelete = false;
+    }
+
+    private void ClearSelection()
+    {
+        _selectedIds.Clear();
+        _confirmBulkDelete = false;
+        _bulkMsg = null;
+    }
+
+    private async Task ToggleShowArchived(ChangeEventArgs e)
+    {
+        filter.ShowArchived = (bool)(e.Value ?? false);
+        ClearSelection();
+        await LoadProducts();
+    }
+
+    private async Task BulkArchive()
+    {
+        if (_selectedIds.Count == 0) return;
+        try
+        {
+            var count = await ProductSvc.BulkArchiveProductsAsync(_selectedIds.ToList());
+            _bulkMsg = $"{count} product(s) archived.";
+            _bulkMsgIsError = false;
+            ClearSelection();
+            await LoadProducts();
+        }
+        catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; }
+    }
+
+    private async Task BulkRestore()
+    {
+        if (_selectedIds.Count == 0) return;
+        try
+        {
+            var count = await ProductSvc.BulkRestoreProductsAsync(_selectedIds.ToList());
+            _bulkMsg = $"{count} product(s) restored.";
+            _bulkMsgIsError = false;
+            ClearSelection();
+            await LoadProducts();
+        }
+        catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; }
+    }
+
+    private async Task BulkDeletePermanently()
+    {
+        if (_selectedIds.Count == 0) return;
+        try
+        {
+            var count = await ProductSvc.BulkDeleteProductsPermanentlyAsync(_selectedIds.ToList());
+            _bulkMsg = $"{count} product(s) permanently deleted.";
+            _bulkMsgIsError = false;
+            ClearSelection();
+            await LoadProducts();
+        }
+        catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; }
+    }
 }

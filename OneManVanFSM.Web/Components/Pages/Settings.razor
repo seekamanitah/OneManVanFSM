@@ -349,7 +349,7 @@ else if (tab == "custom")
                 <div class="col-md-4">
                     <label class="form-label fw-semibold">Category</label>
                     <select class="form-select" value="@selectedCategory" @onchange="OnCategoryChanged">
-                        <option value="">— Select a category —</option>
+                        <option value="">â€” Select a category â€”</option>
                         @foreach (var cat in dropdownCategories)
                         {
                             <option value="@cat">@cat</option>
@@ -423,7 +423,7 @@ else if (tab == "custom")
                                             else
                                             {
                                                 <td>@opt.Value</td>
-                                                <td>@(opt.Label ?? "—")</td>
+                                                <td>@(opt.Label ?? "â€”")</td>
                                                 <td>@opt.SortOrder</td>
                                                 <td>
                                                     @if (opt.IsActive)
@@ -590,7 +590,7 @@ else if (tab == "templates")
                                         <a href="javascript:void(0)" @onclick='() => Nav.NavigateTo($"/templates/{t.Id}")' class="fw-semibold">@t.Name</a>
                                     </td>
                                     <td><span class="badge @GetTemplateTypeBadge(t.Type)">@t.Type</span></td>
-                                    <td class="text-muted small">@(t.Description ?? "—")</td>
+                                    <td class="text-muted small">@(t.Description ?? "â€”")</td>
                                     <td class="text-center">
                                         @if (t.IsCompanyDefault) { <i class="bi bi-check-circle-fill text-success"></i> }
                                     </td>
@@ -760,7 +760,7 @@ else if (tab == "data")
                 <div class="col-md-4">
                     <div class="input-group">
                         <select class="form-select" @bind="selectedExportTable">
-                            <option value="">— Select Table —</option>
+                            <option value="">â€” Select Table â€”</option>
                             @foreach (var t in exportableTables)
                             {
                                 <option value="@t">@t</option>
@@ -778,10 +778,10 @@ else if (tab == "data")
 
             @* Import Section *@
             <h6 class="mb-2"><i class="bi bi-upload me-1"></i>Import Data</h6>
-            <p class="small text-muted">Upload a single-table CSV or a multi-table file (with <code>### TABLE: Name ###</code> delimiters). The system auto-detects format.</p>
+            <p class="small text-muted">Upload an Excel workbook (.xlsx) or CSV file (.csv). The system auto-detects the format and target table from the sheet name, file name, or column headers.</p>
             <div class="row g-2 align-items-end">
                 <div class="col-md-6">
-                    <InputFile OnChange="OnImportFileSelected" accept=".csv,.txt" class="form-control" />
+                    <InputFile OnChange="OnImportFileSelected" accept=".csv,.txt,.xlsx,.xls" class="form-control" />
                 </div>
                 <div class="col-md-3">
                     <button class="btn btn-success w-100" @onclick="ImportCsv"
@@ -1343,7 +1343,7 @@ private Dictionary<string, bool> notificationSettings = new()
         try
         {
             await using var stream = importFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
-            importResult = await DataSvc.ImportCsvAsync(stream, importFile.Name);
+            importResult = await DataSvc.ImportFileAsync(stream, importFile.Name);
             if (importResult.Success)
                 successMessage = $"Import complete: {importResult.RecordsImported} records.";
             else
@@ -1708,7 +1708,7 @@ private Dictionary<string, bool> notificationSettings = new()
         try
         {
             await DataSvc.PurgeDatabaseAsync();
-            successMessage = "Database purged. All data deleted. Default admin account re-created from environment settings. Please log out — you will be required to change your password on next login.";
+            successMessage = "Database purged. All data deleted. Default admin account re-created from environment settings. Please log out â€” you will be required to change your password on next login.";
             _confirmPurge = false;
             _hasData = false;
         }

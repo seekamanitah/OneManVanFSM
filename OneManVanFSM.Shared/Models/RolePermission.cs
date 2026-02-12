@@ -54,15 +54,15 @@ public static class Features
     {
         var list = new List<RolePermission>();
 
-        // Owner — full access to everything
+        // Owner â€” full access to everything
         foreach (var f in All)
             list.Add(new RolePermission { Role = UserRole.Owner, Feature = f, CanView = true, CanEdit = true, CanDelete = true });
 
-        // Admin — full access to everything except cannot delete Settings
+        // Admin â€” full access to everything except cannot delete Settings
         foreach (var f in All)
             list.Add(new RolePermission { Role = UserRole.Admin, Feature = f, CanView = true, CanEdit = true, CanDelete = f != Settings });
 
-        // Manager — view + edit most features, limited delete, no Settings edit
+        // Manager â€” view + edit most features, limited delete, no Settings edit
         foreach (var f in All)
         {
             var canEdit = f is not Settings;
@@ -70,7 +70,7 @@ public static class Features
             list.Add(new RolePermission { Role = UserRole.Manager, Feature = f, CanView = true, CanEdit = canEdit, CanDelete = canDelete });
         }
 
-        // Dispatcher — focused on scheduling and job management
+        // Dispatcher â€” focused on scheduling and job management
         foreach (var f in All)
         {
             var canView = f is not (Settings or Employees or Financials or Invoices or Expenses);
@@ -79,7 +79,7 @@ public static class Features
             list.Add(new RolePermission { Role = UserRole.Dispatcher, Feature = f, CanView = canView, CanEdit = canEdit, CanDelete = canDelete });
         }
 
-        // Tech — field technician, limited to operational features
+        // Tech â€” field technician, limited to operational features
         foreach (var f in All)
         {
             var canView = f is not (Settings or Employees or Financials or Invoices or Expenses or Reports);

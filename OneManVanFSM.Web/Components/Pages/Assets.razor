@@ -10,6 +10,7 @@
 @inject IProductService ProductSvc
 @inject IDropdownService DropdownSvc
 @inject IJobService JobSvc
+@inject IEmployeeService EmployeeSvc
 @inject NavigationManager Nav
 
 <PageTitle>Assets - OneManVanFSM</PageTitle>
@@ -46,14 +47,14 @@
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="form.CustomerId" @bind-Value:after="OnAssetCustomerChanged" class="form-select">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers) { <option value="@c.Id">@c.Name</option> }
                         </InputSelect>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Site</label>
                         <InputSelect @bind-Value="form.SiteId" @bind-Value:after="OnAssetSiteChanged" class="form-select">
-                            <option value="">— Select Site —</option>
+                            <option value="">â€” Select Site â€”</option>
                             @foreach (var s in FilteredAssetSites) { <option value="@s.Id">@s.Name</option> }
                         </InputSelect>
                     </div>
@@ -75,7 +76,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Brand</label>
                         <select class="form-select" @bind="_brandValue" @bind:after="OnBrandChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _brandOptions) { <option value="@o">@o</option> }
                         </select>
                     </div>
@@ -90,7 +91,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Location</label>
                         <select class="form-select" @bind="_locationValue" @bind:after="OnLocationChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _locationOptions) { <option value="@o">@o</option> }
                         </select>
                     </div>
@@ -136,7 +137,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Tonnage (BTU)</label>
                         <select class="form-select" @bind="_tonnageValue" @bind:after="OnTonnageChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             <option value="6000">6,000 BTU (0.5 Ton)</option>
                             <option value="9000">9,000 BTU (0.75 Ton)</option>
                             <option value="12000">12,000 BTU (1 Ton)</option>
@@ -202,14 +203,14 @@
                     <div class="col-md-3">
                         <label class="form-label">Voltage</label>
                         <select class="form-select" @bind="_voltageValue" @bind:after="OnVoltageChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _voltageOptions) { <option value="@o">@o</option> }
                         </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Phase Type</label>
                         <select class="form-select" @bind="_phaseValue" @bind:after="OnPhaseChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _phaseOptions) { <option value="@o">@o</option> }
                         </select>
                     </div>
@@ -222,7 +223,7 @@
                     <div class="col-md-2">
                         <label class="form-label">Filter Size</label>
                         <select class="form-select" @bind="_filterSizeValue" @bind:after="OnFilterSizeChanged">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var o in _filterSizeOptions) { <option value="@o">@o</option> }
                         </select>
                     </div>
@@ -285,7 +286,7 @@
                                    checked="@form.NoWarranty" @onchange="OnNoWarrantyToggled" />
                             <label class="form-check-label fw-semibold @(form.NoWarranty ? "text-danger" : "text-muted")" for="chkNoWarranty">
                                 <i class="bi @(form.NoWarranty ? "bi-shield-x" : "bi-shield-check") me-1"></i>
-                                @(form.NoWarranty ? "Warranty Disabled — unit is not under warranty" : "Warranty Active")
+                                @(form.NoWarranty ? "Warranty Disabled â€” unit is not under warranty" : "Warranty Active")
                             </label>
                         </div>
                     </div>
@@ -311,12 +312,14 @@
                     </div>
                     <div class="col-md-3"></div>
                     <div class="col-md-3">
-                        <label class="form-label">Manufacture Date</label>
-                        <InputDate @bind-Value="form.ManufactureDate" class="form-control" />
-                    </div>
-                    <div class="col-md-3">
                         <label class="form-label">Installed By</label>
-                        <InputText @bind-Value="form.InstalledBy" class="form-control" />
+                        <InputSelect @bind-Value="form.InstalledBy" class="form-select">
+                            <option value="">â€” Select Employee â€”</option>
+                            @foreach (var emp in _employees)
+                            {
+                                <option value="@emp.Name">@emp.Name</option>
+                            }
+                        </InputSelect>
                     </div>
                     <div class="col-md-3 d-flex align-items-end">
                         <div class="form-check">
@@ -329,7 +332,7 @@
 
                 <!-- Warranty Terms Breakdown -->
                 <div class="row g-2 mt-2" style="@(form.NoWarranty ? "opacity:0.5;pointer-events:none;" : "")">
-                    <div class="col-12"><small class="text-muted fw-bold">Warranty Terms (years) — expiry dates auto-calculate from Warranty Start</small></div>
+                    <div class="col-12"><small class="text-muted fw-bold">Warranty Terms (years) â€” expiry dates auto-calculate from Warranty Start</small></div>
                     <div class="col-md-3">
                         <label class="form-label">Labor (years)</label>
                         <InputNumber @bind-Value="form.LaborWarrantyTermYears" @bind-Value:after="RecalculateWarrantyExpiries" class="form-control" />
@@ -415,8 +418,12 @@
                 <!-- Notes -->
                 <div class="row g-2">
                     <div class="col-md-3">
-                        <label class="form-label">Value</label>
-                        <InputNumber @bind-Value="form.Value" class="form-control" />
+                        <label class="form-label">Asset Value ($)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <InputNumber @bind-Value="form.Value" class="form-control" placeholder="0.00" />
+                        </div>
+                        <small class="text-muted">Original cost or current value</small>
                     </div>
                     <div class="col-md-9">
                         <label class="form-label">Notes</label>
@@ -482,16 +489,16 @@ else if (mode == "detail" && detail is not null)
                 <div class="card-body">
                     <h6 class="text-muted mb-2"><i class="bi bi-gear me-1"></i>Equipment Details</h6>
                     <div class="row g-2">
-                        <div class="col-sm-4"><strong>Type:</strong> @(detail.AssetType ?? "—")</div>
-                        <div class="col-sm-4"><strong>Brand:</strong> @(detail.Brand ?? "—")</div>
-                        <div class="col-sm-4"><strong>Model:</strong> @(detail.Model ?? "—")</div>
-                        <div class="col-sm-4"><strong>Serial:</strong> @(detail.SerialNumber ?? "—")</div>
+                        <div class="col-sm-4"><strong>Type:</strong> @(detail.AssetType ?? "â€”")</div>
+                        <div class="col-sm-4"><strong>Brand:</strong> @(detail.Brand ?? "â€”")</div>
+                        <div class="col-sm-4"><strong>Model:</strong> @(detail.Model ?? "â€”")</div>
+                        <div class="col-sm-4"><strong>Serial:</strong> @(detail.SerialNumber ?? "â€”")</div>
                         @if (detail.Nickname is not null) { <div class="col-sm-4"><strong>Nickname:</strong> @detail.Nickname</div> }
                         @if (detail.AssetTag is not null) { <div class="col-sm-4"><strong>Asset Tag:</strong> @detail.AssetTag</div> }
                         @if (detail.UnitConfiguration is not null) { <div class="col-sm-4"><strong>Config:</strong> @detail.UnitConfiguration</div> }
                         @if (detail.FuelType is not null) { <div class="col-sm-4"><strong>Fuel:</strong> @detail.FuelType</div> }
                         @if (detail.LocationOnSite is not null) { <div class="col-sm-4"><strong>Location:</strong> @detail.LocationOnSite</div> }
-                        <div class="col-sm-4"><strong>Value:</strong> @(detail.Value?.ToString("C") ?? "—")</div>
+                        <div class="col-sm-4"><strong>Value:</strong> @(detail.Value?.ToString("C") ?? "â€”")</div>
                         @if (detail.InstalledBy is not null) { <div class="col-sm-4"><strong>Installed By:</strong> @detail.InstalledBy</div> }
                     </div>
                 </div>
@@ -521,7 +528,7 @@ else if (mode == "detail" && detail is not null)
                             <h6 class="text-muted mb-2"><i class="bi bi-snow me-1"></i>Refrigerant & Electrical</h6>
                             <div class="row g-2">
                                 <div class="col-sm-3"><strong>Refrigerant:</strong> @detail.RefrigerantType</div>
-                                <div class="col-sm-3"><strong>Charge:</strong> @(detail.RefrigerantQuantity?.ToString() ?? "—") oz</div>
+                                <div class="col-sm-3"><strong>Charge:</strong> @(detail.RefrigerantQuantity?.ToString() ?? "â€”") oz</div>
                                 @if (detail.Voltage is not null) { <div class="col-sm-3"><strong>Voltage:</strong> @detail.Voltage</div> }
                                 @if (detail.Phase is not null) { <div class="col-sm-3"><strong>Phase:</strong> @detail.Phase</div> }
                             </div>
@@ -591,13 +598,12 @@ else if (mode == "detail" && detail is not null)
                     @if (detail.NoWarranty)
                     {
                         <div class="alert alert-secondary py-2 px-3 mb-2">
-                            <i class="bi bi-shield-x me-1"></i><strong>Warranty Disabled</strong> — This unit is not under warranty.
+                            <i class="bi bi-shield-x me-1"></i><strong>Warranty Disabled</strong> â€” This unit is not under warranty.
                         </div>
                     }
                     <div class="row g-2">
-                        <div class="col-sm-4"><strong>Installed:</strong> @(detail.InstallDate?.ToString("MMM dd, yyyy") ?? "—")</div>
-                        <div class="col-sm-4"><strong>Manufactured:</strong> @(detail.ManufactureDate?.ToString("MMM dd, yyyy") ?? "—")</div>
-                        <div class="col-sm-4"><strong>Last Service:</strong> @(detail.LastServiceDate?.ToString("MMM dd, yyyy") ?? "—")</div>
+                        <div class="col-sm-4"><strong>Installed:</strong> @(detail.InstallDate?.ToString("MMM dd, yyyy") ?? "â€”")</div>
+                        <div class="col-sm-4"><strong>Last Service:</strong> @(detail.LastServiceDate?.ToString("MMM dd, yyyy") ?? "â€”")</div>
                         <div class="col-sm-4">
                             <strong>Next Service:</strong>
                             @if (detail.NextServiceDue.HasValue)
@@ -607,9 +613,9 @@ else if (mode == "detail" && detail is not null)
                                     @detail.NextServiceDue.Value.ToString("MMM dd, yyyy") @(overdue ? " (Overdue)" : "")
                                 </span>
                             }
-                            else { <span>—</span> }
+                            else { <span>â€”</span> }
                         </div>
-                        <div class="col-sm-4"><strong>Warranty Start:</strong> @(detail.WarrantyStartDate?.ToString("MMM dd, yyyy") ?? "—")</div>
+                        <div class="col-sm-4"><strong>Warranty Start:</strong> @(detail.WarrantyStartDate?.ToString("MMM dd, yyyy") ?? "â€”")</div>
                         <div class="col-sm-4">
                             <strong>Warranty Expiry:</strong>
                             @if (detail.WarrantyExpiry.HasValue)
@@ -620,7 +626,7 @@ else if (mode == "detail" && detail is not null)
                                     @if (detail.WarrantyTermYears.HasValue) { <small>(@(detail.WarrantyTermYears)yr term)</small> }
                                 </span>
                             }
-                            else { <span>—</span> }
+                            else { <span>â€”</span> }
                         </div>
                     </div>
                     @if (detail.LaborWarrantyExpiry.HasValue || detail.PartsWarrantyExpiry.HasValue || detail.CompressorWarrantyExpiry.HasValue)
@@ -676,7 +682,7 @@ else if (mode == "detail" && detail is not null)
                             }
                             else
                             {
-                                <span class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>No — register to honor full warranty</span>
+                                <span class="text-warning"><i class="bi bi-exclamation-triangle-fill me-1"></i>No â€” register to honor full warranty</span>
                             }
                         </div>
                         @if (detail.WarrantedByCompany) { <div class="col-sm-4"><span class="badge bg-primary"><i class="bi bi-award me-1"></i>Warranted by SE HVAC</span></div> }
@@ -701,8 +707,8 @@ else if (mode == "detail" && detail is not null)
                                         <tr>
                                             <td>@sl.ServiceDate.ToString("MMM dd, yyyy")</td>
                                             <td><span class="badge bg-info text-dark">@(sl.ServiceType ?? "General")</span></td>
-                                            <td>@(sl.PerformedBy ?? "—")</td>
-                                            <td>@(sl.Cost?.ToString("C") ?? "—")</td>
+                                            <td>@(sl.PerformedBy ?? "â€”")</td>
+                                            <td>@(sl.Cost?.ToString("C") ?? "â€”")</td>
                                             <td>
                                                 @if (!string.IsNullOrWhiteSpace(sl.RefrigerantType))
                                                 {
@@ -710,10 +716,10 @@ else if (mode == "detail" && detail is not null)
                                                 }
                                                 else
                                                 {
-                                                    <span class="text-muted">—</span>
+                                                    <span class="text-muted">â€”</span>
                                                 }
                                             </td>
-                                            <td class="text-muted small">@(sl.Notes ?? "—")</td>
+                                            <td class="text-muted small">@(sl.Notes ?? "â€”")</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -743,10 +749,10 @@ else if (mode == "detail" && detail is not null)
                                     {
                                         <tr style="cursor:pointer" @onclick="() => GoToJob(j.Id)">
                                             <td><strong>@j.JobNumber</strong></td>
-                                            <td>@(j.Title ?? "—")</td>
+                                            <td>@(j.Title ?? "â€”")</td>
                                             <td><span class="badge @GetJobBadge(j.Status)">@j.Status</span></td>
-                                            <td>@(j.ScheduledDate?.ToString("MMM dd, yyyy") ?? "—")</td>
-                                            <td class="text-muted">@(j.Role ?? "—")</td>
+                                            <td>@(j.ScheduledDate?.ToString("MMM dd, yyyy") ?? "â€”")</td>
+                                            <td class="text-muted">@(j.Role ?? "â€”")</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -778,10 +784,10 @@ else if (mode == "detail" && detail is not null)
                                             <td>@entry.Date.ToString("MMM dd, yyyy")</td>
                                             <td><span class="badge @(entry.Badge ?? "bg-secondary")">@entry.Source</span></td>
                                             <td><strong>@entry.Title</strong></td>
-                                            <td><small>@(entry.Status ?? "—")</small></td>
-                                            <td>@(entry.PerformedBy ?? "—")</td>
-                                            <td>@(entry.Cost?.ToString("C") ?? "—")</td>
-                                            <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(entry.Description ?? "—")</td>
+                                            <td><small>@(entry.Status ?? "â€”")</small></td>
+                                            <td>@(entry.PerformedBy ?? "â€”")</td>
+                                            <td>@(entry.Cost?.ToString("C") ?? "â€”")</td>
+                                            <td class="text-muted small" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@(entry.Description ?? "â€”")</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -845,7 +851,7 @@ else if (mode == "detail" && detail is not null)
                         <div class="mt-2 border rounded p-2 bg-light">
                             <label class="form-label small fw-semibold mb-1">Link to Asset</label>
                             <select class="form-select form-select-sm mb-1" @bind="_linkTargetAssetId">
-                                <option value="0">— Select Asset —</option>
+                                <option value="0">â€” Select Asset â€”</option>
                                 @foreach (var opt in _linkableAssets.Where(a => a.Id != detail.Id && !detail.LinkedAssets.Any(la => la.Id == a.Id)))
                                 {
                                     <option value="@opt.Id">@opt.Display</option>
@@ -853,7 +859,7 @@ else if (mode == "detail" && detail is not null)
                             </select>
                             <label class="form-label small mb-1">System Type</label>
                             <select class="form-select form-select-sm mb-2" @bind="_linkType">
-                                <option value="">— Optional —</option>
+                                <option value="">â€” Optional â€”</option>
                                 <option value="Split System">Split System</option>
                                 <option value="Packaged Unit">Packaged Unit</option>
                                 <option value="Mini-Split System">Mini-Split System</option>
@@ -905,7 +911,13 @@ else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-cpu-fill me-2"></i>Assets</h4>
-        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Asset</button>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedAssets" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedAssets"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!filter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Asset</button> }
+        </div>
     </div>
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
@@ -926,8 +938,30 @@ else
             </div>
         </div>
     </div>
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> asset(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
-        @if (assets is null)
         {
             <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
         }
@@ -944,6 +978,7 @@ else
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
                             <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
                             <th role="button" @onclick='() => ToggleSort("Model")'>Model @SortIcon("Model")</th>
@@ -956,17 +991,18 @@ else
                     <tbody>
                         @foreach (var a in assets)
                         {
-                            <tr style="cursor:pointer" @onclick="() => GoToDetail(a.Id)">
-                                <td><strong>@a.Name</strong></td>
-                                <td>@(a.AssetType ?? "—")</td>
-                                <td>@(a.Model ?? "—")</td>
+                            <tr class="@(_selectedIds.Contains(a.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(a.Id)" @onchange="() => ToggleRowSelection(a.Id)" /></td>
+                                <td style="cursor:pointer" @onclick="() => GoToDetail(a.Id)"><strong>@a.Name</strong></td>
+                                <td>@(a.AssetType ?? "â€”")</td>
+                                <td>@(a.Model ?? "â€”")</td>
                                 <td><span class="badge @GetAssetBadge(a.Status)">@a.Status</span></td>
-                                <td>@(a.CustomerName ?? "—")</td>
-                                <td>@(a.SiteName ?? "—")</td>
+                                <td>@(a.CustomerName ?? "â€”")</td>
+                                <td>@(a.SiteName ?? "â€”")</td>
                                 <td>
                                     @if (a.NoWarranty) { <span class="text-dark"><i class="bi bi-shield-x"></i> None</span> }
                                     else if (a.WarrantyActive) { <span class="text-success"><i class="bi bi-shield-check"></i></span> }
-                                    else { <span class="text-muted">—</span> }
+                                    else { <span class="text-muted">â€”</span> }
                                 </td>
                             </tr>
                         }
@@ -975,6 +1011,10 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
 }
 
 @code {
@@ -989,8 +1029,17 @@ private AssetEditModel form = new();
 private int? editId;
 private string? errorMsg;
 private bool _confirmArchive;
+
+// Multi-select & bulk action state
+private HashSet<int> _selectedIds = [];
+private bool _confirmBulkDelete;
+private string? _bulkMsg;
+private bool _bulkMsgIsError;
+private bool _allSelected => assets is not null && assets.Count > 0 && assets.All(a => _selectedIds.Contains(a.Id));
+
 private List<CustomerListItem> _customers = [];
 private List<SiteListItem> _sites = [];
+private List<EmployeeListItem> _employees = [];
 
 // Asset linking state
 private bool _showLinkForm;
@@ -1066,7 +1115,8 @@ private async Task DetermineView()
         form = new AssetEditModel
         {
             InstallDate = DateTime.UtcNow.Date,
-            WarrantyStartDate = DateTime.UtcNow.Date
+            WarrantyStartDate = DateTime.UtcNow.Date,
+            NextServiceDue = DateTime.UtcNow.Date.AddYears(1)
         };
         _selectedJobIds = [];
         await LoadFormDependencies();
@@ -1098,6 +1148,7 @@ private async Task LoadFormDependencies()
     _customers = await CustomerSvc.GetCustomersAsync();
     _sites = await SiteSvc.GetSitesAsync();
     _products = await ProductSvc.GetProductsAsync();
+    _employees = await EmployeeSvc.GetEmployeesAsync();
     _jobOptions = await JobSvc.GetJobOptionsAsync(form.CustomerId, form.SiteId);
     await LoadDropdownOptions();
 }
@@ -1274,7 +1325,7 @@ private void OnInstallDateChanged()
         RecalculateWarrantyExpiries();
     }
     // Auto-set NextServiceDue to 1 year from install date
-    if (form.InstallDate.HasValue && !form.NextServiceDue.HasValue)
+    if (form.InstallDate.HasValue)
         form.NextServiceDue = form.InstallDate.Value.AddYears(1);
 }
 
@@ -1377,7 +1428,7 @@ private async Task LoadForEdit(int id)
         SEER2 = d.SEER2, AFUE = d.AFUE, HSPF = d.HSPF, HSPF2 = d.HSPF2,
         EER = d.EER, AssetTag = d.AssetTag, Nickname = d.Nickname,
         Voltage = d.Voltage, Phase = d.Phase,
-        LocationOnSite = d.LocationOnSite, ManufactureDate = d.ManufactureDate,
+        LocationOnSite = d.LocationOnSite,
         AmpRating = d.AmpRating, PanelType = d.PanelType,
         PipeMaterial = d.PipeMaterial, GallonCapacity = d.GallonCapacity,
         RefrigerantType = d.RefrigerantType, RefrigerantQuantity = d.RefrigerantQuantity,
@@ -1497,4 +1548,13 @@ private async Task LoadForEdit(int id)
         if (!_selectedJobIds.Remove(jobId))
             _selectedJobIds.Add(jobId);
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (assets is null) return; if (_allSelected) _selectedIds.Clear(); else foreach (var a in assets) _selectedIds.Add(a.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await LoadAssets(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await AssetSvc.BulkArchiveAssetsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} asset(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadAssets(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await AssetSvc.BulkRestoreAssetsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} asset(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadAssets(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await AssetSvc.BulkDeleteAssetsPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} asset(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadAssets(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }

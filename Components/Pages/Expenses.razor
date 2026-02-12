@@ -73,7 +73,7 @@ else if (_mode == "detail" && _detail != null)
             @if (_detail.JobNumber != null)
             {
                 <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs/" + _detail.JobId)'>
-                    <i class="bi bi-briefcase text-muted"></i><span class="text-primary">@_detail.JobNumber@(!string.IsNullOrWhiteSpace(_detail.JobTitle) ? $" — {_detail.JobTitle}" : "")</span>
+                    <i class="bi bi-briefcase text-muted"></i><span class="text-primary">@_detail.JobNumber@(!string.IsNullOrWhiteSpace(_detail.JobTitle) ? $" â€” {_detail.JobTitle}" : "")</span>
                 </div>
             }
             @if (_detail.EmployeeName != null)
@@ -147,7 +147,7 @@ else if (_mode == "create")
         <div class="mb-2">
             <label class="form-label" style="font-size:0.78rem; font-weight:600;">Category</label>
             <select class="form-select form-select-sm" @bind="_form.Category">
-                <option value="">— Select —</option>
+                <option value="">â€” Select â€”</option>
                 <option value="Materials">Materials</option>
                 <option value="Fuel">Fuel</option>
                 <option value="Tools">Tools</option>
@@ -202,10 +202,10 @@ else if (_mode == "create")
         <div class="mb-2">
             <label class="form-label" style="font-size:0.78rem; font-weight:600;">Linked Job</label>
             <select class="form-select form-select-sm" @bind="_form.JobId">
-                <option value="">— None —</option>
+                <option value="">â€” None â€”</option>
                 @foreach (var j in _jobs)
                 {
-                    <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option>
+                    <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option>
                 }
             </select>
         </div>

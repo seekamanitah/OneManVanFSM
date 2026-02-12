@@ -16,7 +16,7 @@ public class PermissionService : IPermissionService
 
     public async Task<bool> CanViewAsync(UserRole role, string feature)
     {
-        // Owner always has full access — safety net
+        // Owner always has full access â€” safety net
         if (role == UserRole.Owner) return true;
 
         var perm = await GetPermissionAsync(role, feature);

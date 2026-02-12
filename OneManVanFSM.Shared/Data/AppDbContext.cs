@@ -50,7 +50,7 @@ public class AppDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // RolePermission — unique constraint on (Role, Feature)
+        // RolePermission â€” unique constraint on (Role, Feature)
         modelBuilder.Entity<RolePermission>(e =>
         {
             e.HasIndex(rp => new { rp.Role, rp.Feature }).IsUnique();

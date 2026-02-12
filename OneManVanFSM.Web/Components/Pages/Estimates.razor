@@ -68,7 +68,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="form.CustomerId" class="form-select form-select-sm">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -78,7 +78,7 @@
                     <div class="col-md-4">
                         <label class="form-label">Company <small class="text-muted">(Optional)</small></label>
                         <InputSelect @bind-Value="form.CompanyId" class="form-select form-select-sm">
-                            <option value="">— None —</option>
+                            <option value="">â€” None â€”</option>
                             @foreach (var co in _companies)
                             {
                                 <option value="@co.Id">@co.Name</option>
@@ -87,7 +87,10 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">System Type</label>
-                        <InputText @bind-Value="form.SystemType" class="form-control form-control-sm" placeholder="e.g. Spider/Trunk" />
+                        <InputSelect @bind-Value="form.SystemType" class="form-select form-select-sm">
+                            <option value="">Select system type...</option>
+                            @foreach (var st in _systemTypeOptions) { <option value="@st">@st</option> }
+                        </InputSelect>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Expiry Date</label>
@@ -107,8 +110,20 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Deposit Required</label>
-                        <InputNumber @bind-Value="form.DepositRequired" class="form-control form-control-sm" />
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <InputNumber @bind-Value="form.DepositRequired" class="form-control form-control-sm" />
+                        </div>
                     </div>
+                    @if (form.DepositRequired.HasValue && form.DepositRequired > 0)
+                    {
+                        <div class="col-md-3 d-flex align-items-end">
+                            <div class="form-check mb-2">
+                                <input type="checkbox" class="form-check-input" id="chkDepositReceived" checked="@(form.DepositReceived == true)" @onchange="e => form.DepositReceived = (bool?)e.Value" />
+                                <label class="form-check-label" for="chkDepositReceived">Deposit Received</label>
+                            </div>
+                        </div>
+                    }
                 </div>
 
                 @* ?? Line Items ?? *@
@@ -217,11 +232,20 @@ else if (mode == "detail" && detail is not null)
             @if (detail.Status == EstimateStatus.Draft)
             {
                 <button class="btn btn-outline-info btn-sm" @onclick="() => ChangeStatus(EstimateStatus.Sent)"><i class="bi bi-send me-1"></i>Send</button>
+                <button class="btn btn-success btn-sm" @onclick="() => ChangeStatus(EstimateStatus.Approved)"><i class="bi bi-check-circle me-1"></i>Approve & Create Job</button>
             }
             @if (detail.Status == EstimateStatus.Sent)
             {
-                <button class="btn btn-success btn-sm" @onclick="() => ChangeStatus(EstimateStatus.Approved)"><i class="bi bi-check-circle me-1"></i>Approve</button>
+                <button class="btn btn-success btn-sm" @onclick="() => ChangeStatus(EstimateStatus.Approved)"><i class="bi bi-check-circle me-1"></i>Approve & Create Job</button>
                 <button class="btn btn-outline-danger btn-sm" @onclick="() => ChangeStatus(EstimateStatus.Rejected)"><i class="bi bi-x-circle me-1"></i>Reject</button>
+            }
+            @if (detail.Status == EstimateStatus.Approved && detail.LinkedJobId.HasValue)
+            {
+                <a href="/jobs/@detail.LinkedJobId" class="btn btn-outline-success btn-sm"><i class="bi bi-wrench-adjustable me-1"></i>View Job @detail.LinkedJobNumber</a>
+            }
+            @if (detail.Status == EstimateStatus.Rejected)
+            {
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeStatus(EstimateStatus.Draft)"><i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Draft</button>
             }
             <button class="btn btn-outline-primary btn-sm" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button>
             <div class="dropdown d-inline-block">
@@ -358,6 +382,19 @@ else if (mode == "detail" && detail is not null)
 
     @* -- Detail Cards (screen only) -- *@
     <div class="row g-3 print-screen-only">
+        @if (detail.LinkedJobId.HasValue)
+        {
+            <div class="col-12">
+                <div class="alert alert-success d-flex align-items-center py-2 mb-0" role="alert" style="border-radius:8px;">
+                    <i class="bi bi-check-circle-fill me-2 fs-5"></i>
+                    <div class="flex-grow-1">
+                        <strong>Job Created</strong> â€” This estimate was approved and converted to
+                        <a href="/jobs/@detail.LinkedJobId" class="alert-link">@detail.LinkedJobNumber</a>.
+                    </div>
+                    <a href="/jobs/@detail.LinkedJobId" class="btn btn-success btn-sm ms-2"><i class="bi bi-arrow-right me-1"></i>Open Job</a>
+                </div>
+            </div>
+        }
         <div class="col-md-8">
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
@@ -440,7 +477,13 @@ else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-calculator-fill me-2"></i>Estimates</h4>
-        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Estimate</button>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedEstimates" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedEstimates"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!filter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Estimate</button> }
+        </div>
     </div>
     <div class="card border-0 shadow-sm mb-2">
         <div class="card-body py-2">
@@ -457,6 +500,29 @@ else
             </div>
         </div>
     </div>
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> estimate(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
         @if (estimates is null)
         {
@@ -475,6 +541,7 @@ else
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("CreatedAt")'>Number @SortIcon("CreatedAt")</th>
                             <th>Title</th>
                             <th>Customer</th>
@@ -487,14 +554,15 @@ else
                     <tbody>
                         @foreach (var e in estimates)
                         {
-                            <tr style="cursor:pointer" @onclick="() => GoToDetail(e.Id)">
-                                <td><strong>@e.EstimateNumber</strong></td>
-                                <td>@(e.Title ?? "—")</td>
-                                <td>@(e.CustomerName ?? "—")</td>
+                            <tr class="@(_selectedIds.Contains(e.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(e.Id)" @onchange="() => ToggleRowSelection(e.Id)" /></td>
+                                <td style="cursor:pointer" @onclick="() => GoToDetail(e.Id)"><strong>@e.EstimateNumber</strong></td>
+                                <td>@(e.Title ?? "â€”")</td>
+                                <td>@(e.CustomerName ?? "â€”")</td>
                                 <td><span class="badge @GetStatusBadge(e.Status)">@e.Status</span></td>
                                 <td><span class="badge @GetPriorityBadge(e.Priority)">@e.Priority</span></td>
                                 <td class="text-end">@e.Total.ToString("C")</td>
-                                <td>@(e.ExpiryDate?.ToString("MMM dd") ?? "—")</td>
+                                <td>@(e.ExpiryDate?.ToString("MMM dd") ?? "â€”")</td>
                             </tr>
                         }
                     </tbody>
@@ -502,6 +570,10 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
 }
 
 @* ?? Add Item Modal ?? *@
@@ -533,10 +605,10 @@ else
                         <div class="mb-3">
                             <label class="form-label">Select Inventory Item</label>
                             <select class="form-select form-select-sm" @onchange="OnModalInventorySelected">
-                                <option value="">— Choose an item —</option>
+                                <option value="">â€” Choose an item â€”</option>
                                 @foreach (var inv in _inventoryItems)
                                 {
-                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) — @inv.Price.ToString("C")</option>
+                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) â€” @inv.Price.ToString("C")</option>
                                 }
                             </select>
                         </div>
@@ -546,10 +618,10 @@ else
                         <div class="mb-3">
                             <label class="form-label">Select Product</label>
                             <select class="form-select form-select-sm" @onchange="OnModalProductSelected">
-                                <option value="">— Choose a product —</option>
+                                <option value="">â€” Choose a product â€”</option>
                                 @foreach (var p in productOptions)
                                 {
-                                    <option value="@p.Id">@p.Name — @p.Price.ToString("C")</option>
+                                    <option value="@p.Id">@p.Name â€” @p.Price.ToString("C")</option>
                                 }
                             </select>
                         </div>
@@ -644,6 +716,13 @@ else
     private int? editId;
     private string? errorMsg;
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => estimates is not null && estimates.Count > 0 && estimates.All(e => _selectedIds.Contains(e.Id));
     private List<CustomerListItem> _customers = [];
     private List<CompanyDropdownItem> _companies = [];
     private List<ProductOption> productOptions = [];
@@ -654,6 +733,7 @@ else
     private List<string> _estimateStatuses = Enum.GetValues<EstimateStatus>().Select(s => s.ToString()).ToList();
     private List<string> _tradeTypes = ["HVAC", "Plumbing", "Electrical", "General"];
     private List<string> _lineTypes = ["Material", "Labor", "Equipment", "Fee", "Permit", "Disposal", "Discount"];
+    private List<string> _systemTypeOptions = ["Split System", "Package Unit", "Mini-Split", "Ductless", "Geothermal", "Boiler", "Furnace Only", "AC Only", "Heat Pump", "Dual Fuel", "Other"];
 
     // Modal state
     private bool _showItemModal;
@@ -727,6 +807,8 @@ else
         if (trades.Count > 0) _tradeTypes = trades.Where(o => o.IsActive).Select(o => o.Value).ToList();
         var lts = await DropdownSvc.GetOptionsAsync("LineType");
         if (lts.Count > 0) _lineTypes = lts.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        var sysTypes = await DropdownSvc.GetOptionsAsync("SystemType");
+        if (sysTypes.Count > 0) _systemTypeOptions = sysTypes.Where(o => o.IsActive).Select(o => o.Value).ToList();
     }
 
     public void Dispose()
@@ -986,4 +1068,13 @@ else
         await JS.InvokeVoidAsync("openMailto", _emailTo, _emailSubject, _emailBody);
         _showEmailModal = false;
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (estimates is null) return; if (_allSelected) _selectedIds.Clear(); else foreach (var e in estimates) _selectedIds.Add(e.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await LoadEstimates(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await EstimateSvc.BulkArchiveEstimatesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} estimate(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadEstimates(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await EstimateSvc.BulkRestoreEstimatesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} estimate(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadEstimates(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await EstimateSvc.BulkDeleteEstimatesPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} estimate(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadEstimates(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }

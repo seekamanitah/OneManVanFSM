@@ -50,7 +50,7 @@ public class SyncService : ISyncService
 
         try
         {
-            // Drain offline queue first — push pending local mutations to the server
+            // Drain offline queue first â€” push pending local mutations to the server
             if (_offlineQueue.PendingCount > 0)
             {
                 RaiseProgress(true, null, 0, EntityTypes.Length, $"Pushing {_offlineQueue.PendingCount} offline change(s)...");
@@ -78,7 +78,7 @@ public class SyncService : ISyncService
             Preferences.Default.Set("sync_last_full", LastSyncTime.Value.ToString("O"));
 
             RaiseProgress(false, null, EntityTypes.Length, EntityTypes.Length,
-                errors == 0 ? $"Sync complete — {totalSynced} records." : $"Sync finished with {errors} error(s).");
+                errors == 0 ? $"Sync complete â€” {totalSynced} records." : $"Sync finished with {errors} error(s).");
 
             return errors == 0
                 ? SyncResult.Success(totalSynced)
@@ -135,7 +135,7 @@ public class SyncService : ISyncService
 
     /// <summary>
     /// Fetches entities from the API and upserts them into the local database.
-    /// Server is the source of truth — server data always wins on conflict.
+    /// Server is the source of truth â€” server data always wins on conflict.
     /// </summary>
     private async Task<int> PullAndMerge<T>(
         string apiPath,
@@ -160,7 +160,7 @@ public class SyncService : ISyncService
             }
             else
             {
-                // New entity from server — add to local DB
+                // New entity from server â€” add to local DB
                 dbSet.Add(entity);
             }
         }

@@ -6,6 +6,8 @@ public interface IDataManagementService
     Task<byte[]> ExportTableXlsxAsync(string tableName);
     Task<List<string>> GetExportableTablesAsync();
     Task<ImportResult> ImportCsvAsync(Stream csvStream, string fileName);
+    Task<ImportResult> ImportXlsxAsync(Stream xlsxStream, string fileName);
+    Task<ImportResult> ImportFileAsync(Stream fileStream, string fileName);
     Task<byte[]> BackupDatabaseAsync();
     Task RestoreDatabaseAsync(Stream backupStream);
     Task PurgeDatabaseAsync();

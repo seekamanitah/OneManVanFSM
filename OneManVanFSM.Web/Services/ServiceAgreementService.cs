@@ -11,7 +11,8 @@ public class ServiceAgreementService : IServiceAgreementService
 
     public async Task<List<AgreementListItem>> GetAgreementsAsync(AgreementFilter? filter = null)
     {
-        var query = _db.ServiceAgreements.Where(a => !a.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.ServiceAgreements.Where(a => a.IsArchived == showArchived).AsQueryable();
         if (filter is not null)
         {
             if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -116,6 +117,48 @@ public class ServiceAgreementService : IServiceAgreementService
         a.IsArchived = true; a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreAgreementAsync(int id)
+    {
+        var a = await _db.ServiceAgreements.FindAsync(id);
+        if (a is null) return false;
+        a.IsArchived = false; a.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteAgreementPermanentlyAsync(int id)
+    {
+        var a = await _db.ServiceAgreements.FindAsync(id);
+        if (a is null) return false;
+        _db.ServiceAgreements.Remove(a);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveAgreementsAsync(List<int> ids)
+    {
+        var items = await _db.ServiceAgreements.Where(a => ids.Contains(a.Id) && !a.IsArchived).ToListAsync();
+        foreach (var a in items) { a.IsArchived = true; a.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreAgreementsAsync(List<int> ids)
+    {
+        var items = await _db.ServiceAgreements.Where(a => ids.Contains(a.Id) && a.IsArchived).ToListAsync();
+        foreach (var a in items) { a.IsArchived = false; a.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteAgreementsPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.ServiceAgreements.Where(a => ids.Contains(a.Id)).ToListAsync();
+        _db.ServiceAgreements.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     /// <summary>

@@ -9,6 +9,11 @@ public interface IProductService
     Task<Product> CreateProductAsync(ProductEditModel model);
     Task<Product> UpdateProductAsync(int id, ProductEditModel model);
     Task<bool> ArchiveProductAsync(int id);
+    Task<bool> RestoreProductAsync(int id);
+    Task<bool> DeleteProductPermanentlyAsync(int id);
+    Task<int> BulkArchiveProductsAsync(List<int> ids);
+    Task<int> BulkRestoreProductsAsync(List<int> ids);
+    Task<int> BulkDeleteProductsPermanentlyAsync(List<int> ids);
 }
 
 public class ProductFilter
@@ -17,6 +22,7 @@ public class ProductFilter
     public string? Category { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
 }
 
 public class ProductListItem

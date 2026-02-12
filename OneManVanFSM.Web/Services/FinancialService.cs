@@ -12,7 +12,8 @@ public class FinancialService : IFinancialService
     // Invoices
     public async Task<List<InvoiceListItem>> GetInvoicesAsync(InvoiceFilter? filter = null)
     {
-        var query = _db.Invoices.Where(i => !i.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Invoices.Where(i => i.IsArchived == showArchived).AsQueryable();
         if (filter is not null)
         {
             if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -68,6 +69,8 @@ public class FinancialService : IFinancialService
             Notes = i.Notes, Terms = i.Terms,
             IncludeSiteLocation = i.IncludeSiteLocation,
             IncludeAssetInfo = i.IncludeAssetInfo,
+            IncludeJobDescription = i.IncludeJobDescription,
+            IncludeNotes = i.IncludeNotes,
             CustomerId = i.CustomerId,
             CustomerName = i.Customer?.Name,
             CustomerEmail = i.Customer?.PrimaryEmail,
@@ -157,6 +160,8 @@ public class FinancialService : IFinancialService
             Notes = model.Notes, Terms = model.Terms,
             IncludeSiteLocation = model.IncludeSiteLocation,
             IncludeAssetInfo = model.IncludeAssetInfo,
+            IncludeJobDescription = model.IncludeJobDescription,
+            IncludeNotes = model.IncludeNotes,
             CustomerId = model.CustomerId, CompanyId = model.CompanyId,
             JobId = model.JobId, SiteId = model.SiteId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -231,6 +236,8 @@ public class FinancialService : IFinancialService
         inv.BalanceDue = model.BalanceDue; inv.Notes = model.Notes; inv.Terms = model.Terms;
         inv.IncludeSiteLocation = model.IncludeSiteLocation;
         inv.IncludeAssetInfo = model.IncludeAssetInfo;
+        inv.IncludeJobDescription = model.IncludeJobDescription;
+        inv.IncludeNotes = model.IncludeNotes;
         inv.CustomerId = model.CustomerId; inv.CompanyId = model.CompanyId;
         inv.JobId = model.JobId; inv.SiteId = model.SiteId;
         inv.UpdatedAt = DateTime.UtcNow;
@@ -568,6 +575,74 @@ public class FinancialService : IFinancialService
             RecentInvoices = recentInvoices,
             RecentExpenses = recentExpenses
         };
+    }
+
+    public async Task<bool> ArchiveInvoiceAsync(int id)
+    {
+        var i = await _db.Invoices.FindAsync(id);
+        if (i is null) return false;
+        i.IsArchived = true; i.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RestoreInvoiceAsync(int id)
+    {
+        var i = await _db.Invoices.FindAsync(id);
+        if (i is null) return false;
+        i.IsArchived = false; i.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteInvoicePermanentlyAsync(int id)
+    {
+        var i = await _db.Invoices.FindAsync(id);
+        if (i is null) return false;
+        _db.Invoices.Remove(i);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveInvoicesAsync(List<int> ids)
+    {
+        var items = await _db.Invoices.Where(i => ids.Contains(i.Id) && !i.IsArchived).ToListAsync();
+        foreach (var i in items) { i.IsArchived = true; i.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreInvoicesAsync(List<int> ids)
+    {
+        var items = await _db.Invoices.Where(i => ids.Contains(i.Id) && i.IsArchived).ToListAsync();
+        foreach (var i in items) { i.IsArchived = false; i.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteInvoicesPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Invoices.Where(i => ids.Contains(i.Id)).ToListAsync();
+        _db.Invoices.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<bool> DeleteExpensePermanentlyAsync(int id)
+    {
+        var e = await _db.Expenses.FindAsync(id);
+        if (e is null) return false;
+        _db.Expenses.Remove(e);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkDeleteExpensesPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Expenses.Where(e => ids.Contains(e.Id)).ToListAsync();
+        _db.Expenses.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     public async Task<List<ProductOption>> GetProductOptionsAsync()

@@ -103,7 +103,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         if (!string.IsNullOrEmpty(emp.Certifications))
         {
             try { certs = System.Text.Json.JsonSerializer.Deserialize<List<string>>(emp.Certifications) ?? []; }
-            catch { /* malformed JSON — ignore */ }
+            catch { /* malformed JSON â€” ignore */ }
         }
 
         return new MobileEmployeeProfile

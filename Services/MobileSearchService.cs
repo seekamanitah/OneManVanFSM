@@ -37,7 +37,7 @@ public class MobileSearchService : IMobileSearchService
                 {
                     Id = job.Id,
                     Title = job.Title ?? job.JobNumber,
-                    Subtitle = $"{job.JobNumber} · {job.Customer?.Name ?? "—"} · {job.Site?.Address ?? "—"}",
+                    Subtitle = $"{job.JobNumber} · {job.Customer?.Name ?? "â€”"} · {job.Site?.Address ?? "â€”"}",
                     Category = "Jobs",
                     Icon = "bi-wrench-adjustable",
                     BadgeText = job.Status.ToString(),
@@ -64,7 +64,7 @@ public class MobileSearchService : IMobileSearchService
                 {
                     Id = c.Id,
                     Title = c.Name,
-                    Subtitle = $"{c.PrimaryPhone ?? "—"} · {c.Address ?? "—"}, {c.City ?? ""}",
+                    Subtitle = $"{c.PrimaryPhone ?? "â€”"} · {c.Address ?? "â€”"}, {c.City ?? ""}",
                     Category = "Customers",
                     Icon = "bi-person",
                     BadgeText = c.Type.ToString(),
@@ -92,7 +92,7 @@ public class MobileSearchService : IMobileSearchService
                 {
                     Id = s.Id,
                     Title = s.Name,
-                    Subtitle = $"{s.Address ?? "—"}, {s.City ?? ""} · {s.Customer?.Name ?? "—"}",
+                    Subtitle = $"{s.Address ?? "â€”"}, {s.City ?? ""} · {s.Customer?.Name ?? "â€”"}",
                     Category = "Sites",
                     Icon = "bi-building",
                     BadgeText = s.PropertyType.ToString(),
@@ -120,7 +120,7 @@ public class MobileSearchService : IMobileSearchService
                 {
                     Id = a.Id,
                     Title = a.Name,
-                    Subtitle = $"{a.AssetType ?? "—"} · {a.Model ?? "—"} · S/N: {a.SerialNumber ?? "—"}",
+                    Subtitle = $"{a.AssetType ?? "â€”"} · {a.Model ?? "â€”"} · S/N: {a.SerialNumber ?? "â€”"}",
                     Category = "Assets",
                     Icon = "bi-cpu",
                     BadgeText = a.Status.ToString(),
@@ -174,7 +174,7 @@ public class MobileSearchService : IMobileSearchService
                 {
                     Id = c.Id,
                     Title = c.Name,
-                    Subtitle = $"{c.Type} · {c.City ?? "—"}, {c.State ?? ""}",
+                    Subtitle = $"{c.Type} · {c.City ?? "â€”"}, {c.State ?? ""}",
                     Category = "Companies",
                     Icon = "bi-building",
                     BadgeText = c.IsActive ? "Active" : "Inactive",

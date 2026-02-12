@@ -10,12 +10,20 @@ public interface IFinancialService
     Task<Invoice> CreateInvoiceAsync(InvoiceEditModel model);
     Task<Invoice> UpdateInvoiceAsync(int id, InvoiceEditModel model);
     Task<bool> UpdateInvoiceStatusAsync(int id, InvoiceStatus status);
+    Task<bool> ArchiveInvoiceAsync(int id);
+    Task<bool> RestoreInvoiceAsync(int id);
+    Task<bool> DeleteInvoicePermanentlyAsync(int id);
+    Task<int> BulkArchiveInvoicesAsync(List<int> ids);
+    Task<int> BulkRestoreInvoicesAsync(List<int> ids);
+    Task<int> BulkDeleteInvoicesPermanentlyAsync(List<int> ids);
     // Expenses
     Task<List<ExpenseListItem>> GetExpensesAsync(ExpenseFilter? filter = null);
     Task<ExpenseDetail?> GetExpenseAsync(int id);
     Task<Expense> CreateExpenseAsync(ExpenseEditModel model);
     Task<Expense> UpdateExpenseAsync(int id, ExpenseEditModel model);
     Task<bool> UpdateExpenseStatusAsync(int id, ExpenseStatus status);
+    Task<bool> DeleteExpensePermanentlyAsync(int id);
+    Task<int> BulkDeleteExpensesPermanentlyAsync(List<int> ids);
     // Payments
     Task<List<PaymentListItem>> GetPaymentsAsync(PaymentFilter? filter = null);
     Task<Payment> CreatePaymentAsync(PaymentEditModel model);
@@ -40,6 +48,7 @@ public class InvoiceFilter
     public InvoiceStatus? Status { get; set; }
     public string? SortBy { get; set; } = "CreatedAt";
     public bool SortDescending { get; set; } = true;
+    public bool ShowArchived { get; set; }
 }
 
 public class InvoiceListItem
@@ -78,6 +87,8 @@ public class InvoiceDetail
     public string? Terms { get; set; }
     public bool IncludeSiteLocation { get; set; }
     public bool IncludeAssetInfo { get; set; }
+    public bool IncludeJobDescription { get; set; }
+    public bool IncludeNotes { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerEmail { get; set; }
@@ -178,6 +189,8 @@ public class InvoiceEditModel
     public int? SiteId { get; set; }
     public bool IncludeSiteLocation { get; set; } = true;
     public bool IncludeAssetInfo { get; set; } = true;
+    public bool IncludeJobDescription { get; set; }
+    public bool IncludeNotes { get; set; } = true;
     public List<InvoiceLineEditModel> Lines { get; set; } = [];
 }
 

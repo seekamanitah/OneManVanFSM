@@ -66,7 +66,7 @@ else if (_jobs.Any())
                 </div>
             </div>
             <p class="card-subtitle mb-1">
-                <i class="bi bi-person me-1"></i>@(job.CustomerName ?? "—")
+                <i class="bi bi-person me-1"></i>@(job.CustomerName ?? "â€”")
             </p>
             <p class="card-subtitle mb-0">
                 <i class="bi bi-geo-alt me-1"></i>@(job.SiteAddress ?? "No address")
@@ -167,7 +167,7 @@ else
 
         <div class="mb-1">
             <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_selectedCustomerId" @bind:after="OnCustomerChanged">
-                <option value="">— Customer —</option>
+                <option value="">â€” Customer â€”</option>
                 @foreach (var c in _customers)
                 {
                     <option value="@c.Id">@c.Name</option>
@@ -177,7 +177,7 @@ else
 
         <div class="mb-1">
             <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newJob.SiteId">
-                <option value="">— Site —</option>
+                <option value="">â€” Site â€”</option>
                 @foreach (var s in _sites)
                 {
                     <option value="@s.Id">@s.Name @(s.Address != null ? $"({s.Address})" : "")</option>

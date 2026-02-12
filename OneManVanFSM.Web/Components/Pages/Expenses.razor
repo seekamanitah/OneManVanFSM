@@ -133,9 +133,9 @@
             <div class="card border-0 shadow-sm mb-3">
                 <div class="card-body">
                     <div class="row g-2 mb-3">
-                        <div class="col-sm-4"><strong>Category:</strong> @(expenseDetail.Category ?? "—")</div>
+                        <div class="col-sm-4"><strong>Category:</strong> @(expenseDetail.Category ?? "â€”")</div>
                         <div class="col-sm-4"><strong>Date:</strong> @expenseDetail.ExpenseDate.ToString("MMM dd, yyyy")</div>
-                        <div class="col-sm-4"><strong>Payment Method:</strong> @(expenseDetail.PaymentMethod ?? "—")</div>
+                        <div class="col-sm-4"><strong>Payment Method:</strong> @(expenseDetail.PaymentMethod ?? "â€”")</div>
                     </div>
                     @if (!string.IsNullOrWhiteSpace(expenseDetail.Description))
                     {
@@ -375,7 +375,7 @@ else
                                 <option value="">Not linked to a job</option>
                                 @foreach (var j in _jobOptions)
                                 {
-                                    <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option>
+                                    <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option>
                                 }
                             </InputSelect>
                         </div>
@@ -439,6 +439,19 @@ else
             </div>
         </div>
     </div>
+
+    @if (_selectedExpenseIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedExpenseIds.Count</strong> expense(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeleteExpenses"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearExpenseSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
         @if (expenses is null)
         {
@@ -454,6 +467,7 @@ else
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allExpensesSelected" @onchange="ToggleSelectAllExpenses" title="Select all" /></th>
                             <th role="button" @onclick='() => ToggleSort("category")'>Category@(SortIcon("category"))</th>
                             <th>Description</th>
                             <th>Vendor</th>
@@ -467,14 +481,15 @@ else
                     <tbody>
                         @foreach (var e in expenses)
                         {
-                            <tr style="cursor:pointer" @onclick="() => ViewExpense(e.Id)">
-                                <td>@(e.Category ?? "—")</td>
-                                <td>@(e.Description ?? "—")</td>
-                                <td>@(e.VendorName ?? e.CompanyName ?? "—")</td>
+                            <tr class="@(_selectedExpenseIds.Contains(e.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedExpenseIds.Contains(e.Id)" @onchange="() => ToggleExpenseRowSelection(e.Id)" /></td>
+                                <td style="cursor:pointer" @onclick="() => ViewExpense(e.Id)">@(e.Category ?? "â€”")</td>
+                                <td>@(e.Description ?? "â€”")</td>
+                                <td>@(e.VendorName ?? e.CompanyName ?? "â€”")</td>
                                 <td>@(e.Total > 0 ? e.Total.ToString("C") : e.Amount.ToString("C"))</td>
                                 <td><span class="badge @GetExpBadge(e.Status)">@e.Status</span></td>
-                                <td>@(e.IsBillable ? "Yes" : "—")</td>
-                                <td>@if (e.JobId.HasValue) { <a href="javascript:void(0)" @onclick:stopPropagation @onclick="() => GoToJob(e.JobId!.Value)">@(e.JobTitle ?? "View")</a> } else { <span>—</span> }</td>
+                                <td>@(e.IsBillable ? "Yes" : "â€”")</td>
+                                <td>@if (e.JobId.HasValue) { <a href="javascript:void(0)" @onclick:stopPropagation @onclick="() => GoToJob(e.JobId!.Value)">@(e.JobTitle ?? "View")</a> } else { <span>â€”</span> }</td>
                                 <td>@e.ExpenseDate.ToString("MMM dd")</td>
                             </tr>
                         }
@@ -483,6 +498,10 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_expBulkMsg))
+    {
+        <div class="alert @(_expBulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_expBulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_expBulkMsg</div>
+    }
 }
 
 @* ?? Add Item Modal ?? *@
@@ -514,10 +533,10 @@ else
                         <div class="mb-3">
                             <label class="form-label">Select Inventory Item</label>
                             <select class="form-select form-select-sm" @onchange="OnModalInventorySelected">
-                                <option value="">— Choose an item —</option>
+                                <option value="">â€” Choose an item â€”</option>
                                 @foreach (var inv in _inventoryItems)
                                 {
-                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) — @inv.Price.ToString("C")</option>
+                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) â€” @inv.Price.ToString("C")</option>
                                 }
                             </select>
                         </div>
@@ -527,10 +546,10 @@ else
                         <div class="mb-3">
                             <label class="form-label">Select Product</label>
                             <select class="form-select form-select-sm" @onchange="OnModalProductSelected">
-                                <option value="">— Choose a product —</option>
+                                <option value="">â€” Choose a product â€”</option>
                                 @foreach (var p in _productOptions)
                                 {
-                                    <option value="@p.Id">@p.Name — @p.Price.ToString("C")</option>
+                                    <option value="@p.Id">@p.Name â€” @p.Price.ToString("C")</option>
                                 }
                             </select>
                         </div>
@@ -599,6 +618,13 @@ else
     private CompanyProfile? _companyProfile;
     private ExpenseFilter expenseFilter = new();
     private string expenseFilterStatus = "";
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedExpenseIds = [];
+    private bool _confirmBulkDelete;
+    private string? _expBulkMsg;
+    private bool _expBulkMsgIsError;
+    private bool _allExpensesSelected => expenses is not null && expenses.Count > 0 && expenses.All(e => _selectedExpenseIds.Contains(e.Id));
 
     private List<string> _expenseCategories = ["Materials", "Equipment", "Tools", "Fuel", "Vehicle", "Disposal", "Permits", "Supplies", "Subcontractor", "Insurance", "Office", "Travel", "Training", "Uniforms", "Refrigerant", "Other"];
     private List<string> _paymentMethods = ["Cash", "Check", "Card", "ACH", "Zelle", "Company Card", "Other"];
@@ -850,4 +876,10 @@ else
         expenseFilter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true
             ? new MarkupString(expenseFilter.SortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>")
             : default;
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleExpenseRowSelection(int id) { if (!_selectedExpenseIds.Remove(id)) _selectedExpenseIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAllExpenses() { if (expenses is null) return; if (_allExpensesSelected) _selectedExpenseIds.Clear(); else foreach (var e in expenses) _selectedExpenseIds.Add(e.Id); _confirmBulkDelete = false; }
+    private void ClearExpenseSelection() { _selectedExpenseIds.Clear(); _confirmBulkDelete = false; _expBulkMsg = null; }
+    private async Task BulkDeleteExpenses() { if (_selectedExpenseIds.Count == 0) return; try { var n = await FinSvc.BulkDeleteExpensesPermanentlyAsync(_selectedExpenseIds.ToList()); _expBulkMsg = $"{n} expense(s) permanently deleted."; _expBulkMsgIsError = false; ClearExpenseSelection(); await LoadExpenses(); } catch (Exception ex) { _expBulkMsg = ex.Message; _expBulkMsgIsError = true; } }
 }

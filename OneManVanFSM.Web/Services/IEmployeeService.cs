@@ -9,6 +9,11 @@ public interface IEmployeeService
     Task<Employee> CreateEmployeeAsync(EmployeeEditModel model);
     Task<Employee> UpdateEmployeeAsync(int id, EmployeeEditModel model);
     Task<bool> ArchiveEmployeeAsync(int id);
+    Task<bool> RestoreEmployeeAsync(int id);
+    Task<bool> DeleteEmployeePermanentlyAsync(int id);
+    Task<int> BulkArchiveEmployeesAsync(List<int> ids);
+    Task<int> BulkRestoreEmployeesAsync(List<int> ids);
+    Task<int> BulkDeleteEmployeesPermanentlyAsync(List<int> ids);
     // Time clock
     Task<TimeEntry> ClockInAsync(int employeeId, int? jobId, string? notes = null);
     Task<TimeEntry?> ClockOutAsync(int employeeId);
@@ -26,6 +31,7 @@ public class EmployeeFilter
     public string? Territory { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
 }
 
 public class EmployeeListItem

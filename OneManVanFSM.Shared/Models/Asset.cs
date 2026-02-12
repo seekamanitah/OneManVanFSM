@@ -14,16 +14,16 @@ public class Asset
     public string? FilterSize { get; set; } // 16x25x1, 20x20x4, etc.
     public decimal? Tonnage { get; set; }
     public decimal? SEER { get; set; }
-    public decimal? AFUE { get; set; } // Annual Fuel Utilization Efficiency (%) — furnaces
-    public decimal? HSPF { get; set; } // Heating Seasonal Performance Factor — heat pumps
+    public decimal? AFUE { get; set; } // Annual Fuel Utilization Efficiency (%) â€” furnaces
+    public decimal? HSPF { get; set; } // Heating Seasonal Performance Factor â€” heat pumps
     public string? Voltage { get; set; } // 120V, 208V, 240V, 480V
     public string? Phase { get; set; } // Single Phase, Three Phase
     public string? LocationOnSite { get; set; } // Basement, Attic, Roof, Side Yard, etc.
     public DateTime? ManufactureDate { get; set; }
-    public int? AmpRating { get; set; } // Electrical — panel/circuit amp rating
-    public string? PanelType { get; set; } // Electrical — Main Breaker, Main Lug, Sub-Panel
-    public string? PipeMaterial { get; set; } // Plumbing — Copper, PEX, PVC, Cast Iron
-    public int? GallonCapacity { get; set; } // Plumbing — water heater tank size
+    public int? AmpRating { get; set; } // Electrical â€” panel/circuit amp rating
+    public string? PanelType { get; set; } // Electrical â€” Main Breaker, Main Lug, Sub-Panel
+    public string? PipeMaterial { get; set; } // Plumbing â€” Copper, PEX, PVC, Cast Iron
+    public int? GallonCapacity { get; set; } // Plumbing â€” water heater tank size
     public string? RefrigerantType { get; set; }
     public decimal? RefrigerantQuantity { get; set; } // oz
     public decimal? SEER2 { get; set; } // New efficiency standard

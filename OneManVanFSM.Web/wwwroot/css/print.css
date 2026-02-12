@@ -188,6 +188,9 @@
     .print-doc {
         display: block !important;
         font-family: 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+        min-height: calc(100vh - 0.6cm);
+        position: relative;
+        padding-bottom: 60pt; /* Reserve space for the fixed footer */
     }
 
     /* -- Header banner - navy bar with doc type + company ------------- */
@@ -488,11 +491,15 @@
         display: flex !important;
         justify-content: center;
         gap: 18pt;
-        margin-top: 14pt;
         padding: 5pt 0;
         border-top: 1.5pt solid #1B2A4A !important;
         font-size: 7.5pt !important;
         color: #555 !important;
+        position: fixed;
+        bottom: 20pt;
+        left: 1.2cm;
+        right: 1.2cm;
+        background: #fff !important;
     }
 
     .print-doc-footer .print-footer-item {
@@ -509,10 +516,14 @@
     /* -- Thank you / signoff ------------------------------------------ */
     .print-doc-thankyou {
         text-align: center;
-        margin-top: 10pt;
         font-size: 9pt !important;
         font-style: italic;
         color: #666 !important;
+        position: fixed;
+        bottom: 4pt;
+        left: 1.2cm;
+        right: 1.2cm;
+        background: #fff !important;
     }
 
     /* -- Deposit info callout ----------------------------------------- */

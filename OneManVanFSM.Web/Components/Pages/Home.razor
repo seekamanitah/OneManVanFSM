@@ -470,7 +470,7 @@
                                         <div class="d-flex justify-content-between align-items-center">
                                             <div>
                                                 <strong class="small">@asset.Name</strong>
-                                                <br /><small class="text-muted">@(asset.CustomerName ?? "N/A") · @(asset.AssetType ?? "—")</small>
+                                                <br /><small class="text-muted">@(asset.CustomerName ?? "N/A") · @(asset.AssetType ?? "â€”")</small>
                                             </div>
                                             <div class="text-end">
                                                 @if (asset.DaysOverdue > 0)
@@ -519,7 +519,7 @@
                                         <div class="d-flex justify-content-between align-items-start">
                                             <div>
                                                 <strong class="small">@wa.Name</strong>
-                                                <br /><small class="text-muted">@(wa.CustomerName ?? "N/A") · @(wa.AssetType ?? "—")</small>
+                                                <br /><small class="text-muted">@(wa.CustomerName ?? "N/A") · @(wa.AssetType ?? "â€”")</small>
                                             </div>
                                             <div class="text-end">
                                                 @if (wa.DaysUntilExpiry < 0)

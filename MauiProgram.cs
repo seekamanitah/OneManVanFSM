@@ -57,6 +57,7 @@ namespace OneManVanFSM
 
             // Shared infrastructure
             builder.Services.AddSingleton<ApiClient>();
+            builder.Services.AddSingleton<IPlatformHelper, PlatformHelper>();
             builder.Services.AddScoped<IPermissionService, PermissionService>();
             builder.Services.AddScoped<IMobileSettingsService, MobileSettingsService>();
 

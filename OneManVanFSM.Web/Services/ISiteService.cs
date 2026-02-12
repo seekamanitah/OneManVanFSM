@@ -9,6 +9,11 @@ public interface ISiteService
     Task<Site> CreateSiteAsync(SiteEditModel model);
     Task<Site> UpdateSiteAsync(int id, SiteEditModel model);
     Task<bool> ArchiveSiteAsync(int id);
+    Task<bool> RestoreSiteAsync(int id);
+    Task<bool> DeleteSitePermanentlyAsync(int id);
+    Task<int> BulkArchiveSitesAsync(List<int> ids);
+    Task<int> BulkRestoreSitesAsync(List<int> ids);
+    Task<int> BulkDeleteSitesPermanentlyAsync(List<int> ids);
     Task<List<CompanyOption>> GetCompaniesForDropdownAsync();
     Task<List<CompanyOption>> GetVendorCompaniesAsync();
 }
@@ -18,6 +23,7 @@ public class SiteFilter
     public string? Search { get; set; }
     public PropertyType? PropertyType { get; set; }
     public int? CustomerId { get; set; }
+    public bool ShowArchived { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
 }

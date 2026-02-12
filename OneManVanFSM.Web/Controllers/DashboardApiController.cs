@@ -7,7 +7,7 @@ namespace OneManVanFSM.Web.Controllers;
 
 /// <summary>
 /// Dashboard API endpoint that computes the same aggregated dashboard data
-/// the mobile app needs — job counts, time summaries, alerts, etc.
+/// the mobile app needs â€” job counts, time summaries, alerts, etc.
 /// </summary>
 [Route("api/dashboard")]
 public class DashboardApiController : SyncApiController
@@ -127,7 +127,7 @@ public class DashboardApiController : SyncApiController
     }
 }
 
-// DTO classes — mirror the mobile-side types so JSON serialisation round-trips cleanly
+// DTO classes â€” mirror the mobile-side types so JSON serialisation round-trips cleanly
 public class MobileDashboardResponse
 {
     public int TodayJobCount { get; set; }

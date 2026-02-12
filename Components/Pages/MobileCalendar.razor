@@ -90,7 +90,7 @@ else if (_viewMode == "day")
                     }
                     <div class="d-flex justify-content-between align-items-center mt-1">
                         <span class="text-muted" style="font-size:0.7rem;">
-                            @evt.StartDateTime.ToString("h:mm") – @evt.EndDateTime.ToString("h:mm tt")
+                            @evt.StartDateTime.ToString("h:mm") â€“ @evt.EndDateTime.ToString("h:mm tt")
                         </span>
                         <span class="badge-status badge bg-@EventStatusColor(evt.Status)" style="font-size:0.6rem;">@evt.Status</span>
                     </div>
@@ -113,7 +113,7 @@ else
     {
         <div class="mobile-card d-flex justify-content-between align-items-center" style="padding:0.5rem 1rem;">
             <span style="font-size:0.85rem; font-weight:600;">@_events.Count event@(_events.Count != 1 ? "s" : "") this week</span>
-            <span class="badge bg-primary" style="font-size:0.7rem;">@_weekStart.ToString("MMM dd") – @_weekStart.AddDays(6).ToString("MMM dd")</span>
+            <span class="badge bg-primary" style="font-size:0.7rem;">@_weekStart.ToString("MMM dd") â€“ @_weekStart.AddDays(6).ToString("MMM dd")</span>
         </div>
     }
     @for (var i = 0; i < 7; i++)
@@ -149,7 +149,7 @@ else
                         }
                         <div class="d-flex justify-content-between align-items-center mt-1">
                             <span class="text-muted" style="font-size:0.65rem;">
-                                @evt.StartDateTime.ToString("h:mm") – @evt.EndDateTime.ToString("h:mm tt")
+                                @evt.StartDateTime.ToString("h:mm") â€“ @evt.EndDateTime.ToString("h:mm tt")
                             </span>
                             <span class="badge-status badge bg-@EventStatusColor(evt.Status)" style="font-size:0.55rem;">@evt.Status</span>
                         </div>

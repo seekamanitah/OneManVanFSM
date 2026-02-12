@@ -75,7 +75,6 @@ public class MobileAssetDetail
     // Location & dates
     public string? LocationOnSite { get; set; }
     public DateTime? InstallDate { get; set; }
-    public DateTime? ManufactureDate { get; set; }
     public DateTime? LastServiceDate { get; set; }
     public DateTime? NextServiceDue { get; set; }
     public DateTime? WarrantyStartDate { get; set; }

@@ -38,7 +38,7 @@ public class BackgroundSyncService : IDisposable
         _timer = new PeriodicTimer(TimeSpan.FromMinutes(_intervalMinutes));
         _loop = RunLoopAsync(_cts.Token);
 
-        _logger.LogInformation("Background sync started — interval: {Interval}m.", _intervalMinutes);
+        _logger.LogInformation("Background sync started â€” interval: {Interval}m.", _intervalMinutes);
     }
 
     /// <summary>Stop the background sync loop.</summary>
@@ -74,7 +74,7 @@ public class BackgroundSyncService : IDisposable
             {
                 if (!_api.IsAuthenticated)
                 {
-                    _logger.LogDebug("Background sync skipped — not authenticated.");
+                    _logger.LogDebug("Background sync skipped â€” not authenticated.");
                     continue;
                 }
 
@@ -87,7 +87,7 @@ public class BackgroundSyncService : IDisposable
                     _logger.LogDebug("Starting automatic sync...");
                     var result = await syncService.SyncAllAsync();
                     if (result.Succeeded)
-                        _logger.LogInformation("Automatic sync completed — {Count} records synced.", result.EntitiesSynced);
+                        _logger.LogInformation("Automatic sync completed â€” {Count} records synced.", result.EntitiesSynced);
                     else
                         _logger.LogWarning("Automatic sync failed: {Error}", result.ErrorMessage);
                 }

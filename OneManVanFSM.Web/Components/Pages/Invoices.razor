@@ -99,13 +99,23 @@
                 }
                 @if (invoiceDetail.SiteName is not null && invoiceDetail.IncludeSiteLocation)
                 {
-                    <p class="print-addr-line" style="margin-top:3pt;font-size:7.5pt;"><strong>Site:</strong> @invoiceDetail.SiteName@(!string.IsNullOrWhiteSpace(invoiceDetail.SiteAddress) ? $" — {invoiceDetail.SiteAddress}" : "")@(!string.IsNullOrWhiteSpace(invoiceDetail.SiteCity) ? $", {invoiceDetail.SiteCity}" : "")@(!string.IsNullOrWhiteSpace(invoiceDetail.SiteState) ? $", {invoiceDetail.SiteState}" : "") @invoiceDetail.SiteZip</p>
+                    <p class="print-addr-line" style="margin-top:3pt;font-size:7.5pt;"><strong>Site:</strong> @invoiceDetail.SiteName@(!string.IsNullOrWhiteSpace(invoiceDetail.SiteAddress) ? $" &mdash; {invoiceDetail.SiteAddress}" : "")@(!string.IsNullOrWhiteSpace(invoiceDetail.SiteCity) ? $", {invoiceDetail.SiteCity}" : "")@(!string.IsNullOrWhiteSpace(invoiceDetail.SiteState) ? $", {invoiceDetail.SiteState}" : "") @invoiceDetail.SiteZip</p>
                 }
                 else if (invoiceDetail.SiteName is not null)
                 {
                     <p class="print-addr-line" style="margin-top:2pt;font-size:7.5pt;">Site: @invoiceDetail.SiteName</p>
                 }
             </div>
+            @if (invoiceDetail.IncludeAssetInfo && invoiceDetail.SiteAssets.Any())
+            {
+                <div class="print-addr-block">
+                    <span class="print-addr-label">Equipment</span>
+                    @foreach (var a in invoiceDetail.SiteAssets)
+                    {
+                        <p class="print-addr-line" style="font-size:7.5pt;">@(a.Brand ?? "") @(a.Model ?? "")@(!string.IsNullOrWhiteSpace(a.SerialNumber) ? $" (S/N: {a.SerialNumber})" : "")</p>
+                    }
+                </div>
+            }
         </div>
 
         @{ var isMaterialLabor = invoiceDetail.PricingType?.Contains("Material", StringComparison.OrdinalIgnoreCase) == true; }
@@ -140,26 +150,6 @@
                     </tbody>
                 </table>
             }
-        }
-
-        @if (invoiceDetail.IncludeAssetInfo && invoiceDetail.SiteAssets.Any())
-        {
-            <div class="print-asset-compact">
-                <div class="print-terms-heading">Equipment / Asset Information</div>
-                @foreach (var a in invoiceDetail.SiteAssets)
-                {
-                    <div class="print-asset-row">
-                        <span class="print-asset-label">@(a.Name ?? "Asset")</span>
-                        <span class="print-asset-detail">
-                            @if (!string.IsNullOrWhiteSpace(a.Brand)) { <text> — @a.Brand</text> }
-                            @if (!string.IsNullOrWhiteSpace(a.Model)) { <text> @a.Model</text> }
-                            @if (!string.IsNullOrWhiteSpace(a.SerialNumber)) { <text> (S/N: @a.SerialNumber)</text> }
-                            @if (!string.IsNullOrWhiteSpace(a.AssetType)) { <text> · @a.AssetType</text> }
-                            @if (a.LastServiceDate.HasValue) { <text> · Last: @a.LastServiceDate.Value.ToString("MMM dd, yyyy")</text> }
-                        </span>
-                    </div>
-                }
-            </div>
         }
 
         <div class="print-doc-totals">
@@ -204,7 +194,11 @@
             {
                 <div class="print-doc-terms-block"><div class="print-terms-heading">Terms & Conditions</div><p class="print-terms-text">@invoiceDetail.Terms</p></div>
             }
-            @if (!string.IsNullOrWhiteSpace(invoiceDetail.Notes))
+            @if (invoiceDetail.IncludeJobDescription && !string.IsNullOrWhiteSpace(invoiceDetail.JobDescription))
+            {
+                <div class="print-doc-terms-block"><div class="print-terms-heading">Job Description</div><p class="print-terms-text">@invoiceDetail.JobDescription</p></div>
+            }
+            @if (invoiceDetail.IncludeNotes && !string.IsNullOrWhiteSpace(invoiceDetail.Notes))
             {
                 <div class="print-doc-terms-block"><div class="print-terms-heading">Notes</div><p class="print-terms-text">@invoiceDetail.Notes</p></div>
             }
@@ -305,12 +299,12 @@
                                     @foreach (var a in invoiceDetail.SiteAssets)
                                     {
                                         <tr>
-                                            <td>@(a.Name ?? "—")</td>
-                                            <td>@(a.Brand ?? "—")</td>
-                                            <td>@(a.Model ?? "—")</td>
-                                            <td>@(a.SerialNumber ?? "—")</td>
-                                            <td>@(a.AssetType ?? "—")</td>
-                                            <td>@(a.LastServiceDate?.ToString("MMM dd, yyyy") ?? "—")</td>
+                                            <td>@(a.Name ?? "â€”")</td>
+                                            <td>@(a.Brand ?? "â€”")</td>
+                                            <td>@(a.Model ?? "â€”")</td>
+                                            <td>@(a.SerialNumber ?? "â€”")</td>
+                                            <td>@(a.AssetType ?? "â€”")</td>
+                                            <td>@(a.LastServiceDate?.ToString("MMM dd, yyyy") ?? "â€”")</td>
                                         </tr>
                                     }
                                 </tbody>
@@ -330,7 +324,7 @@
                             <tbody>
                                 @foreach (var p in invoiceDetail.Payments)
                                 {
-                                    <tr><td>@p.PaymentDate.ToString("MMM dd")</td><td>@p.Method</td><td>@(p.Reference ?? "—")</td><td class="text-end">@p.Amount.ToString("C")</td><td><span class="badge bg-success">@p.Status</span></td></tr>
+                                    <tr><td>@p.PaymentDate.ToString("MMM dd")</td><td>@p.Method</td><td>@(p.Reference ?? "â€”")</td><td class="text-end">@p.Amount.ToString("C")</td><td><span class="badge bg-success">@p.Status</span></td></tr>
                                 }
                             </tbody>
                         </table>
@@ -400,7 +394,13 @@ else
             <button class="btn btn-outline-secondary btn-sm" @onclick='() => Nav.NavigateTo("/financials")'><i class="bi bi-arrow-left"></i></button>
             <h4 class="mb-0"><i class="bi bi-receipt me-2"></i>Invoices</h4>
         </div>
-        <button class="btn btn-primary btn-sm" @onclick="ShowInvoiceForm"><i class="bi bi-plus-lg me-1"></i>New Invoice</button>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedInvoices" checked="@invoiceFilter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedInvoices"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!invoiceFilter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="ShowInvoiceForm"><i class="bi bi-plus-lg me-1"></i>New Invoice</button> }
+        </div>
     </div>
 
     @if (showForm)
@@ -437,14 +437,14 @@ else
                         <div class="col-md-4">
                             <label class="form-label">Customer</label>
                             <InputSelect @bind-Value="invoiceForm.CustomerId" class="form-select form-select-sm">
-                                <option value="">— Select Customer —</option>
+                                <option value="">â€” Select Customer â€”</option>
                                 @foreach (var c in _customers) { <option value="@c.Id">@c.Name</option> }
                             </InputSelect>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Company <small class="text-muted">(Optional)</small></label>
                             <InputSelect @bind-Value="invoiceForm.CompanyId" class="form-select form-select-sm">
-                                <option value="">— None —</option>
+                                <option value="">â€” None â€”</option>
                                 @foreach (var co in _companyOptions) { <option value="@co.Id">@co.Name</option> }
                             </InputSelect>
                         </div>
@@ -472,17 +472,17 @@ else
                         <div class="col-md-4">
                             <label class="form-label">Linked Job <small class="text-muted">(Optional)</small></label>
                             <select class="form-select form-select-sm" value="@invoiceForm.JobId" @onchange="OnJobSelected">
-                                <option value="">— None —</option>
+                                <option value="">â€” None â€”</option>
                                 @foreach (var j in _jobOptions)
                                 {
-                                    <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option>
+                                    <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option>
                                 }
                             </select>
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Site <small class="text-muted">(Optional)</small></label>
                             <InputSelect @bind-Value="invoiceForm.SiteId" class="form-select form-select-sm">
-                                <option value="">— None —</option>
+                                <option value="">â€” None â€”</option>
                                 @foreach (var s in _siteOptions)
                                 {
                                     <option value="@s.Id">@s.Name @(!string.IsNullOrEmpty(s.Address) ? $"({s.Address})" : "")</option>
@@ -627,15 +627,23 @@ else
                         <InputTextArea @bind-Value="invoiceForm.Terms" class="form-control form-control-sm" rows="3" placeholder="Payment terms and conditions..." />
                     </div>
 
-                    @* ?? Invoice Display Options ?? *@
+                    @* ? Invoice Display Options ? *@
                     <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-eye me-1"></i>Display Options</h6>
                     <div class="form-check mb-2">
                         <input type="checkbox" class="form-check-input" id="includeSiteLocation" @bind="invoiceForm.IncludeSiteLocation" />
                         <label class="form-check-label" for="includeSiteLocation">Include Site Location on Invoice</label>
                     </div>
-                    <div class="form-check mb-3">
+                    <div class="form-check mb-2">
                         <input type="checkbox" class="form-check-input" id="includeAssetInfo" @bind="invoiceForm.IncludeAssetInfo" />
                         <label class="form-check-label" for="includeAssetInfo">Include Asset Information on Invoice</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="includeJobDescription" @bind="invoiceForm.IncludeJobDescription" />
+                        <label class="form-check-label" for="includeJobDescription">Include Job Description on Invoice</label>
+                    </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="includeNotes" @bind="invoiceForm.IncludeNotes" />
+                        <label class="form-check-label" for="includeNotes">Include Notes on Invoice</label>
                     </div>
 
                     <div class="d-flex justify-content-between border-top pt-3">
@@ -664,6 +672,29 @@ else
             </div>
         </div>
     </div>
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> invoice(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (invoiceFilter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearInvoiceSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
         @if (invoices is null)
         {
@@ -677,17 +708,18 @@ else
         {
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
-                    <thead class="table-light"><tr><th role="button" @onclick='() => ToggleSort("number")'>Number@(SortIcon("number"))</th><th>Customer</th><th>Status</th><th role="button" @onclick='() => ToggleSort("total")'>Total@(SortIcon("total"))</th><th>Balance</th><th role="button" @onclick='() => ToggleSort("duedate")'>Due@(SortIcon("duedate"))</th></tr></thead>
+                    <thead class="table-light"><tr><th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allInvoicesSelected" @onchange="ToggleSelectAllInvoices" title="Select all" /></th><th role="button" @onclick='() => ToggleSort("number")'>Number@(SortIcon("number"))</th><th>Customer</th><th>Status</th><th role="button" @onclick='() => ToggleSort("total")'>Total@(SortIcon("total"))</th><th>Balance</th><th role="button" @onclick='() => ToggleSort("duedate")'>Due@(SortIcon("duedate"))</th></tr></thead>
                     <tbody>
                         @foreach (var i in invoices)
                         {
-                            <tr style="cursor:pointer" @onclick="() => ViewInvoice(i.Id)">
-                                <td><strong>@i.InvoiceNumber</strong></td>
-                                <td>@(i.CustomerName ?? "—")</td>
+                            <tr class="@(_selectedIds.Contains(i.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(i.Id)" @onchange="() => ToggleInvoiceRowSelection(i.Id)" /></td>
+                                <td style="cursor:pointer" @onclick="() => ViewInvoice(i.Id)"><strong>@i.InvoiceNumber</strong></td>
+                                <td>@(i.CustomerName ?? "â€”")</td>
                                 <td><span class="badge @GetInvBadge(i.Status)">@i.Status</span></td>
                                 <td>@i.Total.ToString("C")</td>
                                 <td>@i.BalanceDue.ToString("C")</td>
-                                <td>@(i.DueDate?.ToString("MMM dd") ?? "—")</td>
+                                <td>@(i.DueDate?.ToString("MMM dd") ?? "â€”")</td>
                             </tr>
                         }
                     </tbody>
@@ -695,6 +727,10 @@ else
             </div>
         }
     </div>
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
 }
 
 @* ?? Add Item Modal ?? *@
@@ -726,10 +762,10 @@ else
                         <div class="mb-3">
                             <label class="form-label">Select Inventory Item</label>
                             <select class="form-select form-select-sm" @onchange="OnModalInventorySelected">
-                                <option value="">— Choose an item —</option>
+                                <option value="">â€” Choose an item â€”</option>
                                 @foreach (var inv in _inventoryItems)
                                 {
-                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) — @inv.Price.ToString("C")</option>
+                                    <option value="@inv.Id">@inv.Name (@inv.Quantity in stock) â€” @inv.Price.ToString("C")</option>
                                 }
                             </select>
                         </div>
@@ -739,10 +775,10 @@ else
                         <div class="mb-3">
                             <label class="form-label">Select Product</label>
                             <select class="form-select form-select-sm" @onchange="OnModalProductSelected">
-                                <option value="">— Choose a product —</option>
+                                <option value="">â€” Choose a product â€”</option>
                                 @foreach (var p in productOptions)
                                 {
-                                    <option value="@p.Id">@p.Name — @p.Price.ToString("C")</option>
+                                    <option value="@p.Id">@p.Name â€” @p.Price.ToString("C")</option>
                                 }
                             </select>
                         </div>
@@ -849,6 +885,13 @@ else
     private bool _confirmVoid;
     private InvoiceFilter invoiceFilter = new();
     private string invoiceFilterStatus = "";
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allInvoicesSelected => invoices is not null && invoices.Count > 0 && invoices.All(i => _selectedIds.Contains(i.Id));
 
     private List<string> _invoiceStatuses = Enum.GetValues<InvoiceStatus>().Select(s => s.ToString()).ToList();
     private List<string> _pricingTypes = ["Material & Labor (Itemized)", "Flat Rate", "Time & Material", "Cost + Markup", "Service Agreement (Covered)"];
@@ -970,6 +1013,8 @@ else
             Terms = invoiceDetail.Terms,
             IncludeSiteLocation = invoiceDetail.IncludeSiteLocation,
             IncludeAssetInfo = invoiceDetail.IncludeAssetInfo,
+            IncludeJobDescription = invoiceDetail.IncludeJobDescription,
+            IncludeNotes = invoiceDetail.IncludeNotes,
             CustomerId = invoiceDetail.CustomerId,
             CompanyId = invoiceDetail.CompanyId,
             JobId = invoiceDetail.JobId,
@@ -1120,7 +1165,7 @@ else
                         invoiceForm.Lines.Add(new InvoiceLineEditModel
                         {
                             LineType = "Labor",
-                            Description = $"Labor — {te.EmployeeName ?? "Technician"}",
+                            Description = $"Labor â€” {te.EmployeeName ?? "Technician"}",
                             Unit = "Hour",
                             Quantity = te.Hours!.Value,
                             UnitPrice = 0
@@ -1149,7 +1194,7 @@ else
             invoiceForm.Subtotal = invoiceForm.Lines.Sum(l => l.Quantity * l.UnitPrice);
         else if (invoiceForm.PricingType != "Flat Rate")
             invoiceForm.Subtotal = 0;
-        // else: flat rate with no lines — keep existing subtotal
+        // else: flat rate with no lines â€” keep existing subtotal
 
         if (invoiceForm.TaxIncludedInPrice)
             invoiceForm.TaxAmount = 0;
@@ -1187,7 +1232,7 @@ else
             invoiceForm.Lines.Add(new InvoiceLineEditModel
             {
                 LineType = "Labor",
-                Description = $"Labor — {te.EmployeeName ?? "Technician"}",
+                Description = $"Labor â€” {te.EmployeeName ?? "Technician"}",
                 Unit = "Hour",
                 Quantity = te.Hours!.Value,
                 UnitPrice = 0
@@ -1290,4 +1335,13 @@ else
         await JS.InvokeVoidAsync("openMailto", _emailTo, _emailSubject, _emailBody);
         _showEmailModal = false;
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleInvoiceRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAllInvoices() { if (invoices is null) return; if (_allInvoicesSelected) _selectedIds.Clear(); else foreach (var i in invoices) _selectedIds.Add(i.Id); _confirmBulkDelete = false; }
+    private void ClearInvoiceSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { invoiceFilter.ShowArchived = (bool)(e.Value ?? false); ClearInvoiceSelection(); await LoadInvoices(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await FinSvc.BulkArchiveInvoicesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} invoice(s) archived."; _bulkMsgIsError = false; ClearInvoiceSelection(); await LoadInvoices(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await FinSvc.BulkRestoreInvoicesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} invoice(s) restored."; _bulkMsgIsError = false; ClearInvoiceSelection(); await LoadInvoices(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await FinSvc.BulkDeleteInvoicesPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} invoice(s) permanently deleted."; _bulkMsgIsError = false; ClearInvoiceSelection(); await LoadInvoices(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }

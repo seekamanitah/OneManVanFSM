@@ -15,8 +15,9 @@ public class CustomerService : ICustomerService
 
     public async Task<List<CustomerListItem>> GetCustomersAsync(CustomerFilter? filter = null)
     {
+        var showArchived = filter?.ShowArchived ?? false;
         var query = _db.Customers
-            .Where(c => !c.IsArchived)
+            .Where(c => c.IsArchived == showArchived)
             .AsQueryable();
 
         if (filter is not null)
@@ -296,5 +297,47 @@ public class CustomerService : ICustomerService
         customer.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreCustomerAsync(int id)
+    {
+        var c = await _db.Customers.FindAsync(id);
+        if (c is null) return false;
+        c.IsArchived = false; c.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteCustomerPermanentlyAsync(int id)
+    {
+        var c = await _db.Customers.FindAsync(id);
+        if (c is null) return false;
+        _db.Customers.Remove(c);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveCustomersAsync(List<int> ids)
+    {
+        var items = await _db.Customers.Where(c => ids.Contains(c.Id) && !c.IsArchived).ToListAsync();
+        foreach (var c in items) { c.IsArchived = true; c.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreCustomersAsync(List<int> ids)
+    {
+        var items = await _db.Customers.Where(c => ids.Contains(c.Id) && c.IsArchived).ToListAsync();
+        foreach (var c in items) { c.IsArchived = false; c.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteCustomersPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Customers.Where(c => ids.Contains(c.Id)).ToListAsync();
+        _db.Customers.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 }

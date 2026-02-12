@@ -7,6 +7,7 @@
 @inject IMaterialListService ListSvc
 @inject ICustomerService CustomerSvc
 @inject ISiteService SiteSvc
+@inject ICompanyProfileService CompanyProfileSvc
 @inject NavigationManager Nav
 
 @inject IJSRuntime JS
@@ -20,7 +21,7 @@
         <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>@(editId.HasValue ? "Edit" : "New") Material List</h4>
     </div>
 
-    @* Template selector — only on new list *@
+    @* Template selector â€” only on new list *@
     @if (!editId.HasValue && _templates.Any())
     {
         <div class="card border-0 shadow-sm mb-3">
@@ -29,7 +30,7 @@
                     <div class="col-md-6">
                         <label class="form-label small fw-semibold"><i class="bi bi-clipboard-check me-1"></i>Start from Template</label>
                         <select class="form-select form-select-sm" @onchange="OnTemplateSelected">
-                            <option value="">— Blank List —</option>
+                            <option value="">â€” Blank List â€”</option>
                             @foreach (var t in _templates)
                             {
                                 <option value="@t.Id">@t.Name (@t.ItemCount items)</option>
@@ -88,7 +89,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Job</label>
                         <InputSelect @bind-Value="form.JobId" class="form-select">
-                            <option value="">— No Job —</option>
+                            <option value="">â€” No Job â€”</option>
                             @foreach (var j in _jobs)
                             {
                                 <option value="@j.Id">@j.Display</option>
@@ -98,7 +99,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="form.CustomerId" class="form-select">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -108,7 +109,7 @@
                     <div class="col-md-3">
                         <label class="form-label">Site</label>
                         <InputSelect @bind-Value="form.SiteId" class="form-select">
-                            <option value="">— Select Site —</option>
+                            <option value="">â€” Select Site â€”</option>
                             @foreach (var s in _sites)
                             {
                                 <option value="@s.Id">@s.Name</option>
@@ -191,12 +192,12 @@ else if (mode == "detail" && detail is not null)
             <strong><i class="bi bi-exclamation-triangle me-1"></i>Low Stock Warning:</strong>
             @foreach (var s in _stockChecks.Where(s => s.IsLow))
             {
-                <span class="d-block small">@s.ItemName — Need @s.RequestedQty, only @s.AvailableQty available</span>
+                <span class="d-block small">@s.ItemName â€” Need @s.RequestedQty, only @s.AvailableQty available</span>
             }
         </div>
     }
 
-    @* Print options — visible only on screen *@
+    @* Print options â€” visible only on screen *@
     <div class="card border-0 shadow-sm mb-3 no-print">
         <div class="card-body py-2">
             <div class="d-flex align-items-center gap-3 flex-wrap">
@@ -213,48 +214,106 @@ else if (mode == "detail" && detail is not null)
         </div>
     </div>
 
-    @* Print-only document header *@
-    <div class="print-document-header d-none">
-        <div class="print-doc-title">
-            <h2 style="margin:0;font-size:1.5rem;">Material List: @detail.Name</h2>
-            @if (!string.IsNullOrEmpty(detail.PONumber)) { <p style="margin:4px 0 0;font-size:0.95rem;"><strong>PO #:</strong> @detail.PONumber</p> }
-            <p style="margin:2px 0 0;font-size:0.85rem;color:#555;">@detail.CreatedAt.ToString("MMMM dd, yyyy")</p>
+    @* Print-only professional document *@
+    <div class="print-doc d-none">
+        <div class="print-doc-banner">
+            <div class="print-doc-banner-left">
+                <p class="print-doc-type">Material List</p>
+                <p class="print-doc-number-line"><strong>@detail.Name</strong>@(!string.IsNullOrEmpty(detail.PONumber) ? $" â€” PO# {detail.PONumber}" : "")</p>
+            </div>
+            <div class="print-doc-banner-right">
+                @if (_companyProfile is not null)
+                {
+                    <p class="print-company-name">@_companyProfile.Name</p>
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <p class="print-company-detail">@_companyProfile.Address</p> }
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <p class="print-company-detail">@_companyProfile.Phone</p> }
+                    @if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) { <p class="print-company-detail">@_companyProfile.Email</p> }
+                }
+            </div>
         </div>
-        <div style="display:flex;gap:2rem;margin-top:12px;">
+        <div class="print-doc-info-bar">
+            <div class="print-info-item"><span class="print-info-label">Status</span><span class="print-info-value">@detail.Status</span></div>
+            <div class="print-info-item"><span class="print-info-label">Date</span><span class="print-info-value">@detail.CreatedAt.ToString("MMM dd, yyyy")</span></div>
+            @if (!string.IsNullOrWhiteSpace(detail.TradeType)) { <div class="print-info-item"><span class="print-info-label">Trade</span><span class="print-info-value">@detail.TradeType</span></div> }
+            <div class="print-info-item"><span class="print-info-label">Pricing</span><span class="print-info-value">@detail.PricingMethod</span></div>
+        </div>
+        <div class="print-doc-addresses">
             @if (!string.IsNullOrEmpty(detail.CustomerName))
             {
-                <div>
-                    <strong style="font-size:0.8rem;color:#666;text-transform:uppercase;">Customer</strong>
-                    <p style="margin:2px 0 0;">@detail.CustomerName</p>
-                    @if (!string.IsNullOrEmpty(detail.CustomerAddress)) { <p style="margin:0;font-size:0.85rem;color:#555;">@detail.CustomerAddress</p> }
+                <div class="print-addr-block">
+                    <span class="print-addr-label">Customer</span>
+                    <p class="print-addr-name">@detail.CustomerName</p>
+                    @if (!string.IsNullOrEmpty(detail.CustomerAddress)) { <p class="print-addr-line">@detail.CustomerAddress</p> }
                 </div>
             }
             @if (!string.IsNullOrEmpty(detail.SiteName))
             {
-                <div>
-                    <strong style="font-size:0.8rem;color:#666;text-transform:uppercase;">Deliver To / Site</strong>
-                    <p style="margin:2px 0 0;">@detail.SiteName</p>
-                    @if (!string.IsNullOrEmpty(detail.SiteAddress)) { <p style="margin:0;font-size:0.85rem;color:#555;">@detail.SiteAddress</p> }
+                <div class="print-addr-block">
+                    <span class="print-addr-label">Deliver To / Site</span>
+                    <p class="print-addr-name">@detail.SiteName</p>
+                    @if (!string.IsNullOrEmpty(detail.SiteAddress)) { <p class="print-addr-line">@detail.SiteAddress</p> }
                 </div>
             }
         </div>
-        @if (_printExternalNotes && !string.IsNullOrWhiteSpace(detail.ExternalNotes))
+
+        @if (detail.Items.Any())
         {
-            <div style="margin-top:10px;padding:8px;border:1px solid #ccc;border-radius:4px;background:#f9f9f9;">
-                <strong style="font-size:0.8rem;color:#666;">NOTES:</strong>
-                <p style="margin:2px 0 0;font-size:0.9rem;">@detail.ExternalNotes</p>
-            </div>
+            var sections = detail.Items.OrderBy(i => i.SortOrder).GroupBy(i => i.Section ?? "General");
+            <table class="print-doc-table">
+                <thead><tr><th>Item</th><th class="text-center">Qty</th><th>Unit</th><th class="text-end print-price-col">Cost</th><th class="text-end print-price-col">Price</th></tr></thead>
+                <tbody>
+                    @foreach (var grp in sections)
+                    {
+                        @if (sections.Count() > 1)
+                        {
+                            <tr class="print-section-divider"><td colspan="5">@grp.Key</td></tr>
+                        }
+                        @foreach (var item in grp)
+                        {
+                            <tr>
+                                <td>@item.ItemName@(!string.IsNullOrWhiteSpace(item.Notes) ? $" â€” {item.Notes}" : "")</td>
+                                <td class="text-center">@item.Quantity</td>
+                                <td>@(item.Unit ?? "Each")</td>
+                                <td class="text-end print-price-col">@item.BaseCost.ToString("C")</td>
+                                <td class="text-end print-price-col">@item.FlatPrice.ToString("C")</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
         }
-        @if (_printInternalNotes && !string.IsNullOrWhiteSpace(detail.InternalNotes))
-        {
-            <div style="margin-top:6px;padding:8px;border:1px dashed #999;border-radius:4px;">
-                <strong style="font-size:0.8rem;color:#999;">INTERNAL:</strong>
-                <p style="margin:2px 0 0;font-size:0.85rem;color:#666;">@detail.InternalNotes</p>
-            </div>
-        }
-        <hr style="margin:12px 0;border-color:#000;" />
+
+        <div class="print-doc-totals">
+            <div class="print-total-row print-total-subtotal"><span class="print-total-label">Material Cost</span><span class="print-total-value">@detail.TotalMaterialCost.ToString("C")</span></div>
+            @if (detail.TotalLaborCost > 0) { <div class="print-total-row"><span class="print-total-label">Labor</span><span class="print-total-value">@detail.TotalLaborCost.ToString("C")</span></div> }
+            @if (detail.MarkupPercent > 0) { <div class="print-total-row"><span class="print-total-label">Markup (@detail.MarkupPercent%)</span><span class="print-total-value">@((detail.TotalMaterialCost * detail.MarkupPercent / 100).ToString("C"))</span></div> }
+            @if (detail.TaxPercent > 0) { <div class="print-total-row"><span class="print-total-label">Tax (@detail.TaxPercent%)</span><span class="print-total-value">@((detail.GrandTotal * detail.TaxPercent / (100 + detail.TaxPercent)).ToString("C"))</span></div> }
+            <div class="print-total-row print-grand-total"><span class="print-total-label">Total</span><span class="print-total-value">@detail.GrandTotal.ToString("C")</span></div>
+        </div>
+
+        <div class="print-doc-terms">
+            @if (_printExternalNotes && !string.IsNullOrWhiteSpace(detail.ExternalNotes))
+            {
+                <div class="print-doc-terms-block"><div class="print-terms-heading">Notes</div><p class="print-terms-text">@detail.ExternalNotes</p></div>
+            }
+            @if (_printInternalNotes && !string.IsNullOrWhiteSpace(detail.InternalNotes))
+            {
+                <div class="print-doc-terms-block"><div class="print-terms-heading">Internal Notes</div><p class="print-terms-text">@detail.InternalNotes</p></div>
+            }
+        </div>
+
+        <div class="print-doc-footer">
+            @if (_companyProfile is not null)
+            {
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <span class="print-footer-item"><i class="bi bi-telephone print-footer-icon"></i> @_companyProfile.Phone</span> }
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) { <span class="print-footer-item"><i class="bi bi-envelope print-footer-icon"></i> @_companyProfile.Email</span> }
+                @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <span class="print-footer-item"><i class="bi bi-geo-alt print-footer-icon"></i> @_companyProfile.Address</span> }
+            }
+        </div>
+        <div class="print-doc-thankyou">Thank you for your business!</div>
     </div>
 
+    <div class="print-screen-only">
     <div class="row g-3">
         <div class="col-md-8">
             <div class="card border-0 shadow-sm">
@@ -282,10 +341,10 @@ else if (mode == "detail" && detail is not null)
                                         <div class="col-md-6">
                                             <label class="form-label small">Select Product</label>
                                             <select class="form-select form-select-sm" @onchange="OnProductSelected">
-                                                <option value="">— Pick to auto-fill —</option>
+                                                <option value="">â€” Pick to auto-fill â€”</option>
                                                 @foreach (var p in _productOptions)
                                                 {
-                                                    <option value="@p.Id">@p.Name (@(p.Category ?? "–")) — @p.Cost.ToString("C") @(p.StockQty.HasValue ? $"[Stock: {p.StockQty}]" : "")</option>
+                                                    <option value="@p.Id">@p.Name (@(p.Category ?? "â€“")) â€” @p.Cost.ToString("C") @(p.StockQty.HasValue ? $"[Stock: {p.StockQty}]" : "")</option>
                                                 }
                                             </select>
                                         </div>
@@ -382,7 +441,7 @@ else if (mode == "detail" && detail is not null)
                                                     }
                                                 </td>
                                                 <td>@item.Quantity</td>
-                                                <td>@(item.Unit ?? "—")</td>
+                                                <td>@(item.Unit ?? "â€”")</td>
                                                 <td class="print-price-col">@item.BaseCost.ToString("C")</td>
                                                 <td>@item.LaborHours hrs</td>
                                                 <td class="print-price-col">@item.FlatPrice.ToString("C")</td>
@@ -435,14 +494,14 @@ else if (mode == "detail" && detail is not null)
                             <small class="text-muted d-block">Customer</small>
                             @if (detail.CustomerId.HasValue && detail.CustomerName is not null)
                             { <a href="javascript:void(0)" @onclick="() => GoToCustomer(detail.CustomerId.Value)">@detail.CustomerName</a> }
-                            else { <span>—</span> }
+                            else { <span>â€”</span> }
                             @if (!string.IsNullOrEmpty(detail.CustomerAddress)) { <small class="text-muted d-block">@detail.CustomerAddress</small> }
                         </div>
                         <div class="col-sm-6">
                             <small class="text-muted d-block">Site</small>
                             @if (detail.SiteId.HasValue && detail.SiteName is not null)
                             { <a href="javascript:void(0)" @onclick="() => GoToSite(detail.SiteId.Value)">@detail.SiteName</a> }
-                            else { <span>—</span> }
+                            else { <span>â€”</span> }
                             @if (!string.IsNullOrEmpty(detail.SiteAddress)) { <small class="text-muted d-block">@detail.SiteAddress</small> }
                         </div>
                     </div>
@@ -470,6 +529,7 @@ else if (mode == "detail" && detail is not null)
             </div>
         </div>
     </div>
+    </div> @* end print-screen-only *@
 }
 else
 {
@@ -540,8 +600,8 @@ else
                                 </td>
                                 <td><span class="badge @StatusBadgeClass(ml.Status)">@ml.Status</span></td>
                                 <td><span class="badge bg-secondary">@ml.PricingMethod</span></td>
-                                <td>@(ml.CustomerName ?? "—")</td>
-                                <td>@(ml.JobNumber ?? "—")</td>
+                                <td>@(ml.CustomerName ?? "â€”")</td>
+                                <td>@(ml.JobNumber ?? "â€”")</td>
                                 <td>@ml.ItemCount</td>
                                 <td>@ml.TotalMaterialCost.ToString("C")</td>
                                 <td><strong>@ml.GrandTotal.ToString("C")</strong></td>
@@ -565,6 +625,7 @@ else
     private string filterStatus = "";
     private string filterTradeType = "";
     private MaterialListDetail? detail;
+    private CompanyProfile? _companyProfile;
     private MaterialListEditModel form = new();
     private int? editId;
     private string? errorMsg;
@@ -657,6 +718,7 @@ else
         detail = await ListSvc.GetListAsync(id);
         _stockChecks = null;
         mode = detail is not null ? "detail" : "list";
+        if (mode == "detail") _companyProfile = await CompanyProfileSvc.GetProfileAsync();
         if (mode == "list") await LoadLists();
     }
 

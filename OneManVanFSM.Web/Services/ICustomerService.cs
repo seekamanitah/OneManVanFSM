@@ -9,6 +9,11 @@ public interface ICustomerService
     Task<Customer> CreateCustomerAsync(CustomerEditModel model);
     Task<Customer> UpdateCustomerAsync(int id, CustomerEditModel model);
     Task<bool> ArchiveCustomerAsync(int id);
+    Task<bool> RestoreCustomerAsync(int id);
+    Task<bool> DeleteCustomerPermanentlyAsync(int id);
+    Task<int> BulkArchiveCustomersAsync(List<int> ids);
+    Task<int> BulkRestoreCustomersAsync(List<int> ids);
+    Task<int> BulkDeleteCustomersPermanentlyAsync(List<int> ids);
 }
 
 // --- DTOs ---
@@ -19,6 +24,7 @@ public class CustomerFilter
     public CustomerType? Type { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
 }
 
 public class CustomerListItem

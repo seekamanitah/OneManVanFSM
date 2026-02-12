@@ -84,7 +84,7 @@ public class MobileSettingsService : IMobileSettingsService
         }
         catch
         {
-            // File may be locked or inaccessible — report 0
+            // File may be locked or inaccessible â€” report 0
         }
 
         return new MobileSyncStatus

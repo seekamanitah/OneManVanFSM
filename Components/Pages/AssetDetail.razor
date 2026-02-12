@@ -29,7 +29,7 @@ else
     {
         <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center" style="font-size:0.8rem; border-radius:10px;">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            <span>Created on mobile — complete specs, warranty, and efficiency details on the web app.</span>
+            <span>Created on mobile â€” complete specs, warranty, and efficiency details on the web app.</span>
         </div>
     }
 
@@ -136,7 +136,7 @@ else
                 <i class="bi bi-geo-alt me-2"></i>
                 @if (_asset.SiteId.HasValue)
                 {
-                    <a href="/sites/@_asset.SiteId" style="text-decoration:none;">@_asset.SiteName — @_asset.SiteAddress</a>
+                    <a href="/sites/@_asset.SiteId" style="text-decoration:none;">@_asset.SiteName â€” @_asset.SiteAddress</a>
                 }
                 else
                 {
@@ -220,13 +220,6 @@ else
                     <span class="fw-semibold">@_asset.InstallDate.Value.ToString("MMM dd, yyyy")</span>
                 </div>
             }
-            @if (_asset.ManufactureDate.HasValue)
-            {
-                <div class="d-flex justify-content-between" style="font-size:0.85rem;">
-                    <span class="text-muted"><i class="bi bi-building me-1"></i>Manufactured</span>
-                    <span class="fw-semibold">@_asset.ManufactureDate.Value.ToString("MMM dd, yyyy")</span>
-                </div>
-            }
             @if (_asset.LastServiceDate.HasValue)
             {
                 <div class="d-flex justify-content-between" style="font-size:0.85rem;">
@@ -292,7 +285,7 @@ else
                                 <i class="bi bi-snow2 me-1"></i>@log.RefrigerantType
                                 @if (log.RefrigerantAmountAdded.HasValue)
                                 {
-                                    <span> — @log.RefrigerantAmountAdded.Value.ToString("0.##") lbs added</span>
+                                    <span> â€” @log.RefrigerantAmountAdded.Value.ToString("0.##") lbs added</span>
                                 }
                                 @if (log.RefrigerantBeforeReading.HasValue && log.RefrigerantAfterReading.HasValue)
                                 {

@@ -18,7 +18,7 @@
     {
         <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center" style="font-size:0.8rem; border-radius:10px;">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            <span>Created on mobile � add line items, pricing, and deposit details on the web app.</span>
+            <span>Created on mobile — add line items, pricing, and deposit details on the web app.</span>
         </div>
     }
 
@@ -159,10 +159,75 @@
         </div>
     }
 
+    <!-- Status Actions -->
+    <div class="section-header">Actions</div>
+    <div class="mobile-card">
+        @if (!string.IsNullOrEmpty(_statusMessage))
+        {
+            <div class="alert @(_statusSuccess ? "alert-success" : "alert-danger") py-1 mb-2" style="font-size:0.8rem; border-radius:8px;">
+                <i class="bi @(_statusSuccess ? "bi-check-circle-fill" : "bi-x-circle-fill") me-1"></i>@_statusMessage
+            </div>
+        }
+
+        @if (_detail.LinkedJobId.HasValue)
+        {
+            <div class="d-flex align-items-center gap-2 p-2 mb-2" style="background:#d1e7dd; border-radius:8px; cursor:pointer;" @onclick="() => GoToJob(_detail.LinkedJobId.Value)">
+                <i class="bi bi-check-circle-fill text-success" style="font-size:1.1rem;"></i>
+                <div style="flex:1;">
+                    <div style="font-size:0.85rem; font-weight:600; color:#0f5132;">Job Created</div>
+                    <div style="font-size:0.75rem; color:#198754;">@_detail.LinkedJobNumber — tap to view</div>
+                </div>
+                <i class="bi bi-chevron-right text-success" style="font-size:0.75rem;"></i>
+            </div>
+        }
+
+        <div class="d-flex flex-wrap gap-2">
+            @if (_detail.Status == EstimateStatus.Draft)
+            {
+                <button class="btn btn-outline-primary flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                        @onclick="() => ChangeStatus(EstimateStatus.Sent)">
+                    <i class="bi bi-send me-1"></i>Mark as Sent
+                </button>
+                <button class="btn btn-success flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                        @onclick="() => ChangeStatus(EstimateStatus.Approved)">
+                    @if (_updatingStatus) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-check-circle me-1"></i>Approve & Create Job
+                </button>
+            }
+            @if (_detail.Status == EstimateStatus.Sent)
+            {
+                <button class="btn btn-success flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                        @onclick="() => ChangeStatus(EstimateStatus.Approved)">
+                    @if (_updatingStatus) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-check-circle me-1"></i>Approve & Create Job
+                </button>
+                <button class="btn btn-outline-danger flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                        @onclick="() => ChangeStatus(EstimateStatus.Rejected)">
+                    <i class="bi bi-x-circle me-1"></i>Reject
+                </button>
+            }
+            @if (_detail.Status == EstimateStatus.Rejected)
+            {
+                <button class="btn btn-outline-primary flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                        @onclick="() => ChangeStatus(EstimateStatus.Draft)">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Revert to Draft
+                </button>
+            }
+        </div>
+    </div>
+
     <!-- Quick Links -->
     <div class="section-header">Quick Links</div>
     <div class="mobile-card">
         <div class="d-flex flex-column gap-1">
+            @if (_detail.LinkedJobId.HasValue)
+            {
+                <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => GoToJob(_detail.LinkedJobId.Value)">
+                    <span style="font-size:0.9rem;"><i class="bi bi-wrench-adjustable me-2 text-success"></i>View Job (@_detail.LinkedJobNumber)</span>
+                    <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+                </div>
+                <hr class="my-0" />
+            }
             @if (_detail.CustomerId.HasValue)
             {
                 <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="() => GoToCustomer(_detail.CustomerId.Value)">
@@ -172,7 +237,7 @@
             }
             @if (_detail.SiteId.HasValue)
             {
-                @if (_detail.CustomerId.HasValue)
+                @if (_detail.CustomerId.HasValue || _detail.LinkedJobId.HasValue)
                 {
                     <hr class="my-0" />
                 }
@@ -346,6 +411,9 @@ else
     private List<MobileCustomerCard> _custOpts = [];
     private List<MobileSiteCard> _siteOpts = [];
     private string? _saveError;
+    private bool _updatingStatus;
+    private string? _statusMessage;
+    private bool _statusSuccess;
 
     protected override async Task OnInitializedAsync()
     {
@@ -389,6 +457,39 @@ else
     private void GoToDetail(int id) => Nav.NavigateTo("/estimates/" + id);
     private void GoToCustomer(int id) => Nav.NavigateTo("/customers/" + id);
     private void GoToSite(int id) => Nav.NavigateTo("/sites/" + id);
+    private void GoToJob(int id) => Nav.NavigateTo("/jobs/" + id);
+
+    private async Task ChangeStatus(EstimateStatus newStatus)
+    {
+        if (_detail == null) return;
+        _updatingStatus = true;
+        _statusMessage = null;
+        StateHasChanged();
+        try
+        {
+            var success = await EstimateService.UpdateStatusAsync(_detail.Id, newStatus);
+            if (success)
+            {
+                if (newStatus == EstimateStatus.Approved)
+                    _statusMessage = "Estimate approved — Job created automatically!";
+                else
+                    _statusMessage = $"Status updated to {newStatus}.";
+                _statusSuccess = true;
+                await LoadDetail();
+            }
+            else
+            {
+                _statusMessage = "Failed to update status.";
+                _statusSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = ex.Message;
+            _statusSuccess = false;
+        }
+        _updatingStatus = false;
+    }
 
     private async Task ShowCreateEstimate()
     {

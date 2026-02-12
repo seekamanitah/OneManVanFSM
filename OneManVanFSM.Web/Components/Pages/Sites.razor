@@ -22,7 +22,13 @@ else if (_view == View.List)
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>Sites</h4>
-        <a href="sites/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Site</a>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedSites" checked="@_filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedSites"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!_filter.ShowArchived) { <a href="sites/new" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Site</a> }
+        </div>
     </div>
 
     <div class="card border-0 shadow-sm mb-3">
@@ -48,6 +54,28 @@ else if (_view == View.List)
         </div>
     </div>
 
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> site(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (_filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     @if (_sites.Count == 0)
     {
         <div class="card border-0 shadow-sm">
@@ -65,6 +93,7 @@ else if (_view == View.List)
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
                             <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th role="button" @onclick='() => ToggleSort("Address")'>Address @SortIcon("Address")</th>
                             <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
@@ -77,12 +106,13 @@ else if (_view == View.List)
                     <tbody>
                         @foreach (var s in _sites)
                         {
-                            <tr role="button" @onclick="() => GoToDetail(s.Id)">
-                                <td class="fw-semibold">@s.Name</td>
+                            <tr class="@(_selectedIds.Contains(s.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(s.Id)" @onchange="() => ToggleRowSelection(s.Id)" /></td>
+                                <td role="button" @onclick="() => GoToDetail(s.Id)" class="fw-semibold">@s.Name</td>
                                 <td><small class="text-muted">@FormatAddr(s)</small></td>
                                 <td><span class="badge @PropTypeBadge(s.PropertyType)">@s.PropertyType</span></td>
-                                <td class="d-none d-md-table-cell"><small>@(s.OwnerName ?? "—")</small></td>
-                                <td class="text-center d-none d-md-table-cell"><small>@(s.SqFt?.ToString("N0") ?? "—")</small></td>
+                                <td class="d-none d-md-table-cell"><small>@(s.OwnerName ?? "â€”")</small></td>
+                                <td class="text-center d-none d-md-table-cell"><small>@(s.SqFt?.ToString("N0") ?? "â€”")</small></td>
                                 <td class="text-center d-none d-lg-table-cell">@s.AssetCount</td>
                                 <td class="text-center d-none d-lg-table-cell">
                                     @if (s.OpenJobCount > 0) { <span class="badge bg-primary">@s.OpenJobCount</span> }
@@ -94,6 +124,10 @@ else if (_view == View.List)
                 </table>
             </div>
         </div>
+    }
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
     }
 }
 else if (_view == View.Detail && _detail is not null)
@@ -236,15 +270,15 @@ else if (_view == View.Detail && _detail is not null)
                             {
                                 <tr role="button" @onclick="() => GoToAsset(a.Id)">
                                     <td class="fw-semibold">@a.Name</td>
-                                    <td><small class="text-muted">@(a.AssetType ?? "—")</small></td>
-                                    <td><small>@(a.InstallDate?.ToString("MMM yyyy") ?? "—")</small></td>
+                                    <td><small class="text-muted">@(a.AssetType ?? "â€”")</small></td>
+                                    <td><small>@(a.InstallDate?.ToString("MMM yyyy") ?? "â€”")</small></td>
                                     <td>
                                         @if (a.WarrantyExpiry.HasValue)
                                         {
                                             var exp = a.WarrantyExpiry.Value < DateTime.UtcNow;
                                             <span class="badge @(exp ? "bg-danger" : "bg-success")">@(exp ? "Expired" : a.WarrantyExpiry.Value.ToString("MMM yyyy"))</span>
                                         }
-                                        else { <small class="text-muted">—</small> }
+                                        else { <small class="text-muted">â€”</small> }
                                     </td>
                                     <td><span class="badge @AssetBadge(a.Status)">@a.Status</span></td>
                                 </tr>
@@ -269,7 +303,7 @@ else if (_view == View.Detail && _detail is not null)
                             @foreach (var j in _detail.UpcomingJobs)
                             {
                                 <tr role="button" @onclick="() => GoToJob(j.Id)">
-                                     <td class="fw-semibold">@j.JobNumber</td><td>@(j.Title ?? "—")</td>
+                                     <td class="fw-semibold">@j.JobNumber</td><td>@(j.Title ?? "â€”")</td>
                                      <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "TBD")</small></td>
                                      <td><small>@(j.TechnicianName ?? "Unassigned")</small></td>
                                      <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
@@ -292,9 +326,9 @@ else if (_view == View.Detail && _detail is not null)
                             @foreach (var j in _detail.RecentJobs)
                             {
                                 <tr role="button" @onclick="() => GoToJob(j.Id)">
-                                     <td class="fw-semibold">@j.JobNumber</td><td>@(j.Title ?? "—")</td>
-                                     <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "—")</small></td>
-                                     <td><small>@(j.TechnicianName ?? "—")</small></td>
+                                     <td class="fw-semibold">@j.JobNumber</td><td>@(j.Title ?? "â€”")</td>
+                                     <td><small>@(j.ScheduledDate?.ToString("MMM dd") ?? "â€”")</small></td>
+                                     <td><small>@(j.TechnicianName ?? "â€”")</small></td>
                                      <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
                                  </tr>
                             }
@@ -349,7 +383,7 @@ else if (_view == View.Form)
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Customer</label>
                         <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -359,7 +393,7 @@ else if (_view == View.Form)
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Company</label>
                         <InputSelect @bind-Value="_editModel.CompanyId" class="form-select">
-                            <option value="">— No Company —</option>
+                            <option value="">â€” No Company â€”</option>
                             @foreach (var co in _companies)
                             {
                                 <option value="@co.Id">@co.Name</option>
@@ -425,7 +459,7 @@ else if (_view == View.Form)
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Heating Fuel Source</label>
                         <InputSelect @bind-Value="_editModel.HeatingFuelSource" class="form-select">
-                            <option value="">— Select —</option>
+                            <option value="">â€” Select â€”</option>
                             @foreach (var opt in _heatingFuelOptions)
                             {
                                 <option value="@opt">@opt</option>
@@ -466,6 +500,13 @@ else if (_view == View.Form)
     private string? _formError;
     private bool _saving;
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => _sites.Count > 0 && _sites.All(s => _selectedIds.Contains(s.Id));
     private bool _hasAtticAccess;
     private bool _hasCrawlSpace;
     private bool _hasBasement;
@@ -657,4 +698,13 @@ else if (_view == View.Form)
         if (Enum.TryParse<PropertyType>(e.Value?.ToString(), out var parsed))
             _editModel.PropertyType = parsed;
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (_allSelected) _selectedIds.Clear(); else foreach (var s in _sites) _selectedIds.Add(s.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { _filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await ReloadList(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await SiteService.BulkArchiveSitesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} site(s) archived."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await SiteService.BulkRestoreSitesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} site(s) restored."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await SiteService.BulkDeleteSitesPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} site(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 }

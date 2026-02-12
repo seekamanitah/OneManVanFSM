@@ -7,6 +7,7 @@ public interface IMobileEstimateService
     Task<List<MobileEstimateCard>> GetEstimatesAsync(MobileEstimateFilter? filter = null);
     Task<MobileEstimateDetail?> GetEstimateDetailAsync(int id);
     Task<Estimate> QuickCreateAsync(MobileEstimateQuickCreate model);
+    Task<bool> UpdateStatusAsync(int id, EstimateStatus status);
 }
 
 public class MobileEstimateCard
@@ -50,6 +51,8 @@ public class MobileEstimateDetail
     public DateTime? ExpiryDate { get; set; }
     public string? Notes { get; set; }
     public bool NeedsReview { get; set; }
+    public int? LinkedJobId { get; set; }
+    public string? LinkedJobNumber { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<MobileEstimateLine> Lines { get; set; } = [];
 }

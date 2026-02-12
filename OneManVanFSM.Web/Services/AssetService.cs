@@ -11,7 +11,8 @@ public class AssetService : IAssetService
 
     public async Task<List<AssetListItem>> GetAssetsAsync(AssetFilter? filter = null)
     {
-        var query = _db.Assets.Where(a => !a.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Assets.Where(a => a.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -64,7 +65,7 @@ public class AssetService : IAssetService
                 SEER2 = a.SEER2, AFUE = a.AFUE, HSPF = a.HSPF, HSPF2 = a.HSPF2,
                 EER = a.EER, AssetTag = a.AssetTag, Nickname = a.Nickname,
                 Voltage = a.Voltage, Phase = a.Phase,
-                LocationOnSite = a.LocationOnSite, ManufactureDate = a.ManufactureDate,
+                LocationOnSite = a.LocationOnSite,
                 AmpRating = a.AmpRating, PanelType = a.PanelType,
                 PipeMaterial = a.PipeMaterial, GallonCapacity = a.GallonCapacity,
                 RefrigerantType = a.RefrigerantType, RefrigerantQuantity = a.RefrigerantQuantity,
@@ -145,7 +146,7 @@ public class AssetService : IAssetService
             SEER2 = model.SEER2, AFUE = model.AFUE, HSPF = model.HSPF, HSPF2 = model.HSPF2,
             EER = model.EER, AssetTag = model.AssetTag, Nickname = model.Nickname,
             Voltage = model.Voltage, Phase = model.Phase,
-            LocationOnSite = model.LocationOnSite, ManufactureDate = model.ManufactureDate,
+            LocationOnSite = model.LocationOnSite,
             AmpRating = model.AmpRating, PanelType = model.PanelType,
             PipeMaterial = model.PipeMaterial, GallonCapacity = model.GallonCapacity,
             RefrigerantType = model.RefrigerantType, RefrigerantQuantity = model.RefrigerantQuantity,
@@ -190,7 +191,7 @@ public class AssetService : IAssetService
         a.SEER2 = model.SEER2; a.AFUE = model.AFUE; a.HSPF = model.HSPF; a.HSPF2 = model.HSPF2;
         a.EER = model.EER; a.AssetTag = model.AssetTag; a.Nickname = model.Nickname;
         a.Voltage = model.Voltage; a.Phase = model.Phase;
-        a.LocationOnSite = model.LocationOnSite; a.ManufactureDate = model.ManufactureDate;
+        a.LocationOnSite = model.LocationOnSite;
         a.AmpRating = model.AmpRating; a.PanelType = model.PanelType;
         a.PipeMaterial = model.PipeMaterial; a.GallonCapacity = model.GallonCapacity;
         a.RefrigerantType = model.RefrigerantType; a.RefrigerantQuantity = model.RefrigerantQuantity;
@@ -295,6 +296,48 @@ public class AssetService : IAssetService
         a.IsArchived = true; a.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreAssetAsync(int id)
+    {
+        var a = await _db.Assets.FindAsync(id);
+        if (a is null) return false;
+        a.IsArchived = false; a.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteAssetPermanentlyAsync(int id)
+    {
+        var a = await _db.Assets.FindAsync(id);
+        if (a is null) return false;
+        _db.Assets.Remove(a);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveAssetsAsync(List<int> ids)
+    {
+        var items = await _db.Assets.Where(a => ids.Contains(a.Id) && !a.IsArchived).ToListAsync();
+        foreach (var a in items) { a.IsArchived = true; a.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreAssetsAsync(List<int> ids)
+    {
+        var items = await _db.Assets.Where(a => ids.Contains(a.Id) && a.IsArchived).ToListAsync();
+        foreach (var a in items) { a.IsArchived = false; a.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteAssetsPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Assets.Where(a => ids.Contains(a.Id)).ToListAsync();
+        _db.Assets.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     public async Task<List<AssetTimelineEntry>> GetUnifiedTimelineAsync(int assetId)

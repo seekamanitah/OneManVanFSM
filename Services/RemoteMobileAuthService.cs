@@ -120,7 +120,7 @@ public class RemoteMobileAuthService : IMobileAuthService
 
     public Task<MobileAuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null)
     {
-        // First-time setup is not supported in remote mode — must be done on the server
+        // First-time setup is not supported in remote mode â€” must be done on the server
         return Task.FromResult(MobileAuthResult.Failure(
             "Password change must be completed on the web server. Please log in at the server URL to change your password."));
     }

@@ -22,7 +22,7 @@ else if (_mode == "detail" && _detail != null)
     {
         <div class="alert alert-warning py-2 px-3 mb-2 d-flex align-items-center" style="font-size:0.8rem; border-radius:10px;">
             <i class="bi bi-exclamation-triangle me-2"></i>
-            <span>Created on mobile — add line items, tax, and pricing details on the web app.</span>
+            <span>Created on mobile â€” add line items, tax, and pricing details on the web app.</span>
         </div>
     }
 
@@ -106,14 +106,14 @@ else if (_mode == "detail" && _detail != null)
             {
                 <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs/" + _detail.JobId)'>
                     <i class="bi bi-briefcase text-muted"></i>
-                    <span class="text-primary">@_detail.JobNumber@(!string.IsNullOrWhiteSpace(_detail.JobTitle) ? $" — {_detail.JobTitle}" : "")</span>
+                    <span class="text-primary">@_detail.JobNumber@(!string.IsNullOrWhiteSpace(_detail.JobTitle) ? $" â€” {_detail.JobTitle}" : "")</span>
                 </div>
             }
             @if (_detail.SiteName != null)
             {
                 <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
                     <i class="bi bi-geo-alt text-muted"></i>
-                    <span>@_detail.SiteName@(!string.IsNullOrWhiteSpace(_detail.SiteAddress) ? $" — {_detail.SiteAddress}" : "")</span>
+                    <span>@_detail.SiteName@(!string.IsNullOrWhiteSpace(_detail.SiteAddress) ? $" â€” {_detail.SiteAddress}" : "")</span>
                 </div>
             }
         </div>
@@ -195,7 +195,7 @@ else
             <div class="mb-1">
                 <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.JobId">
                     <option value="">Job (optional)</option>
-                    @foreach (var j in _jobOpts) { <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option> }
+                    @foreach (var j in _jobOpts) { <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option> }
                 </select>
             </div>
             <div class="mb-1">
@@ -282,7 +282,7 @@ else
                             <span class="badge @GetStatusBadge(inv.Status)" style="font-size:0.58rem;">@inv.Status</span>
                         </div>
                         <div style="font-size:0.75rem;" class="text-muted mt-1">
-                            @(inv.CustomerName ?? "—")
+                            @(inv.CustomerName ?? "â€”")
                             @if (!string.IsNullOrWhiteSpace(inv.JobNumber)) { <span>· @inv.JobNumber</span> }
                         </div>
                         @if (inv.DueDate.HasValue)

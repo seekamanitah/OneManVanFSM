@@ -39,7 +39,7 @@ public class SyncResponse<T>
 }
 
 /// <summary>
-/// Request for delta sync — "give me everything changed since this timestamp."
+/// Request for delta sync â€” "give me everything changed since this timestamp."
 /// </summary>
 public class SyncRequest
 {

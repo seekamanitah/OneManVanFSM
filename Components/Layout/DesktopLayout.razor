@@ -1,0 +1,223 @@
+@inherits LayoutComponentBase
+@using OneManVanFSM.Shared.Services
+@inject NavigationManager Nav
+@inject IMobileAuthService AuthService
+@inject IMobileDashboardService DashboardService
+@inject IMobileSettingsService SettingsService
+@inject IPermissionService PermSvc
+@inject IJSRuntime JS
+
+@if (!IsLoginPage)
+{
+    <div class="desktop-app @(_darkMode ? "dark-theme" : "")">
+        <!-- Sidebar -->
+        <aside class="desktop-sidebar @(_collapsed ? "collapsed" : "")">
+            <div class="sidebar-brand">
+                <a href="/">
+                    <i class="bi bi-tools"></i>
+                    @if (!_collapsed) { <span>OneManVan</span> }
+                </a>
+            </div>
+
+            <nav class="sidebar-nav">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All" title="Dashboard">
+                    <i class="bi bi-speedometer2"></i>@if (!_collapsed) { <span>Dashboard</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="calendar" title="Calendar">
+                    <i class="bi bi-calendar3"></i>@if (!_collapsed) { <span>Calendar</span> }
+                </NavLink>
+
+                <div class="nav-section-header">@(!_collapsed ? "Work" : "")</div>
+                <NavLink class="nav-link" href="jobs" title="Jobs">
+                    <i class="bi bi-wrench-adjustable-circle-fill"></i>@if (!_collapsed) { <span>Jobs</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="estimates" title="Estimates">
+                    <i class="bi bi-calculator-fill"></i>@if (!_collapsed) { <span>Estimates</span> }
+                </NavLink>
+
+                <div class="nav-section-header">@(!_collapsed ? "Clients" : "")</div>
+                <NavLink class="nav-link" href="customers" title="Customers">
+                    <i class="bi bi-people-fill"></i>@if (!_collapsed) { <span>Customers</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="companies" title="Companies">
+                    <i class="bi bi-building"></i>@if (!_collapsed) { <span>Companies</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="sites" title="Sites">
+                    <i class="bi bi-geo-alt-fill"></i>@if (!_collapsed) { <span>Sites</span> }
+                </NavLink>
+
+                <div class="nav-section-header">@(!_collapsed ? "Inventory" : "")</div>
+                <NavLink class="nav-link" href="products" title="Products">
+                    <i class="bi bi-box-seam-fill"></i>@if (!_collapsed) { <span>Products</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="inventory" title="Inventory">
+                    <i class="bi bi-boxes"></i>@if (!_collapsed) { <span>Inventory</span> }
+                </NavLink>
+
+                <div class="nav-section-header">@(!_collapsed ? "Services" : "")</div>
+                <NavLink class="nav-link" href="agreements" title="Agreements">
+                    <i class="bi bi-file-earmark-check-fill"></i>@if (!_collapsed) { <span>Agreements</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="assets" title="Assets">
+                    <i class="bi bi-cpu-fill"></i>@if (!_collapsed) { <span>Assets</span> }
+                </NavLink>
+
+                <div class="nav-section-header">@(!_collapsed ? "Financials" : "")</div>
+                <NavLink class="nav-link" href="invoices" title="Invoices">
+                    <i class="bi bi-receipt"></i>@if (!_collapsed) { <span>Invoices</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="expenses" title="Expenses">
+                    <i class="bi bi-wallet2"></i>@if (!_collapsed) { <span>Expenses</span> }
+                </NavLink>
+
+                <div class="nav-section-header">@(!_collapsed ? "Docs" : "")</div>
+                <NavLink class="nav-link" href="notes" title="Notes">
+                    <i class="bi bi-journal-text"></i>@if (!_collapsed) { <span>Notes</span> }
+                </NavLink>
+                <NavLink class="nav-link" href="documents" title="Documents">
+                    <i class="bi bi-folder-fill"></i>@if (!_collapsed) { <span>Documents</span> }
+                </NavLink>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="nav-link" title="@(_collapsed ? "Expand" : "Collapse")" @onclick="ToggleSidebar">
+                    <i class="bi @(_collapsed ? "bi-chevron-right" : "bi-chevron-left")"></i>
+                    @if (!_collapsed) { <span>Collapse</span> }
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="desktop-main">
+            <!-- Top Bar -->
+            <header class="desktop-header">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="header-page-title">@_pageTitle</span>
+                </div>
+                <div class="d-flex align-items-center gap-3">
+                    <a href="/search" class="desktop-header-btn" title="Search">
+                        <i class="bi bi-search"></i>
+                    </a>
+                    <a href="/notifications" class="desktop-header-btn notification-badge-desktop" title="Notifications">
+                        <i class="bi bi-bell"></i>
+                        @if (_notifCount > 0)
+                        {
+                            <span class="notif-badge">@(_notifCount > 9 ? "9+" : _notifCount.ToString())</span>
+                        }
+                    </a>
+                    <a href="/reports" class="desktop-header-btn" title="Reports">
+                        <i class="bi bi-graph-up"></i>
+                    </a>
+                    <div class="header-divider"></div>
+                    <a href="/settings" class="desktop-header-btn" title="Settings">
+                        <i class="bi bi-gear"></i>
+                    </a>
+                    <a href="/profile" class="desktop-user-pill" title="Profile">
+                        <i class="bi bi-person-circle"></i>
+                        <span>@(_techName ?? "User")</span>
+                    </a>
+                </div>
+            </header>
+
+            <!-- Page Content -->
+            <div class="desktop-content">
+                @Body
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="desktop-login-wrapper @(_darkMode ? "dark-theme" : "")">
+        @Body
+    </div>
+}
+
+@code {
+    private string _pageTitle = "Dashboard";
+    private string? _techName;
+    private int _notifCount;
+    private bool _collapsed;
+    private bool _darkMode;
+
+    private bool IsLoginPage
+    {
+        get
+        {
+            var path = Nav.ToBaseRelativePath(Nav.Uri);
+            return path.StartsWith("login", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("setup", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!IsLoginPage)
+        {
+            var isAuth = await AuthService.IsAuthenticatedAsync();
+            if (!isAuth)
+            {
+                Nav.NavigateTo("/login", forceLoad: false);
+                return;
+            }
+
+            try
+            {
+                var empId = await AuthService.GetEmployeeIdAsync();
+                _techName = await AuthService.GetTechNameAsync();
+                if (empId.HasValue)
+                {
+                    var data = await DashboardService.GetDashboardAsync(empId.Value);
+                    _notifCount = data.OverdueJobCount + data.PendingNoteCount + data.LowStockCount + data.ExpiringAgreementCount;
+                }
+            }
+            catch { }
+        }
+
+        await ApplyStoredTheme();
+    }
+
+    protected override void OnParametersSet()
+    {
+        var relativePath = Nav.ToBaseRelativePath(Nav.Uri);
+        _pageTitle = relativePath.Split('/')[0].ToLowerInvariant() switch
+        {
+            "" => "Dashboard",
+            "jobs" => "Jobs",
+            "calendar" => "Calendar",
+            "notes" => "Quick Notes",
+            "documents" => "Documents",
+            "notifications" => "Notifications",
+            "sites" => relativePath.Contains('/') ? "Site Details" : "Sites",
+            "assets" => relativePath.Contains('/') ? "Asset Details" : "Assets",
+            "profile" => "My Profile",
+            "search" => "Search",
+            "inventory" => "Inventory",
+            "estimates" => "Estimates",
+            "customers" => "Customers",
+            "settings" => "Settings",
+            "reports" => "Reports",
+            "agreements" => "Service Agreements",
+            "products" => "Products",
+            "companies" => "Companies",
+            "invoices" => "Invoices",
+            "expenses" => "Expenses",
+            "login" => "Sign In",
+            _ => "OneManVanFSM"
+        };
+    }
+
+    private void ToggleSidebar() => _collapsed = !_collapsed;
+
+    private async Task ApplyStoredTheme()
+    {
+        try
+        {
+            var settings = await SettingsService.GetSettingsAsync();
+            _darkMode = settings.Theme == "Dark";
+            var value = _darkMode ? "dark" : "";
+            await JS.InvokeVoidAsync("setThemeAttribute", value);
+        }
+        catch { }
+    }
+}

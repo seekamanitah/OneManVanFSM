@@ -11,7 +11,8 @@ public class EmployeeService : IEmployeeService
 
     public async Task<List<EmployeeListItem>> GetEmployeesAsync(EmployeeFilter? filter = null)
     {
-        var query = _db.Employees.Where(e => !e.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Employees.Where(e => e.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -137,6 +138,48 @@ public class EmployeeService : IEmployeeService
         return true;
     }
 
+    public async Task<bool> RestoreEmployeeAsync(int id)
+    {
+        var e = await _db.Employees.FindAsync(id);
+        if (e is null) return false;
+        e.IsArchived = false; e.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteEmployeePermanentlyAsync(int id)
+    {
+        var e = await _db.Employees.FindAsync(id);
+        if (e is null) return false;
+        _db.Employees.Remove(e);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveEmployeesAsync(List<int> ids)
+    {
+        var items = await _db.Employees.Where(e => ids.Contains(e.Id) && !e.IsArchived).ToListAsync();
+        foreach (var e in items) { e.IsArchived = true; e.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreEmployeesAsync(List<int> ids)
+    {
+        var items = await _db.Employees.Where(e => ids.Contains(e.Id) && e.IsArchived).ToListAsync();
+        foreach (var e in items) { e.IsArchived = false; e.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteEmployeesPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Employees.Where(e => ids.Contains(e.Id)).ToListAsync();
+        _db.Employees.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
     // Time Clock
     public async Task<TimeEntry> ClockInAsync(int employeeId, int? jobId, string? notes = null)
     {
@@ -237,7 +280,7 @@ public class EmployeeService : IEmployeeService
             return new PayPeriodJobEntry
             {
                 JobId = g.Key!.Value,
-                JobNumber = job?.JobNumber ?? "—",
+                JobNumber = job?.JobNumber ?? "â€”",
                 Title = job?.Title,
                 Hours = g.Sum(e => e.Hours),
                 PayType = "Hourly",
@@ -250,7 +293,7 @@ public class EmployeeService : IEmployeeService
             jobHours.Add(new PayPeriodJobEntry
             {
                 JobId = je.JobId,
-                JobNumber = je.Job?.JobNumber ?? "—",
+                JobNumber = je.Job?.JobNumber ?? "â€”",
                 Title = je.Job?.Title,
                 PayType = "Flat Rate",
                 FlatRateAmount = je.FlatRateAmount,

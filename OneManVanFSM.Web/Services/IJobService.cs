@@ -10,6 +10,11 @@ public interface IJobService
     Task<Job> UpdateJobAsync(int id, JobEditModel model);
     Task<bool> UpdateStatusAsync(int id, JobStatus status);
     Task<bool> ArchiveJobAsync(int id);
+    Task<bool> RestoreJobAsync(int id);
+    Task<bool> DeleteJobPermanentlyAsync(int id);
+    Task<int> BulkArchiveJobsAsync(List<int> ids);
+    Task<int> BulkRestoreJobsAsync(List<int> ids);
+    Task<int> BulkDeleteJobsPermanentlyAsync(List<int> ids);
     Task<List<EmployeeOption>> GetTechniciansAsync();
     Task<List<JobOption>> GetJobOptionsAsync(int? customerId = null, int? siteId = null);
     // Multi-employee
@@ -27,6 +32,7 @@ public class JobFilter
     public int? SiteId { get; set; }
     public string? SortBy { get; set; } = "ScheduledDate";
     public bool SortDescending { get; set; } = true;
+    public bool ShowArchived { get; set; }
 }
 
 public class JobListItem
@@ -137,7 +143,7 @@ public class JobOption
     public int Id { get; set; }
     public string JobNumber { get; set; } = string.Empty;
     public string? Title { get; set; }
-    public string Display => string.IsNullOrEmpty(Title) ? JobNumber : $"{JobNumber} – {Title}";
+    public string Display => string.IsNullOrEmpty(Title) ? JobNumber : $"{JobNumber} â€“ {Title}";
 }
 
 public class JobEditModel

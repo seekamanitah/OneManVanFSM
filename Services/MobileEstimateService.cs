@@ -60,6 +60,12 @@ public class MobileEstimateService : IMobileEstimateService
 
         if (e == null) return null;
 
+        // Check for a linked job
+        var linkedJob = await _db.Jobs.AsNoTracking()
+            .Where(j => j.EstimateId == id && !j.IsArchived)
+            .Select(j => new { j.Id, j.JobNumber })
+            .FirstOrDefaultAsync();
+
         return new MobileEstimateDetail
         {
             Id = e.Id,
@@ -85,6 +91,8 @@ public class MobileEstimateService : IMobileEstimateService
             ExpiryDate = e.ExpiryDate,
             Notes = e.Notes,
             NeedsReview = e.NeedsReview,
+            LinkedJobId = linkedJob?.Id,
+            LinkedJobNumber = linkedJob?.JobNumber,
             CreatedAt = e.CreatedAt,
             Lines = e.Lines.OrderBy(l => l.SortOrder).Select(l => new MobileEstimateLine
             {
@@ -120,5 +128,58 @@ public class MobileEstimateService : IMobileEstimateService
         _db.Estimates.Add(estimate);
         await _db.SaveChangesAsync();
         return estimate;
+    }
+
+    public async Task<bool> UpdateStatusAsync(int id, EstimateStatus status)
+    {
+        var e = await _db.Estimates.FindAsync(id);
+        if (e is null) return false;
+
+        var wasNotApproved = e.Status != EstimateStatus.Approved;
+        e.Status = status;
+        e.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        // Auto-create a Job when Estimate is approved (pipeline automation)
+        if (status == EstimateStatus.Approved && wasNotApproved)
+            await CreateJobFromEstimateAsync(e);
+
+        return true;
+    }
+
+    /// <summary>
+    /// Auto-creates a Job from an approved Estimate, carrying over customer, site,
+    /// trade, material list, and pricing data. Matches web app behavior.
+    /// </summary>
+    private async Task CreateJobFromEstimateAsync(Estimate estimate)
+    {
+        var existing = await _db.Jobs.AnyAsync(j => j.EstimateId == estimate.Id && !j.IsArchived);
+        if (existing) return;
+
+        var jobCount = await _db.Jobs.CountAsync() + 1;
+        var job = new Job
+        {
+            JobNumber = $"JOB-{jobCount:D5}",
+            Title = estimate.Title,
+            Description = $"Auto-created from Estimate {estimate.EstimateNumber}",
+            Status = JobStatus.Approved,
+            Priority = estimate.Priority,
+            TradeType = estimate.TradeType,
+            SystemType = estimate.SystemType,
+            EstimatedTotal = estimate.Total,
+            Notes = estimate.Notes,
+            CustomerId = estimate.CustomerId,
+            CompanyId = estimate.CompanyId,
+            SiteId = estimate.SiteId,
+            EstimateId = estimate.Id,
+            MaterialListId = estimate.MaterialListId,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        _db.Jobs.Add(job);
+        await _db.SaveChangesAsync();
+
+        estimate.Job = job;
+        await _db.SaveChangesAsync();
     }
 }

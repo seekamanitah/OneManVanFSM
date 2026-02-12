@@ -119,7 +119,7 @@ else if (_view == ViewMode.Form)
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Primary Contact</label>
                         <InputSelect @bind-Value="_editModel.PrimaryContactId" class="form-select">
-                            <option value="">— Select Contact —</option>
+                            <option value="">â€” Select Contact â€”</option>
                             @foreach (var c in _contacts)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -265,8 +265,8 @@ else if (_view == ViewMode.Detail && _detail is not null)
                                 <tr role="button" @onclick='() => Nav.NavigateTo($"customers/{c.Id}")'>
                                     <td class="fw-semibold">@c.Name</td>
                                     <td><span class="badge @CustomerTypeBadge(c.Type)">@c.Type</span></td>
-                                    <td><small>@(c.Phone ?? "—")</small></td>
-                                    <td><small>@(c.Email ?? "—")</small></td>
+                                    <td><small>@(c.Phone ?? "â€”")</small></td>
+                                    <td><small>@(c.Email ?? "â€”")</small></td>
                                 </tr>
                             }
                         </tbody>
@@ -295,8 +295,8 @@ else if (_view == ViewMode.Detail && _detail is not null)
                             {
                                 <tr role="button" @onclick='() => Nav.NavigateTo($"sites/{s.Id}")'>
                                     <td class="fw-semibold">@s.Name</td>
-                                    <td><small>@(s.Address ?? "—")</small></td>
-                                    <td><small>@(s.City ?? "—")</small></td>
+                                    <td><small>@(s.Address ?? "â€”")</small></td>
+                                    <td><small>@(s.City ?? "â€”")</small></td>
                                     <td class="text-center">@s.AssetCount</td>
                                 </tr>
                             }
@@ -326,9 +326,9 @@ else if (_view == ViewMode.Detail && _detail is not null)
                             {
                                 <tr role="button" @onclick='() => Nav.NavigateTo($"jobs/{j.Id}")'>
                                     <td class="fw-semibold">@j.JobNumber</td>
-                                    <td>@(j.Title ?? "—")</td>
+                                    <td>@(j.Title ?? "â€”")</td>
                                     <td><span class="badge @JobStatusBadge(j.Status)">@j.Status</span></td>
-                                    <td><small>@(j.ScheduledDate?.ToString("MMM dd, yyyy") ?? "—")</small></td>
+                                    <td><small>@(j.ScheduledDate?.ToString("MMM dd, yyyy") ?? "â€”")</small></td>
                                 </tr>
                             }
                         </tbody>
@@ -360,7 +360,7 @@ else if (_view == ViewMode.Detail && _detail is not null)
                                     <td><span class="badge @InvoiceStatusBadge(i.Status)">@i.Status</span></td>
                                     <td class="text-end">@i.Total.ToString("C")</td>
                                     <td class="text-end text-danger fw-semibold">@i.BalanceDue.ToString("C")</td>
-                                    <td><small>@(i.DueDate?.ToString("MMM dd, yyyy") ?? "—")</small></td>
+                                    <td><small>@(i.DueDate?.ToString("MMM dd, yyyy") ?? "â€”")</small></td>
                                 </tr>
                             }
                         </tbody>
@@ -389,7 +389,7 @@ else if (_view == ViewMode.Detail && _detail is not null)
                             {
                                 <tr role="button" @onclick='() => Nav.NavigateTo($"serviceagreements/{a.Id}")'>
                                     <td class="fw-semibold">@a.AgreementNumber</td>
-                                    <td>@(a.Title ?? "—")</td>
+                                    <td>@(a.Title ?? "â€”")</td>
                                     <td><span class="badge @AgreementStatusBadge(a.Status)">@a.Status</span></td>
                                     <td><small>@a.EndDate.ToString("MMM dd, yyyy")</small></td>
                                 </tr>
@@ -489,7 +489,7 @@ else
                                         @if (!string.IsNullOrEmpty(co.Email)) { <span><i class="bi bi-envelope me-1"></i>@co.Email</span> }
                                     </small>
                                 </td>
-                                <td class="d-none d-lg-table-cell"><small>@(co.PrimaryContactName ?? "—")</small></td>
+                                <td class="d-none d-lg-table-cell"><small>@(co.PrimaryContactName ?? "â€”")</small></td>
                                 <td class="text-center d-none d-lg-table-cell">@co.ContactCount</td>
                                 <td class="text-center d-none d-lg-table-cell">@co.SiteCount</td>
                                 <td class="text-center d-none d-md-table-cell">

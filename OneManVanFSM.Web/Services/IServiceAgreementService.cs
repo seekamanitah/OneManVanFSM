@@ -9,6 +9,11 @@ public interface IServiceAgreementService
     Task<ServiceAgreement> CreateAgreementAsync(AgreementEditModel model);
     Task<ServiceAgreement> UpdateAgreementAsync(int id, AgreementEditModel model);
     Task<bool> ArchiveAgreementAsync(int id);
+    Task<bool> RestoreAgreementAsync(int id);
+    Task<bool> DeleteAgreementPermanentlyAsync(int id);
+    Task<int> BulkArchiveAgreementsAsync(List<int> ids);
+    Task<int> BulkRestoreAgreementsAsync(List<int> ids);
+    Task<int> BulkDeleteAgreementsPermanentlyAsync(List<int> ids);
     Task<int> GenerateAgreementJobsAsync();
     Task<int> UpdateAgreementStatusesAsync();
     Task<int> ProcessAutoRenewalsAsync();
@@ -21,6 +26,7 @@ public class AgreementFilter
     public CoverageLevel? CoverageLevel { get; set; }
     public string? SortBy { get; set; } = "EndDate";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
 }
 
 public class AgreementListItem

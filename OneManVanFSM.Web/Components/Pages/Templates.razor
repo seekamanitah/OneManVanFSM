@@ -102,8 +102,8 @@
                                 else { <i class="bi bi-dash text-muted"></i> }
                             </td>
                             <td>@tpl.UsageCount</td>
-                            <td>@(tpl.LastUsed?.ToString("MMM dd, yyyy") ?? "—")</td>
-                            <td>@(tpl.CompanyName ?? tpl.CustomerName ?? "—")</td>
+                            <td>@(tpl.LastUsed?.ToString("MMM dd, yyyy") ?? "â€”")</td>
+                            <td>@(tpl.CompanyName ?? tpl.CustomerName ?? "â€”")</td>
                             <td class="text-end" @onclick:stopPropagation="true">
                                 <div class="btn-group btn-group-sm">
                                     <button class="btn btn-outline-primary" title="Edit" @onclick="() => GoToEdit(tpl.Id)"><i class="bi bi-pencil"></i></button>
@@ -157,17 +157,17 @@ else if (viewMode == "detail" && detail is not null)
                     <div class="row g-2 mt-2">
                         <div class="col-sm-12">
                             <small class="text-muted d-block">Description</small>
-                            <span>@(detail.Description ?? "—")</span>
+                            <span>@(detail.Description ?? "â€”")</span>
                         </div>
                         <div class="col-sm-4">
                             <small class="text-muted d-block">Customer</small>
                             @if (detail.CustomerId.HasValue && detail.CustomerName is not null)
                             { <a href="javascript:void(0)" @onclick="() => GoToCustomer(detail.CustomerId.Value)">@detail.CustomerName</a> }
-                            else { <span>—</span> }
+                            else { <span>â€”</span> }
                         </div>
                         <div class="col-sm-4">
                             <small class="text-muted d-block">Company</small>
-                            <span>@(detail.CompanyName ?? "—")</span>
+                            <span>@(detail.CompanyName ?? "â€”")</span>
                         </div>
                         <div class="col-sm-4">
                             <small class="text-muted d-block">Usage Count</small>
@@ -205,7 +205,7 @@ else if (viewMode == "detail" && detail is not null)
                                 {
                                     <tr>
                                         <td>v@ver.VersionNumber</td>
-                                        <td>@(ver.ChangeNotes ?? "—")</td>
+                                        <td>@(ver.ChangeNotes ?? "â€”")</td>
                                         <td>@ver.CreatedAt.ToString("MMM dd, yyyy")</td>
                                     </tr>
                                 }
@@ -284,7 +284,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
                         <InputSelect class="form-select" @bind-Value="editModel.CustomerId">
-                            <option value="">— Select Customer —</option>
+                            <option value="">â€” Select Customer â€”</option>
                             @foreach (var c in _customers)
                             {
                                 <option value="@c.Id">@c.Name</option>
@@ -294,7 +294,7 @@ else if (viewMode is "create" or "edit")
                     <div class="col-md-4">
                         <label class="form-label">Company</label>
                         <InputSelect class="form-select" @bind-Value="editModel.CompanyId">
-                            <option value="">— Select Company —</option>
+                            <option value="">â€” Select Company â€”</option>
                             @foreach (var co in _companies)
                             {
                                 <option value="@co.Id">@co.Name</option>

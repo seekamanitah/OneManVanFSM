@@ -27,7 +27,7 @@ public class MobileAuthService : IMobileAuthService
 
     public async Task<MobileAuthResult> LoginAsync(string username, string password, bool rememberMe = false)
     {
-        System.Diagnostics.Debug.WriteLine($"[AUTH] LoginAsync called — username='{username}', password length={password.Length}");
+        System.Diagnostics.Debug.WriteLine($"[AUTH] LoginAsync called â€” username='{username}', password length={password.Length}");
 
         var user = await _db.Users
             .Include(u => u.Employee)
@@ -165,7 +165,7 @@ public class MobileAuthService : IMobileAuthService
 
         if (user is null)
         {
-            // User deleted, locked, or deactivated — clear stored session
+            // User deleted, locked, or deactivated â€” clear stored session
             await LogoutAsync();
             return null;
         }

@@ -10,6 +10,11 @@ public interface IEstimateService
     Task<Estimate> UpdateEstimateAsync(int id, EstimateEditModel model);
     Task<bool> UpdateStatusAsync(int id, EstimateStatus status);
     Task<bool> ArchiveEstimateAsync(int id);
+    Task<bool> RestoreEstimateAsync(int id);
+    Task<bool> DeleteEstimatePermanentlyAsync(int id);
+    Task<int> BulkArchiveEstimatesAsync(List<int> ids);
+    Task<int> BulkRestoreEstimatesAsync(List<int> ids);
+    Task<int> BulkDeleteEstimatesPermanentlyAsync(List<int> ids);
     Task<List<ProductOption>> GetProductOptionsAsync();
 }
 
@@ -18,6 +23,7 @@ public class EstimateFilter
     public string? Search { get; set; }
     public EstimateStatus? Status { get; set; }
     public string? SortBy { get; set; } = "CreatedAt";
+    public bool ShowArchived { get; set; }
     public bool SortDescending { get; set; } = true;
 }
 
@@ -76,6 +82,8 @@ public class EstimateDetail
     public string? MaterialListName { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public int? LinkedJobId { get; set; }
+    public string? LinkedJobNumber { get; set; }
     public List<EstimateLineDto> Lines { get; set; } = [];
 }
 

@@ -23,6 +23,8 @@ public class Invoice
     public string? Terms { get; set; } // Separate payment terms text (e.g. "Payment due within 30 days")
     public bool IncludeSiteLocation { get; set; } = true;
     public bool IncludeAssetInfo { get; set; } = true;
+    public bool IncludeJobDescription { get; set; }
+    public bool IncludeNotes { get; set; } = true;
     public bool IsArchived { get; set; }
     public bool NeedsReview { get; set; }
     public string? CreatedFrom { get; set; }

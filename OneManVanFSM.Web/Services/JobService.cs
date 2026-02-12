@@ -11,7 +11,8 @@ public class JobService : IJobService
 
     public async Task<List<JobListItem>> GetJobsAsync(JobFilter? filter = null)
     {
-        var query = _db.Jobs.Where(j => !j.IsArchived).AsQueryable();
+        var showArchived = filter?.ShowArchived ?? false;
+        var query = _db.Jobs.Where(j => j.IsArchived == showArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -107,7 +108,7 @@ public class JobService : IJobService
             AssignedEmployees = job.JobEmployees.Select(je => new JobEmployeeDto
             {
                 EmployeeId = je.EmployeeId,
-                Name = je.Employee?.Name ?? "—",
+                Name = je.Employee?.Name ?? "â€”",
                 Role = je.Role,
                 PayType = je.PayType.ToString(),
                 FlatRateAmount = je.FlatRateAmount,
@@ -382,6 +383,48 @@ public class JobService : IJobService
         job.IsArchived = true; job.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> RestoreJobAsync(int id)
+    {
+        var j = await _db.Jobs.FindAsync(id);
+        if (j is null) return false;
+        j.IsArchived = false; j.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteJobPermanentlyAsync(int id)
+    {
+        var j = await _db.Jobs.FindAsync(id);
+        if (j is null) return false;
+        _db.Jobs.Remove(j);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveJobsAsync(List<int> ids)
+    {
+        var items = await _db.Jobs.Where(j => ids.Contains(j.Id) && !j.IsArchived).ToListAsync();
+        foreach (var j in items) { j.IsArchived = true; j.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkRestoreJobsAsync(List<int> ids)
+    {
+        var items = await _db.Jobs.Where(j => ids.Contains(j.Id) && j.IsArchived).ToListAsync();
+        foreach (var j in items) { j.IsArchived = false; j.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return items.Count;
+    }
+
+    public async Task<int> BulkDeleteJobsPermanentlyAsync(List<int> ids)
+    {
+        var items = await _db.Jobs.Where(j => ids.Contains(j.Id)).ToListAsync();
+        _db.Jobs.RemoveRange(items);
+        await _db.SaveChangesAsync();
+        return items.Count;
     }
 
     public async Task<List<EmployeeOption>> GetTechniciansAsync()
