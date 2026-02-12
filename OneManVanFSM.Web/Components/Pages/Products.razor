@@ -224,7 +224,9 @@ else if (mode == "detail" && detail is not null)
 {
     <!-- DETAIL VIEW -->
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrev" disabled="@(GetAdjacentId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNext" disabled="@(GetAdjacentId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@(detail.Name.Length > 0 ? detail.Name : $"{detail.Brand} {detail.ModelNumber}")</h4>
         @if (!string.IsNullOrWhiteSpace(detail.Category))
         {
@@ -577,7 +579,7 @@ else
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
         if (uri.AbsolutePath.Contains("/products/new", StringComparison.OrdinalIgnoreCase))
         {
-            mode = "form"; editId = null; form = new ProductEditModel { IsActive = true, TaxIncludedInPrice = true }; await LoadFormDropdowns();
+            mode = "form"; editId = null; form = new ProductEditModel { IsActive = true, TaxIncludedInPrice = true, RegistrationRequired = true }; await LoadFormDropdowns();
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
@@ -737,6 +739,17 @@ else
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/products/{detail.Id}/edit"); }
     private void GoToInventory() => Nav.NavigateTo("/inventory");
     private void GoToAssets() => Nav.NavigateTo("/assets");
+
+    private int? GetAdjacentId(int offset)
+    {
+        if (products is null || detail is null) return null;
+        var idx = products.FindIndex(p => p.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < products.Count ? products[target].Id : null;
+    }
+    private void GoToPrev() { var id = GetAdjacentId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNext() { var id = GetAdjacentId(1); if (id.HasValue) GoToDetail(id.Value); }
 
     private async Task ToggleSort(string column)
     {

@@ -337,7 +337,14 @@ else
         {
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-boxes" style="font-size: 3rem;"></i>
-                <p class="mt-2">No inventory items found. <a href="javascript:void(0)" @onclick="GoToNew">Add one</a>.</p>
+                @if (filter.ShowArchived)
+                {
+                    <p class="mt-2">No archived inventory items to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2">No inventory items found. <a href="javascript:void(0)" @onclick="GoToNew">Add one</a>.</p>
+                }
             </div>
         }
         else

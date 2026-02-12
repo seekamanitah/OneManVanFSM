@@ -59,7 +59,12 @@ public class EstimateService : IEstimateService
                 Subtotal = e.Subtotal, MarkupPercent = e.MarkupPercent,
                 TaxPercent = e.TaxPercent, ContingencyPercent = e.ContingencyPercent,
                 Total = e.Total, DepositRequired = e.DepositRequired,
-                DepositReceived = e.DepositReceived, Notes = e.Notes,
+                DepositReceived = e.DepositReceived,
+                DepositAmountPaid = e.DepositAmountPaid,
+                DepositPaymentMethod = e.DepositPaymentMethod,
+                DepositPaymentReference = e.DepositPaymentReference,
+                DepositReceivedDate = e.DepositReceivedDate,
+                Notes = e.Notes,
                 CustomerId = e.CustomerId, CustomerName = e.Customer != null ? e.Customer.Name : null,
                 CustomerEmail = e.Customer != null ? e.Customer.PrimaryEmail : null,
                 CustomerPhone = e.Customer != null ? e.Customer.PrimaryPhone : null,
@@ -115,6 +120,10 @@ public class EstimateService : IEstimateService
             TradeType = model.TradeType, PricingMethod = model.PricingMethod,
             ExpiryDate = model.ExpiryDate, DepositRequired = model.DepositRequired,
             DepositReceived = model.DepositReceived,
+            DepositAmountPaid = model.DepositAmountPaid,
+            DepositPaymentMethod = model.DepositPaymentMethod,
+            DepositPaymentReference = model.DepositPaymentReference,
+            DepositReceivedDate = model.DepositReceivedDate,
             SqFt = model.SqFt, Zones = model.Zones, Stories = model.Stories,
             SystemType = model.SystemType, Subtotal = model.Subtotal,
             MarkupPercent = model.MarkupPercent, TaxPercent = model.TaxPercent,
@@ -166,6 +175,10 @@ public class EstimateService : IEstimateService
         e.TradeType = model.TradeType; e.PricingMethod = model.PricingMethod;
         e.ExpiryDate = model.ExpiryDate; e.DepositRequired = model.DepositRequired;
         e.DepositReceived = model.DepositReceived;
+        e.DepositAmountPaid = model.DepositAmountPaid;
+        e.DepositPaymentMethod = model.DepositPaymentMethod;
+        e.DepositPaymentReference = model.DepositPaymentReference;
+        e.DepositReceivedDate = model.DepositReceivedDate;
         e.SqFt = model.SqFt; e.Zones = model.Zones; e.Stories = model.Stories;
         e.SystemType = model.SystemType; e.Subtotal = model.Subtotal;
         e.MarkupPercent = model.MarkupPercent; e.TaxPercent = model.TaxPercent;

@@ -168,6 +168,10 @@ public class AppDbContext : DbContext
                 .WithMany(s => s.Estimates)
                 .HasForeignKey(est => est.SiteId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(est => est.MaterialList)
+                .WithMany()
+                .HasForeignKey(est => est.MaterialListId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // MaterialList

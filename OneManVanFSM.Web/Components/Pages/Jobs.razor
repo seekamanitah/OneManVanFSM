@@ -93,8 +93,15 @@ else if (_view == View.List)
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-wrench-adjustable-circle" style="font-size: 3rem;"></i>
-                <p class="mt-2 mb-1">No jobs found.</p>
-                <a href="jobs/new" class="btn btn-outline-primary btn-sm mt-2">Create Your First Job</a>
+                @if (_filter.ShowArchived)
+                {
+                    <p class="mt-2 mb-1">No archived jobs to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2 mb-1">No jobs found.</p>
+                    <a href="jobs/new" class="btn btn-outline-primary btn-sm mt-2">Create Your First Job</a>
+                }
             </div>
         </div>
     }
@@ -145,7 +152,9 @@ else if (_view == View.Detail && _detail is not null)
 {
     <div class="d-flex justify-content-between align-items-center mb-3 no-print">
         <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrevJob" disabled="@(GetAdjacentJobId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNextJob" disabled="@(GetAdjacentJobId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
             <h4 class="mb-0">
                 <i class="bi bi-wrench-adjustable-circle-fill me-2"></i>@_detail.JobNumber
                 <span class="badge @StatusBadge(_detail.Status) ms-2 fs-6">@_detail.Status</span>
@@ -410,6 +419,54 @@ else if (_view == View.Detail && _detail is not null)
                             </div>
                         }
                     </div>
+
+                    @* Deposit & Balance *@
+                    @if (_detail.DepositRequired.HasValue && _detail.DepositRequired.Value > 0)
+                    {
+                        <hr class="my-2" />
+                        <div class="row g-1">
+                            <div class="col-12 mb-1"><strong>Deposit Required:</strong> @_detail.DepositRequired.Value.ToString("C")</div>
+                            @if (_detail.DepositReceived)
+                            {
+                                <div class="col-12 mb-1">
+                                    <strong>Deposit Paid:</strong>
+                                    <span class="text-success fw-semibold">@((_detail.DepositAmountPaid ?? _detail.DepositRequired.Value).ToString("C"))</span>
+                                    @if (_detail.DepositPaymentMethod.HasValue)
+                                    {
+                                        <span class="badge bg-secondary ms-1">@_detail.DepositPaymentMethod</span>
+                                    }
+                                    @if (!string.IsNullOrEmpty(_detail.DepositPaymentReference))
+                                    {
+                                        <small class="text-muted ms-1">Ref: @_detail.DepositPaymentReference</small>
+                                    }
+                                </div>
+                                @if (_detail.DepositReceivedDate.HasValue)
+                                {
+                                    <div class="col-12 mb-1"><small class="text-muted">Received: @_detail.DepositReceivedDate.Value.ToString("MMM dd, yyyy")</small></div>
+                                }
+                                <div class="col-12 mb-1"><strong>Balance Due:</strong> <span class="fw-semibold">@(((_detail.EstimatedTotal ?? 0) - (_detail.DepositAmountPaid ?? _detail.DepositRequired.Value)).ToString("C"))</span></div>
+                            }
+                            else
+                            {
+                                <div class="col-12 mb-1">
+                                    <span class="text-danger fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Deposit of @_detail.DepositRequired.Value.ToString("C") has NOT been collected</span>
+                                </div>
+                                @if (_detail.EstimateId.HasValue)
+                                {
+                                    <div class="col-12 mb-1">
+                                        <button class="btn btn-sm btn-outline-success" @onclick="ShowDepositModal"><i class="bi bi-cash-coin me-1"></i>Record Deposit</button>
+                                    </div>
+                                }
+                                <div class="col-12 mb-1"><strong>Balance Due:</strong> <span class="fw-semibold">@((_detail.EstimatedTotal ?? 0).ToString("C"))</span></div>
+                            }
+                        </div>
+                    }
+                    else if (_detail.EstimatedTotal.HasValue)
+                    {
+                        <hr class="my-2" />
+                        <div class="col-12 mb-1"><strong>Balance Due:</strong> <span class="fw-semibold">@_detail.EstimatedTotal.Value.ToString("C")</span></div>
+                    }
+
                     <hr />
                     <div class="row g-1">
                         @if (_detail.EstimatedDuration.HasValue)
@@ -558,6 +615,51 @@ else if (_view == View.Detail && _detail is not null)
         </div>
     }
     </div> @* end print-screen-only *@
+
+    @* Deposit Collection Modal *@
+    @if (_showDepositModal)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header py-2 bg-light">
+                        <h6 class="modal-title"><i class="bi bi-cash-coin me-1"></i>Record Deposit Payment</h6>
+                        <button type="button" class="btn-close" @onclick="() => _showDepositModal = false"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Deposit Amount</label>
+                            <input type="number" step="0.01" class="form-control" @bind="_depositModel.Amount" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Payment Method</label>
+                            <select class="form-select" @bind="_depositModel.PaymentMethod">
+                                @foreach (var pm in Enum.GetValues<PaymentMethod>())
+                                {
+                                    <option value="@pm">@pm</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Reference <small class="text-muted">(Check #, CC confirmation, etc.)</small></label>
+                            <input type="text" class="form-control" @bind="_depositModel.Reference" placeholder="Check #1234 / CC conf ABC123" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(_depositError))
+                        {
+                            <div class="alert alert-danger py-2 small mb-0">@_depositError</div>
+                        }
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="() => _showDepositModal = false">Cancel</button>
+                        <button type="button" class="btn btn-success btn-sm" @onclick="CollectDeposit" disabled="@_depositSaving">
+                            @if (_depositSaving) { <span class="spinner-border spinner-border-sm me-1"></span> } else { <i class="bi bi-check-lg me-1"></i> }
+                            Record Payment
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 else if (_view == View.Form)
 {
@@ -830,6 +932,12 @@ else if (_view == View.Form)
     private List<AssetOption> _assets = [];
     private HashSet<int> _selectedAssetIds = [];
 
+    // Deposit collection modal
+    private bool _showDepositModal;
+    private RecordDepositModel _depositModel = new();
+    private string? _depositError;
+    private bool _depositSaving;
+
     protected override void OnInitialized()
     {
         Navigation.LocationChanged += OnLocationChanged;
@@ -992,9 +1100,20 @@ else if (_view == View.Form)
         _assignedEmployees = await JobService.GetJobEmployeesAsync(_detail.Id);
     }
 
-    private void GoToDetail(int id) => Navigation.NavigateTo($"jobs/{id}");
-    private void GoToList() => Navigation.NavigateTo("jobs");
-    private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"jobs/{Id.Value}"); else Navigation.NavigateTo("jobs"); }
+    private void GoToDetail(int id) => Navigation.NavigateTo($"/jobs/{id}");
+    private void GoToList() => Navigation.NavigateTo("/jobs");
+    private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"/jobs/{Id.Value}"); else Navigation.NavigateTo("/jobs"); }
+
+    private int? GetAdjacentJobId(int offset)
+    {
+        if (_jobs.Count == 0 || _detail is null) return null;
+        var idx = _jobs.FindIndex(j => j.Id == _detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _jobs.Count ? _jobs[target].Id : null;
+    }
+    private void GoToPrevJob() { var id = GetAdjacentJobId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextJob() { var id = GetAdjacentJobId(1); if (id.HasValue) GoToDetail(id.Value); }
 
     private async Task SaveJob()
     {
@@ -1007,8 +1126,8 @@ else if (_view == View.Form)
         _editModel.AssetIds = _selectedAssetIds.ToList();
         try
         {
-            if (Id.HasValue) { await JobService.UpdateJobAsync(Id.Value, _editModel); Navigation.NavigateTo($"jobs/{Id.Value}"); }
-            else { var c = await JobService.CreateJobAsync(_editModel); Navigation.NavigateTo($"jobs/{c.Id}"); }
+            if (Id.HasValue) { await JobService.UpdateJobAsync(Id.Value, _editModel); Navigation.NavigateTo($"/jobs/{Id.Value}"); }
+            else { var c = await JobService.CreateJobAsync(_editModel); Navigation.NavigateTo($"/jobs/{c.Id}"); }
         }
         catch (Exception ex) { _formError = ex.Message; }
         finally { _saving = false; }
@@ -1016,13 +1135,43 @@ else if (_view == View.Form)
 
     private async Task ArchiveJob()
     {
-        if (_detail is not null) { await JobService.ArchiveJobAsync(_detail.Id); Navigation.NavigateTo("jobs"); }
+        if (_detail is not null) { await JobService.ArchiveJobAsync(_detail.Id); Navigation.NavigateTo("/jobs"); }
     }
 
     private void CreateInvoiceForJob()
     {
         if (_detail is null) return;
         Navigation.NavigateTo($"/financials/invoices?jobId={_detail.Id}");
+    }
+
+    private void ShowDepositModal()
+    {
+        _depositModel = new RecordDepositModel
+        {
+            Amount = _detail?.DepositRequired ?? 0
+        };
+        _depositError = null;
+        _depositSaving = false;
+        _showDepositModal = true;
+    }
+
+    private async Task CollectDeposit()
+    {
+        if (_detail is null || _depositModel.Amount <= 0) { _depositError = "Enter a valid deposit amount."; return; }
+        _depositSaving = true; _depositError = null;
+        try
+        {
+            await JobService.RecordDepositAsync(_detail.Id, _depositModel);
+            _showDepositModal = false;
+            await LoadDetailView(_detail.Id);
+        }
+        catch (Exception ex) { _depositError = ex.Message; }
+        finally { _depositSaving = false; }
+    }
+
+    private async Task LoadDetailView(int id)
+    {
+        _detail = await JobService.GetJobAsync(id);
     }
 
     private async Task ToggleSort(string column)
@@ -1065,7 +1214,7 @@ else if (_view == View.Form)
         _ => "bg-secondary"
     };
 
-    private void GoToAsset(int id) => Navigation.NavigateTo($"assets/{id}");
+    private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
 
     private async Task PrintJob() => await JS.InvokeVoidAsync("window.print");
 

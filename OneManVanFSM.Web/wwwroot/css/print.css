@@ -564,6 +564,15 @@
         display: none !important;
     }
 
+    /* -- No-prices mode - hide cost/price columns and totals ---------- */
+    body.print-no-prices .print-doc-table th:nth-child(4),
+    body.print-no-prices .print-doc-table td:nth-child(4),
+    body.print-no-prices .print-doc-table th:nth-child(5),
+    body.print-no-prices .print-doc-table td:nth-child(5),
+    body.print-no-prices .print-doc-totals {
+        display: none !important;
+    }
+
     /* -- Hide the screen-only detail content during print ------------- */
     .print-screen-only {
         display: none !important;

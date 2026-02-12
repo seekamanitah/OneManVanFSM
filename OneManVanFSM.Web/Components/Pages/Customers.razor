@@ -86,8 +86,15 @@ else if (_view == View.List)
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-people" style="font-size: 3rem;"></i>
-                <p class="mt-2 mb-1">No customers found.</p>
-                <a href="customers/new" class="btn btn-outline-primary btn-sm mt-2">Add Your First Customer</a>
+                @if (_filter.ShowArchived)
+                {
+                    <p class="mt-2 mb-1">No archived customers to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2 mb-1">No customers found.</p>
+                    <a href="customers/new" class="btn btn-outline-primary btn-sm mt-2">Add Your First Customer</a>
+                }
             </div>
         </div>
     }
@@ -180,9 +187,11 @@ else if (_view == View.Detail && _detail is not null)
     @* ===== DETAIL VIEW ===== *@
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-outline-secondary" @onclick='() => Navigation.NavigateTo("customers")'>
+            <button class="btn btn-sm btn-outline-secondary" @onclick='() => Navigation.NavigateTo("/customers")'>
                 <i class="bi bi-arrow-left"></i>
             </button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrevCustomer" disabled="@(GetAdjacentCustomerId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNextCustomer" disabled="@(GetAdjacentCustomerId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
             <h4 class="mb-0">
                 <i class="bi bi-person-fill me-2"></i>@_detail.Name
                 <span class="badge @TypeBadgeClass(_detail.Type) ms-2 fs-6">@_detail.Type</span>
@@ -860,19 +869,31 @@ else if (_view == View.Form)
         await ReloadList();
     }
 
-    private void GoToDetail(int id) => Navigation.NavigateTo($"customers/{id}");
-    private void GoToSite(int id) => Navigation.NavigateTo($"sites/{id}");
-    private void GoToAsset(int id) => Navigation.NavigateTo($"assets/{id}");
-    private void GoToJob(int id) => Navigation.NavigateTo($"jobs/{id}");
-    private void GoToInvoice(int id) => Navigation.NavigateTo($"financials/invoices/{id}");
-    private void GoToAgreement(int id) => Navigation.NavigateTo($"serviceagreements/{id}");
+    private void GoToDetail(int id) => Navigation.NavigateTo($"/customers/{id}");
+
+    private int? GetAdjacentCustomerId(int offset)
+    {
+        if (_customers.Count == 0 || _detail is null) return null;
+        var idx = _customers.FindIndex(c => c.Id == _detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _customers.Count ? _customers[target].Id : null;
+    }
+    private void GoToPrevCustomer() { var id = GetAdjacentCustomerId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextCustomer() { var id = GetAdjacentCustomerId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private void GoToSite(int id) => Navigation.NavigateTo($"/sites/{id}");
+    private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
+    private void GoToJob(int id) => Navigation.NavigateTo($"/jobs/{id}");
+    private void GoToInvoice(int id) => Navigation.NavigateTo($"/financials/invoices/{id}");
+    private void GoToAgreement(int id) => Navigation.NavigateTo($"/serviceagreements/{id}");
 
     private void GoBack()
     {
         if (Id.HasValue)
-            Navigation.NavigateTo($"customers/{Id.Value}");
+            Navigation.NavigateTo($"/customers/{Id.Value}");
         else
-            Navigation.NavigateTo("customers");
+            Navigation.NavigateTo("/customers");
     }
 
     private async Task SaveCustomer()
@@ -885,12 +906,12 @@ else if (_view == View.Form)
             if (Id.HasValue)
             {
                 await CustomerService.UpdateCustomerAsync(Id.Value, _editModel);
-                Navigation.NavigateTo($"customers/{Id.Value}");
+                Navigation.NavigateTo($"/customers/{Id.Value}");
             }
             else
             {
                 var created = await CustomerService.CreateCustomerAsync(_editModel);
-                Navigation.NavigateTo($"customers/{created.Id}");
+                Navigation.NavigateTo($"/customers/{created.Id}");
             }
         }
         catch (Exception ex)
@@ -908,7 +929,7 @@ else if (_view == View.Form)
         if (_detail is not null)
         {
             await CustomerService.ArchiveCustomerAsync(_detail.Id);
-            Navigation.NavigateTo("customers");
+            Navigation.NavigateTo("/customers");
         }
     }
 

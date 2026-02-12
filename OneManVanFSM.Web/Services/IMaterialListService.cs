@@ -41,6 +41,7 @@ public class MaterialListFilter
     public bool? IsTemplate { get; set; }
     public MaterialListStatus? Status { get; set; }
     public string? TradeType { get; set; }
+    public bool ShowArchived { get; set; }
     public string? SortBy { get; set; } = "CreatedAt";
     public bool SortDescending { get; set; } = true;
 }

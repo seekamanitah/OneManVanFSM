@@ -142,7 +142,9 @@
 else if (mode == "detail" && detail is not null)
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevAgreement" disabled="@(GetAdjacentAgreementId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextAgreement" disabled="@(GetAdjacentAgreementId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>@detail.AgreementNumber</h4>
         <span class="badge ms-2 @GetStatusBadge(detail.Status)">@detail.Status</span>
         <span class="badge @GetCoverageBadge(detail.CoverageLevel) ms-1">@detail.CoverageLevel</span>
@@ -303,7 +305,16 @@ else
         }
         else if (!agreements.Any())
         {
-            <div class="card-body text-center py-5 text-muted"><i class="bi bi-file-earmark-check" style="font-size:3rem;"></i><p class="mt-2">No agreements. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div>
+            <div class="card-body text-center py-5 text-muted"><i class="bi bi-file-earmark-check" style="font-size:3rem;"></i>
+                @if (filter.ShowArchived)
+                {
+                    <p class="mt-2">No archived agreements to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2">No agreements. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                }
+            </div>
         }
         else
         {
@@ -500,6 +511,17 @@ else
     private void GoToList() => Nav.NavigateTo("/serviceagreements");
     private void GoToNew() => Nav.NavigateTo("/serviceagreements/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/serviceagreements/{id}");
+
+    private int? GetAdjacentAgreementId(int offset)
+    {
+        if (agreements is null || agreements.Count == 0 || detail is null) return null;
+        var idx = agreements.FindIndex(a => a.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < agreements.Count ? agreements[target].Id : null;
+    }
+    private void GoToPrevAgreement() { var id = GetAdjacentAgreementId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextAgreement() { var id = GetAdjacentAgreementId(1); if (id.HasValue) GoToDetail(id.Value); }
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/serviceagreements/{detail.Id}/edit"); }
     private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");

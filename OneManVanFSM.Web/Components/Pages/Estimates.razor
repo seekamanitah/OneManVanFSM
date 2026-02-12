@@ -121,10 +121,33 @@
                     {
                         <div class="col-md-3 d-flex align-items-end">
                             <div class="form-check mb-2">
-                                <input type="checkbox" class="form-check-input" id="chkDepositReceived" checked="@(form.DepositReceived == true)" @onchange="e => form.DepositReceived = (bool?)e.Value" />
+                                <input type="checkbox" class="form-check-input" id="chkDepositReceived" checked="@(form.DepositReceived == true)" @onchange="OnDepositReceivedChanged" />
                                 <label class="form-check-label" for="chkDepositReceived">Deposit Received</label>
                             </div>
                         </div>
+                        @if (form.DepositReceived == true)
+                        {
+                            <div class="col-md-2">
+                                <label class="form-label">Amount Paid</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">$</span>
+                                    <InputNumber @bind-Value="form.DepositAmountPaid" class="form-control form-control-sm" />
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Payment Method</label>
+                                <InputSelect @bind-Value="form.DepositPaymentMethod" class="form-select form-select-sm">
+                                    @foreach (var pm in Enum.GetValues<PaymentMethod>())
+                                    {
+                                        <option value="@pm">@pm</option>
+                                    }
+                                </InputSelect>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label">Reference <small class="text-muted">(Check #, etc.)</small></label>
+                                <InputText @bind-Value="form.DepositPaymentReference" class="form-control form-control-sm" placeholder="Check #1234" />
+                            </div>
+                        }
                     }
                 </div>
 
@@ -216,7 +239,9 @@
 else if (mode == "detail" && detail is not null)
 {
     <div class="d-flex align-items-center mb-3 no-print">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevEstimate" disabled="@(GetAdjacentEstimateId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextEstimate" disabled="@(GetAdjacentEstimateId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-calculator-fill me-2"></i>@detail.EstimateNumber</h4>
         <span class="badge ms-2 @GetStatusBadge(detail.Status)">@detail.Status</span>
         <span class="badge ms-1 @GetPriorityBadge(detail.Priority)">@detail.Priority</span>
@@ -534,7 +559,14 @@ else
         {
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-calculator" style="font-size: 3rem;"></i>
-                <p class="mt-2">No estimates found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                @if (filter.ShowArchived)
+                {
+                    <p class="mt-2">No archived estimates to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2">No estimates found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                }
             </div>
         }
         else
@@ -869,6 +901,8 @@ else
             Status = d.Status, Priority = d.Priority, TradeType = d.TradeType,
             PricingMethod = d.PricingMethod, ExpiryDate = d.ExpiryDate,
             DepositRequired = d.DepositRequired, DepositReceived = d.DepositReceived,
+            DepositAmountPaid = d.DepositAmountPaid, DepositPaymentMethod = d.DepositPaymentMethod,
+            DepositPaymentReference = d.DepositPaymentReference, DepositReceivedDate = d.DepositReceivedDate,
             SqFt = d.SqFt, Zones = d.Zones, Stories = d.Stories, SystemType = d.SystemType,
             Subtotal = d.Subtotal, MarkupPercent = d.MarkupPercent,
             TaxPercent = d.TaxPercent, ContingencyPercent = d.ContingencyPercent,
@@ -1004,9 +1038,31 @@ else
     private void GoToList() => Nav.NavigateTo("/estimates");
     private void GoToNew() => Nav.NavigateTo("/estimates/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/estimates/{id}");
+
+    private int? GetAdjacentEstimateId(int offset)
+    {
+        if (estimates is null || estimates.Count == 0 || detail is null) return null;
+        var idx = estimates.FindIndex(e => e.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < estimates.Count ? estimates[target].Id : null;
+    }
+    private void GoToPrevEstimate() { var id = GetAdjacentEstimateId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextEstimate() { var id = GetAdjacentEstimateId(1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/estimates/{detail.Id}/edit"); }
+
+    private void OnDepositReceivedChanged(ChangeEventArgs e)
+    {
+        form.DepositReceived = (bool?)e.Value;
+        if (form.DepositReceived == true)
+        {
+            form.DepositAmountPaid ??= form.DepositRequired;
+            form.DepositPaymentMethod ??= PaymentMethod.Cash;
+            form.DepositReceivedDate ??= DateTime.UtcNow;
+        }
+    }
 
     private async Task ToggleSort(string column)
     {

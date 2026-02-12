@@ -94,6 +94,12 @@ public class JobService : IJobService
             SiteAddress = job.Site != null ? string.Join(", ", new[] { job.Site.Address, job.Site.City, job.Site.State }.Where(p => !string.IsNullOrWhiteSpace(p))) : null,
             AssignedEmployeeId = job.AssignedEmployeeId, TechnicianName = job.AssignedEmployee?.Name,
             EstimateId = job.EstimateId, EstimateNumber = job.Estimate?.EstimateNumber,
+            DepositRequired = job.Estimate?.DepositRequired,
+            DepositReceived = job.Estimate?.DepositReceived == true,
+            DepositAmountPaid = job.Estimate?.DepositAmountPaid,
+            DepositPaymentMethod = job.Estimate?.DepositPaymentMethod,
+            DepositPaymentReference = job.Estimate?.DepositPaymentReference,
+            DepositReceivedDate = job.Estimate?.DepositReceivedDate,
             InvoiceId = job.InvoiceId, InvoiceNumber = job.Invoice?.InvoiceNumber,
             MaterialListId = job.MaterialListId,
             TimeEntries = job.TimeEntries.OrderByDescending(t => t.StartTime).Select(t => new TimeEntrySummary
@@ -526,5 +532,20 @@ public class JobService : IJobService
                 AssignedAt = je.AssignedAt
             })
             .ToListAsync();
+    }
+
+    public async Task<bool> RecordDepositAsync(int jobId, RecordDepositModel model)
+    {
+        var job = await _db.Jobs.Include(j => j.Estimate).FirstOrDefaultAsync(j => j.Id == jobId);
+        if (job?.Estimate is null) return false;
+
+        job.Estimate.DepositReceived = true;
+        job.Estimate.DepositAmountPaid = model.Amount;
+        job.Estimate.DepositPaymentMethod = model.PaymentMethod;
+        job.Estimate.DepositPaymentReference = model.Reference;
+        job.Estimate.DepositReceivedDate = DateTime.UtcNow;
+        job.Estimate.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
     }
 }

@@ -16,7 +16,7 @@ public class CompanyService : ICompanyService
     public async Task<List<CompanyListItem>> GetCompaniesAsync(CompanyFilter? filter = null)
     {
         var query = _db.Companies
-            .Where(c => !c.IsArchived)
+            .Where(c => (filter != null && filter.ShowArchived) ? c.IsArchived : !c.IsArchived)
             .AsQueryable();
 
         if (filter is not null)

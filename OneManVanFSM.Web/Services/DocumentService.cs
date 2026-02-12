@@ -107,6 +107,24 @@ public class DocumentService : IDocumentService
         return doc;
     }
 
+    public async Task<Document> UpdateDocumentAsync(int id, DocumentEditModel model)
+    {
+        var doc = await _db.Documents.FindAsync(id)
+            ?? throw new InvalidOperationException("Document not found.");
+        doc.Name = model.Name;
+        doc.Category = model.Category;
+        doc.AccessLevel = model.AccessLevel;
+        doc.CustomTags = model.CustomTags;
+        doc.Notes = model.Notes;
+        doc.CustomerId = model.CustomerId;
+        doc.SiteId = model.SiteId;
+        doc.AssetId = model.AssetId;
+        doc.JobId = model.JobId;
+        doc.EmployeeId = model.EmployeeId;
+        await _db.SaveChangesAsync();
+        return doc;
+    }
+
     public async Task<bool> DeleteDocumentAsync(int id)
     {
         var doc = await _db.Documents.FindAsync(id);

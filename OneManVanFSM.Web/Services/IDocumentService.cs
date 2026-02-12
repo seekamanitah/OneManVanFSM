@@ -7,6 +7,7 @@ public interface IDocumentService
     Task<List<DocumentListItem>> GetDocumentsAsync(DocumentFilter? filter = null);
     Task<DocumentDetail?> GetDocumentAsync(int id);
     Task<Document> CreateDocumentAsync(DocumentEditModel model);
+    Task<Document> UpdateDocumentAsync(int id, DocumentEditModel model);
     Task<Document> UploadDocumentAsync(DocumentEditModel model, Stream fileStream, string fileName, long fileSize);
     Task<(Stream stream, string contentType, string fileName)?> DownloadDocumentAsync(int id);
     Task<bool> DeleteDocumentAsync(int id);

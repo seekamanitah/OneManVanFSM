@@ -11,7 +11,7 @@ public class MaterialListService : IMaterialListService
 
     public async Task<List<MaterialListListItem>> GetListsAsync(MaterialListFilter? filter = null)
     {
-        var query = _db.MaterialLists.Where(m => !m.IsArchived).AsQueryable();
+        var query = _db.MaterialLists.Where(m => (filter != null && filter.ShowArchived) ? m.IsArchived : !m.IsArchived).AsQueryable();
         if (filter is not null)
         {
             if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -143,7 +143,7 @@ public class MaterialListService : IMaterialListService
 
     public async Task<MaterialListItemDto> AddItemAsync(int listId, MaterialListItemEditModel model)
     {
-        var list = await _db.MaterialLists.FindAsync(listId)
+        var list = await _db.MaterialLists.Include(m => m.Items).FirstOrDefaultAsync(m => m.Id == listId)
             ?? throw new InvalidOperationException("Material list not found.");
 
         var item = new MaterialListItem
@@ -162,7 +162,7 @@ public class MaterialListService : IMaterialListService
             InventoryItemId = model.InventoryItemId,
             SortOrder = model.SortOrder,
         };
-        _db.MaterialListItems.Add(item);
+        list.Items.Add(item);
         RecalcTotals(list);
         await _db.SaveChangesAsync();
 
@@ -294,10 +294,12 @@ public class MaterialListService : IMaterialListService
             var term = search.Trim().ToLower();
             query = query.Where(p => p.Name.ToLower().Contains(term)
                 || (p.Category != null && p.Category.ToLower().Contains(term))
-                || (p.PartNumber != null && p.PartNumber.ToLower().Contains(term)));
+                || (p.PartNumber != null && p.PartNumber.ToLower().Contains(term))
+                || (p.ModelNumber != null && p.ModelNumber.ToLower().Contains(term))
+                || (p.Brand != null && p.Brand.ToLower().Contains(term)));
         }
 
-        return await query.OrderBy(p => p.Name).Take(50).Select(p => new MaterialProductOption
+        var products = await query.OrderBy(p => p.Name).Take(50).Select(p => new MaterialProductOption
         {
             Id = p.Id,
             Name = p.Name,
@@ -306,9 +308,26 @@ public class MaterialListService : IMaterialListService
             Cost = p.Cost,
             Price = p.Price,
             MarkupPercent = p.MarkupPercent,
-            InventoryItemId = p.InventoryItems.Any() ? p.InventoryItems.First().Id : null,
-            StockQty = p.InventoryItems.Any() ? p.InventoryItems.Sum(i => i.Quantity) : null,
         }).ToListAsync();
+
+        // Populate inventory info separately to avoid subquery translation issues
+        var productIds = products.Select(p => p.Id).ToList();
+        var inventoryLookup = await _db.InventoryItems
+            .Where(i => i.ProductId != null && productIds.Contains(i.ProductId.Value))
+            .GroupBy(i => i.ProductId!.Value)
+            .Select(g => new { ProductId = g.Key, FirstId = g.Min(i => i.Id), TotalStock = g.Sum(i => i.Quantity) })
+            .ToDictionaryAsync(g => g.ProductId);
+
+        foreach (var p in products)
+        {
+            if (inventoryLookup.TryGetValue(p.Id, out var inv))
+            {
+                p.InventoryItemId = inv.FirstId;
+                p.StockQty = inv.TotalStock;
+            }
+        }
+
+        return products;
     }
 
     // --- Inventory stock check ---

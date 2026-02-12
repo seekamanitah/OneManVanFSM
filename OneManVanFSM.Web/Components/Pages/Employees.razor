@@ -118,7 +118,9 @@
 else if (mode == "detail" && detail is not null)
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevEmployee" disabled="@(GetAdjacentEmployeeId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextEmployee" disabled="@(GetAdjacentEmployeeId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>@detail.Name</h4>
         <span class="badge ms-2 @(detail.Status == EmployeeStatus.Active ? "bg-success" : "bg-secondary")">@detail.Status</span>
         <span class="badge bg-info ms-1">@detail.Role</span>
@@ -574,7 +576,14 @@ else
         {
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-person-badge" style="font-size: 3rem;"></i>
-                <p class="mt-2">No employees found. <a href="javascript:void(0)" @onclick="GoToNew">Add one</a>.</p>
+                @if (filter.ShowArchived)
+                {
+                    <p class="mt-2">No archived employees to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2">No employees found. <a href="javascript:void(0)" @onclick="GoToNew">Add one</a>.</p>
+                }
             </div>
         }
         else
@@ -863,6 +872,17 @@ else
     private void GoToList() => Nav.NavigateTo("/employees");
     private void GoToNew() => Nav.NavigateTo("/employees/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/employees/{id}");
+
+    private int? GetAdjacentEmployeeId(int offset)
+    {
+        if (employees is null || employees.Count == 0 || detail is null) return null;
+        var idx = employees.FindIndex(e => e.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < employees.Count ? employees[target].Id : null;
+    }
+    private void GoToPrevEmployee() { var id = GetAdjacentEmployeeId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextEmployee() { var id = GetAdjacentEmployeeId(1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/employees/{detail.Id}/edit"); }
 

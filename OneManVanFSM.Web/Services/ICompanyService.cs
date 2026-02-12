@@ -19,6 +19,7 @@ public class CompanyFilter
     public string? Search { get; set; }
     public CompanyType? Type { get; set; }
     public bool? IsActive { get; set; }
+    public bool ShowArchived { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
 }

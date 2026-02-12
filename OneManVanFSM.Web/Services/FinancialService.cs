@@ -204,7 +204,7 @@ public class FinancialService : IFinancialService
 
     public async Task<Invoice> UpdateInvoiceAsync(int id, InvoiceEditModel model)
     {
-        var inv = await _db.Invoices.Include(i => i.Lines).FirstOrDefaultAsync(i => i.Id == id)
+        var inv = await _db.Invoices.Include(i => i.Lines).Include(i => i.Payments).FirstOrDefaultAsync(i => i.Id == id)
             ?? throw new InvalidOperationException("Invoice not found.");
 
         // Recalculate from lines if present; for flat rate, preserve manual subtotal

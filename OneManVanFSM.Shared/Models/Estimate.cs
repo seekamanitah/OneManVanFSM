@@ -22,6 +22,10 @@ public class Estimate
     public decimal Total { get; set; }
     public decimal? DepositRequired { get; set; }
     public bool? DepositReceived { get; set; }
+    public decimal? DepositAmountPaid { get; set; }
+    public PaymentMethod? DepositPaymentMethod { get; set; }
+    public string? DepositPaymentReference { get; set; } // Check number, CC confirmation, etc.
+    public DateTime? DepositReceivedDate { get; set; }
     public string? Notes { get; set; }
     public bool IsArchived { get; set; }
     public bool NeedsReview { get; set; }

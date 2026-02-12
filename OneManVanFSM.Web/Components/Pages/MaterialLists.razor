@@ -7,6 +7,7 @@
 @inject IMaterialListService ListSvc
 @inject ICustomerService CustomerSvc
 @inject ISiteService SiteSvc
+@inject IJobService JobSvc
 @inject ICompanyProfileService CompanyProfileSvc
 @inject IEmailService EmailSvc
 @inject IPdfService PdfSvc
@@ -139,7 +140,9 @@
 else if (mode == "detail" && detail is not null)
 {
     <div class="d-flex align-items-center mb-3 no-print">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevList" disabled="@(GetAdjacentListId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextList" disabled="@(GetAdjacentListId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>@detail.Name</h4>
         @if (detail.IsTemplate) { <span class="badge bg-info ms-2">Template</span> }
         <span class="badge ms-1 @StatusBadgeClass(detail.Status)">@detail.Status</span>
@@ -160,7 +163,15 @@ else if (mode == "detail" && detail is not null)
             {
                 <button class="btn btn-outline-secondary btn-sm" @onclick="() => ChangeStatus(MaterialListStatus.Approved)" title="Return to approved"><i class="bi bi-arrow-counterclockwise me-1"></i>Back to Approved</button>
             }
-            <button class="btn btn-outline-success btn-sm" @onclick="() => PrintList(false)" title="Print for Customer (with prices)"><i class="bi bi-printer me-1"></i>Customer PDF</button>
+            @if (detail.Status != MaterialListStatus.Draft && !detail.JobId.HasValue)
+            {
+                <button class="btn btn-outline-primary btn-sm" @onclick="CreateJobFromList" title="Create a job from this material list"><i class="bi bi-wrench me-1"></i>Create Job</button>
+            }
+            <div class="form-check form-switch d-inline-flex align-items-center ms-1">
+                <input class="form-check-input" type="checkbox" id="chkPrices" @bind="_includePricesOnPdf" />
+                <label class="form-check-label small ms-1" for="chkPrices">Prices</label>
+            </div>
+            <button class="btn btn-outline-success btn-sm" @onclick="() => PrintList(false)" title="Print for Customer"><i class="bi bi-printer me-1"></i>Customer PDF</button>
             <button class="btn btn-outline-warning btn-sm" @onclick="() => PrintList(true)" title="Print for Supply House (no prices)"><i class="bi bi-box-seam me-1"></i>Supply PDF</button>
             @if (!string.IsNullOrEmpty(detail.CustomerName))
             {
@@ -597,7 +608,16 @@ else
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>Material Lists</h4>
-        <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New List</button>
+        <div class="d-flex align-items-center gap-2">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="chkMlArchived" @bind="filter.ShowArchived" @bind:after="LoadLists" />
+                <label class="form-check-label small" for="chkMlArchived"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!filter.ShowArchived)
+            {
+                <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New List</button>
+            }
+        </div>
     </div>
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
@@ -637,7 +657,16 @@ else
         }
         else if (!lists.Any())
         {
-            <div class="card-body text-center py-5 text-muted"><i class="bi bi-list-check" style="font-size:3rem;"></i><p class="mt-2">No material lists. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p></div>
+            <div class="card-body text-center py-5 text-muted"><i class="bi bi-list-check" style="font-size:3rem;"></i>
+                @if (filter.ShowArchived)
+                {
+                    <p class="mt-2">No archived material lists to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2">No material lists. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                }
+            </div>
         }
         else
         {
@@ -717,6 +746,7 @@ else
     // Print options
     private bool _printExternalNotes = true;
     private bool _printInternalNotes;
+    private bool _includePricesOnPdf = true;
 
     // Email modal state
     private bool _showEmailModal;
@@ -858,6 +888,17 @@ else
     private void GoToList() => Nav.NavigateTo("/materiallists");
     private void GoToNew() => Nav.NavigateTo("/materiallists/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/materiallists/{id}");
+
+    private int? GetAdjacentListId(int offset)
+    {
+        if (lists is null || lists.Count == 0 || detail is null) return null;
+        var idx = lists.FindIndex(m => m.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < lists.Count ? lists[target].Id : null;
+    }
+    private void GoToPrevList() { var id = GetAdjacentListId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextList() { var id = GetAdjacentListId(1); if (id.HasValue) GoToDetail(id.Value); }
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/materiallists/{detail.Id}/edit"); }
     private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");
@@ -901,6 +942,54 @@ else
         if (detail is null) return;
         await ListSvc.UpdateStatusAsync(detail.Id, newStatus);
         await LoadDetailView(detail.Id);
+    }
+
+    private async Task CreateJobFromList()
+    {
+        if (detail is null) return;
+        try
+        {
+            var jobModel = new JobEditModel
+            {
+                Title = detail.Name,
+                TradeType = detail.TradeType,
+                Status = JobStatus.Lead,
+                Priority = JobPriority.Standard,
+                CustomerId = detail.CustomerId,
+                SiteId = detail.SiteId,
+                EstimatedTotal = detail.GrandTotal > 0 ? detail.GrandTotal : null,
+                Notes = $"Created from Material List: {detail.Name}"
+            };
+            var job = await JobSvc.CreateJobAsync(jobModel);
+
+            // Link the job to this material list (both directions)
+            job.MaterialListId = detail.Id;
+            await JobSvc.UpdateJobAsync(job.Id, new JobEditModel
+            {
+                JobNumber = job.JobNumber,
+                Title = job.Title,
+                TradeType = detail.TradeType,
+                Status = job.Status,
+                Priority = job.Priority,
+                CustomerId = detail.CustomerId,
+                SiteId = detail.SiteId,
+                EstimatedTotal = detail.GrandTotal > 0 ? detail.GrandTotal : null,
+                Notes = job.Notes
+            });
+
+            // Link material list back to the job
+            var mlForm = new MaterialListEditModel
+            {
+                Name = detail.Name, TradeType = detail.TradeType, PricingMethod = detail.PricingMethod,
+                Notes = detail.Notes, InternalNotes = detail.InternalNotes, ExternalNotes = detail.ExternalNotes,
+                PONumber = detail.PONumber,
+                JobId = job.Id, CustomerId = detail.CustomerId, SiteId = detail.SiteId
+            };
+            await ListSvc.UpdateListAsync(detail.Id, mlForm);
+
+            Nav.NavigateTo($"/jobs/{job.Id}");
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
     }
 
     private static string StatusBadgeClass(MaterialListStatus status) => status switch
@@ -1039,10 +1128,20 @@ else
     // --- Print / PDF ---
     private async Task PrintList(bool supplyHouseMode)
     {
+        // Supply house mode always hides prices; customer mode uses the toggle
         if (supplyHouseMode)
+        {
+            _includePricesOnPdf = false;
             await JS.InvokeVoidAsync("eval", "document.body.classList.add('print-supply-house')");
+        }
         else
             await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-supply-house')");
+
+        // Apply print-no-prices class based on toggle
+        if (!_includePricesOnPdf)
+            await JS.InvokeVoidAsync("eval", "document.body.classList.add('print-no-prices')");
+        else
+            await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-no-prices')");
 
         await JS.InvokeVoidAsync("window.print");
     }
@@ -1101,7 +1200,7 @@ else
         StateHasChanged();
         try
         {
-            var pdfHtml = BuildMaterialListPdfHtml(detail);
+            var pdfHtml = BuildMaterialListPdfHtml(detail, _includePricesOnPdf);
             var pdfBytes = await PdfSvc.GeneratePdfFromHtmlAsync(pdfHtml);
             var fileName = $"MaterialList_{detail.Name.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.pdf";
             await EmailSvc.SendEmailAsync(new EmailMessage
@@ -1117,7 +1216,7 @@ else
         finally { _emailSending = false; }
     }
 
-    private string BuildMaterialListPdfHtml(MaterialListDetail d)
+    private string BuildMaterialListPdfHtml(MaterialListDetail d, bool includePrices = true)
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("<div class=\"print-doc\">");
@@ -1169,12 +1268,14 @@ else
         if (d.Items.Any())
         {
             var groups = d.Items.OrderBy(i => i.SortOrder).GroupBy(i => i.Section ?? "General");
+            var colSpan = includePrices ? "5" : "3";
             sb.Append("<table class=\"print-doc-table\"><thead><tr>");
-            sb.Append("<th>Item</th><th class=\"text-center\">Qty</th><th>Unit</th><th class=\"text-end\">Cost</th><th class=\"text-end\">Price</th>");
+            sb.Append("<th>Item</th><th class=\"text-center\">Qty</th><th>Unit</th>");
+            if (includePrices) sb.Append("<th class=\"text-end\">Cost</th><th class=\"text-end\">Price</th>");
             sb.Append("</tr></thead><tbody>");
             foreach (var grp in groups)
             {
-                if (groups.Count() > 1) sb.Append($"<tr class=\"print-section-divider\"><td colspan=\"5\">{Enc(grp.Key)}</td></tr>");
+                if (groups.Count() > 1) sb.Append($"<tr class=\"print-section-divider\"><td colspan=\"{colSpan}\">{Enc(grp.Key)}</td></tr>");
                 foreach (var item in grp)
                 {
                     sb.Append("<tr>");
@@ -1183,8 +1284,11 @@ else
                     sb.Append("</td>");
                     sb.Append($"<td class=\"text-center\">{item.Quantity}</td>");
                     sb.Append($"<td>{Enc(item.Unit ?? "Each")}</td>");
-                    sb.Append($"<td class=\"text-end\">{item.BaseCost:C}</td>");
-                    sb.Append($"<td class=\"text-end\">{item.FlatPrice:C}</td>");
+                    if (includePrices)
+                    {
+                        sb.Append($"<td class=\"text-end\">{item.BaseCost:C}</td>");
+                        sb.Append($"<td class=\"text-end\">{item.FlatPrice:C}</td>");
+                    }
                     sb.Append("</tr>");
                 }
             }
@@ -1192,12 +1296,15 @@ else
         }
 
         // Totals
-        sb.Append("<div class=\"print-doc-totals\">");
-        sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Material Cost</span><span class=\"print-total-value\">{d.TotalMaterialCost:C}</span></div>");
-        if (d.TotalLaborCost > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Labor</span><span class=\"print-total-value\">{d.TotalLaborCost:C}</span></div>");
-        if (d.MarkupPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Markup ({d.MarkupPercent}%)</span><span class=\"print-total-value\">{d.TotalMaterialCost * d.MarkupPercent / 100:C}</span></div>");
-        sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.GrandTotal:C}</span></div>");
-        sb.Append("</div>");
+        if (includePrices)
+        {
+            sb.Append("<div class=\"print-doc-totals\">");
+            sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Material Cost</span><span class=\"print-total-value\">{d.TotalMaterialCost:C}</span></div>");
+            if (d.TotalLaborCost > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Labor</span><span class=\"print-total-value\">{d.TotalLaborCost:C}</span></div>");
+            if (d.MarkupPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Markup ({d.MarkupPercent}%)</span><span class=\"print-total-value\">{d.TotalMaterialCost * d.MarkupPercent / 100:C}</span></div>");
+            sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.GrandTotal:C}</span></div>");
+            sb.Append("</div>");
+        }
 
         // Notes
         if (!string.IsNullOrWhiteSpace(d.ExternalNotes))

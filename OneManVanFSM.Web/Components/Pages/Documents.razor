@@ -71,10 +71,17 @@
                     }
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
-                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
+                        <select class="form-select" value="@form.CustomerId" @onchange="OnDocCustomerChanged">
                             <option value="">None</option>
                             @if (ddCustomers is not null) { @foreach (var c in ddCustomers) { <option value="@c.Id">@c.Name</option> } }
-                        </InputSelect>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Site</label>
+                        <select class="form-select" value="@form.SiteId" @onchange="OnDocSiteChanged">
+                            <option value="">None</option>
+                            @if (ddSites is not null) { @foreach (var s in ddSites) { <option value="@s.Id">@s.Name</option> } }
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Job</label>
@@ -88,13 +95,6 @@
                         <InputSelect @bind-Value="form.AssetId" class="form-select">
                             <option value="">None</option>
                             @if (ddAssets is not null) { @foreach (var a in ddAssets) { <option value="@a.Id">@a.Name</option> } }
-                        </InputSelect>
-                    </div>
-                    <div class="col-md-4">
-                        <label class="form-label">Site</label>
-                        <InputSelect @bind-Value="form.SiteId" class="form-select">
-                            <option value="">None</option>
-                            @if (ddSites is not null) { @foreach (var s in ddSites) { <option value="@s.Id">@s.Name</option> } }
                         </InputSelect>
                     </div>
                     <div class="col-md-4">
@@ -131,7 +131,9 @@
 else if (mode == "detail" && selectedDoc is not null)
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevDoc" disabled="@(GetAdjacentDocId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextDoc" disabled="@(GetAdjacentDocId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-file-earmark me-2"></i>@selectedDoc.Name</h4>
         <span class="badge bg-primary ms-2">@selectedDoc.Category</span>
         <span class="badge bg-secondary ms-1">v@selectedDoc.Version</span>
@@ -491,8 +493,8 @@ else
             StateHasChanged();
             if (editId.HasValue)
             {
-                await DocSvc.CreateDocumentAsync(form); // Update via create for metadata-only edits
-                Nav.NavigateTo("/documents");
+                await DocSvc.UpdateDocumentAsync(editId.Value, form);
+                Nav.NavigateTo($"/documents/{editId.Value}");
             }
             else
             {
@@ -570,12 +572,66 @@ else
     private void GoToList() => Nav.NavigateTo("/documents");
     private void GoToNew() => Nav.NavigateTo("/documents/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/documents/{id}");
+
+    private int? GetAdjacentDocId(int offset)
+    {
+        if (documents is null || documents.Count == 0 || selectedDoc is null) return null;
+        var idx = documents.FindIndex(d => d.Id == selectedDoc.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < documents.Count ? documents[target].Id : null;
+    }
+    private void GoToPrevDoc() { var id = GetAdjacentDocId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextDoc() { var id = GetAdjacentDocId(1); if (id.HasValue) GoToDetail(id.Value); }
     private void EditDoc() { if (selectedDoc is not null) Nav.NavigateTo($"/documents/{selectedDoc.Id}/edit"); }
     private void GoToCustomer() { if (selectedDoc?.CustomerId is not null) Nav.NavigateTo($"/customers/{selectedDoc.CustomerId}"); }
     private void GoToSite() { if (selectedDoc?.SiteId is not null) Nav.NavigateTo($"/sites/{selectedDoc.SiteId}"); }
     private void GoToAsset() { if (selectedDoc?.AssetId is not null) Nav.NavigateTo($"/assets/{selectedDoc.AssetId}"); }
     private void GoToJob() { if (selectedDoc?.JobId is not null) Nav.NavigateTo($"/jobs/{selectedDoc.JobId}"); }
     private void GoToEmployee() { if (selectedDoc?.EmployeeId is not null) Nav.NavigateTo($"/employees/{selectedDoc.EmployeeId}"); }
+
+    private async Task OnDocCustomerChanged(ChangeEventArgs e)
+    {
+        form.CustomerId = int.TryParse(e.Value?.ToString(), out var cid) ? cid : null;
+        form.SiteId = null;
+        form.AssetId = null;
+        form.JobId = null;
+        if (form.CustomerId.HasValue)
+        {
+            ddSites = await SiteSvc.GetSitesAsync(new SiteFilter { CustomerId = form.CustomerId });
+            ddJobs = await JobSvc.GetJobsAsync(new JobFilter { CustomerId = form.CustomerId });
+            ddAssets = await AssetSvc.GetAssetsAsync(new AssetFilter { CustomerId = form.CustomerId });
+        }
+        else
+        {
+            ddSites = await SiteSvc.GetSitesAsync();
+            ddJobs = await JobSvc.GetJobsAsync();
+            ddAssets = await AssetSvc.GetAssetsAsync();
+        }
+    }
+
+    private async Task OnDocSiteChanged(ChangeEventArgs e)
+    {
+        form.SiteId = int.TryParse(e.Value?.ToString(), out var sid) ? sid : null;
+        form.AssetId = null;
+        form.JobId = null;
+        if (form.SiteId.HasValue)
+        {
+            ddAssets = await AssetSvc.GetAssetsAsync(new AssetFilter { SiteId = form.SiteId });
+            ddJobs = await JobSvc.GetJobsAsync(new JobFilter { SiteId = form.SiteId });
+        }
+        else if (form.CustomerId.HasValue)
+        {
+            ddAssets = await AssetSvc.GetAssetsAsync(new AssetFilter { CustomerId = form.CustomerId });
+            ddJobs = await JobSvc.GetJobsAsync(new JobFilter { CustomerId = form.CustomerId });
+        }
+        else
+        {
+            ddAssets = await AssetSvc.GetAssetsAsync();
+            ddJobs = await JobSvc.GetJobsAsync();
+        }
+    }
+
     private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadDocuments(); }
 }
 

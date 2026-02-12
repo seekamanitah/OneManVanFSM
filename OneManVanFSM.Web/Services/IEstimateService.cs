@@ -64,6 +64,10 @@ public class EstimateDetail
     public decimal Total { get; set; }
     public decimal? DepositRequired { get; set; }
     public bool? DepositReceived { get; set; }
+    public decimal? DepositAmountPaid { get; set; }
+    public PaymentMethod? DepositPaymentMethod { get; set; }
+    public string? DepositPaymentReference { get; set; }
+    public DateTime? DepositReceivedDate { get; set; }
     public string? Notes { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
@@ -118,6 +122,10 @@ public class EstimateEditModel
     public DateTime? ExpiryDate { get; set; }
     public decimal? DepositRequired { get; set; }
     public bool? DepositReceived { get; set; }
+    public decimal? DepositAmountPaid { get; set; }
+    public PaymentMethod? DepositPaymentMethod { get; set; }
+    public string? DepositPaymentReference { get; set; }
+    public DateTime? DepositReceivedDate { get; set; }
     public int? SqFt { get; set; }
     public int? Zones { get; set; }
     public int? Stories { get; set; }

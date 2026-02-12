@@ -443,7 +443,9 @@
 else if (mode == "detail" && detail is not null)
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevAsset" disabled="@(GetAdjacentAssetId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextAsset" disabled="@(GetAdjacentAssetId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-cpu-fill me-2"></i>@detail.Name</h4>
         <span class="badge ms-2 @GetAssetBadge(detail.Status)">@detail.Status</span>
         @{ var warrantyState = GetWarrantyState(detail); }
@@ -962,6 +964,7 @@ else
     }
 
     <div class="card border-0 shadow-sm">
+        @if (assets is null)
         {
             <div class="card-body text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading...</div>
         }
@@ -969,7 +972,14 @@ else
         {
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-cpu" style="font-size: 3rem;"></i>
-                <p class="mt-2">No assets found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                @if (filter.ShowArchived)
+                {
+                    <p class="mt-2">No archived assets to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2">No assets found. <a href="javascript:void(0)" @onclick="GoToNew">Create one</a>.</p>
+                }
             </div>
         }
         else
@@ -1482,6 +1492,17 @@ private async Task LoadForEdit(int id)
     private void GoToList() => Nav.NavigateTo("/assets");
     private void GoToNew() => Nav.NavigateTo("/assets/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/assets/{id}");
+
+    private int? GetAdjacentAssetId(int offset)
+    {
+        if (assets is null || assets.Count == 0 || detail is null) return null;
+        var idx = assets.FindIndex(a => a.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < assets.Count ? assets[target].Id : null;
+    }
+    private void GoToPrevAsset() { var id = GetAdjacentAssetId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextAsset() { var id = GetAdjacentAssetId(1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/assets/{detail.Id}/edit"); }
 

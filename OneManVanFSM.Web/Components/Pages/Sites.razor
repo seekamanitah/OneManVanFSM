@@ -81,8 +81,15 @@ else if (_view == View.List)
         <div class="card border-0 shadow-sm">
             <div class="card-body text-center py-5 text-muted">
                 <i class="bi bi-geo-alt" style="font-size: 3rem;"></i>
-                <p class="mt-2 mb-1">No sites found.</p>
-                <a href="sites/new" class="btn btn-outline-primary btn-sm mt-2">Add Your First Site</a>
+                @if (_filter.ShowArchived)
+                {
+                    <p class="mt-2 mb-1">No archived sites to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2 mb-1">No sites found.</p>
+                    <a href="sites/new" class="btn btn-outline-primary btn-sm mt-2">Add Your First Site</a>
+                }
             </div>
         </div>
     }
@@ -134,7 +141,9 @@ else if (_view == View.Detail && _detail is not null)
 {
     <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-2">
-            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrevSite" disabled="@(GetAdjacentSiteId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNextSite" disabled="@(GetAdjacentSiteId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
             <h4 class="mb-0">
                 <i class="bi bi-geo-alt-fill me-2"></i>@_detail.Name
                 <span class="badge @PropTypeBadge(_detail.PropertyType) ms-2 fs-6">@_detail.PropertyType</span>
@@ -609,11 +618,22 @@ else if (_view == View.Form)
         await ReloadList();
     }
 
-    private void GoToDetail(int id) => Navigation.NavigateTo($"sites/{id}");
-    private void GoToList() => Navigation.NavigateTo("sites");
-    private void GoToAsset(int id) => Navigation.NavigateTo($"assets/{id}");
-    private void GoToJob(int id) => Navigation.NavigateTo($"jobs/{id}");
-    private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"sites/{Id.Value}"); else Navigation.NavigateTo("sites"); }
+    private void GoToDetail(int id) => Navigation.NavigateTo($"/sites/{id}");
+    private void GoToList() => Navigation.NavigateTo("/sites");
+
+    private int? GetAdjacentSiteId(int offset)
+    {
+        if (_sites.Count == 0 || _detail is null) return null;
+        var idx = _sites.FindIndex(s => s.Id == _detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _sites.Count ? _sites[target].Id : null;
+    }
+    private void GoToPrevSite() { var id = GetAdjacentSiteId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextSite() { var id = GetAdjacentSiteId(1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
+    private void GoToJob(int id) => Navigation.NavigateTo($"/jobs/{id}");
+    private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"/sites/{Id.Value}"); else Navigation.NavigateTo("/sites"); }
 
     private async Task SaveSite()
     {
@@ -624,8 +644,8 @@ else if (_view == View.Form)
         _editModel.IsNewConstruction = _isNewConstruction;
         try
         {
-            if (Id.HasValue) { await SiteService.UpdateSiteAsync(Id.Value, _editModel); Navigation.NavigateTo($"sites/{Id.Value}"); }
-            else { var c = await SiteService.CreateSiteAsync(_editModel); Navigation.NavigateTo($"sites/{c.Id}"); }
+            if (Id.HasValue) { await SiteService.UpdateSiteAsync(Id.Value, _editModel); Navigation.NavigateTo($"/sites/{Id.Value}"); }
+            else { var c = await SiteService.CreateSiteAsync(_editModel); Navigation.NavigateTo($"/sites/{c.Id}"); }
         }
         catch (Exception ex) { _formError = ex.Message; }
         finally { _saving = false; }
@@ -633,7 +653,7 @@ else if (_view == View.Form)
 
     private async Task ArchiveSite()
     {
-        if (_detail is not null) { await SiteService.ArchiveSiteAsync(_detail.Id); Navigation.NavigateTo("sites"); }
+        if (_detail is not null) { await SiteService.ArchiveSiteAsync(_detail.Id); Navigation.NavigateTo("/sites"); }
     }
 
     private static string PropTypeBadge(PropertyType t) => t switch

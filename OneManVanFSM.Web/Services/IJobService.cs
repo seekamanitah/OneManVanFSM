@@ -21,6 +21,15 @@ public interface IJobService
     Task AddEmployeeToJobAsync(int jobId, int employeeId, string? role, JobEmployeePayType payType, decimal? flatRate);
     Task RemoveEmployeeFromJobAsync(int jobId, int employeeId);
     Task<List<JobEmployeeDto>> GetJobEmployeesAsync(int jobId);
+    // Deposit collection
+    Task<bool> RecordDepositAsync(int jobId, RecordDepositModel model);
+}
+
+public class RecordDepositModel
+{
+    public decimal Amount { get; set; }
+    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.Cash;
+    public string? Reference { get; set; } // Check number, CC confirmation, etc.
 }
 
 public class JobFilter
@@ -81,6 +90,12 @@ public class JobDetail
     public string? TechnicianName { get; set; }
     public int? EstimateId { get; set; }
     public string? EstimateNumber { get; set; }
+    public decimal? DepositRequired { get; set; }
+    public bool DepositReceived { get; set; }
+    public decimal? DepositAmountPaid { get; set; }
+    public PaymentMethod? DepositPaymentMethod { get; set; }
+    public string? DepositPaymentReference { get; set; }
+    public DateTime? DepositReceivedDate { get; set; }
     public int? InvoiceId { get; set; }
     public string? InvoiceNumber { get; set; }
     public int? MaterialListId { get; set; }
