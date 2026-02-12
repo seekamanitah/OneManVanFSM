@@ -71,12 +71,29 @@
                         <InputText @bind-Value="form.ShelfBin" class="form-control form-control-sm" placeholder="Shelf, bin, etc." />
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Cost</label>
-                        <InputNumber @bind-Value="form.Cost" class="form-control form-control-sm" />
+                        <label class="form-label">Wholesale Cost</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <InputNumber @bind-Value="form.Cost" @bind-Value:after="RecalcInventoryPricing" class="form-control form-control-sm" />
+                        </div>
                     </div>
                     <div class="col-md-4">
-                        <label class="form-label">Price</label>
-                        <InputNumber @bind-Value="form.Price" class="form-control form-control-sm" />
+                        <label class="form-label">MSRP <small class="text-muted">(auto-calculated)</small></label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <input type="text" class="form-control form-control-sm bg-light" value="@_inventoryMsrp.ToString("F2")" readonly />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Suggested Sell Price</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text">$</span>
+                            <InputNumber @bind-Value="form.Price" class="form-control form-control-sm" />
+                        </div>
+                        @if (form.Price != _inventoryMsrp && _inventoryMsrp > 0)
+                        {
+                            <small class="text-info"><i class="bi bi-info-circle me-1"></i>Custom price — differs from MSRP</small>
+                        }
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Supplier</label>
@@ -84,9 +101,9 @@
                     </div>
                     <div class="col-12 mt-1">
                         <div class="form-check">
-                            <InputCheckbox @bind-Value="form.TaxIncludedInPrice" @bind-Value:after="OnInventoryTaxToggled" class="form-check-input" id="inventoryTaxIncluded" />
+                            <InputCheckbox @bind-Value="form.TaxIncludedInPrice" @bind-Value:after="RecalcInventoryPricing" class="form-check-input" id="inventoryTaxIncluded" />
                             <label class="form-check-label text-muted small" for="inventoryTaxIncluded">
-                                <i class="bi bi-percent me-1"></i>Auto-calculate tax into price (@(_defaultTaxRate)% tax rate from Settings)
+                                <i class="bi bi-percent me-1"></i>Include tax in MSRP &amp; Sell Price (@(_defaultTaxRate)% tax rate from Settings)
                             </label>
                         </div>
                     </div>
@@ -154,8 +171,8 @@ else if (mode == "detail" && detail is not null)
                         <div class="col-sm-4"><small class="text-muted d-block">Quantity on Hand</small><span class="@(detail.Quantity <= detail.MinThreshold ? "text-danger fw-bold" : "")">@detail.Quantity</span></div>
                         <div class="col-sm-4"><small class="text-muted d-block">Reorder Point</small><span>@detail.MinThreshold</span></div>
                         @if (!string.IsNullOrWhiteSpace(detail.ShelfBin)) { <div class="col-sm-4"><small class="text-muted d-block">Location</small><span>@detail.ShelfBin</span></div> }
-                        <div class="col-sm-4"><small class="text-muted d-block">Cost</small><span>@detail.Cost.ToString("C")</span></div>
-                        <div class="col-sm-4"><small class="text-muted d-block">Price</small><span>@detail.Price.ToString("C")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Wholesale Cost</small><span>@detail.Cost.ToString("C")</span></div>
+                        <div class="col-sm-4"><small class="text-muted d-block">Suggested Sell Price</small><span class="fw-semibold">@detail.Price.ToString("C")</span>@if (detail.TaxIncludedInPrice) { <small class="text-muted ms-1">(incl. tax)</small> }</div>
                         @if (!string.IsNullOrWhiteSpace(detail.PreferredSupplier)) { <div class="col-sm-4"><small class="text-muted d-block">Supplier</small><span>@detail.PreferredSupplier</span></div> }
                         @if (detail.MarkupPercent > 0) { <div class="col-sm-4"><small class="text-muted d-block">Markup</small><span>@detail.MarkupPercent%</span></div> }
                     </div>
@@ -336,8 +353,8 @@ else
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Location")'>Location @SortIcon("Location")</th>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Quantity")'>Qty @SortIcon("Quantity")</th>
                             <th>Reorder Pt</th>
-                            <th style="cursor:pointer" @onclick='() => ToggleSort("Cost")'>Cost @SortIcon("Cost")</th>
-                            <th>Price</th>
+                            <th style="cursor:pointer" @onclick='() => ToggleSort("Cost")'>Wholesale @SortIcon("Cost")</th>
+                            <th>Sell Price</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -395,14 +412,24 @@ else
     private List<ProductListItem> _products = [];
     private List<string> _inventoryCategories = ["Parts", "Supplies", "Equipment", "Filters", "Refrigerant", "Ductwork", "Electrical", "Plumbing", "Safety", "Tools", "Other"];
     private decimal _defaultTaxRate = 9.75m;
+    private decimal _inventoryMsrp;
 
-    private void OnInventoryTaxToggled()
+    private void RecalcInventoryPricing()
     {
-        if (form.Price <= 0 || _defaultTaxRate <= 0) return;
+        if (_defaultTaxRate <= 0 || form.Cost <= 0)
+        {
+            _inventoryMsrp = form.Cost;
+            return;
+        }
         var multiplier = 1 + (_defaultTaxRate / 100m);
-        form.Price = form.TaxIncludedInPrice
-            ? Math.Round(form.Price * multiplier, 2)
-            : Math.Round(form.Price / multiplier, 2);
+        var oldMsrp = _inventoryMsrp;
+        _inventoryMsrp = form.TaxIncludedInPrice
+            ? Math.Round(form.Cost * multiplier, 2)
+            : form.Cost;
+
+        // If Sell Price was tracking the old MSRP (or was never customized), keep it in sync
+        if (form.Price == 0 || form.Price == oldMsrp)
+            form.Price = _inventoryMsrp;
     }
 
     protected override void OnInitialized()
@@ -427,7 +454,7 @@ else
         if (uri.AbsolutePath.Contains("/inventory/new", StringComparison.OrdinalIgnoreCase))
         {
             await LoadDropdowns();
-            mode = "form"; editId = null; form = new();
+            mode = "form"; editId = null; form = new() { TaxIncludedInPrice = true }; _inventoryMsrp = 0;
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
@@ -480,6 +507,7 @@ else
             LotNumber = d.LotNumber, ExpiryDate = d.ExpiryDate,
             Notes = d.Notes, ProductId = d.ProductId
         };
+        RecalcInventoryPricing();
         mode = "form";
     }
 

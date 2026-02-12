@@ -65,7 +65,7 @@ public class ProductEditModel
     public decimal Price { get; set; }
     public decimal MSRP { get; set; }
     public decimal MarkupPercent { get; set; }
-    public bool TaxIncludedInPrice { get; set; }
+    public bool TaxIncludedInPrice { get; set; } = true;
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }

@@ -12,4 +12,12 @@ public class CompanyProfile
     public string Email { get; set; } = "";
     public string TaxId { get; set; } = "";
     public string Address { get; set; } = "";
+
+    // SMTP configuration
+    public string SmtpHost { get; set; } = "";
+    public int SmtpPort { get; set; } = 587;
+    public string SmtpUsername { get; set; } = "";
+    public string SmtpPassword { get; set; } = "";
+    public bool SmtpUseSsl { get; set; } = true;
+    public string? PublicBaseUrl { get; set; }
 }

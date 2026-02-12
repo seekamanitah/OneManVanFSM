@@ -8,6 +8,8 @@
 @inject ICustomerService CustomerSvc
 @inject ISiteService SiteSvc
 @inject ICompanyProfileService CompanyProfileSvc
+@inject IEmailService EmailSvc
+@inject IPdfService PdfSvc
 @inject NavigationManager Nav
 
 @inject IJSRuntime JS
@@ -530,6 +532,66 @@ else if (mode == "detail" && detail is not null)
         </div>
     </div>
     </div> @* end print-screen-only *@
+
+    @* Email Confirmation Modal *@
+    @if (_showEmailModal)
+    {
+        <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header py-2 bg-light">
+                        <h6 class="modal-title"><i class="bi bi-envelope me-1"></i>Email Material List</h6>
+                        <button type="button" class="btn-close" @onclick="CloseEmailModal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">To</label>
+                            <input type="email" class="form-control form-control-sm" @bind="_emailTo" placeholder="recipient@example.com" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Subject</label>
+                            <input type="text" class="form-control form-control-sm" @bind="_emailSubject" />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Message Body</label>
+                            <textarea class="form-control form-control-sm" rows="10" @bind="_emailBody"></textarea>
+                        </div>
+                        @if (_emailSmtpConfigured)
+                        {
+                            <div class="alert alert-success py-2 small mb-0">
+                                <i class="bi bi-paperclip me-1"></i><strong>PDF will be attached automatically</strong> — the material list PDF is generated and sent with the email.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-warning py-2 small mb-0">
+                                <i class="bi bi-exclamation-triangle me-1"></i><strong>SMTP not configured.</strong> Go to <a href="/settings">Settings > Company</a> to set up email.
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(_emailSendResult))
+                        {
+                            <div class="alert @(_emailSendResult.StartsWith("Sent") ? "alert-success" : "alert-danger") py-2 small mt-2 mb-0">@_emailSendResult</div>
+                        }
+                    </div>
+                    <div class="modal-footer py-2">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseEmailModal">Cancel</button>
+                        <button type="button" class="btn btn-outline-success btn-sm" @onclick="DownloadPdfForEmail"><i class="bi bi-download me-1"></i>Download PDF</button>
+                        @if (_emailSmtpConfigured)
+                        {
+                            <button type="button" class="btn btn-primary btn-sm" @onclick="SendEmailWithPdf" disabled="@_emailSending">
+                                @if (_emailSending) { <span class="spinner-border spinner-border-sm me-1"></span> } else { <i class="bi bi-send me-1"></i> }
+                                Send with PDF
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button" class="btn btn-primary btn-sm" @onclick="SendEmailFromModal"><i class="bi bi-send me-1"></i>Open Email Client</button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
 }
 else
 {
@@ -655,6 +717,15 @@ else
     // Print options
     private bool _printExternalNotes = true;
     private bool _printInternalNotes;
+
+    // Email modal state
+    private bool _showEmailModal;
+    private string _emailTo = "";
+    private string _emailSubject = "";
+    private string _emailBody = "";
+    private bool _emailSmtpConfigured;
+    private bool _emailSending;
+    private string? _emailSendResult;
 
     // HVAC section presets
     private static readonly string[] _sectionPresets =
@@ -962,22 +1033,175 @@ else
     private async Task EmailList()
     {
         if (detail is null) return;
-        var subject = Uri.EscapeDataString($"Material List: {detail.Name}");
-        var lines = new System.Text.StringBuilder();
-        lines.AppendLine($"Material List: {detail.Name}");
-        if (!string.IsNullOrEmpty(detail.CustomerName)) lines.AppendLine($"Customer: {detail.CustomerName}");
-        if (!string.IsNullOrEmpty(detail.SiteName)) lines.AppendLine($"Site: {detail.SiteName}");
-        if (!string.IsNullOrEmpty(detail.JobNumber)) lines.AppendLine($"Job: {detail.JobNumber}");
-        lines.AppendLine();
-        foreach (var grp in detail.Items.GroupBy(i => i.Section ?? "General"))
+        _emailSendResult = null;
+        _emailSmtpConfigured = await EmailSvc.IsConfiguredAsync();
+        _emailTo = "";
+        _emailSubject = $"Material List: {detail.Name}";
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"Dear {detail.CustomerName ?? "Customer"},");
+        sb.AppendLine();
+        sb.AppendLine($"Please find attached the material list \"{detail.Name}\".");
+        sb.AppendLine();
+        if (!string.IsNullOrEmpty(detail.SiteName)) sb.AppendLine($"Site: {detail.SiteName}");
+        if (!string.IsNullOrEmpty(detail.JobNumber)) sb.AppendLine($"Job: {detail.JobNumber}");
+        sb.AppendLine($"Total: {detail.GrandTotal:C}");
+        sb.AppendLine();
+        sb.AppendLine("Please don't hesitate to reach out if you have any questions.");
+        sb.AppendLine();
+        sb.AppendLine("Thank you!");
+        if (_companyProfile is not null)
         {
-            lines.AppendLine($"--- {grp.Key} ---");
-            foreach (var item in grp)
-                lines.AppendLine($"  {item.ItemName}  Qty: {item.Quantity} {item.Unit}  Cost: {item.BaseCost:C}");
-            lines.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine(_companyProfile.Name);
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) sb.AppendLine(_companyProfile.Phone);
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) sb.AppendLine(_companyProfile.Email);
         }
-        lines.AppendLine($"Total: {detail.GrandTotal:C}");
-        var body = Uri.EscapeDataString(lines.ToString());
-        await JS.InvokeVoidAsync("eval", $"window.location.href='mailto:?subject={subject}&body={body}'");
+        _emailBody = sb.ToString();
+        _showEmailModal = true;
     }
+
+    private void CloseEmailModal() { _showEmailModal = false; _emailSendResult = null; }
+
+    private async Task DownloadPdfForEmail()
+    {
+        _showEmailModal = false;
+        await Task.Delay(100);
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private async Task SendEmailFromModal()
+    {
+        await JS.InvokeVoidAsync("openMailto", _emailTo, _emailSubject, _emailBody);
+        _showEmailModal = false;
+    }
+
+    private async Task SendEmailWithPdf()
+    {
+        if (detail is null || string.IsNullOrWhiteSpace(_emailTo)) return;
+        _emailSending = true;
+        _emailSendResult = null;
+        StateHasChanged();
+        try
+        {
+            var pdfHtml = BuildMaterialListPdfHtml(detail);
+            var pdfBytes = await PdfSvc.GeneratePdfFromHtmlAsync(pdfHtml);
+            var fileName = $"MaterialList_{detail.Name.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.pdf";
+            await EmailSvc.SendEmailAsync(new EmailMessage
+            {
+                To = _emailTo,
+                Subject = _emailSubject,
+                Body = _emailBody,
+                Attachments = [new EmailAttachment { FileName = fileName, Content = pdfBytes }],
+            });
+            _emailSendResult = "Sent successfully!";
+        }
+        catch (Exception ex) { _emailSendResult = $"Failed: {ex.Message}"; }
+        finally { _emailSending = false; }
+    }
+
+    private string BuildMaterialListPdfHtml(MaterialListDetail d)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<div class=\"print-doc\">");
+
+        // Banner
+        sb.Append("<div class=\"print-doc-banner\">");
+        sb.Append("<div class=\"print-doc-banner-left\">");
+        sb.Append("<p class=\"print-doc-type\">Material List</p>");
+        sb.Append($"<p class=\"print-doc-number-line\"><strong>{Enc(d.Name)}</strong>");
+        if (!string.IsNullOrEmpty(d.PONumber)) sb.Append($" &mdash; PO# {Enc(d.PONumber)}");
+        sb.Append("</p></div>");
+        sb.Append("<div class=\"print-doc-banner-right\">");
+        if (_companyProfile is not null)
+        {
+            sb.Append($"<p class=\"print-company-name\">{Enc(_companyProfile.Name)}</p>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) sb.Append($"<p class=\"print-company-detail\">{Enc(_companyProfile.Address)}</p>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) sb.Append($"<p class=\"print-company-detail\">{Enc(_companyProfile.Phone)}</p>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) sb.Append($"<p class=\"print-company-detail\">{Enc(_companyProfile.Email)}</p>");
+        }
+        sb.Append("</div></div>");
+
+        // Info bar
+        sb.Append("<div class=\"print-doc-info-bar\">");
+        sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Status</span><span class=\"print-info-value\">{d.Status}</span></div>");
+        sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Date</span><span class=\"print-info-value\">{d.CreatedAt:MMM dd, yyyy}</span></div>");
+        if (!string.IsNullOrWhiteSpace(d.TradeType)) sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Trade</span><span class=\"print-info-value\">{Enc(d.TradeType)}</span></div>");
+        sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Pricing</span><span class=\"print-info-value\">{d.PricingMethod}</span></div>");
+        sb.Append("</div>");
+
+        // Addresses
+        sb.Append("<div class=\"print-doc-addresses\">");
+        if (!string.IsNullOrEmpty(d.CustomerName))
+        {
+            sb.Append("<div class=\"print-addr-block\"><span class=\"print-addr-label\">Customer</span>");
+            sb.Append($"<p class=\"print-addr-name\">{Enc(d.CustomerName)}</p>");
+            if (!string.IsNullOrEmpty(d.CustomerAddress)) sb.Append($"<p class=\"print-addr-line\">{Enc(d.CustomerAddress)}</p>");
+            sb.Append("</div>");
+        }
+        if (!string.IsNullOrEmpty(d.SiteName))
+        {
+            sb.Append("<div class=\"print-addr-block\"><span class=\"print-addr-label\">Deliver To / Site</span>");
+            sb.Append($"<p class=\"print-addr-name\">{Enc(d.SiteName)}</p>");
+            if (!string.IsNullOrEmpty(d.SiteAddress)) sb.Append($"<p class=\"print-addr-line\">{Enc(d.SiteAddress)}</p>");
+            sb.Append("</div>");
+        }
+        sb.Append("</div>");
+
+        // Items
+        if (d.Items.Any())
+        {
+            var groups = d.Items.OrderBy(i => i.SortOrder).GroupBy(i => i.Section ?? "General");
+            sb.Append("<table class=\"print-doc-table\"><thead><tr>");
+            sb.Append("<th>Item</th><th class=\"text-center\">Qty</th><th>Unit</th><th class=\"text-end\">Cost</th><th class=\"text-end\">Price</th>");
+            sb.Append("</tr></thead><tbody>");
+            foreach (var grp in groups)
+            {
+                if (groups.Count() > 1) sb.Append($"<tr class=\"print-section-divider\"><td colspan=\"5\">{Enc(grp.Key)}</td></tr>");
+                foreach (var item in grp)
+                {
+                    sb.Append("<tr>");
+                    sb.Append($"<td>{Enc(item.ItemName)}");
+                    if (!string.IsNullOrWhiteSpace(item.Notes)) sb.Append($" &mdash; {Enc(item.Notes)}");
+                    sb.Append("</td>");
+                    sb.Append($"<td class=\"text-center\">{item.Quantity}</td>");
+                    sb.Append($"<td>{Enc(item.Unit ?? "Each")}</td>");
+                    sb.Append($"<td class=\"text-end\">{item.BaseCost:C}</td>");
+                    sb.Append($"<td class=\"text-end\">{item.FlatPrice:C}</td>");
+                    sb.Append("</tr>");
+                }
+            }
+            sb.Append("</tbody></table>");
+        }
+
+        // Totals
+        sb.Append("<div class=\"print-doc-totals\">");
+        sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Material Cost</span><span class=\"print-total-value\">{d.TotalMaterialCost:C}</span></div>");
+        if (d.TotalLaborCost > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Labor</span><span class=\"print-total-value\">{d.TotalLaborCost:C}</span></div>");
+        if (d.MarkupPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Markup ({d.MarkupPercent}%)</span><span class=\"print-total-value\">{d.TotalMaterialCost * d.MarkupPercent / 100:C}</span></div>");
+        sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.GrandTotal:C}</span></div>");
+        sb.Append("</div>");
+
+        // Notes
+        if (!string.IsNullOrWhiteSpace(d.ExternalNotes))
+        {
+            sb.Append("<div class=\"print-doc-terms\">");
+            sb.Append($"<div class=\"print-doc-terms-block\"><div class=\"print-terms-heading\">Notes</div><p class=\"print-terms-text\">{Enc(d.ExternalNotes)}</p></div>");
+            sb.Append("</div>");
+        }
+
+        // Footer
+        sb.Append("<div class=\"print-doc-footer\">");
+        if (_companyProfile is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-telephone print-footer-icon\"></i> {Enc(_companyProfile.Phone)}</span>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-envelope print-footer-icon\"></i> {Enc(_companyProfile.Email)}</span>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-geo-alt print-footer-icon\"></i> {Enc(_companyProfile.Address)}</span>");
+        }
+        sb.Append("</div>");
+        sb.Append("<div class=\"print-doc-thankyou\">Thank you for your business!</div>");
+        sb.Append("</div>");
+        return PdfService.WrapInHtmlDocument(sb.ToString());
+    }
+
+    private static string Enc(string? value) => System.Net.WebUtility.HtmlEncode(value ?? "");
 }

@@ -164,7 +164,8 @@ else
             try
             {
                 var empId = await AuthService.GetEmployeeIdAsync();
-                _techName = await AuthService.GetTechNameAsync();
+                var session = await AuthService.GetCurrentUserAsync();
+                _techName = session?.EmployeeName ?? session?.Username ?? "User";
                 if (empId.HasValue)
                 {
                     var data = await DashboardService.GetDashboardAsync(empId.Value);

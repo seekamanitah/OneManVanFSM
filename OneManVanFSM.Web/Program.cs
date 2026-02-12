@@ -103,6 +103,8 @@ builder.Services.AddScoped<IDropdownService, DropdownService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddSingleton<IPdfService, PdfService>();
 
 var app = builder.Build();
 

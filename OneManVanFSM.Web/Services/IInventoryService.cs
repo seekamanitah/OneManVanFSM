@@ -97,7 +97,7 @@ public class InventoryEditModel
     public decimal Cost { get; set; }
     public decimal Price { get; set; }
     public decimal MarkupPercent { get; set; }
-    public bool TaxIncludedInPrice { get; set; }
+    public bool TaxIncludedInPrice { get; set; } = true;
     public string? LotNumber { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public string? Notes { get; set; }

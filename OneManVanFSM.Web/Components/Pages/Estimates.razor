@@ -13,6 +13,8 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ICompanyProfileService CompanyProfileSvc
+@inject IEmailService EmailSvc
+@inject IPdfService PdfSvc
 
 <PageTitle>Estimates - OneManVanFSM</PageTitle>
 
@@ -690,14 +692,37 @@ else
                         <label class="form-label fw-semibold">Message Body</label>
                         <textarea class="form-control form-control-sm" rows="10" @bind="_emailBody"></textarea>
                     </div>
-                    <div class="alert alert-info py-2 small mb-0">
-                        <i class="bi bi-paperclip me-1"></i><strong>PDF Attachment:</strong> Use the <strong>Download PDF</strong> button below to save the estimate as a PDF, then attach it to the email in your email client.
-                    </div>
+                    @if (_emailSmtpConfigured)
+                    {
+                        <div class="alert alert-success py-2 small mb-0">
+                            <i class="bi bi-paperclip me-1"></i><strong>PDF will be attached automatically</strong> — the estimate PDF is generated server-side and sent with the email.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="alert alert-warning py-2 small mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i><strong>SMTP not configured.</strong> Go to <a href="/settings">Settings > Company</a> to set up email. For now, you can open your email client instead.
+                        </div>
+                    }
+                    @if (!string.IsNullOrEmpty(_emailSendResult))
+                    {
+                        <div class="alert @(_emailSendResult.StartsWith("Sent") ? "alert-success" : "alert-danger") py-2 small mt-2 mb-0">@_emailSendResult</div>
+                    }
                 </div>
                 <div class="modal-footer py-2">
                     <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseEmailModal">Cancel</button>
                     <button type="button" class="btn btn-outline-success btn-sm" @onclick="DownloadPdfForEmail"><i class="bi bi-download me-1"></i>Download PDF</button>
-                    <button type="button" class="btn btn-primary btn-sm" @onclick="SendEmailFromModal"><i class="bi bi-send me-1"></i>Send Email</button>
+                    @if (_emailSmtpConfigured)
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="SendEmailWithPdf" disabled="@_emailSending">
+                            @if (_emailSending) { <span class="spinner-border spinner-border-sm me-1"></span> } else { <i class="bi bi-send me-1"></i> }
+                            Send with PDF
+                        </button>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-primary btn-sm" @onclick="SendEmailFromModal"><i class="bi bi-send me-1"></i>Open Email Client</button>
+                    }
                 </div>
             </div>
         </div>
@@ -754,6 +779,9 @@ else
     private string _emailTo = "";
     private string _emailSubject = "";
     private string _emailBody = "";
+    private bool _emailSmtpConfigured;
+    private bool _emailSending;
+    private string? _emailSendResult;
 
     protected override async Task OnInitializedAsync()
     {
@@ -1024,9 +1052,11 @@ else
         await JS.InvokeVoidAsync("setLocalStorage", "printTemplate", template);
     }
 
-    private void OpenEmailModal()
+    private async Task OpenEmailModal()
     {
         if (detail is null) return;
+        _emailSendResult = null;
+        _emailSmtpConfigured = await EmailSvc.IsConfiguredAsync();
         _emailTo = detail.CustomerEmail ?? "";
         _emailSubject = $"Estimate {detail.EstimateNumber}: {detail.Title}";
         var sb = new System.Text.StringBuilder();
@@ -1054,7 +1084,7 @@ else
         _showEmailModal = true;
     }
 
-    private void CloseEmailModal() => _showEmailModal = false;
+    private void CloseEmailModal() { _showEmailModal = false; _emailSendResult = null; }
 
     private async Task DownloadPdfForEmail()
     {
@@ -1068,6 +1098,135 @@ else
         await JS.InvokeVoidAsync("openMailto", _emailTo, _emailSubject, _emailBody);
         _showEmailModal = false;
     }
+
+    private async Task SendEmailWithPdf()
+    {
+        if (detail is null || string.IsNullOrWhiteSpace(_emailTo)) return;
+        _emailSending = true;
+        _emailSendResult = null;
+        StateHasChanged();
+        try
+        {
+            var pdfHtml = BuildEstimatePdfHtml(detail);
+            var pdfBytes = await PdfSvc.GeneratePdfFromHtmlAsync(pdfHtml);
+            var fileName = $"Estimate_{detail.EstimateNumber}_{DateTime.Now:yyyyMMdd}.pdf";
+            await EmailSvc.SendEmailAsync(new EmailMessage
+            {
+                To = _emailTo,
+                Subject = _emailSubject,
+                Body = _emailBody,
+                Attachments = [new EmailAttachment { FileName = fileName, Content = pdfBytes }],
+            });
+            _emailSendResult = "Sent successfully!";
+        }
+        catch (Exception ex) { _emailSendResult = $"Failed: {ex.Message}"; }
+        finally { _emailSending = false; }
+    }
+
+    private string BuildEstimatePdfHtml(EstimateDetail d)
+    {
+        var sb = new System.Text.StringBuilder();
+        sb.Append("<div class=\"print-doc\">");
+
+        // Banner
+        sb.Append("<div class=\"print-doc-banner\">");
+        sb.Append("<div class=\"print-doc-banner-left\">");
+        sb.Append("<p class=\"print-doc-type\">Estimate</p>");
+        sb.Append($"<p class=\"print-doc-number-line\"><strong>{Enc(d.EstimateNumber)}</strong></p>");
+        sb.Append("</div>");
+        sb.Append("<div class=\"print-doc-banner-right\">");
+        if (_companyProfile is not null)
+        {
+            sb.Append($"<p class=\"print-company-name\">{Enc(_companyProfile.Name)}</p>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) sb.Append($"<p class=\"print-company-detail\">{Enc(_companyProfile.Address)}</p>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) sb.Append($"<p class=\"print-company-detail\">{Enc(_companyProfile.Phone)}</p>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) sb.Append($"<p class=\"print-company-detail\">{Enc(_companyProfile.Email)}</p>");
+        }
+        sb.Append("</div></div>");
+
+        // Info bar
+        sb.Append("<div class=\"print-doc-info-bar\">");
+        sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Status</span><span class=\"print-info-value\">{d.Status}</span></div>");
+        if (d.ExpiryDate.HasValue) sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Valid Until</span><span class=\"print-info-value\">{d.ExpiryDate.Value:MMM dd, yyyy}</span></div>");
+        if (!string.IsNullOrWhiteSpace(d.TradeType)) sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Trade</span><span class=\"print-info-value\">{Enc(d.TradeType)}</span></div>");
+        sb.Append($"<div class=\"print-info-item\"><span class=\"print-info-label\">Pricing</span><span class=\"print-info-value\">{d.PricingMethod}</span></div>");
+        sb.Append("</div>");
+
+        // Addresses
+        sb.Append("<div class=\"print-doc-addresses\">");
+        if (!string.IsNullOrEmpty(d.CustomerName))
+        {
+            sb.Append("<div class=\"print-addr-block\">");
+            sb.Append("<span class=\"print-addr-label\">Customer</span>");
+            sb.Append($"<p class=\"print-addr-name\">{Enc(d.CustomerName)}</p>");
+            if (!string.IsNullOrEmpty(d.CustomerAddress)) sb.Append($"<p class=\"print-addr-line\">{Enc(d.CustomerAddress)}</p>");
+            sb.Append("</div>");
+        }
+        if (!string.IsNullOrEmpty(d.SiteName))
+        {
+            sb.Append("<div class=\"print-addr-block\">");
+            sb.Append("<span class=\"print-addr-label\">Site / Location</span>");
+            sb.Append($"<p class=\"print-addr-name\">{Enc(d.SiteName)}</p>");
+            if (!string.IsNullOrEmpty(d.SiteAddress)) sb.Append($"<p class=\"print-addr-line\">{Enc(d.SiteAddress)}</p>");
+            sb.Append("</div>");
+        }
+        sb.Append("</div>");
+
+        // Line items
+        if (d.Lines.Count > 0)
+        {
+            sb.Append("<table class=\"print-doc-table\"><thead><tr>");
+            sb.Append("<th>Description</th><th>Type</th><th class=\"text-center\">Qty</th><th class=\"text-end\">Unit Price</th><th class=\"text-end\">Total</th>");
+            sb.Append("</tr></thead><tbody>");
+            foreach (var line in d.Lines)
+            {
+                var lineTotal = line.Quantity * line.UnitPrice;
+                sb.Append("<tr>");
+                sb.Append($"<td>{Enc(line.Description)}</td>");
+                sb.Append($"<td>{Enc(line.LineType ?? "Material")}</td>");
+                sb.Append($"<td class=\"text-center\">{line.Quantity}</td>");
+                sb.Append($"<td class=\"text-end\">{line.UnitPrice:C}</td>");
+                sb.Append($"<td class=\"text-end\">{lineTotal:C}</td>");
+                sb.Append("</tr>");
+            }
+            sb.Append("</tbody></table>");
+        }
+
+        // Totals
+        sb.Append("<div class=\"print-doc-totals\">");
+        sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Subtotal</span><span class=\"print-total-value\">{d.Subtotal:C}</span></div>");
+        if (d.MarkupPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Markup ({d.MarkupPercent}%)</span><span class=\"print-total-value\">{d.Subtotal * d.MarkupPercent / 100:C}</span></div>");
+        if (d.TaxPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Tax ({d.TaxPercent}%)</span><span class=\"print-total-value\">{d.Total * d.TaxPercent / (100 + d.TaxPercent):C}</span></div>");
+        if (d.ContingencyPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Contingency ({d.ContingencyPercent}%)</span><span class=\"print-total-value\">{d.Total * d.ContingencyPercent / 100:C}</span></div>");
+        sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.Total:C}</span></div>");
+        if (d.DepositRequired.HasValue && d.DepositRequired > 0)
+            sb.Append($"<div class=\"print-total-row print-balance-due\"><span class=\"print-total-label\">Deposit Required</span><span class=\"print-total-value\">{d.DepositRequired.Value:C}</span></div>");
+        sb.Append("</div>");
+
+        // Notes
+        if (!string.IsNullOrWhiteSpace(d.Notes))
+        {
+            sb.Append("<div class=\"print-doc-terms\">");
+            sb.Append($"<div class=\"print-doc-terms-block\"><div class=\"print-terms-heading\">Notes</div><p class=\"print-terms-text\">{Enc(d.Notes)}</p></div>");
+            sb.Append("</div>");
+        }
+
+        // Footer
+        sb.Append("<div class=\"print-doc-footer\">");
+        if (_companyProfile is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-telephone print-footer-icon\"></i> {Enc(_companyProfile.Phone)}</span>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Email)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-envelope print-footer-icon\"></i> {Enc(_companyProfile.Email)}</span>");
+            if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-geo-alt print-footer-icon\"></i> {Enc(_companyProfile.Address)}</span>");
+        }
+        sb.Append("</div>");
+        sb.Append("<div class=\"print-doc-thankyou\">Thank you for considering our services!</div>");
+
+        sb.Append("</div>");
+        return PdfService.WrapInHtmlDocument(sb.ToString());
+    }
+
+    private static string Enc(string? value) => System.Net.WebUtility.HtmlEncode(value ?? "");
 
     // ---- Multi-select & Bulk Actions ----
     private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }

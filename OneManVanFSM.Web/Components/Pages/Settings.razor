@@ -72,6 +72,55 @@
             <button class="btn btn-primary mt-3" @onclick="SaveCompanyProfile"><i class="bi bi-check-lg me-1"></i>Save Profile</button>
         </div>
     </div>
+
+    <div class="card border-0 shadow-sm mt-3">
+        <div class="card-body">
+            <h5><i class="bi bi-envelope-at me-2"></i>Email Configuration (SMTP)</h5>
+            <p class="text-muted small mb-3">Configure SMTP to send invoices, estimates, and material lists directly from the app with PDF attachments.</p>
+            <div class="row g-2">
+                <div class="col-md-6">
+                    <label class="form-label">SMTP Server</label>
+                    <input type="text" class="form-control" placeholder="smtp.gmail.com" @bind="_smtpHost" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Port</label>
+                    <input type="number" class="form-control" @bind="_smtpPort" />
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="smtpSsl" @bind="_smtpUseSsl" />
+                        <label class="form-check-label" for="smtpSsl">Use SSL/TLS</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" placeholder="your-email@gmail.com" @bind="_smtpUsername" />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Password / App Password</label>
+                    <input type="password" class="form-control" placeholder="App password or SMTP password" @bind="_smtpPassword" />
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Public Base URL <small class="text-muted">(for customer approval links in emails)</small></label>
+                    <input type="text" class="form-control" placeholder="https://yourdomain.com" @bind="_publicBaseUrl" />
+                </div>
+            </div>
+            <div class="d-flex gap-2 mt-3">
+                <button class="btn btn-primary" @onclick="SaveCompanyProfile"><i class="bi bi-check-lg me-1"></i>Save Email Settings</button>
+                <button class="btn btn-outline-info" @onclick="TestSmtpConnection" disabled="@_smtpTesting">
+                    @if (_smtpTesting) { <span class="spinner-border spinner-border-sm me-1"></span> } else { <i class="bi bi-send me-1"></i> }
+                    Test Connection
+                </button>
+            </div>
+            @if (_smtpTestResult is not null)
+            {
+                <div class="alert @(_smtpTestResult.StartsWith("Success") ? "alert-success" : "alert-danger") mt-2 mb-0 py-2 small">@_smtpTestResult</div>
+            }
+            <div class="alert alert-info mt-3 mb-0 py-2 small">
+                <i class="bi bi-info-circle me-1"></i><strong>Gmail users:</strong> Use an <a href="https://myaccount.google.com/apppasswords" target="_blank">App Password</a> (not your regular password). Server: <code>smtp.gmail.com</code>, Port: <code>587</code>, SSL: On.
+            </div>
+        </div>
+    </div>
 }
 else if (tab == "users")
 {
@@ -930,7 +979,15 @@ private string _companyPhone = "";
 private string _companyEmail = "";
 private string _companyTaxId = "";
 private string _companyAddress = "";
+private string _smtpHost = "";
+private int _smtpPort = 587;
+private string _smtpUsername = "";
+private string _smtpPassword = "";
+private bool _smtpUseSsl = true;
+private string _publicBaseUrl = "";
 private bool _companyLoaded;
+private string? _smtpTestResult;
+private bool _smtpTesting;
 
 // Users tab
 private List<UserListItem>? userList;
@@ -1674,6 +1731,12 @@ private Dictionary<string, bool> notificationSettings = new()
                     _companyEmail = profile.GetValueOrDefault("Email", "");
                     _companyTaxId = profile.GetValueOrDefault("TaxId", "");
                     _companyAddress = profile.GetValueOrDefault("Address", "");
+                    _smtpHost = profile.GetValueOrDefault("SmtpHost", "");
+                    _smtpPort = int.TryParse(profile.GetValueOrDefault("SmtpPort", "587"), out var port) ? port : 587;
+                    _smtpUsername = profile.GetValueOrDefault("SmtpUsername", "");
+                    _smtpPassword = profile.GetValueOrDefault("SmtpPassword", "");
+                    _smtpUseSsl = !profile.TryGetValue("SmtpUseSsl", out var ssl) || ssl != "false";
+                    _publicBaseUrl = profile.GetValueOrDefault("PublicBaseUrl", "");
                 }
             }
         }
@@ -1692,13 +1755,43 @@ private Dictionary<string, bool> notificationSettings = new()
                 ["Phone"] = _companyPhone,
                 ["Email"] = _companyEmail,
                 ["TaxId"] = _companyTaxId,
-                ["Address"] = _companyAddress
+                ["Address"] = _companyAddress,
+                ["SmtpHost"] = _smtpHost,
+                ["SmtpPort"] = _smtpPort.ToString(),
+                ["SmtpUsername"] = _smtpUsername,
+                ["SmtpPassword"] = _smtpPassword,
+                ["SmtpUseSsl"] = _smtpUseSsl.ToString().ToLower(),
+                ["PublicBaseUrl"] = _publicBaseUrl,
             };
             var json = System.Text.Json.JsonSerializer.Serialize(profile, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(CompanyProfilePath, json);
             successMessage = "Company profile saved successfully.";
         }
         catch (Exception ex) { errorMessage = $"Failed to save profile: {ex.Message}"; }
+    }
+
+    private async Task TestSmtpConnection()
+    {
+        _smtpTestResult = null;
+        _smtpTesting = true;
+        StateHasChanged();
+        try
+        {
+            if (string.IsNullOrWhiteSpace(_smtpHost))
+            {
+                _smtpTestResult = "Error: SMTP server is required.";
+                return;
+            }
+            using var smtp = new MailKit.Net.Smtp.SmtpClient();
+            await smtp.ConnectAsync(_smtpHost, _smtpPort,
+                _smtpUseSsl ? MailKit.Security.SecureSocketOptions.StartTls : MailKit.Security.SecureSocketOptions.Auto);
+            if (!string.IsNullOrWhiteSpace(_smtpUsername))
+                await smtp.AuthenticateAsync(_smtpUsername, _smtpPassword);
+            await smtp.DisconnectAsync(true);
+            _smtpTestResult = "Success! SMTP connection verified.";
+        }
+        catch (Exception ex) { _smtpTestResult = $"Error: {ex.Message}"; }
+        finally { _smtpTesting = false; }
     }
 
     // ---- Purge Database ----
