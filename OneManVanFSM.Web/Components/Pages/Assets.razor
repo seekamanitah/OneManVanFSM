@@ -18,7 +18,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevAssetEdit" disabled="@(GetAdjacentAssetEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextAssetEdit" disabled="@(GetAdjacentAssetEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-cpu-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Asset</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -1503,6 +1508,17 @@ private async Task LoadForEdit(int id)
     }
     private void GoToPrevAsset() { var id = GetAdjacentAssetId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextAsset() { var id = GetAdjacentAssetId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentAssetEditId(int offset)
+    {
+        if (assets is null || assets.Count == 0 || !editId.HasValue) return null;
+        var idx = assets.FindIndex(a => a.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < assets.Count ? assets[target].Id : null;
+    }
+    private void GoToPrevAssetEdit() { var id = GetAdjacentAssetEditId(-1); if (id.HasValue) Nav.NavigateTo($"/assets/{id.Value}/edit"); }
+    private void GoToNextAssetEdit() { var id = GetAdjacentAssetEditId(1); if (id.HasValue) Nav.NavigateTo($"/assets/{id.Value}/edit"); }
     private void GoToJob(int id) => Nav.NavigateTo($"/jobs/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/assets/{detail.Id}/edit"); }
 

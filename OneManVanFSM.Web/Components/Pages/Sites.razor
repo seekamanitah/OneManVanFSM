@@ -352,6 +352,11 @@ else if (_view == View.Form)
 {
     <div class="d-flex align-items-center gap-2 mb-3">
         <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack"><i class="bi bi-arrow-left"></i></button>
+        @if (Id.HasValue)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrevSiteEdit" disabled="@(GetAdjacentSiteEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNextSiteEdit" disabled="@(GetAdjacentSiteEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-geo-alt-fill me-2"></i>@(Id.HasValue ? "Edit" : "New") Site</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -631,6 +636,17 @@ else if (_view == View.Form)
     }
     private void GoToPrevSite() { var id = GetAdjacentSiteId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextSite() { var id = GetAdjacentSiteId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentSiteEditId(int offset)
+    {
+        if (_sites.Count == 0 || !Id.HasValue) return null;
+        var idx = _sites.FindIndex(s => s.Id == Id.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _sites.Count ? _sites[target].Id : null;
+    }
+    private void GoToPrevSiteEdit() { var id = GetAdjacentSiteEditId(-1); if (id.HasValue) Navigation.NavigateTo($"/sites/{id.Value}/edit"); }
+    private void GoToNextSiteEdit() { var id = GetAdjacentSiteEditId(1); if (id.HasValue) Navigation.NavigateTo($"/sites/{id.Value}/edit"); }
     private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
     private void GoToJob(int id) => Navigation.NavigateTo($"/jobs/{id}");
     private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"/sites/{Id.Value}"); else Navigation.NavigateTo("/sites"); }

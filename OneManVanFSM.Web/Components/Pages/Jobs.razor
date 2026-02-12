@@ -665,6 +665,11 @@ else if (_view == View.Form)
 {
     <div class="d-flex align-items-center gap-2 mb-3">
         <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack"><i class="bi bi-arrow-left"></i></button>
+        @if (Id.HasValue)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrevJobEdit" disabled="@(GetAdjacentJobEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNextJobEdit" disabled="@(GetAdjacentJobEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-wrench-adjustable-circle-fill me-2"></i>@(Id.HasValue ? "Edit" : "New") Job</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -1114,6 +1119,17 @@ else if (_view == View.Form)
     }
     private void GoToPrevJob() { var id = GetAdjacentJobId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextJob() { var id = GetAdjacentJobId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentJobEditId(int offset)
+    {
+        if (_jobs.Count == 0 || !Id.HasValue) return null;
+        var idx = _jobs.FindIndex(j => j.Id == Id.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _jobs.Count ? _jobs[target].Id : null;
+    }
+    private void GoToPrevJobEdit() { var id = GetAdjacentJobEditId(-1); if (id.HasValue) Navigation.NavigateTo($"/jobs/{id.Value}/edit"); }
+    private void GoToNextJobEdit() { var id = GetAdjacentJobEditId(1); if (id.HasValue) Navigation.NavigateTo($"/jobs/{id.Value}/edit"); }
 
     private async Task SaveJob()
     {

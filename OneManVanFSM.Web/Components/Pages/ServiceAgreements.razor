@@ -18,7 +18,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevAgreementEdit" disabled="@(GetAdjacentAgreementEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextAgreementEdit" disabled="@(GetAdjacentAgreementEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-file-earmark-check-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Agreement</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -522,6 +527,17 @@ else
     }
     private void GoToPrevAgreement() { var id = GetAdjacentAgreementId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextAgreement() { var id = GetAdjacentAgreementId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentAgreementEditId(int offset)
+    {
+        if (agreements is null || agreements.Count == 0 || !editId.HasValue) return null;
+        var idx = agreements.FindIndex(a => a.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < agreements.Count ? agreements[target].Id : null;
+    }
+    private void GoToPrevAgreementEdit() { var id = GetAdjacentAgreementEditId(-1); if (id.HasValue) Nav.NavigateTo($"/serviceagreements/{id.Value}/edit"); }
+    private void GoToNextAgreementEdit() { var id = GetAdjacentAgreementEditId(1); if (id.HasValue) Nav.NavigateTo($"/serviceagreements/{id.Value}/edit"); }
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/serviceagreements/{detail.Id}/edit"); }
     private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");

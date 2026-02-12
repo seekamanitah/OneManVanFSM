@@ -16,7 +16,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevNoteEdit" disabled="@(GetAdjacentNoteEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextNoteEdit" disabled="@(GetAdjacentNoteEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-sticky-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Quick Note</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -94,7 +99,9 @@
 else if (mode == "detail" && selectedNote is not null)
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevNote" disabled="@(GetAdjacentNoteId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextNote" disabled="@(GetAdjacentNoteId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-sticky-fill me-2"></i>@(selectedNote.Title ?? "Quick Note")</h4>
         @if (selectedNote.IsUrgent) { <span class="badge bg-danger ms-2">Urgent</span> }
         <span class="badge ms-1 @GetStatusBadge(selectedNote.Status)">@selectedNote.Status</span>
@@ -415,6 +422,28 @@ else
     private void GoToNew() => Nav.NavigateTo("/quicknotes/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/quicknotes/{id}");
     private void EditNote() { if (selectedNote is not null) Nav.NavigateTo($"/quicknotes/{selectedNote.Id}/edit"); }
+
+    private int? GetAdjacentNoteId(int offset)
+    {
+        if (notes is null || notes.Count == 0 || selectedNote is null) return null;
+        var idx = notes.FindIndex(n => n.Id == selectedNote.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < notes.Count ? notes[target].Id : null;
+    }
+    private void GoToPrevNote() { var id = GetAdjacentNoteId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNextNote() { var id = GetAdjacentNoteId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentNoteEditId(int offset)
+    {
+        if (notes is null || notes.Count == 0 || !editId.HasValue) return null;
+        var idx = notes.FindIndex(n => n.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < notes.Count ? notes[target].Id : null;
+    }
+    private void GoToPrevNoteEdit() { var id = GetAdjacentNoteEditId(-1); if (id.HasValue) Nav.NavigateTo($"/quicknotes/{id.Value}/edit"); }
+    private void GoToNextNoteEdit() { var id = GetAdjacentNoteEditId(1); if (id.HasValue) Nav.NavigateTo($"/quicknotes/{id.Value}/edit"); }
     private void GoToCustomer() { if (selectedNote?.CustomerId is not null) Nav.NavigateTo($"/customers/{selectedNote.CustomerId}"); }
     private void GoToJob() { if (selectedNote?.JobId is not null) Nav.NavigateTo($"/jobs/{selectedNote.JobId}"); }
     private async Task HandleSearchKey(KeyboardEventArgs e) { if (e.Key == "Enter") await LoadNotes(); }

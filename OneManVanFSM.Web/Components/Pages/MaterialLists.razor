@@ -20,7 +20,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevListEdit" disabled="@(GetAdjacentListEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextListEdit" disabled="@(GetAdjacentListEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>@(editId.HasValue ? "Edit" : "New") Material List</h4>
     </div>
 
@@ -899,6 +904,17 @@ else
     }
     private void GoToPrevList() { var id = GetAdjacentListId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextList() { var id = GetAdjacentListId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentListEditId(int offset)
+    {
+        if (lists is null || lists.Count == 0 || !editId.HasValue) return null;
+        var idx = lists.FindIndex(m => m.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < lists.Count ? lists[target].Id : null;
+    }
+    private void GoToPrevListEdit() { var id = GetAdjacentListEditId(-1); if (id.HasValue) Nav.NavigateTo($"/materiallists/{id.Value}/edit"); }
+    private void GoToNextListEdit() { var id = GetAdjacentListEditId(1); if (id.HasValue) Nav.NavigateTo($"/materiallists/{id.Value}/edit"); }
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/materiallists/{detail.Id}/edit"); }
     private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");

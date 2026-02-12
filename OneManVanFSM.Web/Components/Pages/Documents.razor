@@ -21,13 +21,19 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevDocEdit" disabled="@(GetAdjacentDocEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextDocEdit" disabled="@(GetAdjacentDocEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-folder-fill me-2"></i>@(editId.HasValue ? "Edit" : "Upload") Document</h4>
     </div>
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             <EditForm Model="form" OnValidSubmit="SaveDocument">
                 <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger mb-2" />
                 <div class="row g-3">
                     <div class="col-md-6">
                         <label class="form-label">Name <span class="text-danger">*</span></label>
@@ -36,15 +42,15 @@
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Category</label>
-                        <InputSelect @bind-Value="form.Category" class="form-select">
-                            @foreach (var c in _documentCategories) { <option value="@c">@c</option> }
-                        </InputSelect>
+                        <select class="form-select" @bind="form.Category">
+                            @foreach (var c in Enum.GetValues<DocumentCategory>()) { <option value="@c">@c</option> }
+                        </select>
                     </div>
                     <div class="col-md-3">
                         <label class="form-label">Access Level</label>
-                        <InputSelect @bind-Value="form.AccessLevel" class="form-select">
-                            @foreach (var a in _accessLevels) { <option value="@a">@a</option> }
-                        </InputSelect>
+                        <select class="form-select" @bind="form.AccessLevel">
+                            @foreach (var a in Enum.GetValues<DocumentAccessLevel>()) { <option value="@a">@a</option> }
+                        </select>
                     </div>
                     @if (!editId.HasValue)
                     {
@@ -85,24 +91,24 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Job</label>
-                        <InputSelect @bind-Value="form.JobId" class="form-select">
+                        <select class="form-select" @bind="form.JobId">
                             <option value="">None</option>
                             @if (ddJobs is not null) { @foreach (var j in ddJobs) { <option value="@j.Id">@j.Title</option> } }
-                        </InputSelect>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Asset</label>
-                        <InputSelect @bind-Value="form.AssetId" class="form-select">
+                        <select class="form-select" @bind="form.AssetId">
                             <option value="">None</option>
                             @if (ddAssets is not null) { @foreach (var a in ddAssets) { <option value="@a.Id">@a.Name</option> } }
-                        </InputSelect>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Employee</label>
-                        <InputSelect @bind-Value="form.EmployeeId" class="form-select">
+                        <select class="form-select" @bind="form.EmployeeId">
                             <option value="">None</option>
                             @if (ddEmployees is not null) { @foreach (var e in ddEmployees) { <option value="@e.Id">@e.Name</option> } }
-                        </InputSelect>
+                        </select>
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Tags</label>
@@ -583,6 +589,17 @@ else
     }
     private void GoToPrevDoc() { var id = GetAdjacentDocId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextDoc() { var id = GetAdjacentDocId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentDocEditId(int offset)
+    {
+        if (documents is null || documents.Count == 0 || !editId.HasValue) return null;
+        var idx = documents.FindIndex(d => d.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < documents.Count ? documents[target].Id : null;
+    }
+    private void GoToPrevDocEdit() { var id = GetAdjacentDocEditId(-1); if (id.HasValue) Nav.NavigateTo($"/documents/{id.Value}/edit"); }
+    private void GoToNextDocEdit() { var id = GetAdjacentDocEditId(1); if (id.HasValue) Nav.NavigateTo($"/documents/{id.Value}/edit"); }
     private void EditDoc() { if (selectedDoc is not null) Nav.NavigateTo($"/documents/{selectedDoc.Id}/edit"); }
     private void GoToCustomer() { if (selectedDoc?.CustomerId is not null) Nav.NavigateTo($"/customers/{selectedDoc.CustomerId}"); }
     private void GoToSite() { if (selectedDoc?.SiteId is not null) Nav.NavigateTo($"/sites/{selectedDoc.SiteId}"); }

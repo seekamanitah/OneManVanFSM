@@ -14,7 +14,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevEdit" disabled="@(GetAdjacentEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextEdit" disabled="@(GetAdjacentEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-boxes me-2"></i>@(editId.HasValue ? "Edit" : "New") Item</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -121,7 +126,9 @@
 else if (mode == "detail" && detail is not null)
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrev" disabled="@(GetAdjacentId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNext" disabled="@(GetAdjacentId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-boxes me-2"></i>@detail.Name</h4>
         <span class="badge @(detail.Quantity <= detail.MinThreshold ? "bg-danger" : "bg-success") ms-2">
             @(detail.Quantity <= detail.MinThreshold ? "Low Stock" : "In Stock")
@@ -362,6 +369,7 @@ else
                             <th>Reorder Pt</th>
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Cost")'>Wholesale @SortIcon("Cost")</th>
                             <th>Sell Price</th>
+                            <th style="width:90px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -382,6 +390,12 @@ else
                                 <td>@i.MinThreshold</td>
                                 <td>@i.Cost.ToString("C")</td>
                                 <td>@i.Price.ToString("C")</td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" @onclick="() => GoToEditRow(i.Id)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-outline-danger btn-sm py-0 px-1" @onclick="() => ArchiveRow(i.Id)" title="Archive"><i class="bi bi-archive"></i></button>
+                                    </div>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -538,7 +552,31 @@ else
     private void GoToList() => Nav.NavigateTo("/inventory");
     private void GoToNew() => Nav.NavigateTo("/inventory/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/inventory/{id}");
+    private void GoToEditRow(int id) => Nav.NavigateTo($"/inventory/{id}/edit");
+    private async Task ArchiveRow(int id) { await InventorySvc.ArchiveItemAsync(id); await LoadItems(); }
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/inventory/{detail.Id}/edit"); }
+
+    private int? GetAdjacentId(int offset)
+    {
+        if (items is null || detail is null) return null;
+        var idx = items.FindIndex(i => i.Id == detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < items.Count ? items[target].Id : null;
+    }
+    private void GoToPrev() { var id = GetAdjacentId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNext() { var id = GetAdjacentId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentEditId(int offset)
+    {
+        if (items is null || !editId.HasValue) return null;
+        var idx = items.FindIndex(i => i.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < items.Count ? items[target].Id : null;
+    }
+    private void GoToPrevEdit() { var id = GetAdjacentEditId(-1); if (id.HasValue) Nav.NavigateTo($"/inventory/{id.Value}/edit"); }
+    private void GoToNextEdit() { var id = GetAdjacentEditId(1); if (id.HasValue) Nav.NavigateTo($"/inventory/{id.Value}/edit"); }
     private void GoToProduct(int id) => Nav.NavigateTo($"/products/{id}");
 
     private async Task ToggleSort(string column)

@@ -21,7 +21,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevEstimateEdit" disabled="@(GetAdjacentEstimateEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextEstimateEdit" disabled="@(GetAdjacentEstimateEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-calculator-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Estimate</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -1049,6 +1054,17 @@ else
     }
     private void GoToPrevEstimate() { var id = GetAdjacentEstimateId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNextEstimate() { var id = GetAdjacentEstimateId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentEstimateEditId(int offset)
+    {
+        if (estimates is null || estimates.Count == 0 || !editId.HasValue) return null;
+        var idx = estimates.FindIndex(e => e.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < estimates.Count ? estimates[target].Id : null;
+    }
+    private void GoToPrevEstimateEdit() { var id = GetAdjacentEstimateEditId(-1); if (id.HasValue) Nav.NavigateTo($"/estimates/{id.Value}/edit"); }
+    private void GoToNextEstimateEdit() { var id = GetAdjacentEstimateEditId(1); if (id.HasValue) Nav.NavigateTo($"/estimates/{id.Value}/edit"); }
     private void GoToCustomer(int id) => Nav.NavigateTo($"/customers/{id}");
     private void GoToSite(int id) => Nav.NavigateTo($"/sites/{id}");
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/estimates/{detail.Id}/edit"); }

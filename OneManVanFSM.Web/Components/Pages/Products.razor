@@ -13,7 +13,12 @@
 @if (mode == "form")
 {
     <div class="d-flex align-items-center mb-3">
-        <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToList"><i class="bi bi-arrow-left"></i></button>
+        @if (editId.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevEdit" disabled="@(GetAdjacentEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextEdit" disabled="@(GetAdjacentEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
         <h4 class="mb-0"><i class="bi bi-box-seam-fill me-2"></i>@(editId.HasValue ? "Edit" : "New") Product</h4>
     </div>
     <div class="card border-0 shadow-sm">
@@ -461,6 +466,7 @@ else
                             <th style="cursor:pointer" @onclick='() => ToggleSort("Price")'>Sell Price @SortIcon("Price")</th>
                             <th>Status</th>
                             <th>Stock</th>
+                            <th style="width:90px;">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -490,6 +496,12 @@ else
                                     }
                                 </td>
                                 <td>@p.InventoryCount</td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" @onclick="() => GoToEditRow(p.Id)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-outline-danger btn-sm py-0 px-1" @onclick="() => ArchiveRow(p.Id)" title="Archive"><i class="bi bi-archive"></i></button>
+                                    </div>
+                                </td>
                             </tr>
                         }
                     </tbody>
@@ -736,6 +748,8 @@ else
     private void GoToList() => Nav.NavigateTo("/products");
     private void GoToNew() => Nav.NavigateTo("/products/new");
     private void GoToDetail(int id) => Nav.NavigateTo($"/products/{id}");
+    private void GoToEditRow(int id) => Nav.NavigateTo($"/products/{id}/edit");
+    private async Task ArchiveRow(int id) { await ProductSvc.ArchiveProductAsync(id); await LoadProducts(); }
     private void EditDetail() { if (detail is not null) Nav.NavigateTo($"/products/{detail.Id}/edit"); }
     private void GoToInventory() => Nav.NavigateTo("/inventory");
     private void GoToAssets() => Nav.NavigateTo("/assets");
@@ -750,6 +764,17 @@ else
     }
     private void GoToPrev() { var id = GetAdjacentId(-1); if (id.HasValue) GoToDetail(id.Value); }
     private void GoToNext() { var id = GetAdjacentId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentEditId(int offset)
+    {
+        if (products is null || !editId.HasValue) return null;
+        var idx = products.FindIndex(p => p.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < products.Count ? products[target].Id : null;
+    }
+    private void GoToPrevEdit() { var id = GetAdjacentEditId(-1); if (id.HasValue) Nav.NavigateTo($"/products/{id.Value}/edit"); }
+    private void GoToNextEdit() { var id = GetAdjacentEditId(1); if (id.HasValue) Nav.NavigateTo($"/products/{id.Value}/edit"); }
 
     private async Task ToggleSort(string column)
     {

@@ -348,7 +348,14 @@ else if (viewMode == "detail" && recordDetail is not null)
 else if (viewMode is "create" or "edit")
 {
     @* ===== CREATE / EDIT FORM ===== *@
-    <button class="btn btn-sm btn-outline-secondary mb-3" @onclick="BackToList"><i class="bi bi-arrow-left me-1"></i>Cancel</button>
+    <div class="d-flex align-items-center gap-1 mb-3">
+        <button class="btn btn-sm btn-outline-secondary" @onclick="BackToList"><i class="bi bi-arrow-left me-1"></i>Cancel</button>
+        @if (viewMode == "edit" && editId.HasValue)
+        {
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrevRecordEdit" disabled="@(GetAdjacentRecordEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNextRecordEdit" disabled="@(GetAdjacentRecordEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
+    </div>
 
     <div class="card border-0 shadow-sm">
         <div class="card-header bg-white"><strong>@(viewMode == "create" ? "New Service Record" : "Edit Service Record")</strong></div>
@@ -662,6 +669,17 @@ else if (viewMode is "create" or "edit")
     }
     private async Task GoToPrevRecord() { var id = GetAdjacentRecordId(-1); if (id.HasValue) await ShowDetail(id.Value); }
     private async Task GoToNextRecord() { var id = GetAdjacentRecordId(1); if (id.HasValue) await ShowDetail(id.Value); }
+
+    private int? GetAdjacentRecordEditId(int offset)
+    {
+        if (records is null || records.Count == 0 || !editId.HasValue) return null;
+        var idx = records.FindIndex(r => r.Id == editId.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < records.Count ? records[target].Id : null;
+    }
+    private async Task GoToPrevRecordEdit() { var id = GetAdjacentRecordEditId(-1); if (id.HasValue) await ShowEdit(id.Value); }
+    private async Task GoToNextRecordEdit() { var id = GetAdjacentRecordEditId(1); if (id.HasValue) await ShowEdit(id.Value); }
 
     private async Task LoadDropdowns()
     {
