@@ -716,9 +716,24 @@ else
     private async Task LoadFormDropdowns()
     {
         var roles = await DropdownSvc.GetOptionsAsync("EmployeeRole");
-        if (roles.Count > 0) _employeeRoles = roles.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        if (roles.Count > 0)
+        {
+            // Only include values that are valid EmployeeRole enum members
+            var validRoles = roles
+                .Where(o => o.IsActive && Enum.TryParse<EmployeeRole>(o.Value, ignoreCase: true, out _))
+                .Select(o => o.Value)
+                .ToList();
+            if (validRoles.Count > 0) _employeeRoles = validRoles;
+        }
         var statuses = await DropdownSvc.GetOptionsAsync("EmployeeStatus");
-        if (statuses.Count > 0) _employeeStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        if (statuses.Count > 0)
+        {
+            var validStatuses = statuses
+                .Where(o => o.IsActive && Enum.TryParse<EmployeeStatus>(o.Value, ignoreCase: true, out _))
+                .Select(o => o.Value)
+                .ToList();
+            if (validStatuses.Count > 0) _employeeStatuses = validStatuses;
+        }
     }
 
     private async Task LoadDetail(int id)

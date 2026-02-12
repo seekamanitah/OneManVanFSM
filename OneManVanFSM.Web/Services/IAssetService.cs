@@ -240,5 +240,21 @@ public class AssetOption
     public int Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? AssetType { get; set; }
-    public string Display => string.IsNullOrEmpty(AssetType) ? Name : $"{Name} — {AssetType}";
+    public string? SerialNumber { get; set; }
+    public string? CustomerName { get; set; }
+    public string? SiteName { get; set; }
+    public int? CustomerId { get; set; }
+    public int? SiteId { get; set; }
+    public string Display
+    {
+        get
+        {
+            var parts = new List<string> { Name };
+            if (!string.IsNullOrEmpty(AssetType)) parts.Add(AssetType);
+            if (!string.IsNullOrEmpty(SerialNumber)) parts.Add($"SN: {SerialNumber}");
+            var context = SiteName ?? CustomerName;
+            if (!string.IsNullOrEmpty(context)) parts.Add(context);
+            return string.Join(" — ", parts);
+        }
+    }
 }

@@ -57,6 +57,7 @@ public class SiteService : ISiteService
             SqFt = s.SqFt,
             Zones = s.Zones,
             OwnerName = s.Customer != null ? s.Customer.Name : (s.Company != null ? s.Company.Name : null),
+            CustomerName = s.Customer != null ? s.Customer.Name : null,
             CustomerId = s.CustomerId,
             CompanyId = s.CompanyId,
             AssetCount = s.Assets.Count(a => !a.IsArchived),

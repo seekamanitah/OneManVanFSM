@@ -413,7 +413,7 @@ else if (viewMode is "create" or "edit")
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
-                        <InputSelect class="form-select" @bind-Value="editModel.CustomerId">
+                        <InputSelect class="form-select" @bind-Value="editModel.CustomerId" @bind-Value:after="OnHistoryCustomerChanged">
                             <option value="">— Select Customer —</option>
                             @foreach (var c in _customers)
                             {
@@ -433,11 +433,11 @@ else if (viewMode is "create" or "edit")
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Site</label>
-                        <InputSelect class="form-select" @bind-Value="editModel.SiteId">
+                        <InputSelect class="form-select" @bind-Value="editModel.SiteId" @bind-Value:after="OnHistorySiteChanged">
                             <option value="">— Select Site —</option>
                             @foreach (var si in _sites)
                             {
-                                <option value="@si.Id">@si.Name</option>
+                                <option value="@si.Id">@si.Name @(si.CustomerName is not null ? $"[{si.CustomerName}]" : "")</option>
                             }
                         </InputSelect>
                     </div>
@@ -447,7 +447,7 @@ else if (viewMode is "create" or "edit")
                             <option value="">— Select Asset —</option>
                             @foreach (var a in _assets)
                             {
-                                <option value="@a.Id">@a.Name</option>
+                                <option value="@a.Id">@a.Display</option>
                             }
                         </InputSelect>
                     </div>
@@ -505,7 +505,7 @@ else if (viewMode is "create" or "edit")
     private List<CustomerListItem> _customers = [];
     private List<CompanyOption> _companies = [];
     private List<SiteListItem> _sites = [];
-    private List<AssetListItem> _assets = [];
+    private List<AssetOption> _assets = [];
     private List<JobListItem> _jobs = [];
     private List<EmployeeListItem> _employees = [];
     private List<CompanyOption> _vendorCompanies = [];
@@ -573,7 +573,37 @@ else if (viewMode is "create" or "edit")
             JobId = d.JobId,
             TechId = d.TechId
         };
+        await RefreshHistorySitesAndAssets();
         viewMode = "edit";
+    }
+
+    private async Task OnHistoryCustomerChanged()
+    {
+        editModel.SiteId = null;
+        editModel.AssetId = null;
+        await RefreshHistorySitesAndAssets();
+    }
+
+    private async Task OnHistorySiteChanged()
+    {
+        editModel.AssetId = null;
+        await RefreshHistorySitesAndAssets();
+    }
+
+    private async Task RefreshHistorySitesAndAssets()
+    {
+        if (editModel.CustomerId.HasValue)
+            _sites = await SiteSvc.GetSitesAsync(new SiteFilter { CustomerId = editModel.CustomerId });
+        else
+            _sites = await SiteSvc.GetSitesAsync();
+
+        if (_sites.Count == 1 && !editModel.SiteId.HasValue)
+            editModel.SiteId = _sites[0].Id;
+
+        _assets = await AssetSvc.GetAssetOptionsAsync(editModel.CustomerId, editModel.SiteId);
+
+        if (_assets.Count == 1 && !editModel.AssetId.HasValue)
+            editModel.AssetId = _assets[0].Id;
     }
 
     private async Task SaveRecord()
@@ -623,7 +653,7 @@ else if (viewMode is "create" or "edit")
         _customers = await CustomerSvc.GetCustomersAsync();
         _companies = await SiteSvc.GetCompaniesForDropdownAsync();
         _sites = await SiteSvc.GetSitesAsync();
-        _assets = await AssetSvc.GetAssetsAsync();
+        _assets = await AssetSvc.GetAssetOptionsAsync();
         _jobs = await JobSvc.GetJobsAsync();
         _employees = await EmployeeSvc.GetEmployeesAsync();
         _vendorCompanies = await SiteSvc.GetVendorCompaniesAsync();

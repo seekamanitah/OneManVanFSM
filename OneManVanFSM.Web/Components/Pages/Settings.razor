@@ -827,22 +827,181 @@ else if (tab == "data")
 
             @* Import Section *@
             <h6 class="mb-2"><i class="bi bi-upload me-1"></i>Import Data</h6>
-            <p class="small text-muted">Upload an Excel workbook (.xlsx) or CSV file (.csv). The system auto-detects the format and target table from the sheet name, file name, or column headers.</p>
+            <p class="small text-muted">Upload an Excel workbook (.xlsx) or CSV file (.csv). The system auto-detects the format and target table, then checks for duplicates before importing.</p>
             <div class="row g-2 align-items-end">
-                <div class="col-md-6">
+                <div class="col-md-5">
                     <InputFile OnChange="OnImportFileSelected" accept=".csv,.txt,.xlsx,.xls" class="form-control" />
                 </div>
                 <div class="col-md-3">
+                    <button class="btn btn-outline-primary w-100" @onclick="PreviewImport"
+                            disabled="@(isProcessing || importFile is null)">
+                        @if (isProcessing && processingAction == "preview")
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-search me-1"></i>Preview & Check
+                    </button>
+                </div>
+                <div class="col-md-2">
                     <button class="btn btn-success w-100" @onclick="ImportCsv"
                             disabled="@(isProcessing || importFile is null)">
                         @if (isProcessing && processingAction == "import")
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        <i class="bi bi-upload me-1"></i>Import
+                        <i class="bi bi-upload me-1"></i>Import Direct
                     </button>
                 </div>
             </div>
+
+            @* Import Preview / Conflict Review *@
+            @if (importPreview is not null)
+            {
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0"><i class="bi bi-clipboard-check me-1"></i>Import Preview</h6>
+                        <div>
+                            <span class="badge bg-primary me-1">@importPreview.TotalRows rows</span>
+                            @if (importPreview.ConflictCount > 0)
+                            {
+                                <span class="badge bg-warning text-dark me-1">@importPreview.ConflictCount conflicts</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-success">No conflicts</span>
+                            }
+                        </div>
+                    </div>
+
+                    @foreach (var w in importPreview.Warnings)
+                    {
+                        <div class="alert alert-warning py-1 mb-1 small"><i class="bi bi-exclamation-triangle me-1"></i>@w</div>
+                    }
+                    @foreach (var e in importPreview.Errors)
+                    {
+                        <div class="alert alert-danger py-1 mb-1 small"><i class="bi bi-x-circle me-1"></i>@e</div>
+                    }
+
+                    @foreach (var table in importPreview.Tables)
+                    {
+                        <div class="card border-0 shadow-sm mb-2">
+                            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                                <span class="fw-semibold"><i class="bi bi-table me-1"></i>@table.TableName</span>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-success btn-sm" @onclick="() => SetAllRowActions(table, ImportRowAction.Import)"><i class="bi bi-check-all me-1"></i>Import All</button>
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => SetAllRowActions(table, ImportRowAction.Skip)"><i class="bi bi-skip-end me-1"></i>Skip All</button>
+                                    @if (table.Rows.Any(r => r.ConflictType != ImportConflictType.None))
+                                    {
+                                        <button class="btn btn-outline-warning btn-sm" @onclick="() => SetConflictRowActions(table, ImportRowAction.Overwrite)"><i class="bi bi-arrow-repeat me-1"></i>Overwrite Conflicts</button>
+                                    }
+                                </div>
+                            </div>
+                            <div class="table-responsive" style="max-height:300px; overflow-y:auto;">
+                                <table class="table table-sm table-hover mb-0 align-middle">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th style="width:40px;">Row</th>
+                                            <th style="width:100px;">Status</th>
+                                            <th style="width:130px;">Action</th>
+                                            @{
+                                                var displayHeaders = table.Headers.Where(h => !string.Equals(h, "Id", StringComparison.OrdinalIgnoreCase)).Take(5).ToArray();
+                                            }
+                                            @foreach (var h in displayHeaders)
+                                            {
+                                                <th>@h</th>
+                                            }
+                                            @if (table.Headers.Length > displayHeaders.Length + 1)
+                                            {
+                                                <th class="text-muted">+@(table.Headers.Length - displayHeaders.Length - 1) more</th>
+                                            }
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var row in table.Rows)
+                                        {
+                                            var rowClass = row.ConflictType switch
+                                            {
+                                                ImportConflictType.ExactDuplicate => "table-danger",
+                                                ImportConflictType.PartialMatch => "table-warning",
+                                                _ => ""
+                                            };
+                                            <tr class="@rowClass">
+                                                <td class="small text-muted">@row.RowNumber</td>
+                                                <td>
+                                                    @if (row.ConflictType == ImportConflictType.ExactDuplicate)
+                                                    {
+                                                        <span class="badge bg-danger" title="@row.ConflictDetail"><i class="bi bi-exclamation-circle me-1"></i>Duplicate</span>
+                                                    }
+                                                    else if (row.ConflictType == ImportConflictType.PartialMatch)
+                                                    {
+                                                        <span class="badge bg-warning text-dark" title="@row.ConflictDetail"><i class="bi bi-question-circle me-1"></i>Similar</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-success"><i class="bi bi-check me-1"></i>New</span>
+                                                    }
+                                                </td>
+                                                <td>
+                                                    <select class="form-select form-select-sm" value="@row.Action" @onchange="e => OnRowActionChanged(row, e)">
+                                                        <option value="@ImportRowAction.Import">Import</option>
+                                                        <option value="@ImportRowAction.Skip">Skip</option>
+                                                        @if (row.ConflictType != ImportConflictType.None)
+                                                        {
+                                                            <option value="@ImportRowAction.Overwrite">Overwrite</option>
+                                                        }
+                                                    </select>
+                                                </td>
+                                                @foreach (var h in displayHeaders)
+                                                {
+                                                    <td class="small text-truncate" style="max-width:180px;" title="@(row.Values.GetValueOrDefault(h) ?? "")">@(row.Values.GetValueOrDefault(h) ?? "—")</td>
+                                                }
+                                                @if (table.Headers.Length > displayHeaders.Length + 1)
+                                                {
+                                                    <td></td>
+                                                }
+                                            </tr>
+                                            @if (row.ConflictType != ImportConflictType.None && !string.IsNullOrEmpty(row.ConflictDetail))
+                                            {
+                                                <tr class="@rowClass">
+                                                    <td colspan="@(displayHeaders.Length + 4)" class="small text-muted ps-4 py-0 border-0">
+                                                        <i class="bi bi-info-circle me-1"></i>@row.ConflictDetail
+                                                    </td>
+                                                </tr>
+                                            }
+                                        }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    }
+
+                    @* Commit bar *@
+                    <div class="d-flex justify-content-between align-items-center mt-2">
+                        <div class="small text-muted">
+                            @{
+                                var importCount = importPreview.Tables.SelectMany(t => t.Rows).Count(r => r.Action == ImportRowAction.Import);
+                                var overwriteCount = importPreview.Tables.SelectMany(t => t.Rows).Count(r => r.Action == ImportRowAction.Overwrite);
+                                var skipCount = importPreview.Tables.SelectMany(t => t.Rows).Count(r => r.Action == ImportRowAction.Skip);
+                            }
+                            <span class="me-2"><i class="bi bi-plus-circle text-success me-1"></i>@importCount new</span>
+                            <span class="me-2"><i class="bi bi-arrow-repeat text-warning me-1"></i>@overwriteCount overwrite</span>
+                            <span><i class="bi bi-skip-end text-secondary me-1"></i>@skipCount skip</span>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="CancelPreview">Cancel</button>
+                            <button class="btn btn-primary btn-sm" @onclick="CommitImport"
+                                    disabled="@(isProcessing || (importCount + overwriteCount) == 0)">
+                                @if (isProcessing && processingAction == "commit")
+                                {
+                                    <span class="spinner-border spinner-border-sm me-1"></span>
+                                }
+                                <i class="bi bi-check-circle me-1"></i>Commit @(importCount + overwriteCount) Records
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+
             @if (importResult is not null)
             {
                 <div class="mt-2">
@@ -1025,6 +1184,7 @@ private Dictionary<string, bool> notificationSettings = new()
     private IBrowserFile? importFile;
     private IBrowserFile? restoreFile;
     private ImportResult? importResult;
+    private ImportPreview? importPreview;
     private bool isProcessing;
     private string? processingAction;
 
@@ -1390,13 +1550,74 @@ private Dictionary<string, bool> notificationSettings = new()
         finally { isProcessing = false; processingAction = null; }
     }
 
-    private void OnImportFileSelected(InputFileChangeEventArgs e) => importFile = e.File;
+    private void OnImportFileSelected(InputFileChangeEventArgs e)
+    {
+        importFile = e.File;
+        importPreview = null;
+        importResult = null;
+    }
     private void OnRestoreFileSelected(InputFileChangeEventArgs e) => restoreFile = e.File;
+
+    private async Task PreviewImport()
+    {
+        if (importFile is null) return;
+        isProcessing = true; processingAction = "preview"; errorMessage = null; importResult = null; importPreview = null;
+        try
+        {
+            await using var stream = importFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);
+            importPreview = await DataSvc.PreviewImportAsync(stream, importFile.Name);
+            if (importPreview.Errors.Count > 0)
+                errorMessage = "Preview completed with errors. Check details below.";
+        }
+        catch (Exception ex) { errorMessage = $"Preview failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; }
+    }
+
+    private async Task CommitImport()
+    {
+        if (importPreview is null) return;
+        isProcessing = true; processingAction = "commit"; errorMessage = null; importResult = null;
+        try
+        {
+            importResult = await DataSvc.CommitImportAsync(importPreview);
+            if (importResult.Success)
+                successMessage = $"Import complete: {importResult.RecordsImported} records imported.";
+            else
+                errorMessage = "Import completed with errors.";
+            importPreview = null;
+        }
+        catch (Exception ex) { errorMessage = $"Import failed: {ex.Message}"; }
+        finally { isProcessing = false; processingAction = null; importFile = null; }
+    }
+
+    private void CancelPreview()
+    {
+        importPreview = null;
+        importResult = null;
+    }
+
+    private static void SetAllRowActions(ImportPreviewTable table, ImportRowAction action)
+    {
+        foreach (var row in table.Rows)
+            row.Action = action;
+    }
+
+    private static void SetConflictRowActions(ImportPreviewTable table, ImportRowAction action)
+    {
+        foreach (var row in table.Rows.Where(r => r.ConflictType != ImportConflictType.None))
+            row.Action = action;
+    }
+
+    private static void OnRowActionChanged(ImportPreviewRow row, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ImportRowAction>(e.Value?.ToString(), out var action))
+            row.Action = action;
+    }
 
     private async Task ImportCsv()
     {
         if (importFile is null) return;
-        isProcessing = true; processingAction = "import"; errorMessage = null; importResult = null;
+        isProcessing = true; processingAction = "import"; errorMessage = null; importResult = null; importPreview = null;
         try
         {
             await using var stream = importFile.OpenReadStream(maxAllowedSize: 50 * 1024 * 1024);

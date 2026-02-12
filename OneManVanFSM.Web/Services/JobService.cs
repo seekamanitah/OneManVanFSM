@@ -157,6 +157,16 @@ public class JobService : IJobService
         _db.Jobs.Add(job);
         await _db.SaveChangesAsync();
 
+        // Sync assigned employees (all selected techs go into JobEmployees)
+        var allEmployeeIds = new List<int>();
+        if (model.AssignedEmployeeId.HasValue)
+            allEmployeeIds.Add(model.AssignedEmployeeId.Value);
+        allEmployeeIds.AddRange(model.AdditionalEmployeeIds.Where(eid => eid != model.AssignedEmployeeId));
+        foreach (var empId in allEmployeeIds)
+        {
+            _db.JobEmployees.Add(new JobEmployee { JobId = job.Id, EmployeeId = empId, AssignedAt = DateTime.UtcNow });
+        }
+
         // Link assets
         if (model.AssetIds.Count > 0)
         {
@@ -164,8 +174,10 @@ public class JobService : IJobService
             {
                 _db.JobAssets.Add(new JobAsset { JobId = job.Id, AssetId = assetId, CreatedAt = DateTime.UtcNow });
             }
-            await _db.SaveChangesAsync();
         }
+
+        if (allEmployeeIds.Count > 0 || model.AssetIds.Count > 0)
+            await _db.SaveChangesAsync();
 
         return job;
     }
@@ -190,6 +202,30 @@ public class JobService : IJobService
 
         if (model.Status == JobStatus.Completed && !wasCompleted)
             await OnJobCompletedAsync(job);
+
+        // Sync assigned employees (replace all JobEmployees with current selection)
+        var allEmployeeIds = new List<int>();
+        if (model.AssignedEmployeeId.HasValue)
+            allEmployeeIds.Add(model.AssignedEmployeeId.Value);
+        allEmployeeIds.AddRange(model.AdditionalEmployeeIds.Where(eid => eid != model.AssignedEmployeeId));
+
+        var existingEmployees = await _db.JobEmployees.Where(je => je.JobId == id).ToListAsync();
+        // Preserve pay type and rate for employees that remain assigned
+        var existingMap = existingEmployees.ToDictionary(je => je.EmployeeId);
+        _db.JobEmployees.RemoveRange(existingEmployees);
+        foreach (var empId in allEmployeeIds)
+        {
+            var je = new JobEmployee { JobId = id, EmployeeId = empId, AssignedAt = DateTime.UtcNow };
+            // Carry over pay type / rate / role from previous assignment if it existed
+            if (existingMap.TryGetValue(empId, out var prev))
+            {
+                je.Role = prev.Role;
+                je.PayType = prev.PayType;
+                je.FlatRateAmount = prev.FlatRateAmount;
+                je.AssignedAt = prev.AssignedAt;
+            }
+            _db.JobEmployees.Add(je);
+        }
 
         // Sync linked assets
         var existingLinks = await _db.JobAssets.Where(ja => ja.JobId == id).ToListAsync();

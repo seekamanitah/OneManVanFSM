@@ -59,7 +59,7 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
             TotalAssets = assets.Count,
             ActiveCount = assets.Count(a => a.Status == AssetStatus.Active),
             MaintenanceNeededCount = assets.Count(a => a.Status == AssetStatus.MaintenanceNeeded),
-            ExpiringWarrantyCount = assets.Count(a => a.WarrantyExpiry.HasValue && a.WarrantyExpiry.Value < now.AddDays(90) && a.WarrantyExpiry.Value > now),
+            ExpiringWarrantyCount = assets.Count(a => !a.NoWarranty && a.WarrantyExpiry.HasValue && a.WarrantyExpiry.Value < now.AddDays(90) && a.WarrantyExpiry.Value > now),
         };
     }
 

@@ -248,11 +248,12 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
         var expiringWarrantyAssets = await db.Assets
             .Include(a => a.Customer)
             .Where(a => !a.IsArchived
+                && !a.NoWarranty
                 && a.Status == AssetStatus.Active
                 && (
-                    (a.LaborWarrantyExpiry != null && a.LaborWarrantyExpiry.Value >= warrantyWindowStart && a.LaborWarrantyExpiry.Value <= warrantyWindowEnd)
-                    || (a.PartsWarrantyExpiry != null && a.PartsWarrantyExpiry.Value >= warrantyWindowStart && a.PartsWarrantyExpiry.Value <= warrantyWindowEnd)
-                    || (a.CompressorWarrantyExpiry != null && a.CompressorWarrantyExpiry.Value >= warrantyWindowStart && a.CompressorWarrantyExpiry.Value <= warrantyWindowEnd)
+                    (a.LaborWarrantyExpiry != null && a.LaborWarrantyTermYears > 0 && a.LaborWarrantyExpiry.Value >= warrantyWindowStart && a.LaborWarrantyExpiry.Value <= warrantyWindowEnd)
+                    || (a.PartsWarrantyExpiry != null && a.PartsWarrantyTermYears > 0 && a.PartsWarrantyExpiry.Value >= warrantyWindowStart && a.PartsWarrantyExpiry.Value <= warrantyWindowEnd)
+                    || (a.CompressorWarrantyExpiry != null && a.CompressorWarrantyTermYears > 0 && a.CompressorWarrantyExpiry.Value >= warrantyWindowStart && a.CompressorWarrantyExpiry.Value <= warrantyWindowEnd)
                 ))
             .OrderBy(a => a.WarrantyExpiry)
             .Take(10)
@@ -260,19 +261,26 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
 
         var expiringWarranties = expiringWarrantyAssets.Select(a =>
         {
-            var earliest = new[] { a.LaborWarrantyExpiry, a.PartsWarrantyExpiry, a.CompressorWarrantyExpiry }
-                .Where(d => d.HasValue)
-                .Select(d => d!.Value)
+            // Only consider warranty categories with term years > 0
+            var validExpiries = new (DateTime? Expiry, int? Term)[]
+            {
+                (a.LaborWarrantyExpiry, a.LaborWarrantyTermYears),
+                (a.PartsWarrantyExpiry, a.PartsWarrantyTermYears),
+                (a.CompressorWarrantyExpiry, a.CompressorWarrantyTermYears),
+            };
+            var earliest = validExpiries
+                .Where(x => x.Expiry.HasValue && (x.Term ?? 0) > 0)
+                .Select(x => x.Expiry!.Value)
                 .OrderBy(d => d)
                 .FirstOrDefault();
             var daysUntil = earliest != default ? (int)(earliest - today).TotalDays : 0;
 
             var alerts = new List<string>();
-            if (a.LaborWarrantyExpiry.HasValue && a.LaborWarrantyExpiry.Value <= warrantyWindowEnd)
+            if (a.LaborWarrantyExpiry.HasValue && (a.LaborWarrantyTermYears ?? 0) > 0 && a.LaborWarrantyExpiry.Value <= warrantyWindowEnd)
                 alerts.Add(a.LaborWarrantyExpiry.Value < today ? "Labor expired" : $"Labor in {(int)(a.LaborWarrantyExpiry.Value - today).TotalDays}d");
-            if (a.PartsWarrantyExpiry.HasValue && a.PartsWarrantyExpiry.Value <= warrantyWindowEnd)
+            if (a.PartsWarrantyExpiry.HasValue && (a.PartsWarrantyTermYears ?? 0) > 0 && a.PartsWarrantyExpiry.Value <= warrantyWindowEnd)
                 alerts.Add(a.PartsWarrantyExpiry.Value < today ? "Parts expired" : $"Parts in {(int)(a.PartsWarrantyExpiry.Value - today).TotalDays}d");
-            if (a.CompressorWarrantyExpiry.HasValue && a.CompressorWarrantyExpiry.Value <= warrantyWindowEnd)
+            if (a.CompressorWarrantyExpiry.HasValue && (a.CompressorWarrantyTermYears ?? 0) > 0 && a.CompressorWarrantyExpiry.Value <= warrantyWindowEnd)
                 alerts.Add(a.CompressorWarrantyExpiry.Value < today ? "Compressor expired" : $"Compressor in {(int)(a.CompressorWarrantyExpiry.Value - today).TotalDays}d");
 
             return new ExpiringWarrantyAsset

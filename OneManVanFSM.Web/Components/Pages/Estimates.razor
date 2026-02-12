@@ -751,7 +751,7 @@ else
     private List<CustomerListItem> _customers = [];
     private List<CompanyDropdownItem> _companies = [];
     private List<ProductOption> productOptions = [];
-    private List<AssetListItem> _assetOptions = [];
+    private List<AssetOption> _assetOptions = [];
     private List<InventoryListItem> _inventoryItems = [];
     private CompanyProfile? _companyProfile;
 
@@ -827,7 +827,7 @@ else
         _customers = await CustomerSvc.GetCustomersAsync();
         _companies = await CompanySvc.GetCompanyDropdownAsync();
         productOptions = await EstimateSvc.GetProductOptionsAsync();
-        _assetOptions = await AssetSvc.GetAssetsAsync();
+        _assetOptions = await AssetSvc.GetAssetOptionsAsync();
         _inventoryItems = await InvSvc.GetItemsAsync();
         var statuses = await DropdownSvc.GetOptionsAsync("EstimateStatus");
         if (statuses.Count > 0) _estimateStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();

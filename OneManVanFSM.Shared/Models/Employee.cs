@@ -38,6 +38,7 @@ public enum EmployeeRole
     Admin,
     Dispatcher,
     Tech,
+    Technician,
     Manager,
     Apprentice
 }

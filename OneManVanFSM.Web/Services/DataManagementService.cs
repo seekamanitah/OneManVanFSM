@@ -60,8 +60,10 @@ public class DataManagementService : IDataManagementService
 
         foreach (var (tableName, queryFunc) in TableMap.OrderBy(t => t.Key))
         {
-            var rows = await queryFunc(_db).ToListAsync();
-            AddWorksheet(workbook, tableName, rows);
+            var query = queryFunc(_db);
+            var entityType = query.ElementType;
+            var rows = await query.ToListAsync();
+            AddWorksheet(workbook, tableName, rows, entityType);
         }
 
         using var ms = new MemoryStream();
@@ -74,34 +76,30 @@ public class DataManagementService : IDataManagementService
         if (!TableMap.TryGetValue(tableName, out var queryFunc))
             throw new InvalidOperationException($"Table '{tableName}' is not exportable.");
 
-        var rows = await queryFunc(_db).ToListAsync();
+        var query = queryFunc(_db);
+        var entityType = query.ElementType;
+        var rows = await query.ToListAsync();
 
         using var workbook = new XLWorkbook();
-        AddWorksheet(workbook, tableName, rows);
+        AddWorksheet(workbook, tableName, rows, entityType);
 
         using var ms = new MemoryStream();
         workbook.SaveAs(ms);
         return ms.ToArray();
     }
 
-    private static void AddWorksheet(XLWorkbook workbook, string sheetName, List<object> rows)
+    private static void AddWorksheet(XLWorkbook workbook, string sheetName, List<object> rows, Type entityType)
     {
         // Excel sheet names max 31 chars, no special chars
         var safeName = sheetName.Length > 31 ? sheetName[..31] : sheetName;
         var ws = workbook.Worksheets.Add(safeName);
 
-        if (rows.Count == 0)
-        {
-            ws.Cell(1, 1).Value = "(empty)";
-            return;
-        }
-
-        var type = rows[0].GetType();
-        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+        // Resolve properties from the entity type (works even with zero rows)
+        var props = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
             .Where(p => IsSimpleType(p.PropertyType))
             .ToArray();
 
-        // Header row — bold with auto-filter
+        // Header row — always written, even when empty
         for (int col = 0; col < props.Length; col++)
         {
             var cell = ws.Cell(1, col + 1);
@@ -110,55 +108,57 @@ public class DataManagementService : IDataManagementService
             cell.Style.Fill.BackgroundColor = XLColor.LightGray;
         }
 
-        // Data rows
-        for (int row = 0; row < rows.Count; row++)
+        if (rows.Count > 0)
         {
-            for (int col = 0; col < props.Length; col++)
+            for (int row = 0; row < rows.Count; row++)
             {
-                var val = props[col].GetValue(rows[row]);
-                var cell = ws.Cell(row + 2, col + 1);
-
-                if (val is null)
-                    continue;
-
-                switch (val)
+                for (int col = 0; col < props.Length; col++)
                 {
-                    case DateTime dt:
-                        cell.Value = dt;
-                        cell.Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
-                        break;
-                    case DateOnly d:
-                        cell.Value = d.ToDateTime(TimeOnly.MinValue);
-                        cell.Style.DateFormat.Format = "yyyy-MM-dd";
-                        break;
-                    case TimeSpan ts:
-                        cell.Value = ts.ToString();
-                        break;
-                    case bool b:
-                        cell.Value = b;
-                        break;
-                    case int i:
-                        cell.Value = i;
-                        break;
-                    case long l:
-                        cell.Value = l;
-                        break;
-                    case decimal dec:
-                        cell.Value = dec;
-                        cell.Style.NumberFormat.Format = "#,##0.00";
-                        break;
-                    case double dbl:
-                        cell.Value = dbl;
-                        break;
-                    case float f:
-                        cell.Value = (double)f;
-                        break;
-                    case Enum e:
-                        cell.Value = e.ToString();
-                        break;
-                    default:
-                        cell.Value = val.ToString();
-                        break;
+                    var val = props[col].GetValue(rows[row]);
+                    var cell = ws.Cell(row + 2, col + 1);
+
+                    if (val is null)
+                        continue;
+
+                    switch (val)
+                    {
+                        case DateTime dt:
+                            cell.Value = dt;
+                            cell.Style.DateFormat.Format = "yyyy-MM-dd HH:mm:ss";
+                            break;
+                        case DateOnly d:
+                            cell.Value = d.ToDateTime(TimeOnly.MinValue);
+                            cell.Style.DateFormat.Format = "yyyy-MM-dd";
+                            break;
+                        case TimeSpan ts:
+                            cell.Value = ts.ToString();
+                            break;
+                        case bool b:
+                            cell.Value = b;
+                            break;
+                        case int i:
+                            cell.Value = i;
+                            break;
+                        case long l:
+                            cell.Value = l;
+                            break;
+                        case decimal dec:
+                            cell.Value = dec;
+                            cell.Style.NumberFormat.Format = "#,##0.00";
+                            break;
+                        case double dbl:
+                            cell.Value = dbl;
+                            break;
+                        case float f:
+                            cell.Value = (double)f;
+                            break;
+                        case Enum e:
+                            cell.Value = e.ToString();
+                            break;
+                        default:
+                            cell.Value = val.ToString();
+                            break;
+                    }
                 }
             }
         }
@@ -168,7 +168,7 @@ public class DataManagementService : IDataManagementService
             ws.RangeUsed()?.SetAutoFilter();
 
         // Auto-fit columns (cap at 50 to avoid absurdly wide columns)
-        ws.Columns().AdjustToContents(1, Math.Min(rows.Count + 1, 500));
+        ws.Columns().AdjustToContents(1, Math.Max(rows.Count + 1, 2));
         foreach (var col in ws.ColumnsUsed())
         {
             if (col.Width > 50)
@@ -595,6 +595,383 @@ public class DataManagementService : IDataManagementService
         }
         result.Add(current.ToString());
         return result.ToArray();
+    }
+
+    // --- Duplicate-detection key fields per table ---
+    // These are the fields used to detect if an imported row already exists in the database.
+    // Multiple fields are checked with OR logic (any match = potential conflict).
+    private static readonly Dictionary<string, string[]> DuplicateKeyFields = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Customers"] = ["Name"],
+        ["Companies"] = ["Name"],
+        ["Sites"] = ["Name"],
+        ["Assets"] = ["Name", "SerialNumber"],
+        ["Products"] = ["Name", "ModelNumber", "PartNumber", "ProductNumber"],
+        ["InventoryItems"] = ["Name", "SKU", "PartNumber"],
+        ["Employees"] = ["Name", "Email"],
+        ["Jobs"] = ["JobNumber"],
+        ["Estimates"] = ["EstimateNumber"],
+        ["Invoices"] = ["InvoiceNumber"],
+        ["Payments"] = ["Id"],
+        ["Expenses"] = ["Id"],
+        ["TimeEntries"] = ["Id"],
+        ["ServiceAgreements"] = ["AgreementNumber"],
+        ["QuickNotes"] = ["Title"],
+        ["Documents"] = ["Name"],
+        ["MaterialLists"] = ["Name"],
+        ["MaterialListItems"] = ["Id"],
+        ["CalendarEvents"] = ["Title"],
+        ["Templates"] = ["Name"],
+        ["Suppliers"] = ["Name", "Email", "AccountNumber"],
+        ["DropdownOptions"] = ["Category", "Value"],
+        ["InvoiceLines"] = ["Id"],
+        ["EstimateLines"] = ["Id"],
+        ["JobEmployees"] = ["Id"],
+        ["JobAssets"] = ["Id"],
+        ["ServiceAgreementAssets"] = ["Id"],
+        ["AssetServiceLogs"] = ["Id"],
+    };
+
+    public async Task<ImportPreview> PreviewImportAsync(Stream fileStream, string fileName)
+    {
+        var preview = new ImportPreview();
+
+        // Copy stream to memory so we can seek
+        using var ms = new MemoryStream();
+        await fileStream.CopyToAsync(ms);
+        ms.Position = 0;
+
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        if (ext is ".xlsx" or ".xls")
+            await PreviewXlsx(ms, fileName, preview);
+        else
+            await PreviewCsv(ms, fileName, preview);
+
+        return preview;
+    }
+
+    private async Task PreviewXlsx(MemoryStream ms, string fileName, ImportPreview preview)
+    {
+        try
+        {
+            using var workbook = new XLWorkbook(ms);
+            foreach (var ws in workbook.Worksheets)
+            {
+                var sheetName = ws.Name.Trim();
+                if (!TableMap.ContainsKey(sheetName))
+                {
+                    var detectedName = DetectTableNameFromHeaders(ws);
+                    if (detectedName is not null)
+                        sheetName = detectedName;
+                    else
+                    {
+                        var fileBaseName = Path.GetFileNameWithoutExtension(fileName);
+                        if (TableMap.ContainsKey(fileBaseName))
+                            sheetName = fileBaseName;
+                        else
+                        {
+                            preview.Warnings.Add($"Skipping sheet '{ws.Name}': could not match to a known table.");
+                            continue;
+                        }
+                    }
+                }
+                await PreviewTableFromWorksheet(sheetName, ws, preview);
+            }
+        }
+        catch (Exception ex)
+        {
+            preview.Errors.Add($"Failed to read Excel file: {ex.Message}");
+        }
+    }
+
+    private async Task PreviewCsv(MemoryStream ms, string fileName, ImportPreview preview)
+    {
+        using var reader = new StreamReader(ms, Encoding.UTF8);
+        var content = await reader.ReadToEndAsync();
+
+        if (content.Contains("### TABLE:"))
+        {
+            var sections = content.Split("### TABLE:", StringSplitOptions.RemoveEmptyEntries);
+            foreach (var section in sections)
+            {
+                var lines = section.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+                if (lines.Length < 2) continue;
+                var tableHeader = lines[0].Trim().TrimEnd('#').Trim();
+                var csvLines = lines.Skip(1).Where(l => l.Trim() != "(empty)" && !string.IsNullOrWhiteSpace(l)).ToArray();
+                if (csvLines.Length < 2) continue;
+                await PreviewTableFromCsvLines(tableHeader, csvLines, preview);
+            }
+        }
+        else
+        {
+            var tableName = DetectTableName(fileName, content);
+            if (tableName is null)
+            {
+                preview.Errors.Add("Could not determine target table. Name your file like 'Customers.csv' or use a full export format.");
+                return;
+            }
+            var csvLines = content.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Where(l => !string.IsNullOrWhiteSpace(l)).ToArray();
+            if (csvLines.Length < 2) { preview.Errors.Add("CSV file has no data rows."); return; }
+            await PreviewTableFromCsvLines(tableName, csvLines, preview);
+        }
+    }
+
+    private async Task PreviewTableFromWorksheet(string tableName, IXLWorksheet ws, ImportPreview preview)
+    {
+        if (!TableMap.TryGetValue(tableName, out var queryFunc))
+        {
+            preview.Warnings.Add($"Skipping unknown table: {tableName}");
+            return;
+        }
+
+        var entityType = queryFunc(_db).ElementType;
+        var props = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(p => IsSimpleType(p.PropertyType))
+            .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+
+        var lastCol = ws.LastColumnUsed()?.ColumnNumber() ?? 0;
+        var lastRow = ws.LastRowUsed()?.RowNumber() ?? 0;
+        if (lastCol == 0 || lastRow < 2) return;
+
+        var headers = new string[lastCol];
+        for (int col = 1; col <= lastCol; col++)
+            headers[col - 1] = ws.Cell(1, col).GetString().Trim();
+
+        var table = new ImportPreviewTable { TableName = tableName, Headers = headers.Where(h => !string.IsNullOrEmpty(h)).ToArray() };
+
+        // Load existing key values for duplicate detection
+        var existingKeys = await LoadExistingKeyValues(tableName, queryFunc);
+
+        for (int row = 2; row <= lastRow; row++)
+        {
+            var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            for (int col = 0; col < headers.Length; col++)
+            {
+                var h = headers[col];
+                if (string.IsNullOrEmpty(h)) continue;
+                var cell = ws.Cell(row, col + 1);
+                values[h] = cell.IsEmpty() ? null : cell.GetString().Trim();
+            }
+
+            var previewRow = new ImportPreviewRow { RowNumber = row, Values = values };
+            DetectConflict(tableName, values, existingKeys, previewRow);
+            table.Rows.Add(previewRow);
+        }
+
+        if (table.Rows.Count > 0)
+            preview.Tables.Add(table);
+    }
+
+    private async Task PreviewTableFromCsvLines(string tableName, string[] csvLines, ImportPreview preview)
+    {
+        if (!TableMap.TryGetValue(tableName, out var queryFunc))
+        {
+            preview.Warnings.Add($"Skipping unknown table: {tableName}");
+            return;
+        }
+
+        var headers = ParseCsvLine(csvLines[0]).Select(h => h.Trim()).ToArray();
+        var table = new ImportPreviewTable { TableName = tableName, Headers = headers.Where(h => !string.IsNullOrEmpty(h)).ToArray() };
+
+        var existingKeys = await LoadExistingKeyValues(tableName, queryFunc);
+
+        for (int i = 1; i < csvLines.Length; i++)
+        {
+            var cols = ParseCsvLine(csvLines[i]);
+            var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            for (int j = 0; j < Math.Min(headers.Length, cols.Length); j++)
+            {
+                if (!string.IsNullOrEmpty(headers[j]))
+                    values[headers[j]] = string.IsNullOrEmpty(cols[j]) ? null : cols[j].Trim();
+            }
+            var previewRow = new ImportPreviewRow { RowNumber = i + 1, Values = values };
+            DetectConflict(tableName, values, existingKeys, previewRow);
+            table.Rows.Add(previewRow);
+        }
+
+        if (table.Rows.Count > 0)
+            preview.Tables.Add(table);
+    }
+
+    /// <summary>
+    /// Loads existing key-field values from the database for duplicate detection.
+    /// Returns a list of (Id, Dictionary of keyField->value) for each existing entity.
+    /// </summary>
+    private async Task<List<(int Id, Dictionary<string, string?> Keys)>> LoadExistingKeyValues(
+        string tableName, Func<AppDbContext, IQueryable<object>> queryFunc)
+    {
+        var result = new List<(int, Dictionary<string, string?>)>();
+        if (!DuplicateKeyFields.TryGetValue(tableName, out var keyFields)) return result;
+
+        var entityType = queryFunc(_db).ElementType;
+        var idProp = entityType.GetProperty("Id");
+        var keyProps = keyFields
+            .Select(k => (Name: k, Prop: entityType.GetProperty(k)))
+            .Where(x => x.Prop is not null)
+            .ToArray();
+
+        if (idProp is null || keyProps.Length == 0) return result;
+
+        var entities = await queryFunc(_db).ToListAsync();
+        foreach (var entity in entities)
+        {
+            var id = (int)(idProp.GetValue(entity) ?? 0);
+            var keys = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (name, prop) in keyProps)
+            {
+                var val = prop!.GetValue(entity);
+                keys[name] = val?.ToString();
+            }
+            result.Add((id, keys));
+        }
+        return result;
+    }
+
+    private static void DetectConflict(string tableName, Dictionary<string, string?> importValues,
+        List<(int Id, Dictionary<string, string?> Keys)> existingKeys, ImportPreviewRow row)
+    {
+        if (!DuplicateKeyFields.TryGetValue(tableName, out var keyFields)) return;
+
+        foreach (var (existingId, existingKeyValues) in existingKeys)
+        {
+            var matchedFields = new List<string>();
+            foreach (var keyField in keyFields)
+            {
+                if (keyField == "Id") continue; // Never match on Id for duplicate detection
+                if (!importValues.TryGetValue(keyField, out var importVal)) continue;
+                if (string.IsNullOrWhiteSpace(importVal)) continue;
+                if (!existingKeyValues.TryGetValue(keyField, out var existingVal)) continue;
+                if (string.IsNullOrWhiteSpace(existingVal)) continue;
+
+                if (string.Equals(importVal, existingVal, StringComparison.OrdinalIgnoreCase))
+                    matchedFields.Add(keyField);
+            }
+
+            if (matchedFields.Count > 0)
+            {
+                // Check if all non-null key fields match = exact duplicate, else partial
+                var importKeyCount = keyFields.Count(k => k != "Id" && importValues.TryGetValue(k, out var v) && !string.IsNullOrWhiteSpace(v));
+                row.ConflictType = matchedFields.Count >= importKeyCount
+                    ? ImportConflictType.ExactDuplicate
+                    : ImportConflictType.PartialMatch;
+                row.ExistingEntityId = existingId;
+                row.ConflictDetail = $"Matches existing record (ID {existingId}) on: {string.Join(", ", matchedFields)}";
+                row.Action = ImportRowAction.Skip; // Default to skip for conflicts
+                return; // First match is enough
+            }
+        }
+    }
+
+    public async Task<ImportResult> CommitImportAsync(ImportPreview preview)
+    {
+        var result = new ImportResult();
+
+        foreach (var table in preview.Tables)
+        {
+            if (!TableMap.TryGetValue(table.TableName, out var queryFunc))
+            {
+                result.Warnings.Add($"Skipping unknown table: {table.TableName}");
+                continue;
+            }
+
+            var entityType = queryFunc(_db).ElementType;
+            var props = entityType.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+                .Where(p => IsSimpleType(p.PropertyType) && p.CanWrite)
+                .ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);
+            var idProp = entityType.GetProperty("Id");
+
+            int tableCount = 0;
+            foreach (var row in table.Rows)
+            {
+                if (row.Action == ImportRowAction.Skip) continue;
+
+                try
+                {
+                    if (row.Action == ImportRowAction.Overwrite && row.ExistingEntityId.HasValue && idProp is not null)
+                    {
+                        // Update existing entity
+                        var existing = await _db.FindAsync(entityType, row.ExistingEntityId.Value);
+                        if (existing is not null)
+                        {
+                            ApplyValues(existing, row.Values, props);
+                            tableCount++;
+                        }
+                        else
+                        {
+                            result.Warnings.Add($"Row {row.RowNumber} in {table.TableName}: existing record ID {row.ExistingEntityId} not found, importing as new.");
+                            var entity = Activator.CreateInstance(entityType)!;
+                            ApplyValues(entity, row.Values, props);
+                            _db.Add(entity);
+                            tableCount++;
+                        }
+                    }
+                    else // Import as new
+                    {
+                        var entity = Activator.CreateInstance(entityType)!;
+                        ApplyValues(entity, row.Values, props);
+                        _db.Add(entity);
+                        tableCount++;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    result.Warnings.Add($"Row {row.RowNumber} in {table.TableName}: {ex.Message}");
+                }
+            }
+
+            if (tableCount > 0)
+            {
+                await _db.SaveChangesAsync();
+                result.Tables.Add(table.TableName);
+                result.RecordsImported += tableCount;
+            }
+        }
+
+        result.Success = result.Errors.Count == 0;
+        return result;
+    }
+
+    private static void ApplyValues(object entity, Dictionary<string, string?> values, Dictionary<string, PropertyInfo> props)
+    {
+        foreach (var (header, val) in values)
+        {
+            if (string.Equals(header, "Id", StringComparison.OrdinalIgnoreCase)) continue;
+            if (!props.TryGetValue(header, out var prop)) continue;
+            if (string.IsNullOrEmpty(val)) continue;
+
+            try
+            {
+                var targetType = Nullable.GetUnderlyingType(prop.PropertyType) ?? prop.PropertyType;
+                object? converted;
+                if (targetType.IsEnum)
+                    converted = Enum.Parse(targetType, val, ignoreCase: true);
+                else if (targetType == typeof(DateTime))
+                    converted = DateTime.Parse(val, CultureInfo.InvariantCulture);
+                else if (targetType == typeof(TimeSpan))
+                    converted = TimeSpan.Parse(val, CultureInfo.InvariantCulture);
+                else if (targetType == typeof(bool))
+                    converted = bool.Parse(val);
+                else if (targetType == typeof(decimal))
+                    converted = decimal.Parse(val, CultureInfo.InvariantCulture);
+                else if (targetType == typeof(int))
+                    converted = int.Parse(val, CultureInfo.InvariantCulture);
+                else if (targetType == typeof(long))
+                    converted = long.Parse(val, CultureInfo.InvariantCulture);
+                else if (targetType == typeof(double))
+                    converted = double.Parse(val, CultureInfo.InvariantCulture);
+                else if (targetType == typeof(float))
+                    converted = float.Parse(val, CultureInfo.InvariantCulture);
+                else
+                    converted = Convert.ChangeType(val, targetType, CultureInfo.InvariantCulture);
+
+                prop.SetValue(entity, converted);
+            }
+            catch
+            {
+                // Skip unparseable values
+            }
+        }
     }
 
     public async Task<byte[]> BackupDatabaseAsync()

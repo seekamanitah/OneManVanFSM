@@ -39,6 +39,7 @@ public class SiteListItem
     public int? SqFt { get; set; }
     public int? Zones { get; set; }
     public string? OwnerName { get; set; }
+    public string? CustomerName { get; set; }
     public int? CustomerId { get; set; }
     public int? CompanyId { get; set; }
     public int AssetCount { get; set; }

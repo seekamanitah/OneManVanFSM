@@ -274,12 +274,15 @@ public class AssetService : IAssetService
                 if (compressorYears == 0) { compressorYears = pCompressor; asset.CompressorWarrantyTermYears = compressorYears; }
             }
 
-            asset.LaborWarrantyExpiry = startDate.Value.AddYears(laborYears);
-            asset.PartsWarrantyExpiry = startDate.Value.AddYears(partsYears);
-            asset.CompressorWarrantyExpiry = startDate.Value.AddYears(compressorYears);
+            // Only set expiry for warranties with term years > 0 (0 means N/A)
+            asset.LaborWarrantyExpiry = laborYears > 0 ? startDate.Value.AddYears(laborYears) : null;
+            asset.PartsWarrantyExpiry = partsYears > 0 ? startDate.Value.AddYears(partsYears) : null;
+            asset.CompressorWarrantyExpiry = compressorYears > 0 ? startDate.Value.AddYears(compressorYears) : null;
 
-            // Set the general WarrantyExpiry to the latest of the three
-            asset.WarrantyExpiry = new[] { asset.LaborWarrantyExpiry, asset.PartsWarrantyExpiry, asset.CompressorWarrantyExpiry }.Max();
+            // Set the general WarrantyExpiry to the latest non-null expiry
+            var allExpiries = new[] { asset.LaborWarrantyExpiry, asset.PartsWarrantyExpiry, asset.CompressorWarrantyExpiry }
+                .Where(d => d.HasValue).Select(d => d!.Value).ToArray();
+            asset.WarrantyExpiry = allExpiries.Length > 0 ? allExpiries.Max() : null;
         }
 
         // Auto-set NextServiceDue to 1 year from install if not already set
@@ -487,14 +490,27 @@ public class AssetService : IAssetService
 
     public async Task<List<AssetOption>> GetAssetOptionsAsync(int? customerId = null, int? siteId = null)
     {
-        var query = _db.Assets.Where(a => !a.IsArchived);
+        var query = _db.Assets
+            .Include(a => a.Customer)
+            .Include(a => a.Site)
+            .Where(a => !a.IsArchived);
         if (siteId.HasValue)
             query = query.Where(a => a.SiteId == siteId.Value);
         else if (customerId.HasValue)
             query = query.Where(a => a.CustomerId == customerId.Value);
         return await query
             .OrderBy(a => a.Name)
-            .Select(a => new AssetOption { Id = a.Id, Name = a.Name, AssetType = a.AssetType })
+            .Select(a => new AssetOption
+            {
+                Id = a.Id,
+                Name = a.Name,
+                AssetType = a.AssetType,
+                SerialNumber = a.SerialNumber,
+                CustomerName = a.Customer != null ? a.Customer.Name : null,
+                SiteName = a.Site != null ? a.Site.Name : null,
+                CustomerId = a.CustomerId,
+                SiteId = a.SiteId,
+            })
             .ToListAsync();
     }
 }

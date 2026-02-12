@@ -83,7 +83,7 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Customer</label>
-                        <InputSelect @bind-Value="form.CustomerId" class="form-select">
+                        <InputSelect @bind-Value="form.CustomerId" @bind-Value:after="OnAgreementCustomerChanged" class="form-select">
                             <option value="">— Select Customer —</option>
                             @foreach (var c in _customers)
                             {
@@ -103,11 +103,11 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Site</label>
-                        <InputSelect @bind-Value="form.SiteId" class="form-select">
+                        <InputSelect @bind-Value="form.SiteId" @bind-Value:after="OnAgreementSiteChanged" class="form-select">
                             <option value="">— Select Site —</option>
                             @foreach (var si in _sites)
                             {
-                                <option value="@si.Id">@si.Name</option>
+                                <option value="@si.Id">@si.Name @(si.CustomerName is not null ? $"[{si.CustomerName}]" : "")</option>
                             }
                         </InputSelect>
                     </div>
@@ -469,6 +469,7 @@ else
             AddOns = d.AddOns, Notes = d.Notes,
             CustomerId = d.CustomerId, CompanyId = d.CompanyId, SiteId = d.SiteId
         };
+        await RefreshAgreementSites();
         mode = "form";
     }
 
@@ -567,6 +568,30 @@ else
 
     private MarkupString SortIcon(string column) =>
         sortBy == column ? new MarkupString(sortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>") : default;
+
+    // --- Customer/Site change handlers for filtering ---
+    private async Task OnAgreementCustomerChanged()
+    {
+        form.SiteId = null;
+        await RefreshAgreementSites();
+    }
+
+    private async Task OnAgreementSiteChanged()
+    {
+        // No additional refresh needed; site change is terminal
+    }
+
+    private async Task RefreshAgreementSites()
+    {
+        if (form.CustomerId.HasValue)
+            _sites = await SiteSvc.GetSitesAsync(new SiteFilter { CustomerId = form.CustomerId });
+        else
+            _sites = await SiteSvc.GetSitesAsync();
+
+        // Auto-select site if only one exists for the customer
+        if (_sites.Count == 1 && !form.SiteId.HasValue)
+            form.SiteId = _sites[0].Id;
+    }
 
     // ---- Multi-select & Bulk Actions ----
     private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }

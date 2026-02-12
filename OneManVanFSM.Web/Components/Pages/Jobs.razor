@@ -437,7 +437,7 @@ else if (_view == View.Detail && _detail is not null)
                     <div class="card-body">
                         <h6 class="text-muted"><i class="bi bi-box-seam me-1"></i>Material List</h6>
                         <p class="mb-1"><a href="materiallists/@_detail.MaterialSummary.Id">@_detail.MaterialSummary.Name</a></p>
-                        <small class="text-muted">@_detail.MaterialSummary.ItemCount items � @_detail.MaterialSummary.Total.ToString("C")</small>
+                        <small class="text-muted">@_detail.MaterialSummary.ItemCount items � @_detail.MaterialSummary.Total.ToString("C")</small>
                     </div>
                 </div>
             }
@@ -653,7 +653,7 @@ else if (_view == View.Form)
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Customer</label>
-                        <InputSelect @bind-Value="_editModel.CustomerId" class="form-select">
+                        <InputSelect @bind-Value="_editModel.CustomerId" @bind-Value:after="OnJobCustomerChanged" class="form-select">
                             <option value="">— Select Customer —</option>
                             @foreach (var c in _customers)
                             {
@@ -663,11 +663,11 @@ else if (_view == View.Form)
                     </div>
                     <div class="col-md-4 mb-2">
                         <label class="form-label">Site</label>
-                        <InputSelect @bind-Value="_editModel.SiteId" class="form-select">
+                        <InputSelect @bind-Value="_editModel.SiteId" @bind-Value:after="OnJobSiteChanged" class="form-select">
                             <option value="">— Select Site —</option>
                             @foreach (var s in _sites)
                             {
-                                <option value="@s.Id">@s.Name @(!string.IsNullOrEmpty(s.Address) ? $"({s.Address})" : "")</option>
+                                <option value="@s.Id">@s.Name @(!string.IsNullOrEmpty(s.Address) ? $"({s.Address})" : "") @(s.CustomerName is not null ? $"[{s.CustomerName}]" : "")</option>
                             }
                         </InputSelect>
                     </div>
@@ -755,7 +755,7 @@ else if (_view == View.Form)
                                                    checked="@_selectedAssetIds.Contains(a.Id)"
                                                    @onchange="() => ToggleAsset(a.Id)" />
                                             <label class="form-check-label" for="asset_@a.Id">
-                                                @a.Name @(!string.IsNullOrEmpty(a.AssetType) ? $"({a.AssetType})" : "")
+                                                @a.Display
                                             </label>
                                         </div>
                                     </li>
@@ -827,7 +827,7 @@ else if (_view == View.Form)
     private decimal? _addEmpFlatRate;
 
     // Asset linking
-    private List<AssetListItem> _assets = [];
+    private List<AssetOption> _assets = [];
     private HashSet<int> _selectedAssetIds = [];
 
     protected override void OnInitialized()
@@ -859,7 +859,7 @@ else if (_view == View.Form)
             _customers = await CustomerSvc.GetCustomersAsync();
             _companies = await CompanySvc.GetCompanyDropdownAsync();
             _sites = await SiteSvc.GetSitesAsync();
-            _assets = await AssetSvc.GetAssetsAsync();
+            _assets = await AssetSvc.GetAssetOptionsAsync();
             await LoadFormDropdowns();
             if (Id.HasValue)
             {
@@ -879,6 +879,8 @@ else if (_view == View.Form)
                         AssignedEmployeeId = d.AssignedEmployeeId
                     };
                     _permitRequired = d.PermitRequired == true;
+                    // Filter sites/assets by customer context
+                    await RefreshSitesAndAssets();
                     // Populate multi-select from primary + additional employee ids
                     _selectedTechIds = [];
                     if (d.AssignedEmployeeId.HasValue) _selectedTechIds.Add(d.AssignedEmployeeId.Value);
@@ -1117,6 +1119,43 @@ else if (_view == View.Form)
     {
         if (!_selectedAssetIds.Remove(assetId))
             _selectedAssetIds.Add(assetId);
+    }
+
+    private async Task OnJobCustomerChanged()
+    {
+        _editModel.SiteId = null;
+        _selectedAssetIds = [];
+        await RefreshSitesAndAssets();
+    }
+
+    private async Task OnJobSiteChanged()
+    {
+        _selectedAssetIds = [];
+        await RefreshSitesAndAssets();
+    }
+
+    private async Task RefreshSitesAndAssets()
+    {
+        // Filter sites by selected customer
+        if (_editModel.CustomerId.HasValue)
+            _sites = await SiteSvc.GetSitesAsync(new SiteFilter { CustomerId = _editModel.CustomerId });
+        else
+            _sites = await SiteSvc.GetSitesAsync();
+
+        // Auto-select site if only one exists for the customer
+        if (_sites.Count == 1 && !_editModel.SiteId.HasValue)
+            _editModel.SiteId = _sites[0].Id;
+
+        // Filter assets by site first, then customer
+        _assets = await AssetSvc.GetAssetOptionsAsync(_editModel.CustomerId, _editModel.SiteId);
+
+        // Auto-select all assets if they match the customer/site context
+        if (_assets.Count > 0 && _selectedAssetIds.Count == 0)
+        {
+            if (_assets.Count == 1)
+                _selectedAssetIds = [_assets[0].Id];
+            // If multiple, don't auto-select — let user choose via checkboxes
+        }
     }
 
     // ---- Multi-select & Bulk Actions ----
