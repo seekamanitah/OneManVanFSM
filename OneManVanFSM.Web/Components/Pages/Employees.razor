@@ -111,8 +111,10 @@
                                @oninput="e => form.EmergencyContactPhone = FormatPhone(e.Value?.ToString())" placeholder="(555) 123-4567" />
                     </div>
                 </div>
-                <div class="mt-3">
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save</button>
+                <div class="mt-3 d-flex gap-2 align-items-center">
+                    @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                    <button type="submit" class="btn btn-outline-primary" @onclick="() => _closeAfterSave = false"><i class="bi bi-floppy me-1"></i>Save</button>
+                    <button type="submit" class="btn btn-primary" @onclick="() => _closeAfterSave = true"><i class="bi bi-check-circle me-1"></i>Save & Close</button>
                     <button type="button" class="btn btn-outline-secondary ms-2" @onclick="GoToList">Cancel</button>
                 </div>
                 @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
@@ -644,6 +646,10 @@ else
     private string? errorMsg;
     private bool _confirmArchive;
 
+    // Save/Close state
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
+
     // Multi-select & bulk action state
     private HashSet<int> _selectedIds = [];
     private bool _confirmBulkDelete;
@@ -796,9 +802,19 @@ else
         try
         {
             errorMsg = null;
-            if (editId.HasValue) await EmployeeSvc.UpdateEmployeeAsync(editId.Value, form);
-            else await EmployeeSvc.CreateEmployeeAsync(form);
-            Nav.NavigateTo("/employees");
+            _savedMsg = null;
+            if (editId.HasValue)
+            {
+                await EmployeeSvc.UpdateEmployeeAsync(editId.Value, form);
+                if (_closeAfterSave) Nav.NavigateTo("/employees");
+                else _savedMsg = "Saved!";
+            }
+            else
+            {
+                var created = await EmployeeSvc.CreateEmployeeAsync(form);
+                if (_closeAfterSave) Nav.NavigateTo("/employees");
+                else Nav.NavigateTo($"/employees/{created.Id}/edit");
+            }
         }
         catch (Exception ex) { errorMsg = ex.Message; }
     }

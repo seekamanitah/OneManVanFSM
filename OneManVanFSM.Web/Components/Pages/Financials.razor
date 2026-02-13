@@ -35,7 +35,7 @@ else
                 <div class="card-body text-center py-3">
                     <div class="fs-4 fw-bold text-warning">@dashboard.TotalOutstanding.ToString("C")</div>
                     <small class="text-muted">Outstanding</small>
-                    <div class="text-muted small mt-1">@dashboard.OverdueInvoiceCount overdue · @dashboard.DraftInvoiceCount drafts</div>
+                    <div class="text-muted small mt-1">@dashboard.OverdueInvoiceCount overdue &middot; @dashboard.DraftInvoiceCount drafts</div>
                 </div>
             </div>
         </div>
@@ -44,7 +44,7 @@ else
                 <div class="card-body text-center py-3">
                     <div class="fs-4 fw-bold text-danger">@dashboard.TotalExpenses.ToString("C")</div>
                     <small class="text-muted">Expenses</small>
-                    <div class="text-muted small mt-1">@dashboard.TotalExpenseCount total · @dashboard.PendingExpenseCount pending</div>
+                    <div class="text-muted small mt-1">@dashboard.TotalExpenseCount total &middot; @dashboard.PendingExpenseCount pending</div>
                 </div>
             </div>
         </div>
@@ -53,7 +53,7 @@ else
                 <div class="card-body text-center py-3">
                     <div class="fs-4 fw-bold @(dashboard.NetProfit >= 0 ? "text-success" : "text-danger")">@dashboard.NetProfit.ToString("C")</div>
                     <small class="text-muted">Net Profit</small>
-                    <div class="text-muted small mt-1">Revenue ? Expenses</div>
+                    <div class="text-muted small mt-1">Revenue &minus; Expenses</div>
                 </div>
             </div>
         </div>
@@ -71,7 +71,7 @@ else
                     </div>
                     <div>
                         <h6 class="mb-0">Invoices</h6>
-                        <small class="text-muted">@dashboard.TotalInvoiceCount total · @dashboard.OverdueInvoiceCount overdue · @dashboard.DraftInvoiceCount drafts</small>
+                        <small class="text-muted">@dashboard.TotalInvoiceCount total &middot; @dashboard.OverdueInvoiceCount overdue &middot; @dashboard.DraftInvoiceCount drafts</small>
                     </div>
                     <i class="bi bi-chevron-right ms-auto text-muted"></i>
                 </div>
@@ -87,7 +87,7 @@ else
                     </div>
                     <div>
                         <h6 class="mb-0">Expenses</h6>
-                        <small class="text-muted">@dashboard.TotalExpenseCount total · @dashboard.PendingExpenseCount pending approval</small>
+                        <small class="text-muted">@dashboard.TotalExpenseCount total &middot; @dashboard.PendingExpenseCount pending approval</small>
                     </div>
                     <i class="bi bi-chevron-right ms-auto text-muted"></i>
                 </div>
@@ -148,8 +148,8 @@ else
                                         <td><strong>@p.Amount.ToString("C")</strong></td>
                                         <td>@p.Method</td>
                                         <td><span class="badge @GetPayBadge(p.Status)">@p.Status</span></td>
-                                        <td>@if (p.InvoiceId.HasValue) { <a href="javascript:void(0)" @onclick="() => ViewInvoice(p.InvoiceId.Value)">@(p.InvoiceNumber ?? "View")</a> } else { <span>â€”</span> }</td>
-                                        <td>@(p.Reference ?? "â€”")</td>
+                                        <td>@if (p.InvoiceId.HasValue) { <a href="javascript:void(0)" @onclick="() => ViewInvoice(p.InvoiceId.Value)">@(p.InvoiceNumber ?? "View")</a> } else { <span>&mdash;</span> }</td>
+                                        <td>@(p.Reference ?? "&mdash;")</td>
                                         <td>@p.PaymentDate.ToString("MMM dd")</td>
                                     </tr>
                                 }

@@ -34,6 +34,14 @@ public static class DatabaseInitializer
             context.Database.EnsureDeleted();
             // EnsureCreated will be called by the caller in Program.cs.
         }
+        else
+        {
+            // Fix any empty-string values in decimal columns (legacy data issue)
+            var conn = context.Database.GetDbConnection();
+            if (conn.State != ConnectionState.Open)
+                conn.Open();
+            SanitizeEmptyDecimalColumns(context, conn);
+        }
     }
 
     private static bool HasSchemaMismatch(AppDbContext context)
@@ -106,7 +114,7 @@ public static class DatabaseInitializer
                 var storeType = property.GetColumnType(storeObject) ?? "TEXT";
                 var defaultClause = property.IsNullable
                     ? ""
-                    : $" NOT NULL DEFAULT {GetSqliteDefault(storeType)}";
+                    : $" NOT NULL DEFAULT {GetSqliteDefault(storeType, property.ClrType)}";
 
                 using var cmd = connection.CreateCommand();
                 cmd.CommandText = $"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {storeType}{defaultClause}";
@@ -146,6 +154,9 @@ public static class DatabaseInitializer
             }
         }
 
+        // Phase 3: Fix any empty-string values in decimal columns (caused by prior TEXT default)
+        SanitizeEmptyDecimalColumns(context, connection);
+
         Console.WriteLine("[DatabaseInitializer] Non-destructive schema migration completed — data preserved.");
     }
 
@@ -160,11 +171,59 @@ public static class DatabaseInitializer
         return columns;
     }
 
-    private static string GetSqliteDefault(string storeType)
+    private static string GetSqliteDefault(string storeType, Type? clrType = null)
     {
         var upper = storeType.ToUpperInvariant();
         if (upper.Contains("INTEGER")) return "0";
         if (upper.Contains("REAL")) return "0.0";
+
+        // EF Core maps decimal to TEXT in SQLite — default must be '0' not ''
+        if (clrType is not null)
+        {
+            var underlying = Nullable.GetUnderlyingType(clrType) ?? clrType;
+            if (underlying == typeof(decimal) || underlying == typeof(double) || underlying == typeof(float))
+                return "'0'";
+        }
+
         return "''";
+    }
+
+    /// <summary>
+    /// Scans all tables for decimal columns that contain empty strings and replaces
+    /// them with '0'. This fixes data corrupted by a prior version of GetSqliteDefault.
+    /// </summary>
+    private static void SanitizeEmptyDecimalColumns(AppDbContext context, System.Data.Common.DbConnection connection)
+    {
+        foreach (var entityType in context.Model.GetEntityTypes())
+        {
+            var tableName = entityType.GetTableName();
+            if (string.IsNullOrEmpty(tableName))
+                continue;
+
+            var storeObject = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
+            foreach (var property in entityType.GetProperties())
+            {
+                var underlying = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+                if (underlying != typeof(decimal) && underlying != typeof(double) && underlying != typeof(float))
+                    continue;
+
+                var columnName = property.GetColumnName(storeObject);
+                if (string.IsNullOrEmpty(columnName))
+                    continue;
+
+                try
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = $"UPDATE \"{tableName}\" SET \"{columnName}\" = '0' WHERE \"{columnName}\" = '' OR \"{columnName}\" IS NULL AND {(property.IsNullable ? "0=1" : "1=1")}";
+                    var affected = cmd.ExecuteNonQuery();
+                    if (affected > 0)
+                        Console.WriteLine($"[DatabaseInitializer] Sanitized {affected} empty value(s) in {tableName}.{columnName}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DatabaseInitializer] Sanitize warning for {tableName}.{columnName}: {ex.Message}");
+                }
+            }
+        }
     }
 }

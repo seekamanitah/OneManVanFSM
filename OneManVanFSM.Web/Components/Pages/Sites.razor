@@ -484,11 +484,16 @@ else if (_view == View.Form)
 
                 <div class="mb-2"><label class="form-label">Notes</label><InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="2" /></div>
 
-                <div class="d-flex justify-content-end gap-2">
+                <div class="d-flex justify-content-end gap-2 align-items-center">
                     <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Cancel</button>
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                    <button type="submit" class="btn btn-outline-primary" disabled="@_saving" @onclick="() => _closeAfterSave = false">
                         @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
-                        @(Id.HasValue ? "Save Changes" : "Create Site")
+                        <i class="bi bi-floppy me-1"></i>Save
+                    </button>
+                    <button type="submit" class="btn btn-primary" disabled="@_saving" @onclick="() => _closeAfterSave = true">
+                        @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        <i class="bi bi-check-circle me-1"></i>Save & Close
                     </button>
                 </div>
             </EditForm>
@@ -526,7 +531,9 @@ else if (_view == View.Form)
     private bool _hasBasement;
     private bool _isNewConstruction;
 
-    // Dropdown options from settings
+    // Save/Close state
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
     private List<string> _propertyTypeOptions = ["Residential", "Commercial", "Industrial"];
     private List<string> _heatingFuelOptions = ["Natural Gas", "Propane", "Electric", "Oil", "Geothermal", "Solar"];
 
@@ -653,15 +660,25 @@ else if (_view == View.Form)
 
     private async Task SaveSite()
     {
-        _formError = null; _saving = true;
+        _formError = null; _saving = true; _savedMsg = null;
         _editModel.HasAtticAccess = _hasAtticAccess ? true : null;
         _editModel.HasCrawlSpace = _hasCrawlSpace ? true : null;
         _editModel.HasBasement = _hasBasement ? true : null;
         _editModel.IsNewConstruction = _isNewConstruction;
         try
         {
-            if (Id.HasValue) { await SiteService.UpdateSiteAsync(Id.Value, _editModel); Navigation.NavigateTo($"/sites/{Id.Value}"); }
-            else { var c = await SiteService.CreateSiteAsync(_editModel); Navigation.NavigateTo($"/sites/{c.Id}"); }
+            if (Id.HasValue)
+            {
+                await SiteService.UpdateSiteAsync(Id.Value, _editModel);
+                if (_closeAfterSave) Navigation.NavigateTo($"/sites/{Id.Value}");
+                else _savedMsg = "Saved!";
+            }
+            else
+            {
+                var c = await SiteService.CreateSiteAsync(_editModel);
+                if (_closeAfterSave) Navigation.NavigateTo($"/sites/{c.Id}");
+                else Navigation.NavigateTo($"/sites/{c.Id}/edit");
+            }
         }
         catch (Exception ex) { _formError = ex.Message; }
         finally { _saving = false; }

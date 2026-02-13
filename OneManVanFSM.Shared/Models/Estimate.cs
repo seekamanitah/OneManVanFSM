@@ -20,6 +20,9 @@ public class Estimate
     public decimal TaxPercent { get; set; }
     public decimal ContingencyPercent { get; set; }
     public decimal Total { get; set; }
+    public string? DiscountType { get; set; } // "Percent" or "Dollar"
+    public decimal DiscountValue { get; set; }
+    public decimal DiscountAmount { get; set; }
     public decimal? DepositRequired { get; set; }
     public bool? DepositReceived { get; set; }
     public decimal? DepositAmountPaid { get; set; }

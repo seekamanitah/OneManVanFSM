@@ -23,6 +23,7 @@ public class CompanyProfileService : ICompanyProfileService
                         Email = dict.GetValueOrDefault("Email", ""),
                         TaxId = dict.GetValueOrDefault("TaxId", ""),
                         Address = dict.GetValueOrDefault("Address", ""),
+                        DefaultTaxRate = decimal.TryParse(dict.GetValueOrDefault("DefaultTaxRate", "0"), out var taxRate) ? taxRate : 0m,
                         SmtpHost = dict.GetValueOrDefault("SmtpHost", ""),
                         SmtpPort = int.TryParse(dict.GetValueOrDefault("SmtpPort", "587"), out var port) ? port : 587,
                         SmtpUsername = dict.GetValueOrDefault("SmtpUsername", ""),

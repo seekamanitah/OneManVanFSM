@@ -12,11 +12,13 @@ public class DataManagementService : IDataManagementService
 {
     private readonly AppDbContext _db;
     private readonly IConfiguration _config;
+    private readonly IWebHostEnvironment _env;
 
-    public DataManagementService(AppDbContext db, IConfiguration config)
+    public DataManagementService(AppDbContext db, IConfiguration config, IWebHostEnvironment env)
     {
         _db = db;
         _config = config;
+        _env = env;
     }
 
     private static readonly Dictionary<string, Func<AppDbContext, IQueryable<object>>> TableMap = new(StringComparer.OrdinalIgnoreCase)
@@ -1006,6 +1008,20 @@ public class DataManagementService : IDataManagementService
                 var profileBytes = await File.ReadAllBytesAsync(profilePath);
                 await entryStream.WriteAsync(profileBytes);
             }
+
+            // Add document uploads if the directory exists
+            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads");
+            if (Directory.Exists(uploadsDir))
+            {
+                foreach (var filePath in Directory.EnumerateFiles(uploadsDir))
+                {
+                    var fileName = Path.GetFileName(filePath);
+                    var uploadEntry = archive.CreateEntry($"uploads/{fileName}", CompressionLevel.Optimal);
+                    await using var entryStream = uploadEntry.Open();
+                    var fileBytes = await File.ReadAllBytesAsync(filePath);
+                    await entryStream.WriteAsync(fileBytes);
+                }
+            }
         }
 
         return ms.ToArray();
@@ -1073,6 +1089,25 @@ public class DataManagementService : IDataManagementService
                 await using var fs = new FileStream(profilePath, FileMode.Create, FileAccess.Write);
                 await entryStream.CopyToAsync(fs);
                 await fs.FlushAsync();
+            }
+
+            // Restore document uploads if present in backup
+            var uploadsDir = Path.Combine(_env.WebRootPath, "uploads");
+            var uploadEntries = archive.Entries
+                .Where(e => e.FullName.StartsWith("uploads/", StringComparison.OrdinalIgnoreCase)
+                         && !string.IsNullOrEmpty(e.Name))
+                .ToList();
+            if (uploadEntries.Count > 0)
+            {
+                Directory.CreateDirectory(uploadsDir);
+                foreach (var uploadEntry in uploadEntries)
+                {
+                    var destPath = Path.Combine(uploadsDir, uploadEntry.Name);
+                    await using var entryStream = uploadEntry.Open();
+                    await using var fs = new FileStream(destPath, FileMode.Create, FileAccess.Write);
+                    await entryStream.CopyToAsync(fs);
+                    await fs.FlushAsync();
+                }
             }
         }
         else

@@ -138,14 +138,22 @@ else if (_view == ViewMode.Form)
                     <InputTextArea @bind-Value="_editModel.Notes" class="form-control" rows="3" placeholder="Internal notes about this company..." />
                 </div>
 
-                <div class="d-flex justify-content-end gap-2">
+                <div class="d-flex justify-content-end gap-2 align-items-center">
                     <button type="button" class="btn btn-outline-secondary" @onclick="GoBack">Cancel</button>
-                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                    @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                    <button type="submit" class="btn btn-outline-primary" disabled="@_saving" @onclick="() => _closeAfterSave = false">
                         @if (_saving)
                         {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                         }
-                        @(Id.HasValue ? "Save Changes" : "Create Company")
+                        <i class="bi bi-floppy me-1"></i>Save
+                    </button>
+                    <button type="submit" class="btn btn-primary" disabled="@_saving" @onclick="() => _closeAfterSave = true">
+                        @if (_saving)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-check-circle me-1"></i>Save & Close
                     </button>
                 </div>
             </EditForm>
@@ -556,6 +564,10 @@ else
     private string? _formError;
     private bool _saving;
 
+    // Save/Close state
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
@@ -703,17 +715,20 @@ else
     {
         _formError = null;
         _saving = true;
+        _savedMsg = null;
         try
         {
             if (Id.HasValue)
             {
                 await CompanySvc.UpdateCompanyAsync(Id.Value, _editModel);
-                Nav.NavigateTo($"/companies/{Id.Value}");
+                if (_closeAfterSave) Nav.NavigateTo($"/companies/{Id.Value}");
+                else _savedMsg = "Saved!";
             }
             else
             {
                 var created = await CompanySvc.CreateCompanyAsync(_editModel);
-                Nav.NavigateTo($"/companies/{created.Id}");
+                if (_closeAfterSave) Nav.NavigateTo($"/companies/{created.Id}");
+                else Nav.NavigateTo($"/companies/{created.Id}/edit");
             }
         }
         catch (Exception ex) { _formError = ex.Message; }

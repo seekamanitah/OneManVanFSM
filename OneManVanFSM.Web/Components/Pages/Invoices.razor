@@ -1,6 +1,7 @@
 @page "/financials/invoices"
 @page "/financials/invoices/{Id:int}"
 @rendermode InteractiveServer
+@implements IDisposable
 @inject IFinancialService FinSvc
 @inject ICustomerService CustomerSvc
 @inject IAssetService AssetSvc
@@ -160,7 +161,7 @@
             <div class="print-total-row print-total-subtotal"><span class="print-total-label">Subtotal</span><span class="print-total-value">@invoiceDetail.Subtotal.ToString("C")</span></div>
             @if (invoiceDetail.TaxAmount > 0) { <div class="print-total-row"><span class="print-total-label">Tax (@(invoiceDetail.TaxRate)%)</span><span class="print-total-value">@invoiceDetail.TaxAmount.ToString("C")</span></div> }
             @if (invoiceDetail.MarkupAmount > 0) { <div class="print-total-row"><span class="print-total-label">Markup</span><span class="print-total-value">@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
-            @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount > 0) { <div class="print-total-row"><span class="print-total-label">Discount</span><span class="print-total-value">-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
+            @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount > 0) { <div class="print-total-row"><span class="print-total-label">Discount@(invoiceDetail.DiscountType == "Percent" ? $" ({invoiceDetail.DiscountValue}%)" : "")</span><span class="print-total-value">-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
             <div class="print-total-row print-grand-total"><span class="print-total-label">Total</span><span class="print-total-value">@invoiceDetail.Total.ToString("C")</span></div>
             @if (invoiceDetail.AmountPaid > 0) { <div class="print-total-row"><span class="print-total-label">Amount Paid</span><span class="print-total-value">@invoiceDetail.AmountPaid.ToString("C")</span></div> }
             @if (invoiceDetail.BalanceDue > 0)
@@ -370,7 +371,7 @@
                     <div class="d-flex justify-content-between mb-1"><span>Subtotal</span><span>@invoiceDetail.Subtotal.ToString("C")</span></div>
                     @if (invoiceDetail.TaxAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax (@(invoiceDetail.TaxRate)%)</span><span>@invoiceDetail.TaxAmount.ToString("C")</span></div> }
                     @if (invoiceDetail.MarkupAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Markup</span><span>@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
-                    @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount > 0) { <div class="d-flex justify-content-between mb-1"><span>Discount</span><span>-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
+                    @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount > 0) { <div class="d-flex justify-content-between mb-1 text-danger"><span>Discount@(invoiceDetail.DiscountType == "Percent" ? $" ({invoiceDetail.DiscountValue}%)" : "")</span><span>-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
                     <hr class="my-2" />
                     <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@invoiceDetail.Total.ToString("C")</span></div>
                     <div class="d-flex justify-content-between mt-1"><span>Paid</span><span class="text-success">@invoiceDetail.AmountPaid.ToString("C")</span></div>
@@ -539,11 +540,11 @@ else
                                         var capturedIdx = i;
                                         <tr>
                                             <td>
-                                                @line.Description
+                                                <input type="text" class="form-control form-control-sm border-0 p-0" @bind="line.Description" />
                                                 @if (!string.IsNullOrEmpty(line.LineType)) { <span class="badge bg-light text-dark ms-1">@line.LineType</span> }
                                             </td>
-                                            <td class="text-center">@line.Quantity</td>
-                                            <td class="text-end">@line.UnitPrice.ToString("C")</td>
+                                            <td class="text-center"><input type="number" class="form-control form-control-sm border-0 p-0 text-center" style="width:60px;" step="0.01" @bind="line.Quantity" @bind:event="oninput" @onchange="RecalcInvoiceTotals" /></td>
+                                            <td class="text-end"><input type="number" class="form-control form-control-sm border-0 p-0 text-end" style="width:90px;" step="0.01" @bind="line.UnitPrice" @bind:event="oninput" @onchange="RecalcInvoiceTotals" /></td>
                                             <td class="text-end">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
                                             <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveInvoiceLine(capturedIdx)"><i class="bi bi-x"></i></button></td>
                                         </tr>
@@ -598,14 +599,31 @@ else
                             <label class="form-label fw-semibold">Tax Amount</label>
                             <input type="text" class="form-control form-control-sm" value="@invoiceForm.TaxAmount.ToString("C")" readonly />
                         </div>
-                        <div class="col-md-3">
-                            <label class="form-label fw-semibold">Total</label>
-                            <input type="text" class="form-control form-control-sm fw-bold" value="@invoiceForm.Total.ToString("C")" readonly />
-                        </div>
                     </div>
                     <div class="form-check mb-3">
                         <input type="checkbox" class="form-check-input" id="taxIncluded" @bind="invoiceForm.TaxIncludedInPrice" @bind:after="RecalcInvoiceTotals" />
                         <label class="form-check-label" for="taxIncluded">Tax Already Included in Price</label>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Discount</label>
+                            <div class="input-group input-group-sm">
+                                <select class="form-select" style="max-width:70px;" @bind="invoiceForm.DiscountType" @bind:after="RecalcInvoiceTotals">
+                                    <option value="">—</option>
+                                    <option value="Percent">%</option>
+                                    <option value="Dollar">$</option>
+                                </select>
+                                <input type="number" class="form-control" step="0.01" @bind="invoiceForm.DiscountValue" @bind:event="oninput" @onchange="RecalcInvoiceTotals" />
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Discount Amount</label>
+                            <input type="text" class="form-control form-control-sm" value="@((invoiceForm.DiscountAmount ?? 0).ToString("C"))" readonly />
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Total</label>
+                            <input type="text" class="form-control form-control-sm fw-bold" value="@invoiceForm.Total.ToString("C")" readonly />
+                        </div>
                     </div>
                     <div class="row g-2 mb-3">
                         <div class="col-md-6">
@@ -652,7 +670,11 @@ else
 
                     <div class="d-flex justify-content-between border-top pt-3">
                         <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseForm">Cancel</button>
-                        <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle me-1"></i>@(editingInvoiceId.HasValue ? "Save Invoice" : "Create Invoice")</button>
+                        <div class="d-flex gap-2 align-items-center">
+                            @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                            <button type="submit" class="btn btn-outline-primary btn-sm" @onclick="() => _closeAfterSave = false"><i class="bi bi-floppy me-1"></i>Save</button>
+                            <button type="submit" class="btn btn-primary btn-sm" @onclick="() => _closeAfterSave = true"><i class="bi bi-check-circle me-1"></i>Save & Close</button>
+                        </div>
                     </div>
                     @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
                 </EditForm>
@@ -957,6 +979,10 @@ else
     private bool _emailSending;
     private string? _emailSendResult;
 
+    // Save behavior
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
+
     protected override async Task OnInitializedAsync()
     {
         _customers = await CustomerSvc.GetCustomersAsync();
@@ -975,6 +1001,7 @@ else
         var lts = await DropdownSvc.GetOptionsAsync("LineType");
         if (lts.Count > 0) _lineTypes = lts.Where(o => o.IsActive).Select(o => o.Value).ToList();
         await LoadInvoices();
+        Nav.LocationChanged += OnLocationChanged;
 
         var saved = await JS.InvokeAsync<string?>("getLocalStorage", "printTemplate");
         if (!string.IsNullOrWhiteSpace(saved)) _printTemplate = saved;
@@ -1001,7 +1028,14 @@ else
         }
     }
 
-    private void BackToList() { mode = "list"; invoiceDetail = null; showPaymentForm = false; Nav.NavigateTo("/financials/invoices"); }
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
+        await InvokeAsync(async () => { await OnParametersSetAsync(); StateHasChanged(); });
+    }
+
+    public void Dispose() => Nav.LocationChanged -= OnLocationChanged;
+
+    private void BackToList() => Nav.NavigateTo("/financials/invoices");
 
     private int? GetAdjacentInvoiceId(int offset)
     {
@@ -1020,16 +1054,17 @@ else
         invoices = await FinSvc.GetInvoicesAsync(invoiceFilter);
     }
 
-    private void ShowInvoiceForm()
+    private async Task ShowInvoiceForm()
     {
         showForm = true;
         editingInvoiceId = null;
         _linkedAssetInfo = [];
+        var profile = await CompanyProfileSvc.GetProfileAsync();
         invoiceForm = new InvoiceEditModel
         {
             InvoiceDate = DateTime.UtcNow,
             DueDate = DateTime.UtcNow.AddDays(30),
-            TaxRate = 7.0m,
+            TaxRate = profile.DefaultTaxRate > 0 ? profile.DefaultTaxRate : 7.0m,
             TaxIncludedInPrice = true,
             PricingType = "Material & Labor (Itemized)"
         };
@@ -1054,6 +1089,8 @@ else
             TaxRate = invoiceDetail.TaxRate,
             TaxIncludedInPrice = invoiceDetail.TaxIncludedInPrice,
             MarkupAmount = invoiceDetail.MarkupAmount,
+            DiscountType = invoiceDetail.DiscountType,
+            DiscountValue = invoiceDetail.DiscountValue,
             DiscountAmount = invoiceDetail.DiscountAmount,
             DepositApplied = invoiceDetail.DepositApplied,
             Total = invoiceDetail.Total,
@@ -1231,9 +1268,10 @@ else
         RecalcInvoiceTotals();
     }
 
-    private void ResetTaxRate()
+    private async Task ResetTaxRate()
     {
-        invoiceForm.TaxRate = 7.0m;
+        var profile = await CompanyProfileSvc.GetProfileAsync();
+        invoiceForm.TaxRate = profile.DefaultTaxRate > 0 ? profile.DefaultTaxRate : 7.0m;
         RecalcInvoiceTotals();
     }
 
@@ -1250,7 +1288,8 @@ else
             invoiceForm.TaxAmount = 0;
         else
             invoiceForm.TaxAmount = Math.Round(invoiceForm.Subtotal * (invoiceForm.TaxRate / 100m), 2);
-        var discount = invoiceForm.DiscountAmount ?? 0;
+        var discount = invoiceForm.DiscountType == "Percent" ? Math.Round(invoiceForm.Subtotal * invoiceForm.DiscountValue / 100, 2) : invoiceForm.DiscountValue;
+        invoiceForm.DiscountAmount = discount > 0 ? discount : null;
         invoiceForm.Total = Math.Round(invoiceForm.Subtotal + invoiceForm.MarkupAmount + invoiceForm.TaxAmount - discount, 2);
         invoiceForm.BalanceDue = Math.Max(0, invoiceForm.Total - invoiceForm.AmountPaid);
     }
@@ -1260,13 +1299,14 @@ else
         var jobDetail = await JobSvc.GetJobAsync(jobId);
         if (jobDetail is null) return;
 
+        var profile = await CompanyProfileSvc.GetProfileAsync();
         showForm = true;
         editingInvoiceId = null;
         invoiceForm = new InvoiceEditModel
         {
             InvoiceDate = DateTime.UtcNow,
             DueDate = DateTime.UtcNow.AddDays(30),
-            TaxRate = 7.0m,
+            TaxRate = profile.DefaultTaxRate > 0 ? profile.DefaultTaxRate : 7.0m,
             TaxIncludedInPrice = true,
             PricingType = "Material & Labor (Itemized)",
             CustomerId = jobDetail.CustomerId,
@@ -1297,13 +1337,34 @@ else
         try
         {
             errorMsg = null;
+            _savedMsg = null;
             RecalcInvoiceTotals();
             if (editingInvoiceId.HasValue)
+            {
                 await FinSvc.UpdateInvoiceAsync(editingInvoiceId.Value, invoiceForm);
+                if (_closeAfterSave)
+                {
+                    showForm = false;
+                    await LoadInvoices();
+                }
+                else
+                    _savedMsg = "Saved!";
+            }
             else
-                await FinSvc.CreateInvoiceAsync(invoiceForm);
-            showForm = false;
-            await LoadInvoices();
+            {
+                var created = await FinSvc.CreateInvoiceAsync(invoiceForm);
+                if (_closeAfterSave)
+                {
+                    showForm = false;
+                    await LoadInvoices();
+                }
+                else
+                {
+                    editingInvoiceId = created.Id;
+                    _savedMsg = "Created!";
+                    await LoadInvoices();
+                }
+            }
         }
         catch (Exception ex) { errorMsg = ex.Message; }
     }
@@ -1500,6 +1561,7 @@ else
         sb.Append("<div class=\"print-doc-totals\">");
         sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Subtotal</span><span class=\"print-total-value\">{d.Subtotal:C}</span></div>");
         if (d.TaxRate > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Tax ({d.TaxRate}%)</span><span class=\"print-total-value\">{d.TaxAmount:C}</span></div>");
+        if (d.DiscountAmount.HasValue && d.DiscountAmount > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Discount{(d.DiscountType == "Percent" ? $" ({d.DiscountValue}%)" : "")}</span><span class=\"print-total-value\">-{d.DiscountAmount.Value:C}</span></div>");
         sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.Total:C}</span></div>");
         if (d.AmountPaid > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Paid</span><span class=\"print-total-value\">{d.AmountPaid:C}</span></div>");
         var balClass = d.BalanceDue <= 0 ? "print-balance-paid" : "print-balance-due";

@@ -181,11 +181,11 @@
                                     var capturedIdx = i;
                                     <tr>
                                         <td>
-                                            @line.Description
+                                            <input type="text" class="form-control form-control-sm border-0 p-0" @bind="line.Description" />
                                             @if (!string.IsNullOrEmpty(line.LineType)) { <span class="badge bg-light text-dark ms-1">@line.LineType</span> }
                                         </td>
-                                        <td class="text-center">@line.Quantity</td>
-                                        <td class="text-end">@line.UnitPrice.ToString("C")</td>
+                                        <td class="text-center"><input type="number" class="form-control form-control-sm border-0 p-0 text-center" style="width:60px;" step="0.01" @bind="line.Quantity" @bind:event="oninput" @onchange="RecalcTotals" /></td>
+                                        <td class="text-end"><input type="number" class="form-control form-control-sm border-0 p-0 text-end" style="width:90px;" step="0.01" @bind="line.UnitPrice" @bind:event="oninput" @onchange="RecalcTotals" /></td>
                                         <td class="text-end">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
                                         <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveLine(capturedIdx)"><i class="bi bi-x"></i></button></td>
                                     </tr>
@@ -207,7 +207,7 @@
 
                 @* ?? Estimate Totals ?? *@
                 <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-calculator me-1"></i>Estimate Totals</h6>
-                <div class="row g-2 mb-3">
+                <div class="row g-2 mb-2">
                     <div class="col-md-3">
                         <label class="form-label fw-semibold">Markup %</label>
                         <input type="number" class="form-control form-control-sm" step="0.01" @bind="form.MarkupPercent" @bind:event="oninput" @onchange="RecalcTotals" />
@@ -221,6 +221,23 @@
                         <input type="number" class="form-control form-control-sm" step="0.01" @bind="form.ContingencyPercent" @bind:event="oninput" @onchange="RecalcTotals" />
                     </div>
                     <div class="col-md-3">
+                        <label class="form-label fw-semibold">Discount</label>
+                        <div class="input-group input-group-sm">
+                            <select class="form-select" style="max-width:70px;" @bind="form.DiscountType" @bind:after="RecalcTotals">
+                                <option value="">—</option>
+                                <option value="Percent">%</option>
+                                <option value="Dollar">$</option>
+                            </select>
+                            <input type="number" class="form-control" step="0.01" @bind="form.DiscountValue" @bind:event="oninput" @onchange="RecalcTotals" />
+                        </div>
+                    </div>
+                </div>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Deposit <small class="text-muted">(70% auto)</small></label>
+                        <input type="text" class="form-control form-control-sm" value="@(form.DepositRequired?.ToString("C") ?? "$0.00")" readonly />
+                    </div>
+                    <div class="col-md-3 offset-md-6">
                         <label class="form-label fw-semibold">Total</label>
                         <input type="text" class="form-control form-control-sm fw-bold" value="@form.Total.ToString("C")" readonly />
                     </div>
@@ -234,7 +251,11 @@
 
                 <div class="d-flex justify-content-between border-top pt-3">
                     <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToList">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle me-1"></i>@(editId.HasValue ? "Save Estimate" : "Create Estimate")</button>
+                    <div class="d-flex gap-2 align-items-center">
+                        @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                        <button type="submit" class="btn btn-outline-primary btn-sm" @onclick="() => _closeAfterSave = false"><i class="bi bi-floppy me-1"></i>Save</button>
+                        <button type="submit" class="btn btn-primary btn-sm" @onclick="() => _closeAfterSave = true"><i class="bi bi-check-circle me-1"></i>Save & Close</button>
+                    </div>
                 </div>
                 @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
             </EditForm>
@@ -384,6 +405,7 @@ else if (mode == "detail" && detail is not null)
             @if (detail.MarkupPercent > 0) { <div class="print-total-row"><span class="print-total-label">Markup (@detail.MarkupPercent%)</span><span class="print-total-value">@((detail.Subtotal * detail.MarkupPercent / 100).ToString("C"))</span></div> }
             @if (detail.TaxPercent > 0) { <div class="print-total-row"><span class="print-total-label">Tax (@detail.TaxPercent%)</span><span class="print-total-value">@((detail.Subtotal * detail.TaxPercent / 100).ToString("C"))</span></div> }
             @if (detail.ContingencyPercent > 0) { <div class="print-total-row"><span class="print-total-label">Contingency (@detail.ContingencyPercent%)</span><span class="print-total-value">@((detail.Subtotal * detail.ContingencyPercent / 100).ToString("C"))</span></div> }
+            @if (detail.DiscountAmount > 0) { <div class="print-total-row"><span class="print-total-label">Discount@(detail.DiscountType == "Percent" ? $" ({detail.DiscountValue}%)" : "")</span><span class="print-total-value">-@detail.DiscountAmount.ToString("C")</span></div> }
             <div class="print-total-row print-grand-total"><span class="print-total-label">Total</span><span class="print-total-value">@detail.Total.ToString("C")</span></div>
             @if (detail.DepositRequired.HasValue && detail.DepositRequired > 0)
             {
@@ -482,6 +504,7 @@ else if (mode == "detail" && detail is not null)
                     @if (detail.MarkupPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Markup (@detail.MarkupPercent%)</span><span>@((detail.Subtotal * detail.MarkupPercent / 100).ToString("C"))</span></div> }
                     @if (detail.TaxPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Tax (@detail.TaxPercent%)</span><span>@((detail.Subtotal * detail.TaxPercent / 100).ToString("C"))</span></div> }
                     @if (detail.ContingencyPercent > 0) { <div class="d-flex justify-content-between mb-1"><span>Contingency (@detail.ContingencyPercent%)</span><span>@((detail.Subtotal * detail.ContingencyPercent / 100).ToString("C"))</span></div> }
+                    @if (detail.DiscountAmount > 0) { <div class="d-flex justify-content-between mb-1 text-danger"><span>Discount@(detail.DiscountType == "Percent" ? $" ({detail.DiscountValue}%)" : "")</span><span>-@detail.DiscountAmount.ToString("C")</span></div> }
                     <hr class="my-2" />
                     <div class="d-flex justify-content-between fw-bold fs-6"><span>Total</span><span>@detail.Total.ToString("C")</span></div>
                     @if (detail.DepositRequired.HasValue && detail.DepositRequired > 0)
@@ -820,6 +843,10 @@ else
     private bool _emailSending;
     private string? _emailSendResult;
 
+    // Save behavior
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
+
     protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocationChanged;
@@ -845,6 +872,7 @@ else
         {
             mode = "form"; editId = null; form = new();
             await LoadFormDropdowns();
+            await ApplyNewEstimateDefaults();
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
@@ -911,6 +939,7 @@ else
             SqFt = d.SqFt, Zones = d.Zones, Stories = d.Stories, SystemType = d.SystemType,
             Subtotal = d.Subtotal, MarkupPercent = d.MarkupPercent,
             TaxPercent = d.TaxPercent, ContingencyPercent = d.ContingencyPercent,
+            DiscountType = d.DiscountType, DiscountValue = d.DiscountValue,
             Total = d.Total, Notes = d.Notes, CustomerId = d.CustomerId,
             CompanyId = d.CompanyId, SiteId = d.SiteId, MaterialListId = d.MaterialListId,
             Lines = d.Lines.Select(l => new EstimateLineEditModel
@@ -926,6 +955,17 @@ else
             }).ToList()
         };
         mode = "form";
+    }
+
+    private async Task ApplyNewEstimateDefaults()
+    {
+        form.ExpiryDate = DateTime.UtcNow.AddDays(30);
+        form.TradeType = "HVAC";
+        form.Stories = 1;
+        form.Zones = 1;
+        var profile = await CompanyProfileSvc.GetProfileAsync();
+        if (profile.DefaultTaxRate > 0)
+            form.TaxPercent = profile.DefaultTaxRate;
     }
 
     // ?? Modal line item methods ??
@@ -1004,7 +1044,9 @@ else
         var markup = form.Subtotal * form.MarkupPercent / 100;
         var tax = form.Subtotal * form.TaxPercent / 100;
         var contingency = form.Subtotal * form.ContingencyPercent / 100;
-        form.Total = Math.Round(form.Subtotal + markup + tax + contingency, 2);
+        var discount = form.DiscountType == "Percent" ? form.Subtotal * form.DiscountValue / 100 : form.DiscountValue;
+        form.Total = Math.Round(form.Subtotal + markup + tax + contingency - discount, 2);
+        form.DepositRequired = Math.Round(form.Total * 0.70m, 2);
     }
 
     private async Task SaveEstimate()
@@ -1012,10 +1054,24 @@ else
         try
         {
             errorMsg = null;
+            _savedMsg = null;
             RecalcTotals();
-            if (editId.HasValue) await EstimateSvc.UpdateEstimateAsync(editId.Value, form);
-            else await EstimateSvc.CreateEstimateAsync(form);
-            Nav.NavigateTo("/estimates");
+            if (editId.HasValue)
+            {
+                await EstimateSvc.UpdateEstimateAsync(editId.Value, form);
+                if (_closeAfterSave)
+                    Nav.NavigateTo("/estimates");
+                else
+                    _savedMsg = "Saved!";
+            }
+            else
+            {
+                var created = await EstimateSvc.CreateEstimateAsync(form);
+                if (_closeAfterSave)
+                    Nav.NavigateTo("/estimates");
+                else
+                    Nav.NavigateTo($"/estimates/{created.Id}/edit");
+            }
         }
         catch (Exception ex) { errorMsg = ex.Message; }
     }
@@ -1270,6 +1326,7 @@ else
         if (d.MarkupPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Markup ({d.MarkupPercent}%)</span><span class=\"print-total-value\">{d.Subtotal * d.MarkupPercent / 100:C}</span></div>");
         if (d.TaxPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Tax ({d.TaxPercent}%)</span><span class=\"print-total-value\">{d.Total * d.TaxPercent / (100 + d.TaxPercent):C}</span></div>");
         if (d.ContingencyPercent > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Contingency ({d.ContingencyPercent}%)</span><span class=\"print-total-value\">{d.Total * d.ContingencyPercent / 100:C}</span></div>");
+        if (d.DiscountAmount > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Discount{(d.DiscountType == "Percent" ? $" ({d.DiscountValue}%)" : "")}</span><span class=\"print-total-value\">-{d.DiscountAmount:C}</span></div>");
         sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.Total:C}</span></div>");
         if (d.DepositRequired.HasValue && d.DepositRequired > 0)
             sb.Append($"<div class=\"print-total-row print-balance-due\"><span class=\"print-total-label\">Deposit Required</span><span class=\"print-total-value\">{d.DepositRequired.Value:C}</span></div>");

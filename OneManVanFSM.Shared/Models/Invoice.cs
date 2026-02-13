@@ -15,6 +15,8 @@ public class Invoice
     public string? PricingType { get; set; } // "Material & Labor (Itemized)", "Flat Rate", "Time & Materials"
     public decimal MarkupAmount { get; set; }
     public decimal Total { get; set; }
+    public string? DiscountType { get; set; }
+    public decimal DiscountValue { get; set; }
     public decimal? DiscountAmount { get; set; }
     public decimal? DepositApplied { get; set; }
     public decimal AmountPaid { get; set; }

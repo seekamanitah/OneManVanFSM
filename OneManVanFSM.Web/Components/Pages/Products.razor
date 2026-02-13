@@ -213,9 +213,13 @@
                     </div>
                 </div>
 
-                <div class="d-flex justify-content-between border-top pt-3">
+                <div class="d-flex justify-content-between align-items-center border-top pt-3">
                     <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoToList">Cancel</button>
-                    <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-check-circle me-1"></i>@(editId.HasValue ? "Save Product" : "Create Product")</button>
+                    <div class="d-flex gap-2 align-items-center">
+                        @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                        <button type="submit" class="btn btn-outline-primary btn-sm" @onclick="() => _closeAfterSave = false"><i class="bi bi-floppy me-1"></i>Save</button>
+                        <button type="submit" class="btn btn-primary btn-sm" @onclick="() => _closeAfterSave = true"><i class="bi bi-check-circle me-1"></i>Save & Close</button>
+                    </div>
                 </div>
                 @if (!string.IsNullOrEmpty(errorMsg))
                 {
@@ -530,6 +534,10 @@ else
     private string? errorMsg;
     private bool _confirmArchive;
 
+    // Save/Close state
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
+
     // Multi-select & bulk action state
     private HashSet<int> _selectedIds = [];
     private bool _confirmBulkDelete;
@@ -724,13 +732,21 @@ else
         try
         {
             errorMsg = null;
+            _savedMsg = null;
             if (string.IsNullOrWhiteSpace(form.Name) && !string.IsNullOrWhiteSpace(form.Brand))
                 form.Name = $"{form.Brand} {form.ModelNumber}".Trim();
             if (editId.HasValue)
+            {
                 await ProductSvc.UpdateProductAsync(editId.Value, form);
+                if (_closeAfterSave) Nav.NavigateTo("/products");
+                else _savedMsg = "Saved!";
+            }
             else
-                await ProductSvc.CreateProductAsync(form);
-            Nav.NavigateTo("/products");
+            {
+                var created = await ProductSvc.CreateProductAsync(form);
+                if (_closeAfterSave) Nav.NavigateTo("/products");
+                else Nav.NavigateTo($"/products/{created.Id}/edit");
+            }
         }
         catch (Exception ex) { errorMsg = ex.Message; }
     }

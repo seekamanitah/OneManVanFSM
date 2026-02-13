@@ -78,6 +78,8 @@ public class InvoiceDetail
     public decimal TaxRate { get; set; }
     public bool TaxIncludedInPrice { get; set; }
     public decimal MarkupAmount { get; set; }
+    public string? DiscountType { get; set; }
+    public decimal DiscountValue { get; set; }
     public decimal? DiscountAmount { get; set; }
     public decimal? DepositApplied { get; set; }
     public decimal Total { get; set; }
@@ -173,9 +175,11 @@ public class InvoiceEditModel
     public string? PricingType { get; set; } = "Material & Labor (Itemized)";
     public decimal Subtotal { get; set; }
     public decimal TaxAmount { get; set; }
-    public decimal TaxRate { get; set; } = 9.75m;
+    public decimal TaxRate { get; set; }
     public bool TaxIncludedInPrice { get; set; } = true;
     public decimal MarkupAmount { get; set; }
+    public string? DiscountType { get; set; } // "Percent" or "Dollar"
+    public decimal DiscountValue { get; set; }
     public decimal? DiscountAmount { get; set; }
     public decimal? DepositApplied { get; set; }
     public decimal Total { get; set; }

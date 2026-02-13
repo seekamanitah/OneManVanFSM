@@ -436,9 +436,13 @@
                     </div>
                 </div>
 
-                <div class="mt-3 d-flex justify-content-between">
+                <div class="mt-3 d-flex justify-content-between align-items-center">
                     <button type="button" class="btn btn-outline-secondary" @onclick="GoToList">Cancel</button>
-                    <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>@(editId.HasValue ? "Save Changes" : "Create Asset")</button>
+                    <div class="d-flex gap-2 align-items-center">
+                        @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                        <button type="submit" class="btn btn-outline-primary" @onclick="() => _closeAfterSave = false"><i class="bi bi-floppy me-1"></i>Save</button>
+                        <button type="submit" class="btn btn-primary" @onclick="() => _closeAfterSave = true"><i class="bi bi-check-circle me-1"></i>Save & Close</button>
+                    </div>
                 </div>
                 @if (!string.IsNullOrEmpty(errorMsg)) { <div class="alert alert-danger mt-2 mb-0">@errorMsg</div> }
             </EditForm>
@@ -1045,6 +1049,10 @@ private int? editId;
 private string? errorMsg;
 private bool _confirmArchive;
 
+// Save/Close state
+private bool _closeAfterSave = true;
+private string? _savedMsg;
+
 // Multi-select & bulk action state
 private HashSet<int> _selectedIds = [];
 private bool _confirmBulkDelete;
@@ -1472,10 +1480,20 @@ private async Task LoadForEdit(int id)
         try
         {
             errorMsg = null;
+            _savedMsg = null;
             form.JobIds = _selectedJobIds.ToList();
-            if (editId.HasValue) await AssetSvc.UpdateAssetAsync(editId.Value, form);
-            else await AssetSvc.CreateAssetAsync(form);
-            Nav.NavigateTo("/assets");
+            if (editId.HasValue)
+            {
+                await AssetSvc.UpdateAssetAsync(editId.Value, form);
+                if (_closeAfterSave) Nav.NavigateTo("/assets");
+                else _savedMsg = "Saved!";
+            }
+            else
+            {
+                var created = await AssetSvc.CreateAssetAsync(form);
+                if (_closeAfterSave) Nav.NavigateTo("/assets");
+                else Nav.NavigateTo($"/assets/{created.Id}/edit");
+            }
         }
         catch (Exception ex) { errorMsg = ex.Message; }
     }

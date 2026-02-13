@@ -68,6 +68,14 @@
                     <label class="form-label">Address</label>
                     <input type="text" class="form-control" placeholder="123 Main St, City, State ZIP" @bind="_companyAddress" />
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Default Tax Rate (%)</label>
+                    <div class="input-group">
+                        <input type="number" class="form-control" step="0.01" min="0" max="100" @bind="_defaultTaxRate" placeholder="e.g. 9.75" />
+                        <span class="input-group-text">%</span>
+                    </div>
+                    <small class="text-muted">Applied globally to all new estimates, invoices, and other forms.</small>
+                </div>
             </div>
             <button class="btn btn-primary mt-3" @onclick="SaveCompanyProfile"><i class="bi bi-check-lg me-1"></i>Save Profile</button>
         </div>
@@ -1138,6 +1146,7 @@ private string _companyPhone = "";
 private string _companyEmail = "";
 private string _companyTaxId = "";
 private string _companyAddress = "";
+private decimal _defaultTaxRate;
 private string _smtpHost = "";
 private int _smtpPort = 587;
 private string _smtpUsername = "";
@@ -1952,6 +1961,7 @@ private Dictionary<string, bool> notificationSettings = new()
                     _companyEmail = profile.GetValueOrDefault("Email", "");
                     _companyTaxId = profile.GetValueOrDefault("TaxId", "");
                     _companyAddress = profile.GetValueOrDefault("Address", "");
+                    _defaultTaxRate = decimal.TryParse(profile.GetValueOrDefault("DefaultTaxRate", "0"), out var taxRate) ? taxRate : 0m;
                     _smtpHost = profile.GetValueOrDefault("SmtpHost", "");
                     _smtpPort = int.TryParse(profile.GetValueOrDefault("SmtpPort", "587"), out var port) ? port : 587;
                     _smtpUsername = profile.GetValueOrDefault("SmtpUsername", "");
@@ -1977,6 +1987,7 @@ private Dictionary<string, bool> notificationSettings = new()
                 ["Email"] = _companyEmail,
                 ["TaxId"] = _companyTaxId,
                 ["Address"] = _companyAddress,
+                ["DefaultTaxRate"] = _defaultTaxRate.ToString(),
                 ["SmtpHost"] = _smtpHost,
                 ["SmtpPort"] = _smtpPort.ToString(),
                 ["SmtpUsername"] = _smtpUsername,

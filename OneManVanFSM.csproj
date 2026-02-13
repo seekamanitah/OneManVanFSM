@@ -79,6 +79,7 @@
 
     <ItemGroup>
       <None Include=".github\copilot-instructions.md" />
+      <None Include="OneManVanFSM Guidelines\FutureFeatures-Roadmap.md" />
     </ItemGroup>
 
     <ItemGroup>

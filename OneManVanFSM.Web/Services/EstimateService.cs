@@ -58,7 +58,9 @@ public class EstimateService : IEstimateService
                 ExpiryDate = e.ExpiryDate,
                 Subtotal = e.Subtotal, MarkupPercent = e.MarkupPercent,
                 TaxPercent = e.TaxPercent, ContingencyPercent = e.ContingencyPercent,
-                Total = e.Total, DepositRequired = e.DepositRequired,
+                Total = e.Total,
+                DiscountType = e.DiscountType, DiscountValue = e.DiscountValue, DiscountAmount = e.DiscountAmount,
+                DepositRequired = e.DepositRequired,
                 DepositReceived = e.DepositReceived,
                 DepositAmountPaid = e.DepositAmountPaid,
                 DepositPaymentMethod = e.DepositPaymentMethod,
@@ -110,7 +112,8 @@ public class EstimateService : IEstimateService
             var markup = model.Subtotal * model.MarkupPercent / 100;
             var tax = model.Subtotal * model.TaxPercent / 100;
             var contingency = model.Subtotal * model.ContingencyPercent / 100;
-            model.Total = model.Subtotal + markup + tax + contingency;
+            var discount = model.DiscountType == "Percent" ? model.Subtotal * model.DiscountValue / 100 : model.DiscountValue;
+            model.Total = model.Subtotal + markup + tax + contingency - discount;
         }
 
         var estimate = new Estimate
@@ -128,6 +131,8 @@ public class EstimateService : IEstimateService
             SystemType = model.SystemType, Subtotal = model.Subtotal,
             MarkupPercent = model.MarkupPercent, TaxPercent = model.TaxPercent,
             ContingencyPercent = model.ContingencyPercent, Total = model.Total,
+            DiscountType = model.DiscountType, DiscountValue = model.DiscountValue,
+            DiscountAmount = model.DiscountType == "Percent" ? model.Subtotal * model.DiscountValue / 100 : model.DiscountValue,
             Notes = model.Notes, CustomerId = model.CustomerId, CompanyId = model.CompanyId,
             SiteId = model.SiteId, MaterialListId = model.MaterialListId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -167,7 +172,8 @@ public class EstimateService : IEstimateService
             var markup = model.Subtotal * model.MarkupPercent / 100;
             var tax = model.Subtotal * model.TaxPercent / 100;
             var contingency = model.Subtotal * model.ContingencyPercent / 100;
-            model.Total = model.Subtotal + markup + tax + contingency;
+            var discount = model.DiscountType == "Percent" ? model.Subtotal * model.DiscountValue / 100 : model.DiscountValue;
+            model.Total = model.Subtotal + markup + tax + contingency - discount;
         }
 
         e.Title = model.Title;
@@ -183,6 +189,8 @@ public class EstimateService : IEstimateService
         e.SystemType = model.SystemType; e.Subtotal = model.Subtotal;
         e.MarkupPercent = model.MarkupPercent; e.TaxPercent = model.TaxPercent;
         e.ContingencyPercent = model.ContingencyPercent; e.Total = model.Total;
+        e.DiscountType = model.DiscountType; e.DiscountValue = model.DiscountValue;
+        e.DiscountAmount = model.DiscountType == "Percent" ? model.Subtotal * model.DiscountValue / 100 : model.DiscountValue;
         e.Notes = model.Notes; e.CustomerId = model.CustomerId; e.CompanyId = model.CompanyId;
         e.SiteId = model.SiteId; e.MaterialListId = model.MaterialListId;
         e.UpdatedAt = DateTime.UtcNow;

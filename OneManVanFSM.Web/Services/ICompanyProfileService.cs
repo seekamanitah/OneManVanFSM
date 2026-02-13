@@ -13,6 +13,9 @@ public class CompanyProfile
     public string TaxId { get; set; } = "";
     public string Address { get; set; } = "";
 
+    // Business defaults
+    public decimal DefaultTaxRate { get; set; } = 0m;
+
     // SMTP configuration
     public string SmtpHost { get; set; } = "";
     public int SmtpPort { get; set; } = 587;

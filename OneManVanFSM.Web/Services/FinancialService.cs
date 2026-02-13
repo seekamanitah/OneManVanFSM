@@ -63,7 +63,9 @@ public class FinancialService : IFinancialService
             PaymentTerms = i.PaymentTerms, PricingType = i.PricingType,
             Subtotal = i.Subtotal, TaxAmount = i.TaxAmount,
             TaxRate = i.TaxRate, TaxIncludedInPrice = i.TaxIncludedInPrice,
-            MarkupAmount = i.MarkupAmount, DiscountAmount = i.DiscountAmount,
+            MarkupAmount = i.MarkupAmount,
+            DiscountType = i.DiscountType, DiscountValue = i.DiscountValue,
+            DiscountAmount = i.DiscountAmount,
             DepositApplied = i.DepositApplied,
             Total = i.Total, AmountPaid = i.AmountPaid, BalanceDue = i.BalanceDue,
             Notes = i.Notes, Terms = i.Terms,
@@ -139,7 +141,8 @@ public class FinancialService : IFinancialService
         {
             model.Subtotal = 0;
         }
-        var discount = model.DiscountAmount ?? 0;
+        var discount = model.DiscountType == "Percent" ? Math.Round(model.Subtotal * model.DiscountValue / 100, 2) : model.DiscountValue;
+        model.DiscountAmount = discount > 0 ? discount : null;
         if (model.TaxIncludedInPrice)
             model.TaxAmount = 0;
         else
@@ -155,6 +158,7 @@ public class FinancialService : IFinancialService
             Subtotal = model.Subtotal, TaxAmount = model.TaxAmount,
             TaxRate = model.TaxRate, TaxIncludedInPrice = model.TaxIncludedInPrice,
             MarkupAmount = model.MarkupAmount,
+            DiscountType = model.DiscountType, DiscountValue = model.DiscountValue,
             DiscountAmount = model.DiscountAmount, DepositApplied = model.DepositApplied,
             Total = model.Total, AmountPaid = model.AmountPaid, BalanceDue = model.BalanceDue,
             Notes = model.Notes, Terms = model.Terms,
@@ -216,7 +220,8 @@ public class FinancialService : IFinancialService
         {
             model.Subtotal = 0;
         }
-        var discount = model.DiscountAmount ?? 0;
+        var discount = model.DiscountType == "Percent" ? Math.Round(model.Subtotal * model.DiscountValue / 100, 2) : model.DiscountValue;
+        model.DiscountAmount = discount > 0 ? discount : null;
         if (model.TaxIncludedInPrice)
             model.TaxAmount = 0;
         else
@@ -229,7 +234,9 @@ public class FinancialService : IFinancialService
         inv.PaymentTerms = model.PaymentTerms; inv.PricingType = model.PricingType;
         inv.Subtotal = model.Subtotal; inv.TaxAmount = model.TaxAmount;
         inv.TaxRate = model.TaxRate; inv.TaxIncludedInPrice = model.TaxIncludedInPrice;
-        inv.MarkupAmount = model.MarkupAmount; inv.DiscountAmount = model.DiscountAmount;
+        inv.MarkupAmount = model.MarkupAmount;
+        inv.DiscountType = model.DiscountType; inv.DiscountValue = model.DiscountValue;
+        inv.DiscountAmount = model.DiscountAmount;
         inv.DepositApplied = model.DepositApplied;
         inv.Total = model.Total;
         inv.AmountPaid = model.AmountPaid;
