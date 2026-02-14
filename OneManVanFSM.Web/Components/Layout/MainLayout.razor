@@ -7,7 +7,7 @@
 
 <AuthorizeView>
     <Authorized>
-        @{ _userName = context.User.Identity?.Name ?? "User"; _userRole = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User"; if (!_permsLoaded) { _ = LoadPermissions(); } }
+        @{ _userName = context.User.Identity?.Name ?? "User"; _userRole = context.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "User"; }
     </Authorized>
 </AuthorizeView>
 
@@ -372,13 +372,20 @@ private async Task LoadPermissions()
     if (_permsLoaded) return;
     _permsLoaded = true;
 
-    if (Enum.TryParse<UserRole>(_userRole, out var role))
+    try
     {
-        foreach (var f in Features.All)
+        if (Enum.TryParse<UserRole>(_userRole, out var role))
         {
-            _viewPerms[f] = await PermSvc.CanViewAsync(role, f);
+            foreach (var f in Features.All)
+            {
+                _viewPerms[f] = await PermSvc.CanViewAsync(role, f);
+            }
+            await InvokeAsync(StateHasChanged);
         }
-        await InvokeAsync(StateHasChanged);
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[MainLayout] Failed to load permissions: {ex.Message}");
     }
 }
 
@@ -408,6 +415,14 @@ private async Task LoadPermissions()
         Navigation.LocationChanged += OnLocationChanged;
     }
 
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await LoadPermissions();
+        }
+    }
+
     private async Task ToggleSidebar()
     {
         var isMobile = await JS.InvokeAsync<bool>("isMobile");
@@ -427,10 +442,17 @@ private async Task LoadPermissions()
         _mobileMenuOpen = false;
     }
 
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    private async void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
     {
         _mobileMenuOpen = false;
-        InvokeAsync(StateHasChanged);
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // Circuit already disposed during navigation — safe to ignore
+        }
     }
 
     public void Dispose()
