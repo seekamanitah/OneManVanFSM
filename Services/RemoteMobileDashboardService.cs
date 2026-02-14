@@ -18,11 +18,14 @@ public class RemoteMobileDashboardService : IMobileDashboardService
         _logger = logger;
     }
 
-    public async Task<MobileDashboardData> GetDashboardAsync(int employeeId)
+    public async Task<MobileDashboardData> GetDashboardAsync(int employeeId, bool isElevated = false)
     {
         try
         {
-            var response = await _api.GetAsync<RemoteDashboardDto>($"api/dashboard/{employeeId}");
+            var url = isElevated
+                ? $"api/dashboard/{employeeId}?elevated=true"
+                : $"api/dashboard/{employeeId}";
+            var response = await _api.GetAsync<RemoteDashboardDto>(url);
             if (response is null)
                 return EmptyDashboard();
 

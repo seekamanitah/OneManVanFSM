@@ -4,8 +4,8 @@ namespace OneManVanFSM.Services;
 
 public interface IMobileCalendarService
 {
-    Task<List<MobileCalendarEvent>> GetEventsAsync(DateTime date, int employeeId);
-    Task<List<MobileCalendarEvent>> GetWeekEventsAsync(DateTime weekStart, int employeeId);
+    Task<List<MobileCalendarEvent>> GetEventsAsync(DateTime date, int employeeId, bool isElevated = false);
+    Task<List<MobileCalendarEvent>> GetWeekEventsAsync(DateTime weekStart, int employeeId, bool isElevated = false);
 }
 
 public class MobileCalendarEvent

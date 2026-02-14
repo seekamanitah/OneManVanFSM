@@ -1,7 +1,9 @@
 @page "/documents"
 @inject IMobileDocumentService DocumentService
 @inject IMobileAuthService AuthService
+@inject IMobilePhotoService PhotoService
 @inject NavigationManager Nav
+@implements IDisposable
 
 <!-- Notes / Documents Toggle -->
 <div class="sub-tab-bar mb-1">
@@ -23,7 +25,7 @@
         }
     </select>
     <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search documents…" @bind="_search"
-           @bind:event="oninput" @bind:after="LoadDocuments" />
+           @bind:event="oninput" @bind:after="OnSearchChanged" />
     <button class="btn btn-outline-secondary btn-sm" @onclick="LoadDocuments" title="Refresh">
         <i class="bi bi-arrow-clockwise"></i>
     </button>
@@ -65,6 +67,32 @@
             <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_newDoc.Notes"></textarea>
         </div>
 
+        <div class="d-flex gap-2 mb-1">
+            <button class="btn btn-outline-primary flex-fill btn-sm" style="min-height:38px;" @onclick="CapturePhoto" disabled="@_attachingFile">
+                <i class="bi bi-camera me-1"></i>Take Photo
+            </button>
+            <button class="btn btn-outline-secondary flex-fill btn-sm" style="min-height:38px;" @onclick="PickPhoto" disabled="@_attachingFile">
+                <i class="bi bi-image me-1"></i>Gallery
+            </button>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_attachedFileName))
+        {
+            <div class="d-flex align-items-center gap-2 mb-1 px-1" style="font-size:0.8rem;">
+                <i class="bi bi-paperclip text-success"></i>
+                <span class="text-truncate flex-fill">@_attachedFileName</span>
+                <span class="text-muted">@FormatAttachSize(_newDoc.FileSize)</span>
+                <button class="btn btn-sm btn-link text-danger p-0" @onclick="ClearAttachment" title="Remove">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+        }
+
+        @if (_attachError != null)
+        {
+            <div class="alert alert-warning py-1 mb-1" style="font-size:0.78rem;">@_attachError</div>
+        }
+
         <div class="d-flex gap-2 mt-1">
             <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveDocument" disabled="@string.IsNullOrWhiteSpace(_newDoc.Name)">
                 <i class="bi bi-check-lg me-1"></i>Save
@@ -102,11 +130,19 @@ else if (_documents.Any())
                         <span class="badge bg-info text-white" style="font-size:0.65rem;"><i class="bi bi-eye me-1"></i>Preview</span>
                     }
                     <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;"
-                            @onclick="() => DeleteDocument(doc.Id)" @onclick:stopPropagation="true">
+                            @onclick="() => _deleteConfirmId = doc.Id" @onclick:stopPropagation="true">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
             </div>
+            @if (_deleteConfirmId == doc.Id)
+            {
+                <div class="alert alert-danger py-2 d-flex align-items-center gap-2 mb-1" style="font-size:0.8rem;" @onclick:stopPropagation="true">
+                    <span>Delete this document?</span>
+                    <button class="btn btn-sm btn-danger" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => DeleteDocument(doc.Id)">Yes</button>
+                    <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => _deleteConfirmId = null">No</button>
+                </div>
+            }
             <div class="d-flex flex-wrap gap-2 align-items-center mb-1">
                 <span class="badge bg-light text-dark" style="font-size:0.7rem;">@doc.Category</span>
                 @if (doc.FileType != null)
@@ -227,6 +263,11 @@ private string _sort = "newest";
 private int? _expandedDocId;
 private Dictionary<int, string?> _previewImageData = new();
 private HashSet<int> _previewLoading = [];
+private int? _deleteConfirmId;
+private System.Timers.Timer? _debounceTimer;
+private string? _attachedFileName;
+private string? _attachError;
+private bool _attachingFile;
 
     private List<MobileDocumentItem> SortedDocuments => _sort switch
     {
@@ -259,6 +300,93 @@ private HashSet<int> _previewLoading = [];
         };
     }
 
+    private void OnSearchChanged()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            _debounceTimer?.Stop();
+            await InvokeAsync(async () =>
+            {
+                await LoadDocuments();
+                StateHasChanged();
+            });
+        };
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
+    }
+
+    private async Task CapturePhoto()
+    {
+        _attachError = null;
+        _attachingFile = true;
+        StateHasChanged();
+        try
+        {
+            var result = await PhotoService.CapturePhotoAsync();
+            if (result is not null)
+            {
+                _newDoc.FilePath = result.FilePath;
+                _newDoc.FileSize = result.FileSize;
+                _newDoc.FileType = "Photo";
+                _attachedFileName = result.FileName;
+            }
+        }
+        catch (Exception ex)
+        {
+            _attachError = $"Camera error: {ex.Message}";
+        }
+        finally
+        {
+            _attachingFile = false;
+        }
+    }
+
+    private async Task PickPhoto()
+    {
+        _attachError = null;
+        _attachingFile = true;
+        StateHasChanged();
+        try
+        {
+            var result = await PhotoService.PickPhotoAsync();
+            if (result is not null)
+            {
+                _newDoc.FilePath = result.FilePath;
+                _newDoc.FileSize = result.FileSize;
+                _newDoc.FileType = "Photo";
+                _attachedFileName = result.FileName;
+            }
+        }
+        catch (Exception ex)
+        {
+            _attachError = $"Gallery error: {ex.Message}";
+        }
+        finally
+        {
+            _attachingFile = false;
+        }
+    }
+
+    private void ClearAttachment()
+    {
+        _newDoc.FilePath = null;
+        _newDoc.FileSize = null;
+        _newDoc.FileType = null;
+        _attachedFileName = null;
+        _attachError = null;
+    }
+
+    private static string FormatAttachSize(long? bytes)
+    {
+        if (!bytes.HasValue || bytes.Value == 0) return "";
+        if (bytes.Value < 1024) return bytes.Value + " B";
+        if (bytes.Value < 1024 * 1024) return (bytes.Value / 1024.0).ToString("F1") + " KB";
+        return (bytes.Value / (1024.0 * 1024.0)).ToString("F1") + " MB";
+    }
+
     protected override async Task OnInitializedAsync()
     {
         _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
@@ -286,6 +414,8 @@ private HashSet<int> _previewLoading = [];
     {
         _newDoc = new MobileDocumentCreate { UploadedByEmployeeId = _employeeId };
         _saveError = null;
+        _attachedFileName = null;
+        _attachError = null;
         _showCreate = true;
     }
 
@@ -307,6 +437,7 @@ private HashSet<int> _previewLoading = [];
 
     private async Task DeleteDocument(int id)
     {
+        _deleteConfirmId = null;
         await DocumentService.DeleteDocumentAsync(id);
         await LoadDocuments();
     }
@@ -400,5 +531,10 @@ private HashSet<int> _previewLoading = [];
             _previewLoading.Remove(doc.Id);
             StateHasChanged();
         }
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
     }
 }

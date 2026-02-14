@@ -1,9 +1,12 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace OneManVanFSM.Shared.Models;
 
 public class AppUser
 {
     public int Id { get; set; }
     public string Username { get; set; } = string.Empty;
+    [EmailAddress]
     public string Email { get; set; } = string.Empty;
     public string PasswordHash { get; set; } = string.Empty;
     public UserRole Role { get; set; } = UserRole.Tech;
@@ -27,5 +30,6 @@ public enum UserRole
     Admin,
     Dispatcher,
     Tech,
-    Manager
+    Manager,
+    Apprentice
 }

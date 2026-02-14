@@ -6,13 +6,13 @@ namespace OneManVanFSM.Services;
 
 public class MobileJobService(AppDbContext db) : IMobileJobService
 {
-    public async Task<List<MobileJobCard>> GetAssignedJobsAsync(int employeeId, MobileJobFilter? filter = null)
+    public async Task<List<MobileJobCard>> GetAssignedJobsAsync(int employeeId, MobileJobFilter? filter = null, bool isElevated = false)
     {
-        var query = db.Jobs
+        var query = db.Jobs.AsNoTracking()
             .Include(j => j.Customer)
             .Include(j => j.Company)
             .Include(j => j.Site)
-            .Where(j => !j.IsArchived && j.AssignedEmployeeId == employeeId)
+            .Where(j => !j.IsArchived && (isElevated || j.AssignedEmployeeId == employeeId))
             .AsQueryable();
 
         if (filter is not null)

@@ -80,6 +80,11 @@
                     <div style="font-size:0.75rem; font-weight:600; color:#212529;" class="mt-1">Call</div>
                     <div class="card-subtitle">@_detail.PrimaryPhone</div>
                 </a>
+                <a href="sms:@_detail.PrimaryPhone" class="mobile-card text-center text-decoration-none" style="padding:0.65rem;">
+                    <i class="bi bi-chat-dots-fill text-info d-block" style="font-size:1.2rem;"></i>
+                    <div style="font-size:0.75rem; font-weight:600; color:#212529;" class="mt-1">Text</div>
+                    <div class="card-subtitle">@_detail.PrimaryPhone</div>
+                </a>
             }
             @if (_detail.PrimaryEmail != null)
             {

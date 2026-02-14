@@ -26,7 +26,7 @@ public class RemoteMobileNoteService : IMobileNoteService
 
     public async Task<List<MobileNoteItem>> GetNotesAsync(int? jobId = null)
     {
-        var query = _db.QuickNotes.AsQueryable();
+        var query = _db.QuickNotes.Where(n => n.Status != QuickNoteStatus.Archived).AsQueryable();
         if (jobId.HasValue)
             query = query.Where(n => n.JobId == jobId.Value
                 || (n.EntityType == "Job" && n.EntityId == jobId.Value));
@@ -81,7 +81,7 @@ public class RemoteMobileNoteService : IMobileNoteService
         {
             HttpMethod = "POST", Endpoint = "api/notes",
             PayloadJson = System.Text.Json.JsonSerializer.Serialize(note),
-            Description = $"Create note: {note.Title ?? note.Text[..Math.Min(30, note.Text.Length)]}"
+            Description = $"Create note: {note.Title ?? note.Text?[..Math.Min(30, note.Text.Length)] ?? "note"}"
         });
         return note;
     }
@@ -126,7 +126,8 @@ public class RemoteMobileNoteService : IMobileNoteService
         var note = await _db.QuickNotes.FindAsync(id);
         if (note is null) return false;
 
-        _db.QuickNotes.Remove(note);
+        note.Status = QuickNoteStatus.Archived;
+        note.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 
         try

@@ -51,11 +51,11 @@ else if (FilteredNotifications.Any())
     @foreach (var group in FilteredNotifications.GroupBy(n => n.Timestamp.Date).OrderByDescending(g => g.Key))
     {
         <div class="section-header">
-            @if (group.Key == DateTime.UtcNow.Date)
-            {
-                @:Today
-            }
-            else if (group.Key == DateTime.UtcNow.Date.AddDays(-1))
+            @if (group.Key == DateTime.Now.Date)
+                {
+                    @:Today
+                }
+                else if (group.Key == DateTime.Now.Date.AddDays(-1))
             {
                 @:Yesterday
             }
@@ -140,11 +140,12 @@ protected override async Task OnInitializedAsync()
         {
             items.Add(new NotificationItem
             {
+                Key = "job_" + job.Id,
                 Title = job.Status == JobStatus.Scheduled ? "Upcoming Job" : "Job " + job.Status,
                 Description = job.JobNumber + " - " + (job.Title ?? "Untitled") + " at " + (job.SiteAddress ?? "Unknown"),
                 Icon = job.Priority == JobPriority.Emergency ? "bi-exclamation-triangle-fill" : "bi-wrench-adjustable",
                 ColorClass = job.Priority == JobPriority.Emergency ? "bg-danger-subtle" : "bg-primary-subtle",
-                Timestamp = DateTime.UtcNow.Date.Add(job.ScheduledTime ?? TimeSpan.Zero),
+                Timestamp = DateTime.Now.Date.Add(job.ScheduledTime ?? TimeSpan.Zero),
                 NavigateTo = "/jobs/" + job.Id,
                 IsRead = job.Status != JobStatus.Scheduled,
                 Category = "Jobs",
@@ -156,11 +157,12 @@ protected override async Task OnInitializedAsync()
         {
             items.Add(new NotificationItem
             {
+                Key = "overdue_" + DateTime.Now.Date.ToString("yyyyMMdd"),
                 Title = "Overdue Jobs",
                 Description = dashboard.OverdueJobCount + " job(s) past scheduled date",
                 Icon = "bi-exclamation-circle-fill",
                 ColorClass = "bg-danger-subtle",
-                Timestamp = DateTime.UtcNow,
+                Timestamp = DateTime.Now,
                 NavigateTo = "/jobs",
                 IsRead = false,
                 Category = "Jobs",
@@ -172,11 +174,12 @@ protected override async Task OnInitializedAsync()
         {
             items.Add(new NotificationItem
             {
+                Key = "upcoming_" + job.Id,
                 Title = "Upcoming: " + (job.Title ?? job.JobNumber),
                 Description = (job.CustomerName ?? "Customer") + " - " + (job.ScheduledDate?.ToString("MMM dd") ?? "TBD"),
                 Icon = "bi-calendar-event",
                 ColorClass = "bg-info-subtle",
-                Timestamp = job.ScheduledDate?.Date.Add(job.ScheduledTime ?? TimeSpan.Zero) ?? DateTime.UtcNow,
+                Timestamp = job.ScheduledDate?.Date.Add(job.ScheduledTime ?? TimeSpan.Zero) ?? DateTime.Now,
                 NavigateTo = "/jobs/" + job.Id,
                 IsRead = true,
                 Category = "Jobs",
@@ -188,6 +191,7 @@ protected override async Task OnInitializedAsync()
         {
             items.Add(new NotificationItem
             {
+                Key = "activity_" + activity.Timestamp.Ticks,
                 Title = "Job Update",
                 Description = activity.Description,
                 Icon = activity.Icon.Contains("check") ? "bi-check-circle-fill" : "bi-info-circle",
@@ -203,11 +207,12 @@ protected override async Task OnInitializedAsync()
         {
             items.Add(new NotificationItem
             {
+                Key = "notes_urgent_" + DateTime.Now.Date.ToString("yyyyMMdd"),
                 Title = "Urgent Notes",
                 Description = dashboard.PendingNoteCount + " urgent note(s) need attention",
                 Icon = "bi-journal-text",
                 ColorClass = "bg-warning-subtle",
-                Timestamp = DateTime.UtcNow,
+                Timestamp = DateTime.Now,
                 NavigateTo = "/notes",
                 IsRead = false,
                 Category = "Notes",
@@ -224,11 +229,12 @@ protected override async Task OnInitializedAsync()
                 {
                     items.Add(new NotificationItem
                     {
+                        Key = "lowstock_" + item.Id,
                         Title = "Low Stock: " + item.Name,
                         Description = item.Quantity + " remaining (min " + item.MinThreshold + ") - " + item.Location,
                         Icon = "bi-box-seam",
                         ColorClass = "bg-warning-subtle",
-                        Timestamp = DateTime.UtcNow.AddMinutes(-10),
+                        Timestamp = DateTime.Now.AddMinutes(-10),
                         NavigateTo = "/inventory",
                         IsRead = false,
                         Category = "Inventory",
@@ -242,15 +248,16 @@ protected override async Task OnInitializedAsync()
         try
         {
             var estimates = await EstimateService.GetEstimatesAsync(new MobileEstimateFilter { Status = EstimateStatus.Sent });
-            foreach (var est in estimates.Where(e => e.ExpiryDate.HasValue && e.ExpiryDate.Value < DateTime.UtcNow.AddDays(7)).Take(3))
+            foreach (var est in estimates.Where(e => e.ExpiryDate.HasValue && e.ExpiryDate.Value < DateTime.Now.AddDays(7)).Take(3))
             {
                 items.Add(new NotificationItem
                 {
+                    Key = "estimate_" + est.Id,
                     Title = "Estimate Expiring",
                     Description = est.EstimateNumber + " - " + (est.Title ?? "Untitled") + " exp " + (est.ExpiryDate?.ToString("MMM dd") ?? ""),
                     Icon = "bi-calculator",
                     ColorClass = "bg-warning-subtle",
-                    Timestamp = est.ExpiryDate?.AddDays(-7) ?? DateTime.UtcNow,
+                    Timestamp = est.ExpiryDate?.AddDays(-7) ?? DateTime.Now,
                     NavigateTo = "/estimates/" + est.Id,
                     IsRead = false,
                     Category = "Estimates",
@@ -263,11 +270,12 @@ protected override async Task OnInitializedAsync()
         try
         {
             var agreements = await AgreementService.GetAgreementsAsync("Active");
-            foreach (var sa in agreements.Where(a => a.EndDate <= DateTime.UtcNow.AddDays(30)).Take(5))
+            foreach (var sa in agreements.Where(a => a.EndDate <= DateTime.Now.AddDays(30)).Take(5))
             {
-                var daysLeft = (sa.EndDate - DateTime.UtcNow.Date).Days;
+                var daysLeft = (sa.EndDate - DateTime.Now.Date).Days;
                 items.Add(new NotificationItem
                 {
+                    Key = "agreement_" + sa.Id,
                     Title = daysLeft <= 0 ? "Agreement Expired" : "Agreement Expiring Soon",
                     Description = sa.AgreementNumber + " - " + (sa.Title ?? "Untitled") + (daysLeft > 0 ? " expires in " + daysLeft + " days" : " has expired"),
                     Icon = daysLeft <= 0 ? "bi-file-earmark-x-fill" : "bi-file-earmark-lock",
@@ -285,15 +293,16 @@ protected override async Task OnInitializedAsync()
         try
         {
             var agreements = await AgreementService.GetAgreementsAsync("Active");
-            foreach (var sa in agreements.Where(a => a.VisitsRemaining == 0 && a.EndDate > DateTime.UtcNow).Take(3))
+            foreach (var sa in agreements.Where(a => a.VisitsRemaining == 0 && a.EndDate > DateTime.Now).Take(3))
             {
                 items.Add(new NotificationItem
                 {
+                    Key = "novisits_" + sa.Id,
                     Title = "No Visits Remaining",
                     Description = sa.AgreementNumber + " - " + (sa.CustomerName ?? "Customer") + " has used all " + sa.VisitsIncluded + " visits",
                     Icon = "bi-calendar-x",
                     ColorClass = "bg-info-subtle",
-                    Timestamp = DateTime.UtcNow.AddHours(-2),
+                    Timestamp = DateTime.Now.AddHours(-2),
                     NavigateTo = "/agreements/" + sa.Id,
                     IsRead = true,
                     Category = "Agreements",
@@ -302,6 +311,14 @@ protected override async Task OnInitializedAsync()
         }
         catch { }
         _notifications = items;
+
+        // Apply persisted read state
+        foreach (var n in _notifications)
+        {
+            if (IsNotifRead(n.Key))
+                n.IsRead = true;
+        }
+
         _lastUpdated = DateTime.Now;
         _loading = false;
     }
@@ -309,6 +326,7 @@ protected override async Task OnInitializedAsync()
     private void HandleTap(NotificationItem notif)
     {
         notif.IsRead = true;
+        MarkNotifRead(notif.Key);
         if (!string.IsNullOrEmpty(notif.NavigateTo))
         {
             Nav.NavigateTo(notif.NavigateTo);
@@ -320,7 +338,20 @@ protected override async Task OnInitializedAsync()
         foreach (var notif in _notifications)
         {
             notif.IsRead = true;
+            MarkNotifRead(notif.Key);
         }
+    }
+
+    private static void MarkNotifRead(string key)
+    {
+        if (!string.IsNullOrEmpty(key))
+            Preferences.Default.Set("notif_read_" + key, true);
+    }
+
+    private static bool IsNotifRead(string key)
+    {
+        if (string.IsNullOrEmpty(key)) return false;
+        return Preferences.Default.Get("notif_read_" + key, false);
     }
 
     private void GoBack() => Nav.NavigateTo("/");
@@ -328,6 +359,7 @@ protected override async Task OnInitializedAsync()
     private class NotificationItem
     {
         public string Title { get; set; } = string.Empty;
+        public string Key { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public string Icon { get; set; } = "bi-bell";
         public string ColorClass { get; set; } = "bg-info-subtle";

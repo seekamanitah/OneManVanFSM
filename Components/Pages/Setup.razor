@@ -37,20 +37,35 @@
 
         <div class="mb-3">
             <label class="form-label" style="font-size:0.85rem;">Current Password</label>
-            <input type="password" class="form-control" @bind="_currentPassword" @bind:event="oninput"
-                   placeholder="Enter current password" />
+            <div class="input-group">
+                <input type="@(_showCurrentPw ? "text" : "password")" class="form-control" @bind="_currentPassword" @bind:event="oninput"
+                       placeholder="Enter current password" />
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => _showCurrentPw = !_showCurrentPw" tabindex="-1">
+                    <i class="bi @(_showCurrentPw ? "bi-eye-slash" : "bi-eye")"></i>
+                </button>
+            </div>
         </div>
 
         <div class="mb-3">
             <label class="form-label" style="font-size:0.85rem;">New Password</label>
-            <input type="password" class="form-control" @bind="_newPassword" @bind:event="oninput"
-                   placeholder="Min. 6 characters" />
+            <div class="input-group">
+                <input type="@(_showNewPw ? "text" : "password")" class="form-control" @bind="_newPassword" @bind:event="oninput"
+                       placeholder="Min. 6 characters" />
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => _showNewPw = !_showNewPw" tabindex="-1">
+                    <i class="bi @(_showNewPw ? "bi-eye-slash" : "bi-eye")"></i>
+                </button>
+            </div>
         </div>
 
         <div class="mb-3">
             <label class="form-label" style="font-size:0.85rem;">Confirm New Password</label>
-            <input type="password" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
-                   placeholder="Re-enter new password" />
+            <div class="input-group">
+                <input type="@(_showConfirmPw ? "text" : "password")" class="form-control" @bind="_confirmPassword" @bind:event="oninput"
+                       placeholder="Re-enter new password" />
+                <button type="button" class="btn btn-outline-secondary" @onclick="() => _showConfirmPw = !_showConfirmPw" tabindex="-1">
+                    <i class="bi @(_showConfirmPw ? "bi-eye-slash" : "bi-eye")"></i>
+                </button>
+            </div>
         </div>
 
         <button class="btn btn-warning w-100 fw-semibold" @onclick="HandleSetup" disabled="@_processing">
@@ -77,6 +92,9 @@
     private string? _error;
     private string? _success;
     private bool _processing;
+    private bool _showCurrentPw;
+    private bool _showNewPw;
+    private bool _showConfirmPw;
 
     private async Task HandleSetup()
     {

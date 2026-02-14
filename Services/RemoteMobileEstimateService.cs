@@ -26,7 +26,7 @@ public class RemoteMobileEstimateService : IMobileEstimateService
 
     public async Task<List<MobileEstimateCard>> GetEstimatesAsync(MobileEstimateFilter? filter = null)
     {
-        var query = _db.Estimates
+        var query = _db.Estimates.AsNoTracking()
             .Include(e => e.Customer).Include(e => e.Company).Include(e => e.Site).Include(e => e.Lines)
             .Where(e => !e.IsArchived).AsQueryable();
 
@@ -54,7 +54,7 @@ public class RemoteMobileEstimateService : IMobileEstimateService
 
     public async Task<MobileEstimateDetail?> GetEstimateDetailAsync(int id)
     {
-        var e = await _db.Estimates
+        var e = await _db.Estimates.AsNoTracking()
             .Include(e => e.Customer).Include(e => e.Company).Include(e => e.Site).Include(e => e.Lines)
             .FirstOrDefaultAsync(e => e.Id == id);
         if (e is null) return null;

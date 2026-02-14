@@ -23,6 +23,7 @@
             <div class="alert alert-success py-2" style="font-size:0.85rem;">@_successMessage</div>
         }
 
+        <form @onsubmit="HandleLogin" @onsubmit:preventDefault>
         <div class="mb-3">
             <label class="form-label" style="font-size:0.85rem;">Username</label>
             <input type="text" class="form-control" @bind="_username" @bind:event="oninput" placeholder="Enter username" />
@@ -40,7 +41,7 @@
             </div>
         </div>
 
-        <button class="btn btn-primary w-100 fw-semibold" @onclick="HandleLogin" disabled="@_loggingIn">
+        <button type="submit" class="btn btn-primary w-100 fw-semibold" disabled="@_loggingIn">
             @if (_loggingIn)
             {
                 <span class="spinner-border spinner-border-sm me-1" role="status"></span>
@@ -52,6 +53,7 @@
                 <span>Sign In</span>
             }
         </button>
+        </form>
 
         @* Server Connection Toggle *@
         <div class="mt-3">
@@ -218,7 +220,7 @@
         _loggingIn = true;
         StateHasChanged();
 
-        LogDiag("INFO", $"Login attempt: user='{_username.Trim()}', mode={_dbMode}, rememberMe={_rememberMe}");
+        LogDiag("INFO", $"Login attempt: user='{(_username.Trim().Length > 0 ? _username.Trim()[0] + "***" : "")}', mode={_dbMode}, rememberMe={_rememberMe}");
 
         if (_isRemoteMode)
         {

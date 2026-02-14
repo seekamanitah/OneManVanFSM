@@ -11,7 +11,7 @@ public class MobileInvoiceService : IMobileInvoiceService
 
     public async Task<MobileInvoiceStats> GetStatsAsync()
     {
-        var invoices = await _db.Invoices.Where(i => !i.IsArchived).ToListAsync();
+        var invoices = await _db.Invoices.AsNoTracking().Where(i => !i.IsArchived).ToListAsync();
 
         return new MobileInvoiceStats
         {
@@ -24,7 +24,7 @@ public class MobileInvoiceService : IMobileInvoiceService
 
     public async Task<List<MobileInvoiceCard>> GetInvoicesAsync(MobileInvoiceFilter? filter = null)
     {
-        var query = _db.Invoices
+        var query = _db.Invoices.AsNoTracking()
             .Include(i => i.Customer)
             .Include(i => i.Job)
             .Include(i => i.Lines)

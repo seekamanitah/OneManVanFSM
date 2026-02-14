@@ -61,7 +61,11 @@ builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationSc
     })
     .AddJwtBearer(options =>
     {
-        var jwtService = new JwtService();
+        // Build a temporary provider to resolve the DI-registered JwtService
+        // instead of creating a duplicate instance (avoids L10 dual-instantiation)
+        using var tempProvider = builder.Services.BuildServiceProvider();
+        var jwtService = tempProvider.GetRequiredService<IJwtService>() as JwtService
+            ?? throw new InvalidOperationException("JwtService not registered.");
         options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuer = true,

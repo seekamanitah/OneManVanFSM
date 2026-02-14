@@ -16,7 +16,7 @@ public class CalendarService : ICalendarService
         if (end.HasValue) query = query.Where(e => e.StartDateTime <= end.Value);
         if (employeeId.HasValue) query = query.Where(e => e.EmployeeId == employeeId.Value);
 
-        return await query.OrderBy(e => e.StartDateTime).Select(e => new CalendarEventItem
+        var calendarEvents = await query.OrderBy(e => e.StartDateTime).Select(e => new CalendarEventItem
         {
             Id = e.Id, Title = e.Title, StartDateTime = e.StartDateTime,
             EndDateTime = e.EndDateTime, Duration = e.Duration, Status = e.Status,
@@ -27,6 +27,56 @@ public class CalendarService : ICalendarService
             SiteName = e.Job != null && e.Job.Site != null ? e.Job.Site.Name : null,
             Notes = e.Notes
         }).ToListAsync();
+
+        // Also include scheduled jobs that don't have explicit calendar events
+        var jobQuery = _db.Jobs
+            .Include(j => j.Customer)
+            .Include(j => j.Site)
+            .Include(j => j.AssignedEmployee)
+            .Where(j => !j.IsArchived
+                && j.ScheduledDate != null
+                && j.Status != JobStatus.Cancelled);
+
+        if (start.HasValue)
+            jobQuery = jobQuery.Where(j => j.ScheduledDate.Value >= start.Value.Date);
+        if (end.HasValue)
+            jobQuery = jobQuery.Where(j => j.ScheduledDate.Value <= end.Value.Date);
+        if (employeeId.HasValue)
+            jobQuery = jobQuery.Where(j => j.AssignedEmployeeId == employeeId.Value);
+
+        var scheduledJobs = await jobQuery.OrderBy(j => j.ScheduledDate).ThenBy(j => j.ScheduledTime).ToListAsync();
+
+        // Add jobs that don't already have calendar events
+        var existingJobNumbers = calendarEvents
+            .Where(e => e.JobNumber != null)
+            .Select(e => e.JobNumber)
+            .ToHashSet();
+
+        foreach (var job in scheduledJobs.Where(j => !existingJobNumbers.Contains(j.JobNumber)))
+        {
+            var jobDate = job.ScheduledDate!.Value.Date;
+            var startTime = jobDate;
+            if (job.ScheduledTime.HasValue)
+                startTime = jobDate.Add(job.ScheduledTime.Value);
+            else
+                startTime = jobDate.AddHours(8);
+
+            calendarEvents.Add(new CalendarEventItem
+            {
+                Id = -job.Id, // Negative to distinguish from real CalendarEvent IDs
+                Title = job.Title ?? job.JobNumber,
+                StartDateTime = startTime,
+                EndDateTime = startTime.AddHours((double)(job.EstimatedDuration ?? 1)),
+                Status = CalendarEventStatus.Confirmed,
+                EventType = "Job",
+                JobNumber = job.JobNumber,
+                EmployeeName = job.AssignedEmployee?.Name,
+                CustomerName = job.Customer?.Name,
+                SiteName = job.Site?.Name,
+            });
+        }
+
+        return calendarEvents.OrderBy(e => e.StartDateTime).ToList();
     }
 
     public async Task<CalendarEventDetail?> GetEventDetailAsync(int id)

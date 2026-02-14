@@ -89,6 +89,15 @@ public static class Features
             list.Add(new RolePermission { Role = UserRole.Tech, Feature = f, CanView = canView, CanEdit = canEdit, CanDelete = canDelete });
         }
 
+        // Apprentice — view-only on most operational features, can only edit notes
+        foreach (var f in All)
+        {
+            var canView = f is not (Settings or Employees or Financials or Invoices or Expenses or Reports);
+            var canEdit = f is QuickNotes or Documents;
+            var canDelete = false;
+            list.Add(new RolePermission { Role = UserRole.Apprentice, Feature = f, CanView = canView, CanEdit = canEdit, CanDelete = canDelete });
+        }
+
         return list;
     }
 }

@@ -5,6 +5,8 @@
 @inject IMobileSiteService SiteService
 @inject IMobileAuthService AuthService
 @inject IMobilePdfService PdfService
+@inject IMobileInventoryService InventorySvc
+@inject IMobileProductService ProductSvc
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -280,7 +282,7 @@ else
                 <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
                     <span style="font-size:0.8rem; font-weight:600;">Line Items (@_fullInvoice.Lines.Count)</span>
                     <button class="btn btn-sm btn-outline-primary" style="font-size:0.7rem; padding:2px 8px;" @onclick="AddInvoiceLine">
-                        <i class="bi bi-plus me-1"></i>Add
+                        <i class="bi bi-plus me-1"></i>Custom
                     </button>
                 </div>
                 @for (var idx = 0; idx < _fullInvoice.Lines.Count; idx++)
@@ -290,11 +292,16 @@ else
                     <div class="border rounded p-2 mb-1" style="background:#f8f9fa; font-size:0.85rem;">
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="fw-semibold" style="font-size:0.75rem;">Item @(i + 1)</span>
-                            <button class="btn btn-sm btn-outline-danger" style="font-size:0.65rem; padding:1px 5px;" @onclick="() => RemoveInvoiceLine(i)">
-                                <i class="bi bi-x"></i>
-                            </button>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary" style="font-size:0.6rem; padding:1px 5px;" @onclick="() => OpenItemPicker(i)" title="Browse inventory/products">
+                                    <i class="bi bi-search"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" style="font-size:0.65rem; padding:1px 5px;" @onclick="() => RemoveInvoiceLine(i)">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
                         </div>
-                        <input type="text" class="form-control mb-1" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Description *" @bind="line.Description" />
+                        <input type="text" class="form-control mb-1" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Description * (or browse →)" @bind="line.Description" />
                         <div class="row g-1">
                             <div class="col-4">
                                 <select class="form-select" style="min-height:34px; font-size:0.8rem; padding:4px 6px;" @bind="line.LineType">
@@ -496,6 +503,99 @@ else
     }
 }
 
+@* Item Picker Overlay *@
+@if (_showItemPicker)
+{
+    <div style="position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:2000; display:flex; align-items:flex-end;" @onclick="() => _showItemPicker = false">
+        <div style="background:white; width:100%; max-height:75vh; border-radius:16px 16px 0 0; display:flex; flex-direction:column; overflow:hidden;" @onclick:stopPropagation>
+            <div style="padding:0.75rem 1rem 0.5rem; border-bottom:1px solid #eee;">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-size:0.9rem; font-weight:700;"><i class="bi bi-box-seam me-1"></i>Select Item</span>
+                    <button class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem; padding:1px 6px;" @onclick="() => _showItemPicker = false">
+                        <i class="bi bi-x-lg"></i>
+                    </button>
+                </div>
+                <div class="d-flex gap-1 mb-2">
+                    <button class="btn btn-sm flex-fill @(_itemPickerTab == "inventory" ? "btn-primary" : "btn-outline-primary")" style="font-size:0.75rem; padding:3px 8px;"
+                            @onclick='() => SwitchPickerTab("inventory")'>
+                        <i class="bi bi-boxes me-1"></i>Inventory
+                    </button>
+                    <button class="btn btn-sm flex-fill @(_itemPickerTab == "products" ? "btn-primary" : "btn-outline-primary")" style="font-size:0.75rem; padding:3px 8px;"
+                            @onclick='() => SwitchPickerTab("products")'>
+                        <i class="bi bi-grid me-1"></i>Products
+                    </button>
+                </div>
+                <input type="text" class="form-control form-control-sm" style="font-size:0.85rem;" placeholder="Search @_itemPickerTab..."
+                       @bind="_itemPickerSearch" @bind:event="oninput" @bind:after="SearchPickerItems" />
+            </div>
+            <div style="overflow-y:auto; flex:1; padding:0.5rem 1rem;">
+                @if (_itemPickerTab == "inventory")
+                {
+                    @if (_inventoryItems.Any())
+                    {
+                        @foreach (var item in _inventoryItems.Take(25))
+                        {
+                            <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px solid #f0f0f0; cursor:pointer;"
+                                 @onclick="() => SelectInventoryItem(item)">
+                                <div style="min-width:0; flex:1;">
+                                    <div style="font-size:0.82rem; font-weight:600;">@item.Name</div>
+                                    <div style="font-size:0.7rem;" class="text-muted">
+                                        @if (!string.IsNullOrWhiteSpace(item.SKU)) { <span>SKU: @item.SKU · </span> }
+                                        Stock: @item.Quantity
+                                        @if (item.IsLowStock) { <span class="text-danger ms-1">· Low</span> }
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div style="font-size:0.85rem; font-weight:700; color:var(--primary);">@item.Price.ToString("C")</div>
+                                    @if (item.Cost > 0 && item.Cost != item.Price)
+                                    {
+                                        <div style="font-size:0.65rem;" class="text-muted">Cost: @item.Cost.ToString("C")</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-3" style="font-size:0.8rem;">No inventory items found</div>
+                    }
+                }
+                else
+                {
+                    @if (_productItems.Any())
+                    {
+                        @foreach (var item in _productItems.Take(25))
+                        {
+                            <div class="d-flex justify-content-between align-items-center py-2" style="border-bottom:1px solid #f0f0f0; cursor:pointer;"
+                                 @onclick="() => SelectProductItem(item)">
+                                <div style="min-width:0; flex:1;">
+                                    <div style="font-size:0.82rem; font-weight:600;">@item.Name</div>
+                                    <div style="font-size:0.7rem;" class="text-muted">
+                                        @if (!string.IsNullOrWhiteSpace(item.Brand)) { <span>@item.Brand · </span> }
+                                        @if (!string.IsNullOrWhiteSpace(item.PartNumber)) { <span>@item.PartNumber · </span> }
+                                        @if (!string.IsNullOrWhiteSpace(item.Category)) { <span>@item.Category</span> }
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    <div style="font-size:0.85rem; font-weight:700; color:var(--primary);">@item.Price.ToString("C")</div>
+                                    @if (item.Cost > 0 && item.Cost != item.Price)
+                                    {
+                                        <div style="font-size:0.65rem;" class="text-muted">Cost: @item.Cost.ToString("C")</div>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="text-center text-muted py-3" style="font-size:0.8rem;">No products found</div>
+                    }
+                }
+            </div>
+        </div>
+    </div>
+}
+
 @code {
     private string _mode = "list";
     private bool _loading = true;
@@ -516,6 +616,14 @@ else
     private string? _statusMessage;
     private bool _statusSuccess;
     private bool _sharingPdf;
+
+    // Item picker state
+    private bool _showItemPicker;
+    private int _pickerLineIndex;
+    private string _itemPickerSearch = "";
+    private string _itemPickerTab = "inventory"; // "inventory" or "products"
+    private List<MobileInventoryItem> _inventoryItems = [];
+    private List<MobileProductCard> _productItems = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -595,6 +703,56 @@ else
 
     private void AddInvoiceLine() => _fullInvoice.Lines.Add(new MobileInvoiceLineCreate());
     private void RemoveInvoiceLine(int index) { if (_fullInvoice.Lines.Count > 1) _fullInvoice.Lines.RemoveAt(index); }
+
+    private async Task OpenItemPicker(int lineIndex)
+    {
+        _pickerLineIndex = lineIndex;
+        _itemPickerSearch = "";
+        _itemPickerTab = "inventory";
+        await SearchPickerItems();
+        _showItemPicker = true;
+    }
+
+    private async Task SearchPickerItems()
+    {
+        if (_itemPickerTab == "inventory")
+            _inventoryItems = await InventorySvc.GetInventoryAsync(new MobileInventoryFilter { Search = _itemPickerSearch });
+        else
+            _productItems = await ProductSvc.GetProductsAsync(new MobileProductFilter { Search = _itemPickerSearch });
+    }
+
+    private async Task SwitchPickerTab(string tab)
+    {
+        _itemPickerTab = tab;
+        await SearchPickerItems();
+    }
+
+    private void SelectInventoryItem(MobileInventoryItem item)
+    {
+        if (_pickerLineIndex >= 0 && _pickerLineIndex < _fullInvoice.Lines.Count)
+        {
+            var line = _fullInvoice.Lines[_pickerLineIndex];
+            line.Description = !string.IsNullOrWhiteSpace(item.SKU) ? $"{item.Name} ({item.SKU})" : item.Name;
+            line.UnitPrice = item.Price > 0 ? item.Price : item.Cost;
+            line.LineType = "Material";
+            line.Quantity = 1;
+        }
+        _showItemPicker = false;
+    }
+
+    private void SelectProductItem(MobileProductCard item)
+    {
+        if (_pickerLineIndex >= 0 && _pickerLineIndex < _fullInvoice.Lines.Count)
+        {
+            var line = _fullInvoice.Lines[_pickerLineIndex];
+            line.Description = !string.IsNullOrWhiteSpace(item.PartNumber) ? $"{item.Name} ({item.PartNumber})" : item.Name;
+            line.UnitPrice = item.Price > 0 ? item.Price : item.Cost;
+            line.LineType = "Material";
+            line.Unit = item.Unit;
+            line.Quantity = 1;
+        }
+        _showItemPicker = false;
+    }
 
     private decimal InvPreviewSubtotal => _fullInvoice.Lines.Sum(l => l.Quantity * l.UnitPrice);
     private decimal InvPreviewMarkup => InvPreviewSubtotal * _fullInvoice.MarkupPercent / 100;

@@ -20,7 +20,7 @@ public class TimeEntriesApiController : SyncApiController
         if (employeeId.HasValue)
             query = query.Where(t => t.EmployeeId == employeeId.Value);
         if (since.HasValue)
-            query = query.Where(t => t.CreatedAt > since.Value);
+            query = query.Where(t => t.UpdatedAt > since.Value);
 
         var data = await query.OrderByDescending(t => t.StartTime).ToListAsync();
         return Ok(new SyncResponse<TimeEntry> { Data = data, TotalCount = data.Count });
@@ -77,6 +77,7 @@ public class TimeEntriesApiController : SyncApiController
             ClockInLatitude = req.Latitude,
             ClockInLongitude = req.Longitude,
             CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
         };
 
         _db.TimeEntries.Add(entry);
@@ -107,6 +108,7 @@ public class TimeEntriesApiController : SyncApiController
             {
                 jc.EndTime = DateTime.UtcNow;
                 jc.Hours = (decimal)(jc.EndTime.Value - jc.StartTime).TotalHours;
+                jc.UpdatedAt = DateTime.UtcNow;
             }
 
             activeShift.EndTime = DateTime.UtcNow;
@@ -115,6 +117,7 @@ public class TimeEntriesApiController : SyncApiController
                 activeShift.OvertimeHours = activeShift.Hours - 8;
             activeShift.ClockOutLatitude = req.Latitude;
             activeShift.ClockOutLongitude = req.Longitude;
+            activeShift.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return Ok(activeShift);
         }
@@ -130,6 +133,7 @@ public class TimeEntriesApiController : SyncApiController
             activeJob.Hours = (decimal)(activeJob.EndTime.Value - activeJob.StartTime).TotalHours;
             activeJob.ClockOutLatitude = req.Latitude;
             activeJob.ClockOutLongitude = req.Longitude;
+            activeJob.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return Ok(activeJob);
         }
@@ -151,6 +155,7 @@ public class TimeEntriesApiController : SyncApiController
         active.Hours = (decimal)(active.EndTime.Value - active.StartTime).TotalHours;
         active.ClockOutLatitude = req.Latitude;
         active.ClockOutLongitude = req.Longitude;
+        active.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(active);
     }

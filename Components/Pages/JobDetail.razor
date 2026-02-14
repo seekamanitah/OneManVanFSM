@@ -5,6 +5,7 @@
 @inject IMobilePhotoService PhotoService
 @inject IMobileDocumentService DocumentService
 @inject NavigationManager Nav
+@implements IDisposable
 
 @if (_loading)
 {
@@ -202,8 +203,8 @@ else
                 }
                 @if (asset.WarrantyExpiry.HasValue)
                 {
-                    var isExpiringSoon = asset.WarrantyExpiry.Value < DateTime.UtcNow.AddMonths(3);
-                    var isExpired = asset.WarrantyExpiry.Value < DateTime.UtcNow;
+                    var isExpiringSoon = asset.WarrantyExpiry.Value < DateTime.Now.AddMonths(3);
+                    var isExpired = asset.WarrantyExpiry.Value < DateTime.Now;
                     <p class="card-subtitle mb-0 @(isExpired ? "text-danger" : isExpiringSoon ? "text-warning" : "")">
                         <i class="bi bi-shield-check me-1"></i>Warranty:
                         @(isExpired ? "Expired" : asset.WarrantyExpiry.Value.ToString("MMM dd, yyyy"))
@@ -487,6 +488,8 @@ private MobileMaterialCreate _newMaterial = new();
 private bool _isJobClockActive;
 private DateTime? _jobClockStartTime;
 private string? _jobClockError;
+private PeriodicTimer? _jobTimer;
+private CancellationTokenSource? _jobTimerCts;
 
 private decimal MaterialTotal => _job?.Materials.Sum(m => m.BaseCost * (decimal)m.Quantity) ?? 0;
 
@@ -496,6 +499,7 @@ protected override async Task OnInitializedAsync()
 {
     _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
     await LoadJob();
+    StartJobTimer();
 }
 
     private async Task LoadJob()
@@ -658,5 +662,34 @@ protected override async Task OnInitializedAsync()
     private static string GetMapsUrl(string address)
     {
         return "https://www.google.com/maps/search/?api=1&query=" + Uri.EscapeDataString(address);
+    }
+
+    private void StartJobTimer()
+    {
+        _jobTimerCts?.Cancel();
+        _jobTimerCts = new CancellationTokenSource();
+        _jobTimer?.Dispose();
+        _jobTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        _ = TickJobTimerAsync(_jobTimerCts.Token);
+    }
+
+    private async Task TickJobTimerAsync(CancellationToken ct)
+    {
+        try
+        {
+            while (await _jobTimer!.WaitForNextTickAsync(ct))
+            {
+                if (_isJobClockActive)
+                    await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    public void Dispose()
+    {
+        _jobTimerCts?.Cancel();
+        _jobTimerCts?.Dispose();
+        _jobTimer?.Dispose();
     }
 }

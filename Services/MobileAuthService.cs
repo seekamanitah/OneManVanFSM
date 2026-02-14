@@ -27,7 +27,7 @@ public class MobileAuthService : IMobileAuthService
 
     public async Task<MobileAuthResult> LoginAsync(string username, string password, bool rememberMe = false)
     {
-        System.Diagnostics.Debug.WriteLine($"[AUTH] LoginAsync called — username='{username}', password length={password.Length}");
+        System.Diagnostics.Debug.WriteLine("[AUTH] LoginAsync called.");
 
         var user = await _db.Users
             .Include(u => u.Employee)
@@ -40,7 +40,7 @@ public class MobileAuthService : IMobileAuthService
             return MobileAuthResult.Failure("Invalid username or password.");
         }
 
-        System.Diagnostics.Debug.WriteLine($"[AUTH] User found: Id={user.Id}, Username={user.Username}, IsActive={user.IsActive}, IsLocked={user.IsLocked}, Hash={user.PasswordHash?[..Math.Min(20, user.PasswordHash?.Length ?? 0)]}...");
+        System.Diagnostics.Debug.WriteLine($"[AUTH] User found: Id={user.Id}, IsActive={user.IsActive}, IsLocked={user.IsLocked}");
 
         if (user.IsLocked)
             return MobileAuthResult.Failure("Account is locked. Contact your administrator.");

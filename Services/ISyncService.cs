@@ -20,6 +20,12 @@ public interface ISyncService
 
     /// <summary>Raised when sync state changes (started / finished / progress).</summary>
     event Action<SyncProgressInfo>? OnSyncProgress;
+
+    /// <summary>Returns the error log entries from recent sync operations.</summary>
+    IReadOnlyList<SyncErrorEntry> ErrorLog { get; }
+
+    /// <summary>Clears the accumulated error log.</summary>
+    void ClearErrorLog();
 }
 
 public class SyncResult
@@ -29,6 +35,7 @@ public class SyncResult
     public int Errors { get; set; }
     public string? ErrorMessage { get; set; }
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
+    public List<SyncErrorEntry> EntityErrors { get; set; } = [];
 
     public static SyncResult Success(int count) =>
         new() { Succeeded = true, EntitiesSynced = count };
@@ -44,4 +51,11 @@ public class SyncProgressInfo
     public int CompletedEntities { get; set; }
     public int TotalEntities { get; set; }
     public string? StatusMessage { get; set; }
+}
+
+public class SyncErrorEntry
+{
+    public string EntityType { get; set; } = string.Empty;
+    public string ErrorMessage { get; set; } = string.Empty;
+    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }

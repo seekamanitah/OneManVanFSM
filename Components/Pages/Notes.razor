@@ -109,11 +109,20 @@ else if (FilteredNotes.Any())
                     <button class="btn btn-sm btn-outline-primary" style="min-height:32px; padding:2px 8px;" @onclick="() => StartEdit(note)">
                         <i class="bi bi-pencil"></i>
                     </button>
-                    <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;" @onclick="() => DeleteNote(note.Id)">
+                    <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;" @onclick="() => _deleteConfirmId = note.Id">
                         <i class="bi bi-trash3"></i>
                     </button>
                 </div>
             </div>
+
+            @if (_deleteConfirmId == note.Id)
+            {
+                <div class="alert alert-danger py-2 d-flex align-items-center gap-2 mb-1" style="font-size:0.8rem;">
+                    <span>Delete this note?</span>
+                    <button class="btn btn-sm btn-danger" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => DeleteNote(note.Id)">Yes</button>
+                    <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => _deleteConfirmId = null">No</button>
+                </div>
+            }
 
             @if (_editingNoteId == note.Id)
             {
@@ -201,6 +210,7 @@ private int _employeeId;
     private int? _editingNoteId;
     private MobileNoteUpdate _editNote = new();
     private string? _editError;
+    private int? _deleteConfirmId;
 
 private IEnumerable<MobileNoteItem> FilteredNotes
 {
@@ -223,6 +233,7 @@ private IEnumerable<MobileNoteItem> FilteredNotes
 private void SetCategory(string cat)
 {
     _categoryFilter = cat;
+    StateHasChanged();
 }
 
 protected override async Task OnInitializedAsync()
@@ -279,6 +290,7 @@ private void ShowCreate()
 
     private async Task DeleteNote(int id)
     {
+        _deleteConfirmId = null;
         await NoteService.DeleteNoteAsync(id);
         await LoadNotes();
     }

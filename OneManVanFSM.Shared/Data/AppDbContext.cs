@@ -422,6 +422,10 @@ public class AppDbContext : DbContext
                 .WithMany(co => co.ServiceAgreements)
                 .HasForeignKey(sa => sa.CompanyId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(sa => sa.Site)
+                .WithMany()
+                .HasForeignKey(sa => sa.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // QuickNote

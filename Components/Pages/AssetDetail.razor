@@ -64,8 +64,8 @@ else
         <!-- Warranty Badge -->
         @if (_asset.WarrantyExpiry.HasValue)
         {
-            var isExpired = _asset.WarrantyExpiry.Value < DateTime.UtcNow;
-            var isExpiringSoon = !isExpired && _asset.WarrantyExpiry.Value < DateTime.UtcNow.AddMonths(3);
+            var isExpired = _asset.WarrantyExpiry.Value < DateTime.Now;
+            var isExpiringSoon = !isExpired && _asset.WarrantyExpiry.Value < DateTime.Now.AddMonths(3);
             <div class="mt-2 warranty-badge @(isExpired ? "warranty-expired" : isExpiringSoon ? "warranty-expiring" : "warranty-active")">
                 <i class="bi @(isExpired ? "bi-shield-x" : isExpiringSoon ? "bi-shield-exclamation" : "bi-shield-check") me-1"></i>
                 @if (isExpired)
@@ -74,7 +74,7 @@ else
                 }
                 else
                 {
-                    var days = (_asset.WarrantyExpiry.Value - DateTime.UtcNow).Days;
+                    var days = (_asset.WarrantyExpiry.Value - DateTime.Now).Days;
                     <span>Warranty: @days days remaining</span>
                 }
             </div>
@@ -87,8 +87,8 @@ else
                 <div class="d-flex flex-column gap-1">
                     @if (_asset.LaborWarrantyExpiry.HasValue)
                     {
-                        var laborExpired = _asset.LaborWarrantyExpiry.Value < DateTime.UtcNow;
-                        var laborDays = (int)(_asset.LaborWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                        var laborExpired = _asset.LaborWarrantyExpiry.Value < DateTime.Now;
+                        var laborDays = (int)(_asset.LaborWarrantyExpiry.Value - DateTime.Now).TotalDays;
                         <div class="d-flex justify-content-between">
                             <span class="text-muted"><i class="bi bi-person-gear me-1"></i>Labor</span>
                             <span class="@(laborExpired ? "text-danger" : laborDays <= 90 ? "text-warning" : "text-success")">
@@ -99,8 +99,8 @@ else
                     }
                     @if (_asset.PartsWarrantyExpiry.HasValue)
                     {
-                        var partsExpired = _asset.PartsWarrantyExpiry.Value < DateTime.UtcNow;
-                        var partsDays = (int)(_asset.PartsWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                        var partsExpired = _asset.PartsWarrantyExpiry.Value < DateTime.Now;
+                        var partsDays = (int)(_asset.PartsWarrantyExpiry.Value - DateTime.Now).TotalDays;
                         <div class="d-flex justify-content-between">
                             <span class="text-muted"><i class="bi bi-gear me-1"></i>Parts</span>
                             <span class="@(partsExpired ? "text-danger" : partsDays <= 90 ? "text-warning" : "text-success")">
@@ -111,8 +111,8 @@ else
                     }
                     @if (_asset.CompressorWarrantyExpiry.HasValue)
                     {
-                        var compExpired = _asset.CompressorWarrantyExpiry.Value < DateTime.UtcNow;
-                        var compDays = (int)(_asset.CompressorWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                        var compExpired = _asset.CompressorWarrantyExpiry.Value < DateTime.Now;
+                        var compDays = (int)(_asset.CompressorWarrantyExpiry.Value - DateTime.Now).TotalDays;
                         <div class="d-flex justify-content-between">
                             <span class="text-muted"><i class="bi bi-snow me-1"></i>Compressor</span>
                             <span class="@(compExpired ? "text-danger" : compDays <= 90 ? "text-warning" : "text-success")">

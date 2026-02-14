@@ -25,11 +25,11 @@ public class RemoteMobileJobService : IMobileJobService
         _logger = logger;
     }
 
-    public async Task<List<MobileJobCard>> GetAssignedJobsAsync(int employeeId, MobileJobFilter? filter = null)
+    public async Task<List<MobileJobCard>> GetAssignedJobsAsync(int employeeId, MobileJobFilter? filter = null, bool isElevated = false)
     {
         var query = _db.Jobs.AsNoTracking()
             .Include(j => j.Customer).Include(j => j.Company).Include(j => j.Site)
-            .Where(j => !j.IsArchived && j.AssignedEmployeeId == employeeId);
+            .Where(j => !j.IsArchived && (isElevated || j.AssignedEmployeeId == employeeId));
 
         if (filter is not null)
         {
@@ -134,7 +134,7 @@ public class RemoteMobileJobService : IMobileJobService
 
         try
         {
-            await _api.PutAsync<object>($"api/jobs/{id}/status", new { status = status.ToString() });
+            await _api.PutAsync<object>($"api/jobs/{id}/status", status);
             return true;
         }
         catch (HttpRequestException ex)
@@ -144,8 +144,8 @@ public class RemoteMobileJobService : IMobileJobService
             {
                 HttpMethod = "PUT",
                 Endpoint = $"api/jobs/{id}/status",
-                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { status = status.ToString() }),
-                Description = $"Job #{id} status ? {status}"
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(status, new System.Text.Json.JsonSerializerOptions { Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() } }),
+                Description = $"Job #{id} status → {status}"
             });
             return true; // Local cache is updated, queued for server
         }

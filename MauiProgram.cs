@@ -181,62 +181,117 @@ namespace OneManVanFSM
         }
 
         /// <summary>
-        /// Compares the EF Core model against the actual SQLite schema.
-        /// If ANY column or table is missing the database is deleted and recreated.
+        /// Non-destructive schema migration: adds missing columns and tables to an
+        /// existing database via ALTER TABLE ADD COLUMN, preserving all user data.
+        /// Only creates missing elements — never deletes or recreates.
         /// </summary>
         private static void EnsureSchemaUpToDate(AppDbContext context)
         {
             if (!context.Database.CanConnect())
                 return;
 
-            if (HasSchemaMismatch(context))
-            {
-                System.Diagnostics.Debug.WriteLine("[DatabaseInitializer] Schema mismatch detected — recreating database.");
-
-                var connection = context.Database.GetDbConnection();
-                if (connection.State != ConnectionState.Closed)
-                    connection.Close();
-
-                context.Database.EnsureDeleted();
-            }
-        }
-
-        private static bool HasSchemaMismatch(AppDbContext context)
-        {
             var connection = context.Database.GetDbConnection();
             if (connection.State != ConnectionState.Open)
                 connection.Open();
 
+            bool anyChanges = false;
+
+            // Phase 1: Add missing columns to existing tables
             foreach (var entityType in context.Model.GetEntityTypes())
             {
                 var tableName = entityType.GetTableName();
                 if (string.IsNullOrEmpty(tableName))
                     continue;
 
-                var existingColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                using (var cmd = connection.CreateCommand())
-                {
-                    cmd.CommandText = $"PRAGMA table_info(\"{tableName}\")";
-                    using var reader = cmd.ExecuteReader();
-                    while (reader.Read())
-                    {
-                        existingColumns.Add(reader.GetString(1));
-                    }
-                }
-
+                var existingColumns = GetExistingColumns(connection, tableName);
                 if (existingColumns.Count == 0)
-                    return true;
+                    continue; // Entire table missing — handled in Phase 2
 
                 var storeObject = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
                 foreach (var property in entityType.GetProperties())
                 {
                     var columnName = property.GetColumnName(storeObject);
-                    if (!string.IsNullOrEmpty(columnName) && !existingColumns.Contains(columnName))
-                        return true;
+                    if (string.IsNullOrEmpty(columnName) || existingColumns.Contains(columnName))
+                        continue;
+
+                    var storeType = property.GetColumnType(storeObject) ?? "TEXT";
+                    var defaultClause = property.IsNullable
+                        ? ""
+                        : $" NOT NULL DEFAULT {GetSqliteDefault(storeType, property.ClrType)}";
+
+                    try
+                    {
+                        using var cmd = connection.CreateCommand();
+                        cmd.CommandText = $"ALTER TABLE \"{tableName}\" ADD COLUMN \"{columnName}\" {storeType}{defaultClause}";
+                        cmd.ExecuteNonQuery();
+                        System.Diagnostics.Debug.WriteLine($"[Schema] Added column: {tableName}.{columnName}");
+                        anyChanges = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[Schema] Warning adding {tableName}.{columnName}: {ex.Message}");
+                    }
                 }
             }
 
-            return false;
+            // Phase 2: Create any entirely missing tables and indexes
+            var script = context.Database.GenerateCreateScript();
+            foreach (var rawStatement in script.Split(';'))
+            {
+                var stmt = rawStatement.Trim();
+                if (string.IsNullOrWhiteSpace(stmt))
+                    continue;
+
+                if (stmt.StartsWith("CREATE TABLE ", StringComparison.OrdinalIgnoreCase))
+                    stmt = stmt.Replace("CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ");
+                else if (stmt.StartsWith("CREATE UNIQUE INDEX ", StringComparison.OrdinalIgnoreCase))
+                    stmt = stmt.Replace("CREATE UNIQUE INDEX ", "CREATE UNIQUE INDEX IF NOT EXISTS ");
+                else if (stmt.StartsWith("CREATE INDEX ", StringComparison.OrdinalIgnoreCase))
+                    stmt = stmt.Replace("CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ");
+                else
+                    continue;
+
+                try
+                {
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = stmt;
+                    cmd.ExecuteNonQuery();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Schema] Migration warning: {ex.Message}");
+                }
+            }
+
+            if (anyChanges)
+                System.Diagnostics.Debug.WriteLine("[Schema] Non-destructive migration completed — all data preserved.");
+        }
+
+        private static HashSet<string> GetExistingColumns(System.Data.Common.DbConnection connection, string tableName)
+        {
+            var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info(\"{tableName}\")";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                columns.Add(reader.GetString(1));
+            return columns;
+        }
+
+        private static string GetSqliteDefault(string storeType, Type? clrType = null)
+        {
+            var upper = storeType.ToUpperInvariant();
+            if (upper.Contains("INTEGER")) return "0";
+            if (upper.Contains("REAL")) return "0.0";
+
+            if (clrType is not null)
+            {
+                var underlying = Nullable.GetUnderlyingType(clrType) ?? clrType;
+                if (underlying == typeof(decimal) || underlying == typeof(double) || underlying == typeof(float))
+                    return "'0'";
+            }
+
+            return "''";
         }
 
         /// <summary>
@@ -252,20 +307,46 @@ namespace OneManVanFSM
                 return;
             }
 
-            // Create admin user WITHOUT requiring an employee link
-            // This allows login before demo data is seeded
+            // Generate a temporary random password for first-run.
+            // MustChangePassword forces the user through the Setup page on first login.
+            var tempPassword = GenerateTemporaryPassword();
+            System.Diagnostics.Debug.WriteLine($"[SEED] Creating admin user — temporary password generated (change on first login).");
+
             db.Users.Add(new OneManVanFSM.Shared.Models.AppUser
             {
                 Username = "admin",
-                Email = "chris.eikel@bledsoe.net",
-                PasswordHash = MobileAuthService.HashPassword("!1235aSdf12sadf5!"),
+                Email = "admin@localhost",
+                PasswordHash = MobileAuthService.HashPassword(tempPassword),
                 Role = OneManVanFSM.Shared.Models.UserRole.Owner,
                 IsActive = true,
                 MustChangePassword = true,
-                EmployeeId = null, // No employee link required initially
+                EmployeeId = null,
             });
             db.SaveChanges();
-            System.Diagnostics.Debug.WriteLine("[SEED] Admin user created successfully (no employee link).");
+
+            // Store the temp password in SecureStorage so the Setup page can display it once
+            try
+            {
+                SecureStorage.Default.SetAsync("admin_temp_password", tempPassword).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                // SecureStorage may not be available in all environments
+                System.Diagnostics.Debug.WriteLine($"[SEED] Temp admin password: {tempPassword}");
+            }
+        }
+
+        /// <summary>
+        /// Generates a cryptographically random temporary password (16 chars, mixed case + digits + symbols).
+        /// </summary>
+        private static string GenerateTemporaryPassword()
+        {
+            const string chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%";
+            var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(16);
+            var password = new char[16];
+            for (int i = 0; i < 16; i++)
+                password[i] = chars[bytes[i] % chars.Length];
+            return new string(password);
         }
 
         public static void SeedMobileData(AppDbContext db)

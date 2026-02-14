@@ -50,6 +50,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
             HourlyRate = emp.HourlyRate,
             IsBillable = true,
             CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now,
         };
         db.TimeEntries.Add(entry);
         await db.SaveChangesAsync();
@@ -69,6 +70,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         {
             jc.EndTime = DateTime.Now;
             jc.Hours = Math.Round((decimal)(jc.EndTime.Value - jc.StartTime).TotalHours, 2);
+            jc.UpdatedAt = DateTime.Now;
         }
 
         // Then close the shift
@@ -86,6 +88,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         {
             shift.OvertimeHours = shift.Hours - 8;
         }
+        shift.UpdatedAt = DateTime.Now;
 
         await db.SaveChangesAsync();
         return shift;
@@ -132,6 +135,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
             HourlyRate = rateOverride ?? emp.HourlyRate,
             IsBillable = true,
             CreatedAt = DateTime.Now,
+            UpdatedAt = DateTime.Now,
         };
         db.TimeEntries.Add(entry);
         await db.SaveChangesAsync();
@@ -149,6 +153,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
 
         entry.EndTime = DateTime.Now;
         entry.Hours = Math.Round((decimal)(entry.EndTime.Value - entry.StartTime).TotalHours, 2);
+        entry.UpdatedAt = DateTime.Now;
         await db.SaveChangesAsync();
         return entry;
     }

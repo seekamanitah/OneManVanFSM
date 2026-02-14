@@ -4,7 +4,7 @@ namespace OneManVanFSM.Services;
 
 public interface IMobileDashboardService
 {
-    Task<MobileDashboardData> GetDashboardAsync(int employeeId);
+    Task<MobileDashboardData> GetDashboardAsync(int employeeId, bool isElevated = false);
 }
 
 public class MobileDashboardData

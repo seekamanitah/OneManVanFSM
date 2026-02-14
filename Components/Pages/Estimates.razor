@@ -191,7 +191,7 @@
                     <i class="bi bi-send me-1"></i>Mark as Sent
                 </button>
                 <button class="btn btn-success flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
-                        @onclick="() => ChangeStatus(EstimateStatus.Approved)">
+                        @onclick="() => _confirmApprove = true">
                     @if (_updatingStatus) { <span class="spinner-border spinner-border-sm me-1"></span> }
                     <i class="bi bi-check-circle me-1"></i>Approve & Create Job
                 </button>
@@ -199,7 +199,7 @@
             @if (_detail.Status == EstimateStatus.Sent)
             {
                 <button class="btn btn-success flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
-                        @onclick="() => ChangeStatus(EstimateStatus.Approved)">
+                        @onclick="() => _confirmApprove = true">
                     @if (_updatingStatus) { <span class="spinner-border spinner-border-sm me-1"></span> }
                     <i class="bi bi-check-circle me-1"></i>Approve & Create Job
                 </button>
@@ -216,6 +216,21 @@
                 </button>
             }
         </div>
+
+        @if (_confirmApprove)
+        {
+            <div class="alert alert-warning mt-2 py-2" style="font-size:0.8rem;">
+                <strong>Confirm:</strong> This will approve the estimate and automatically create a new job. Continue?
+                <div class="d-flex gap-2 mt-2">
+                    <button class="btn btn-success btn-sm flex-fill" @onclick="ConfirmApprove" disabled="@_updatingStatus">
+                        <i class="bi bi-check-lg me-1"></i>Yes, Approve
+                    </button>
+                    <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="() => _confirmApprove = false">
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        }
 
         <hr class="my-2" />
         <button class="btn btn-outline-primary w-100 mb-2" style="font-size:0.8rem;" disabled="@_sharingPdf"
@@ -501,8 +516,8 @@ else if (!Id.HasValue)
                 </div>
                 @if (est.ExpiryDate.HasValue)
                 {
-                    var isExpired = est.ExpiryDate.Value < DateTime.UtcNow;
-                    var isExpiringSoon = !isExpired && est.ExpiryDate.Value < DateTime.UtcNow.AddDays(7);
+                    var isExpired = est.ExpiryDate.Value < DateTime.Now;
+                    var isExpiringSoon = !isExpired && est.ExpiryDate.Value < DateTime.Now.AddDays(7);
                     @if (isExpired)
                     {
                         <span class="badge bg-danger mt-1" style="font-size:0.65rem;">Expired</span>
@@ -559,6 +574,7 @@ else
     private bool _statusSuccess;
     private bool _isElevatedRole;
     private bool _sharingPdf;
+    private bool _confirmApprove;
 
     protected override async Task OnInitializedAsync()
     {
@@ -612,6 +628,7 @@ else
         if (_detail == null) return;
         _updatingStatus = true;
         _statusMessage = null;
+        _confirmApprove = false;
         StateHasChanged();
         try
         {
@@ -637,9 +654,14 @@ else
             _statusSuccess = false;
         }
         _updatingStatus = false;
-    }
+        }
 
-    private async Task ShowCreateEstimate()
+        private async Task ConfirmApprove()
+        {
+            await ChangeStatus(EstimateStatus.Approved);
+        }
+
+        private async Task ShowCreateEstimate()
     {
         _newEstimate = new();
         _fullEstimate = new();

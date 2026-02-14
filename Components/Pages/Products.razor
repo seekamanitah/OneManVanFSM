@@ -1,5 +1,6 @@
 @page "/products"
 @inject IMobileProductService ProductService
+@implements IDisposable
 
 @if (_loading)
 {
@@ -26,13 +27,13 @@ else
                 <div class="col-6">
                     <div class="input-group">
                         <span class="input-group-text" style="font-size:0.85rem; padding:4px 8px;">$</span>
-                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Cost" @bind="_newProduct.Cost" />
+                        <input type="number" step="0.01" min="0" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Cost" @bind="_newProduct.Cost" />
                     </div>
                 </div>
                 <div class="col-6">
                     <div class="input-group">
                         <span class="input-group-text" style="font-size:0.85rem; padding:4px 8px;">$</span>
-                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Price" @bind="_newProduct.Price" />
+                        <input type="number" step="0.01" min="0" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Price" @bind="_newProduct.Price" />
                     </div>
                 </div>
             </div>
@@ -86,7 +87,7 @@ else
             }
         </select>
         <input type="search" class="form-control" placeholder="Search products…" @bind="_search"
-               @bind:event="oninput" @bind:after="LoadProducts" />
+               @bind:event="oninput" @bind:after="OnSearchChanged" />
         <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadProducts" title="Refresh">
             <i class="bi bi-arrow-clockwise"></i>
         </button>
@@ -200,6 +201,7 @@ else
     private bool _showCreate;
     private MobileProductQuickCreate _newProduct = new();
     private string? _saveError;
+    private System.Timers.Timer? _debounceTimer;
 
     private IEnumerable<IGrouping<string?, MobileProductCard>> GroupedProducts =>
         _sortMode == "category"
@@ -221,6 +223,24 @@ else
             "price" => "category",
             _ => "name"
         };
+    }
+
+    private void OnSearchChanged()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            _debounceTimer?.Stop();
+            await InvokeAsync(async () =>
+            {
+                await LoadProducts();
+                StateHasChanged();
+            });
+        };
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
     }
 
     private string SortLabel() => _sortMode switch
@@ -271,5 +291,10 @@ else
             await LoadProducts();
         }
         catch (Exception ex) { _saveError = ex.Message; }
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
     }
 }

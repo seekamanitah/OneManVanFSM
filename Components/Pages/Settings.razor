@@ -17,8 +17,8 @@ else
 {
     <!-- Back -->
     <div class="mb-3">
-        <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/profile")'>
-            <i class="bi bi-arrow-left me-1"></i>Back to Profile
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i>Back
         </button>
     </div>
 
@@ -783,6 +783,12 @@ protected override async Task OnInitializedAsync()
         if (_offlineQueue is null) return;
         _offlinePendingCount = _offlineQueue.PendingCount;
         _offlineItems = _offlineQueue.GetPending();
+    }
+
+    private async Task GoBack()
+    {
+        var went = await JS.InvokeAsync<bool>("goBack");
+        if (!went) Nav.NavigateTo("/profile");
     }
 
     public void Dispose()

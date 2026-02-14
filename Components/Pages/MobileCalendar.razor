@@ -35,7 +35,7 @@
         {
             var stripDate = _weekStart.AddDays(d);
             var isSelected = stripDate.Date == _selectedDate.Date;
-            var isToday = stripDate.Date == DateTime.UtcNow.Date;
+            var isToday = stripDate.Date == DateTime.Now.Date;
             var hasEvents = _weekEventCounts.ContainsKey(stripDate.Date) && _weekEventCounts[stripDate.Date] > 0;
             <button class="btn btn-sm flex-fill @(isSelected ? "btn-primary" : isToday ? "btn-outline-primary" : "btn-light")"
                     style="padding:2px 0; font-size:0.6rem; min-width:0; min-height:auto; border-radius:6px; position:relative;"
@@ -116,21 +116,22 @@ else
             <span class="badge bg-primary" style="font-size:0.7rem;">@_weekStart.ToString("MMM dd") â€“ @_weekStart.AddDays(6).ToString("MMM dd")</span>
         </div>
     }
+    var eventsByDate = _events.GroupBy(e => e.StartDateTime.Date).ToDictionary(g => g.Key, g => g.OrderBy(e => e.StartDateTime).ToList());
     @for (var i = 0; i < 7; i++)
     {
         var day = _weekStart.AddDays(i);
-        var dayEvents = _events.Where(e => e.StartDateTime.Date == day.Date).OrderBy(e => e.StartDateTime).ToList();
-        var isToday = day.Date == DateTime.UtcNow.Date;
+        eventsByDate.TryGetValue(day.Date, out var dayEvents);
+        var isToday = day.Date == DateTime.Now.Date;
 
         <div class="section-header" style="@(isToday ? "color:var(--primary);" : "")">
             <span>@day.ToString("ddd, MMM dd") @(isToday ? "· Today" : "")</span>
-            @if (dayEvents.Count > 0)
+            @if (dayEvents?.Count > 0)
             {
                 <span class="badge bg-primary-subtle text-primary ms-1" style="font-size:0.6rem;">@dayEvents.Count</span>
             }
         </div>
 
-        @if (dayEvents.Any())
+        @if (dayEvents is { Count: > 0 })
         {
             @foreach (var evt in dayEvents)
             {
@@ -166,7 +167,8 @@ else
 
 @code {
 private int _employeeId;
-private DateTime _selectedDate = DateTime.UtcNow.Date;
+private bool _isElevated;
+private DateTime _selectedDate = DateTime.Now.Date;
 private DateTime _weekStart;
 private string _viewMode = "day";
 private List<MobileCalendarEvent> _events = [];
@@ -176,6 +178,8 @@ private bool _loading = true;
 protected override async Task OnInitializedAsync()
 {
     _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    var session = await AuthService.GetCurrentUserAsync();
+    _isElevated = session?.Role is "Owner" or "Admin" or "Manager";
     _weekStart = GetWeekStart(_selectedDate);
     await LoadEvents();
 }
@@ -189,11 +193,11 @@ protected override async Task OnInitializedAsync()
 
         if (_viewMode == "day")
         {
-            _events = await CalendarService.GetEventsAsync(_selectedDate, _employeeId);
+            _events = await CalendarService.GetEventsAsync(_selectedDate, _employeeId, _isElevated);
         }
         else
         {
-            _events = await CalendarService.GetWeekEventsAsync(_weekStart, _employeeId);
+            _events = await CalendarService.GetWeekEventsAsync(_weekStart, _employeeId, _isElevated);
         }
 
         await LoadWeekEventCounts();
@@ -202,7 +206,7 @@ protected override async Task OnInitializedAsync()
 
     private async Task LoadWeekEventCounts()
     {
-        var weekEvents = await CalendarService.GetWeekEventsAsync(_weekStart, _employeeId);
+        var weekEvents = await CalendarService.GetWeekEventsAsync(_weekStart, _employeeId, _isElevated);
         _weekEventCounts = weekEvents
             .GroupBy(e => e.StartDateTime.Date)
             .ToDictionary(g => g.Key, g => g.Count());
@@ -222,7 +226,7 @@ protected override async Task OnInitializedAsync()
 
     private async Task GoToToday()
     {
-        _selectedDate = DateTime.UtcNow.Date;
+        _selectedDate = DateTime.Now.Date;
         await LoadEvents();
     }
 

@@ -4,7 +4,7 @@ namespace OneManVanFSM.Services;
 
 public interface IMobileJobService
 {
-    Task<List<MobileJobCard>> GetAssignedJobsAsync(int employeeId, MobileJobFilter? filter = null);
+    Task<List<MobileJobCard>> GetAssignedJobsAsync(int employeeId, MobileJobFilter? filter = null, bool isElevated = false);
     Task<MobileJobDetail?> GetJobDetailAsync(int id);
     Task<bool> UpdateJobStatusAsync(int id, JobStatus status);
     Task<MobileSiteDetail?> GetSiteDetailAsync(int siteId);

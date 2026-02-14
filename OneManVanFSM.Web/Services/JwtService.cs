@@ -21,9 +21,26 @@ public class JwtService : IJwtService
 
     public JwtService()
     {
-        // Use environment variable or generate a stable key from machine name + app name
-        _secretKey = Environment.GetEnvironmentVariable("JWT_SECRET")
-            ?? GenerateStableKey();
+        var envSecret = Environment.GetEnvironmentVariable("JWT_SECRET");
+        if (!string.IsNullOrEmpty(envSecret))
+        {
+            _secretKey = envSecret;
+        }
+        else
+        {
+            // In production, JWT_SECRET must be explicitly set
+            var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production";
+            if (env.Equals("Production", StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    "JWT_SECRET environment variable is required in production. " +
+                    "Set a cryptographically random 256-bit key (e.g., 32+ character string).");
+            }
+
+            // Development only: derive from machine name with a warning
+            _secretKey = GenerateStableKey();
+            Console.WriteLine("[WARNING] JWT_SECRET not set — using machine-name-derived key (development only).");
+        }
     }
 
     public string GenerateToken(int userId, string username, string role, int? employeeId)

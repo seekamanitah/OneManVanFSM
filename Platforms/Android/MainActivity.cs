@@ -2,6 +2,7 @@
 using Android.Content.PM;
 using Android.OS;
 using Android.Views;
+using Android.Webkit;
 using AndroidX.Core.Graphics;
 using AndroidX.Core.View;
 
@@ -39,6 +40,49 @@ namespace OneManVanFSM
             if (content != null)
             {
                 ViewCompat.SetOnApplyWindowInsetsListener(content, new SystemBarInsetsListener());
+            }
+        }
+
+#pragma warning disable CA1422 // OnBackPressed is deprecated in API 33+ but still needed for MAUI Blazor back navigation
+        public override void OnBackPressed()
+        {
+            // Find the Android WebView inside the BlazorWebView and navigate back if possible
+            var webView = FindWebView(FindViewById(Android.Resource.Id.Content));
+            if (webView is not null)
+            {
+                webView.EvaluateJavascript("window.goBack()", new JavaScriptCallback(navigated =>
+                {
+                    if (navigated != "true")
+                    {
+                        MainThread.BeginInvokeOnMainThread(() => base.OnBackPressed());
+                    }
+                }));
+                return;
+            }
+
+            base.OnBackPressed();
+        }
+#pragma warning restore CA1422
+
+        private static Android.Webkit.WebView? FindWebView(Android.Views.View? view)
+        {
+            if (view is Android.Webkit.WebView wv) return wv;
+            if (view is ViewGroup vg)
+            {
+                for (var i = 0; i < vg.ChildCount; i++)
+                {
+                    var result = FindWebView(vg.GetChildAt(i));
+                    if (result is not null) return result;
+                }
+            }
+            return null;
+        }
+
+        private class JavaScriptCallback(Action<string?> callback) : Java.Lang.Object, IValueCallback
+        {
+            public void OnReceiveValue(Java.Lang.Object? value)
+            {
+                callback(value?.ToString());
             }
         }
 

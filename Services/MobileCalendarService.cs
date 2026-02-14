@@ -6,16 +6,19 @@ namespace OneManVanFSM.Services;
 
 public class MobileCalendarService(AppDbContext db) : IMobileCalendarService
 {
-    public async Task<List<MobileCalendarEvent>> GetEventsAsync(DateTime date, int employeeId)
+    public async Task<List<MobileCalendarEvent>> GetEventsAsync(DateTime date, int employeeId, bool isElevated = false)
     {
         var dayStart = date.Date;
         var dayEnd = dayStart.AddDays(1);
 
-        var calendarEvents = await db.CalendarEvents
+        var calQuery = db.CalendarEvents
             .Include(e => e.Job)
-            .Where(e => e.EmployeeId == employeeId
-                && e.StartDateTime < dayEnd
-                && e.EndDateTime > dayStart)
+            .Where(e => e.StartDateTime < dayEnd
+                && e.EndDateTime > dayStart);
+        if (!isElevated)
+            calQuery = calQuery.Where(e => e.EmployeeId == employeeId);
+
+        var calendarEvents = await calQuery
             .OrderBy(e => e.StartDateTime)
             .Select(e => new MobileCalendarEvent
             {
@@ -32,13 +35,16 @@ public class MobileCalendarService(AppDbContext db) : IMobileCalendarService
             .ToListAsync();
 
         // Also include scheduled jobs that might not have calendar events
-        var scheduledJobs = await db.Jobs
+        var jobQuery = db.Jobs
             .Include(j => j.Site)
             .Where(j => !j.IsArchived
-                && j.AssignedEmployeeId == employeeId
                 && j.ScheduledDate != null
                 && j.ScheduledDate.Value.Date == date.Date
-                && j.Status != JobStatus.Cancelled)
+                && j.Status != JobStatus.Cancelled);
+        if (!isElevated)
+            jobQuery = jobQuery.Where(j => j.AssignedEmployeeId == employeeId);
+
+        var scheduledJobs = await jobQuery
             .OrderBy(j => j.ScheduledTime)
             .ToListAsync();
 
@@ -97,12 +103,12 @@ public class MobileCalendarService(AppDbContext db) : IMobileCalendarService
         return calendarEvents.OrderBy(e => e.StartDateTime).ToList();
     }
 
-    public async Task<List<MobileCalendarEvent>> GetWeekEventsAsync(DateTime weekStart, int employeeId)
+    public async Task<List<MobileCalendarEvent>> GetWeekEventsAsync(DateTime weekStart, int employeeId, bool isElevated = false)
     {
         var allEvents = new List<MobileCalendarEvent>();
         for (var i = 0; i < 7; i++)
         {
-            var dayEvents = await GetEventsAsync(weekStart.AddDays(i), employeeId);
+            var dayEvents = await GetEventsAsync(weekStart.AddDays(i), employeeId, isElevated);
             allEvents.AddRange(dayEvents);
         }
         return allEvents;

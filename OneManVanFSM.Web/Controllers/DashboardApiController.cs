@@ -20,14 +20,14 @@ public class DashboardApiController : SyncApiController
     /// Returns the full mobile dashboard payload for the given employee.
     /// </summary>
     [HttpGet("{employeeId:int}")]
-    public async Task<ActionResult<MobileDashboardResponse>> GetDashboard(int employeeId)
+    public async Task<ActionResult<MobileDashboardResponse>> GetDashboard(int employeeId, [FromQuery] bool elevated = false)
     {
         var today = DateTime.UtcNow.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
 
         var todayJobs = await _db.Jobs
             .Include(j => j.Customer).Include(j => j.Company).Include(j => j.Site)
-            .Where(j => !j.IsArchived && j.AssignedEmployeeId == employeeId
+            .Where(j => !j.IsArchived && (elevated || j.AssignedEmployeeId == employeeId)
                 && j.ScheduledDate != null && j.ScheduledDate.Value.Date == today
                 && j.Status != JobStatus.Completed && j.Status != JobStatus.Closed && j.Status != JobStatus.Cancelled)
             .OrderBy(j => j.ScheduledDate).ThenBy(j => j.ScheduledTime)
@@ -43,11 +43,11 @@ public class DashboardApiController : SyncApiController
             }).ToListAsync();
 
         var openJobCount = await _db.Jobs
-            .CountAsync(j => !j.IsArchived && j.AssignedEmployeeId == employeeId
+            .CountAsync(j => !j.IsArchived && (elevated || j.AssignedEmployeeId == employeeId)
                 && j.Status != JobStatus.Completed && j.Status != JobStatus.Closed && j.Status != JobStatus.Cancelled);
 
         var pendingNotes = await _db.QuickNotes
-            .CountAsync(n => n.CreatedByEmployeeId == employeeId && n.Status == QuickNoteStatus.Active && n.IsUrgent);
+            .CountAsync(n => (elevated || n.CreatedByEmployeeId == employeeId) && n.Status == QuickNoteStatus.Active && n.IsUrgent);
 
         var timeEntries = await _db.TimeEntries
             .Where(t => t.EmployeeId == employeeId && t.StartTime >= weekStart)
@@ -75,17 +75,17 @@ public class DashboardApiController : SyncApiController
             .CountAsync(i => !i.IsArchived && (i.Status == InvoiceStatus.Draft || i.Status == InvoiceStatus.Sent));
 
         var completedThisWeek = await _db.Jobs
-            .CountAsync(j => j.AssignedEmployeeId == employeeId
+            .CountAsync(j => (elevated || j.AssignedEmployeeId == employeeId)
                 && j.Status == JobStatus.Completed && j.CompletedDate != null && j.CompletedDate.Value >= weekStart);
 
         var overdueJobCount = await _db.Jobs
-            .CountAsync(j => !j.IsArchived && j.AssignedEmployeeId == employeeId
+            .CountAsync(j => !j.IsArchived && (elevated || j.AssignedEmployeeId == employeeId)
                 && j.ScheduledDate != null && j.ScheduledDate.Value.Date < today
                 && j.Status != JobStatus.Completed && j.Status != JobStatus.Closed && j.Status != JobStatus.Cancelled);
 
         var upcomingJobs = await _db.Jobs
             .Include(j => j.Customer).Include(j => j.Company).Include(j => j.Site)
-            .Where(j => !j.IsArchived && j.AssignedEmployeeId == employeeId
+            .Where(j => !j.IsArchived && (elevated || j.AssignedEmployeeId == employeeId)
                 && j.ScheduledDate != null && j.ScheduledDate.Value.Date > today
                 && j.ScheduledDate.Value.Date <= today.AddDays(3)
                 && j.Status != JobStatus.Completed && j.Status != JobStatus.Closed && j.Status != JobStatus.Cancelled)
@@ -112,14 +112,15 @@ public class DashboardApiController : SyncApiController
 
         var warrantyAlertCount = await _db.Assets
             .CountAsync(a => !a.IsArchived
-                && (a.LaborWarrantyExpiry.HasValue || a.PartsWarrantyExpiry.HasValue || a.CompressorWarrantyExpiry.HasValue)
-                && ((a.LaborWarrantyExpiry.HasValue && a.LaborWarrantyExpiry.Value >= today.AddDays(-30) && a.LaborWarrantyExpiry.Value <= today.AddDays(90))
-                    || (a.PartsWarrantyExpiry.HasValue && a.PartsWarrantyExpiry.Value >= today.AddDays(-30) && a.PartsWarrantyExpiry.Value <= today.AddDays(90))
-                    || (a.CompressorWarrantyExpiry.HasValue && a.CompressorWarrantyExpiry.Value >= today.AddDays(-30) && a.CompressorWarrantyExpiry.Value <= today.AddDays(90))));
+                && !a.NoWarranty
+                && a.Status == AssetStatus.Active
+                && ((a.LaborWarrantyExpiry.HasValue && (a.LaborWarrantyTermYears ?? 0) > 0 && a.LaborWarrantyExpiry.Value >= today.AddDays(-30) && a.LaborWarrantyExpiry.Value <= today.AddDays(90))
+                    || (a.PartsWarrantyExpiry.HasValue && (a.PartsWarrantyTermYears ?? 0) > 0 && a.PartsWarrantyExpiry.Value >= today.AddDays(-30) && a.PartsWarrantyExpiry.Value <= today.AddDays(90))
+                    || (a.CompressorWarrantyExpiry.HasValue && (a.CompressorWarrantyTermYears ?? 0) > 0 && a.CompressorWarrantyExpiry.Value >= today.AddDays(-30) && a.CompressorWarrantyExpiry.Value <= today.AddDays(90))));
 
         var recentJobs = await _db.Jobs
             .Include(j => j.Customer)
-            .Where(j => j.AssignedEmployeeId == employeeId)
+            .Where(j => elevated || j.AssignedEmployeeId == employeeId)
             .OrderByDescending(j => j.UpdatedAt).Take(5).ToListAsync();
 
         var recentActivity = recentJobs.Select(j => new MobileDashboardActivity

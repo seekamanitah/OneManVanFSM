@@ -2,6 +2,7 @@
 @inject IMobileReportService ReportService
 @inject IMobileAuthService AuthService
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @if (_loading)
 {
@@ -13,8 +14,8 @@ else if (_report != null)
 {
     <!-- Back -->
     <div class="mb-2">
-        <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/profile")'>
-            <i class="bi bi-arrow-left me-1"></i>Back to Profile
+        <button class="btn btn-sm btn-outline-secondary" @onclick="GoBack">
+            <i class="bi bi-arrow-left me-1"></i>Back
         </button>
     </div>
 
@@ -505,5 +506,11 @@ protected override async Task OnInitializedAsync()
     {
         var diff = (7 + (dt.DayOfWeek - DayOfWeek.Monday)) % 7;
         return dt.AddDays(-diff).Date;
+    }
+
+    private async Task GoBack()
+    {
+        var went = await JS.InvokeAsync<bool>("goBack");
+        if (!went) Nav.NavigateTo("/profile");
     }
 }

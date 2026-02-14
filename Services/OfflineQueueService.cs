@@ -108,14 +108,16 @@ public class OfflineQueueService : IOfflineQueueService
     {
         if (item.PayloadJson is null) return false;
         var payload = JsonSerializer.Deserialize<JsonElement>(item.PayloadJson);
-        var result = await _api.PostAsync<JsonElement>(item.Endpoint, payload);
+        // PostAsync throws HttpRequestException on non-success status codes,
+        // which is caught by ProcessQueueAsync for retry handling
+        await _api.PostAsync<JsonElement>(item.Endpoint, payload);
         return true;
     }
 
     private async Task<bool> ReplayPutAsync(OfflineQueueItem item)
     {
         if (item.PayloadJson is null) return false;
-        var payload = JsonSerializer.Deserialize<JsonElement>(item.Endpoint.Contains("/status") ? item.PayloadJson : item.PayloadJson);
+        var payload = JsonSerializer.Deserialize<JsonElement>(item.PayloadJson);
         await _api.PutAsync<JsonElement>(item.Endpoint, payload);
         return true;
     }

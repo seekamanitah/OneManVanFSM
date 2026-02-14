@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -29,15 +31,17 @@ public class AuthApiController : ControllerBase
     public async Task<ActionResult<ApiLoginResponse>> Login([FromBody] ApiLoginRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
-            return Ok(ApiLoginResponse.Failure("Username and password are required."));
+            return BadRequest(ApiLoginResponse.Failure("Username and password are required."));
 
         // Check for dedicated sync account from environment variables
         var syncUser = Environment.GetEnvironmentVariable("SYNC_USER");
         var syncPassword = Environment.GetEnvironmentVariable("SYNC_PASSWORD");
 
         if (!string.IsNullOrEmpty(syncUser) &&
-            request.Username == syncUser &&
-            request.Password == syncPassword)
+            CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(request.Username), Encoding.UTF8.GetBytes(syncUser)) &&
+            CryptographicOperations.FixedTimeEquals(
+                Encoding.UTF8.GetBytes(request.Password), Encoding.UTF8.GetBytes(syncPassword!)))
         {
             // Sync account gets Admin-level access
             var token = _jwtService.GenerateToken(0, syncUser, "Admin", null);
@@ -51,13 +55,13 @@ public class AuthApiController : ControllerBase
             .FirstOrDefaultAsync(u => u.Username == request.Username || u.Email == request.Username);
 
         if (user is null)
-            return Ok(ApiLoginResponse.Failure("Invalid username or password."));
+            return Unauthorized(ApiLoginResponse.Failure("Invalid username or password."));
 
         if (user.IsLocked)
-            return Ok(ApiLoginResponse.Failure("Account is locked. Contact your administrator."));
+            return Unauthorized(ApiLoginResponse.Failure("Account is locked. Contact your administrator."));
 
         if (!user.IsActive)
-            return Ok(ApiLoginResponse.Failure("Account is inactive."));
+            return Unauthorized(ApiLoginResponse.Failure("Account is inactive."));
 
         if (!AuthService.VerifyPassword(request.Password, user.PasswordHash))
         {
@@ -65,7 +69,7 @@ public class AuthApiController : ControllerBase
             if (user.LoginAttempts >= 5)
                 user.IsLocked = true;
             await _db.SaveChangesAsync();
-            return Ok(ApiLoginResponse.Failure("Invalid username or password."));
+            return Unauthorized(ApiLoginResponse.Failure("Invalid username or password."));
         }
 
         // Successful login

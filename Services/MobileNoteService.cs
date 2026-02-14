@@ -8,7 +8,7 @@ public class MobileNoteService(AppDbContext db) : IMobileNoteService
 {
     public async Task<List<MobileNoteItem>> GetNotesAsync(int? jobId = null)
     {
-        var query = db.QuickNotes.AsQueryable();
+        var query = db.QuickNotes.Where(n => n.Status != QuickNoteStatus.Archived).AsQueryable();
 
         if (jobId.HasValue)
             query = query.Where(n => n.JobId == jobId.Value
@@ -70,7 +70,8 @@ public class MobileNoteService(AppDbContext db) : IMobileNoteService
     {
         var note = await db.QuickNotes.FindAsync(id);
         if (note is null) return false;
-        db.QuickNotes.Remove(note);
+        note.Status = QuickNoteStatus.Archived;
+        note.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return true;
     }

@@ -11,7 +11,7 @@ public class MobileEstimateService : IMobileEstimateService
 
     public async Task<List<MobileEstimateCard>> GetEstimatesAsync(MobileEstimateFilter? filter = null)
     {
-        var query = _db.Estimates
+        var query = _db.Estimates.AsNoTracking()
             .Include(e => e.Customer)
             .Include(e => e.Company)
             .Include(e => e.Site)

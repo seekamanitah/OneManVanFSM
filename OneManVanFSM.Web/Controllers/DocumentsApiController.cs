@@ -11,17 +11,59 @@ public class DocumentsApiController : SyncApiController
 {
     private readonly AppDbContext _db;
     private readonly IWebHostEnvironment _env;
-    public DocumentsApiController(AppDbContext db, IWebHostEnvironment env) { _db = db; _env = env; }
+    private readonly ILogger<DocumentsApiController> _logger;
+    public DocumentsApiController(AppDbContext db, IWebHostEnvironment env, ILogger<DocumentsApiController> logger)
+    {
+        _db = db;
+        _env = env;
+        _logger = logger;
+    }
 
     [HttpGet]
     public async Task<ActionResult<SyncResponse<Document>>> GetAll([FromQuery] DateTime? since)
     {
-        var query = _db.Documents.AsNoTracking().AsQueryable();
-        if (since.HasValue)
-            query = query.Where(d => d.UpdatedAt > since.Value);
+        try
+        {
+            var query = _db.Documents.AsNoTracking().Where(d => !d.IsArchived);
+            if (since.HasValue)
+                query = query.Where(d => d.UpdatedAt > since.Value);
 
-        var data = await query.OrderByDescending(d => d.UpdatedAt).ToListAsync();
-        return Ok(new SyncResponse<Document> { Data = data, TotalCount = data.Count });
+            // Project to a clean DTO to avoid navigation property serialization issues
+            // (Document has 6 FK nav properties including 2 Employee references)
+            var data = await query
+                .OrderByDescending(d => d.UpdatedAt)
+                .Select(d => new Document
+                {
+                    Id = d.Id,
+                    Name = d.Name,
+                    Category = d.Category,
+                    FilePath = d.FilePath,
+                    StoredFileName = d.StoredFileName,
+                    FileType = d.FileType,
+                    FileSize = d.FileSize,
+                    Version = d.Version,
+                    AccessLevel = d.AccessLevel,
+                    CustomTags = d.CustomTags,
+                    Notes = d.Notes,
+                    UploadDate = d.UploadDate,
+                    CreatedAt = d.CreatedAt,
+                    UpdatedAt = d.UpdatedAt,
+                    IsArchived = d.IsArchived,
+                    CustomerId = d.CustomerId,
+                    SiteId = d.SiteId,
+                    AssetId = d.AssetId,
+                    JobId = d.JobId,
+                    EmployeeId = d.EmployeeId,
+                    UploadedByEmployeeId = d.UploadedByEmployeeId,
+                })
+                .ToListAsync();
+            return Ok(new SyncResponse<Document> { Data = data, TotalCount = data.Count });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve documents for sync.");
+            return StatusCode(500, new { error = "Failed to retrieve documents.", detail = ex.Message });
+        }
     }
 
     [HttpGet("{id:int}")]

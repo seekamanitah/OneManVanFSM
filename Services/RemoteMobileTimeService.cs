@@ -63,8 +63,18 @@ public class RemoteMobileTimeService : IMobileTimeService
             }
             return entry;
         }
+        catch (HttpRequestException ex) when (ex.StatusCode.HasValue && (int)ex.StatusCode.Value >= 400 && (int)ex.StatusCode.Value < 500)
+        {
+            // API validation error (400 Bad Request, etc.) — do NOT create offline entry
+            _logger.LogWarning(ex, "ShiftClockIn rejected by server (HTTP {StatusCode}) for employee {EmployeeId}.", (int)ex.StatusCode.Value, employeeId);
+            throw new InvalidOperationException(
+                ex.StatusCode.Value == System.Net.HttpStatusCode.BadRequest
+                    ? "Employee record not found on server. Please sync or ask an admin to link your user to an Employee."
+                    : $"Clock in rejected by server (HTTP {(int)ex.StatusCode.Value}).", ex);
+        }
         catch (HttpRequestException ex)
         {
+            // Connectivity / transient failure — create offline entry
             _logger.LogWarning(ex, "ShiftClockIn failed (offline) for employee {EmployeeId}, creating local entry.", employeeId);
             var emp = await _db.Employees.FindAsync(employeeId);
             var localEntry = new TimeEntry

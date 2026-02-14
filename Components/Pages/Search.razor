@@ -174,12 +174,12 @@ private void LoadRecentSearches()
     var stored = Preferences.Default.Get(RecentSearchesKey, string.Empty);
     _recentSearches = string.IsNullOrEmpty(stored)
         ? []
-        : stored.Split('|', StringSplitOptions.RemoveEmptyEntries).Take(MaxRecentSearches).ToList();
+        : stored.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(MaxRecentSearches).ToList();
 }
 
 private void SaveRecentSearches()
 {
-    Preferences.Default.Set(RecentSearchesKey, string.Join('|', _recentSearches));
+    Preferences.Default.Set(RecentSearchesKey, string.Join('\n', _recentSearches));
 }
 
     private void OnSearchChanged()

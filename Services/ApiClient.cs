@@ -46,11 +46,11 @@ public class ApiClient
     {
         _logger = logger;
 
-        var handler = new HttpClientHandler
-        {
-            // Accept self-signed certs in dev/local network
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true
-        };
+        var handler = new HttpClientHandler();
+#if DEBUG
+        // Accept self-signed certs ONLY in debug builds for local development
+        handler.ServerCertificateCustomValidationCallback = (_, _, _, _) => true;
+#endif
 
         _http = new HttpClient(handler)
         {
@@ -81,9 +81,18 @@ public class ApiClient
     /// </summary>
     public async Task<ApiLoginResponse> LoginAsync(string username, string password)
     {
-        _logger.LogInformation("Authenticating user {Username}...", username);
+        _logger.LogInformation("Authenticating user...");
         var request = new ApiLoginRequest { Username = username, Password = password };
-        var response = await PostAsync<ApiLoginResponse>("api/authapi/login", request, skipAuth: true);
+
+        // Login uses a dedicated path that handles 401 gracefully instead of throwing
+        var httpRequest = CreateRequest(HttpMethod.Post, "api/authapi/login", skipAuth: true);
+        httpRequest.Content = new StringContent(
+            JsonSerializer.Serialize(request, JsonOptions), Encoding.UTF8, "application/json");
+
+        var httpResponse = await SendWithRetryAsync(httpRequest, skipAuth: true);
+
+        // Read the body regardless of status code — server returns ApiLoginResponse on both 200 and 401
+        var response = await httpResponse.Content.ReadFromJsonAsync<ApiLoginResponse>(JsonOptions);
 
         if (response is { Succeeded: true, Token: not null })
         {
@@ -91,11 +100,11 @@ public class ApiClient
             _tokenExpiry = response.ExpiresAt ?? DateTime.UtcNow.AddHours(23);
             await SecureStorage.Default.SetAsync("api_jwt_token", _token);
             Preferences.Default.Set("api_token_expiry", _tokenExpiry.Value.ToString("O"));
-            _logger.LogInformation("Authentication succeeded for {Username}.", username);
+            _logger.LogInformation("Authentication succeeded.");
         }
         else
         {
-            _logger.LogWarning("Authentication failed for {Username}: {Error}", username, response?.ErrorMessage ?? "No response");
+            _logger.LogWarning("Authentication failed: {Error}", response?.ErrorMessage ?? "No response");
         }
 
         return response ?? ApiLoginResponse.Failure("No response from server.");

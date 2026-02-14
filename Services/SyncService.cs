@@ -28,6 +28,10 @@ public class SyncService : ISyncService
     public DateTime? LastSyncTime { get; private set; }
     public event Action<SyncProgressInfo>? OnSyncProgress;
 
+    private readonly List<SyncErrorEntry> _errorLog = [];
+    public IReadOnlyList<SyncErrorEntry> ErrorLog => _errorLog.AsReadOnly();
+    public void ClearErrorLog() => _errorLog.Clear();
+
     public SyncService(ApiClient api, AppDbContext db, IOfflineQueueService offlineQueue, ILogger<SyncService> logger)
     {
         _api = api;
@@ -47,6 +51,7 @@ public class SyncService : ISyncService
 
         IsSyncing = true;
         int totalSynced = 0, errors = 0;
+        var sessionErrors = new List<SyncErrorEntry>();
 
         try
         {
@@ -65,14 +70,37 @@ public class SyncService : ISyncService
                 {
                     var result = await SyncEntityAsync(EntityTypes[i]);
                     totalSynced += result.EntitiesSynced;
-                    if (!result.Succeeded) errors++;
+                    if (!result.Succeeded)
+                    {
+                        errors++;
+                        var entry = new SyncErrorEntry
+                        {
+                            EntityType = EntityTypes[i],
+                            ErrorMessage = result.ErrorMessage ?? "Unknown error"
+                        };
+                        sessionErrors.Add(entry);
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogWarning(ex, "Error syncing {EntityType}.", EntityTypes[i]);
                     errors++;
+                    var entry = new SyncErrorEntry
+                    {
+                        EntityType = EntityTypes[i],
+                        ErrorMessage = ex.Message
+                    };
+                    sessionErrors.Add(entry);
                 }
             }
+
+            // Persist error entries
+            if (sessionErrors.Count > 0)
+                _errorLog.AddRange(sessionErrors);
+
+            // Cap error log at 100 entries
+            while (_errorLog.Count > 100)
+                _errorLog.RemoveAt(0);
 
             LastSyncTime = DateTime.UtcNow;
             Preferences.Default.Set("sync_last_full", LastSyncTime.Value.ToString("O"));
@@ -80,9 +108,11 @@ public class SyncService : ISyncService
             RaiseProgress(false, null, EntityTypes.Length, EntityTypes.Length,
                 errors == 0 ? $"Sync complete — {totalSynced} records." : $"Sync finished with {errors} error(s).");
 
-            return errors == 0
+            var syncResult = errors == 0
                 ? SyncResult.Success(totalSynced)
                 : new SyncResult { Succeeded = false, EntitiesSynced = totalSynced, Errors = errors, ErrorMessage = $"{errors} entity type(s) failed." };
+            syncResult.EntityErrors = sessionErrors;
+            return syncResult;
         }
         finally
         {

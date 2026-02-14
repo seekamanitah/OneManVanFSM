@@ -71,7 +71,7 @@ else if (_mode == "detail" && _detailItem != null)
             }
             @if (_detailItem.ExpiryDate.HasValue)
             {
-                <div style="font-size:0.78rem;" class="@(_detailItem.ExpiryDate.Value < DateTime.UtcNow ? "text-danger" : "")">
+                <div style="font-size:0.78rem;" class="@(_detailItem.ExpiryDate.Value < DateTime.Now ? "text-danger" : "")">
                     <i class="bi bi-calendar-x me-1 text-muted"></i>Expires: @_detailItem.ExpiryDate.Value.ToString("MMM dd, yyyy")
                 </div>
             }
@@ -161,20 +161,20 @@ else if (_mode == "edit" && _detailItem != null)
         <div class="row g-2 mb-2">
             <div class="col-4">
                 <label class="form-label" style="font-size:0.78rem; font-weight:600;">Qty</label>
-                <input type="number" step="1" class="form-control form-control-sm" @bind="_editItem.Quantity" />
+                <input type="number" step="1" min="0" class="form-control form-control-sm" @bind="_editItem.Quantity" />
             </div>
             <div class="col-4">
                 <label class="form-label" style="font-size:0.78rem; font-weight:600;">Cost</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">$</span>
-                    <input type="number" step="0.01" class="form-control" @bind="_editItem.Cost" />
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="_editItem.Cost" />
                 </div>
             </div>
             <div class="col-4">
                 <label class="form-label" style="font-size:0.78rem; font-weight:600;">Price</label>
                 <div class="input-group input-group-sm">
                     <span class="input-group-text">$</span>
-                    <input type="number" step="0.01" class="form-control" @bind="_editItem.Price" />
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="_editItem.Price" />
                 </div>
             </div>
         </div>

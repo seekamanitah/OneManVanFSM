@@ -2,6 +2,7 @@
 @inject IMobileJobService JobService
 @inject IMobileAuthService AuthService
 @inject NavigationManager Nav
+@implements IDisposable
 
 <!-- Priority Filter Chips -->
 <div class="d-flex gap-1 mb-1 flex-wrap">
@@ -25,7 +26,7 @@
         }
     </select>
     <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search jobs…" @bind="_search"
-           @bind:event="oninput" @bind:after="LoadJobs" />
+           @bind:event="oninput" @bind:after="OnSearchChanged" />
     <button class="btn btn-outline-secondary" style="min-width:34px; min-height:36px; padding:2px 6px;" @onclick="LoadJobs" title="Refresh">
         <i class="bi bi-arrow-clockwise"></i>
     </button>
@@ -77,7 +78,7 @@ else if (_jobs.Any())
                     <i class="bi bi-calendar3 me-1"></i>@job.ScheduledDate.Value.ToString("MMM dd")
                     @if (job.ScheduledTime.HasValue)
                     {
-                        <span> at @job.ScheduledTime.Value.ToString(@"hh\:mm")</span>
+                        <span> at @DateTime.Today.Add(job.ScheduledTime.Value).ToString("h:mm tt")</span>
                     }
                     @if (job.EstimatedDuration.HasValue)
                     {
@@ -213,6 +214,7 @@ else
 
 @code {
 private int _employeeId;
+private bool _isElevatedRole;
 private List<MobileJobCard> _jobs = [];
 private bool _loading = true;
 private string _search = string.Empty;
@@ -230,6 +232,7 @@ private string _selectedCustomerId = string.Empty;
 private string _scheduledTimeStr = string.Empty;
 private List<MobileCustomerOption> _customers = [];
 private List<MobileSiteOption> _sites = [];
+private System.Timers.Timer? _debounceTimer;
 
     private IEnumerable<MobileJobCard> SortedJobs => _sortMode switch
     {
@@ -258,7 +261,27 @@ private List<MobileSiteOption> _sites = [];
     protected override async Task OnInitializedAsync()
     {
         _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+        var session = await AuthService.GetCurrentUserAsync();
+        _isElevatedRole = session?.Role is "Owner" or "Admin" or "Manager";
         await LoadJobs();
+    }
+
+    private void OnSearchChanged()
+    {
+        _debounceTimer?.Stop();
+        _debounceTimer?.Dispose();
+        _debounceTimer = new System.Timers.Timer(300);
+        _debounceTimer.Elapsed += async (_, _) =>
+        {
+            _debounceTimer?.Stop();
+            await InvokeAsync(async () =>
+            {
+                await LoadJobs();
+                StateHasChanged();
+            });
+        };
+        _debounceTimer.AutoReset = false;
+        _debounceTimer.Start();
     }
 
     private void SetPriority(string priority)
@@ -282,7 +305,7 @@ private List<MobileSiteOption> _sites = [];
             Priority = priority
         };
 
-        _jobs = await JobService.GetAssignedJobsAsync(_employeeId, filter);
+        _jobs = await JobService.GetAssignedJobsAsync(_employeeId, filter, _isElevatedRole);
         _loading = false;
     }
 
@@ -371,7 +394,7 @@ private List<MobileSiteOption> _sites = [];
 
     private static string RelativeDateLabel(DateTime date)
     {
-        var diff = (date.Date - DateTime.UtcNow.Date).Days;
+        var diff = (date.Date - DateTime.Now.Date).Days;
         return diff switch
         {
             0 => "Today",
@@ -384,7 +407,7 @@ private List<MobileSiteOption> _sites = [];
 
     private static string RelativeDateColor(DateTime date)
     {
-        var diff = (date.Date - DateTime.UtcNow.Date).Days;
+        var diff = (date.Date - DateTime.Now.Date).Days;
         return diff switch
         {
             0 => "primary",
@@ -393,5 +416,10 @@ private List<MobileSiteOption> _sites = [];
             -1 => "warning",
             _ => "danger"
         };
+    }
+
+    public void Dispose()
+    {
+        _debounceTimer?.Dispose();
     }
 }

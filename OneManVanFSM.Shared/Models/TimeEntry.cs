@@ -17,6 +17,7 @@ public class TimeEntry
     public double? ClockOutLongitude { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties
     public int EmployeeId { get; set; }
