@@ -2,6 +2,8 @@
 @inject IMobileJobService JobService
 @inject IMobileTimeService TimeService
 @inject IMobileAuthService AuthService
+@inject IMobilePhotoService PhotoService
+@inject IMobileDocumentService DocumentService
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -60,40 +62,78 @@ else
         }
 
         <!-- Status Actions -->
-        <div class="swipe-actions mt-2">
-            @switch (_job.Status)
-            {
-                case JobStatus.Scheduled:
-                    <button class="btn btn-primary" @onclick="() => ChangeStatus(JobStatus.EnRoute)">
-                        <i class="bi bi-truck me-1"></i>En Route
-                    </button>
-                    break;
-                case JobStatus.EnRoute:
-                    <button class="btn btn-warning" @onclick="() => ChangeStatus(JobStatus.OnSite)">
-                        <i class="bi bi-pin-map me-1"></i>On Site
-                    </button>
-                    break;
-                case JobStatus.OnSite:
-                    <button class="btn btn-success" @onclick="() => ChangeStatus(JobStatus.InProgress)">
-                        <i class="bi bi-play-circle me-1"></i>Start Work
-                    </button>
-                    break;
-                case JobStatus.InProgress:
-                    <button class="btn btn-outline-secondary" @onclick="() => ChangeStatus(JobStatus.Paused)">
-                        <i class="bi bi-pause-circle me-1"></i>Pause
-                    </button>
-                    <button class="btn btn-success" @onclick="() => ChangeStatus(JobStatus.Completed)">
-                        <i class="bi bi-check-circle me-1"></i>Complete
-                    </button>
-                    break;
-                case JobStatus.Paused:
-                    <button class="btn btn-warning" @onclick="() => ChangeStatus(JobStatus.InProgress)">
-                        <i class="bi bi-play-circle me-1"></i>Resume
-                    </button>
-                    break;
-            }
+            <div class="swipe-actions mt-2">
+                @switch (_job.Status)
+                {
+                    case JobStatus.Scheduled:
+                        <button class="btn btn-primary" @onclick="() => ChangeStatus(JobStatus.EnRoute)">
+                            <i class="bi bi-truck me-1"></i>En Route
+                        </button>
+                        break;
+                    case JobStatus.EnRoute:
+                        <button class="btn btn-warning" @onclick="() => ChangeStatus(JobStatus.OnSite)">
+                            <i class="bi bi-pin-map me-1"></i>On Site
+                        </button>
+                        break;
+                    case JobStatus.OnSite:
+                        <button class="btn btn-success" @onclick="() => ChangeStatus(JobStatus.InProgress)">
+                            <i class="bi bi-play-circle me-1"></i>Start Work
+                        </button>
+                        break;
+                    case JobStatus.InProgress:
+                        <button class="btn btn-outline-secondary" @onclick="() => ChangeStatus(JobStatus.Paused)">
+                            <i class="bi bi-pause-circle me-1"></i>Pause
+                        </button>
+                        <button class="btn btn-success" @onclick="() => ChangeStatus(JobStatus.Completed)">
+                            <i class="bi bi-check-circle me-1"></i>Complete
+                        </button>
+                        break;
+                    case JobStatus.Paused:
+                        <button class="btn btn-warning" @onclick="() => ChangeStatus(JobStatus.InProgress)">
+                            <i class="bi bi-play-circle me-1"></i>Resume
+                        </button>
+                        break;
+                }
+            </div>
         </div>
-    </div>
+
+        <!-- Job Timer -->
+        @if (_job.Status != JobStatus.Completed && _job.Status != JobStatus.Cancelled)
+        {
+            <div class="mobile-card d-flex align-items-center gap-3" style="padding:0.65rem 1rem; border-left:3px solid @(_isJobClockActive ? "#198754" : "#6c757d");">
+                <div style="width:40px; height:40px; border-radius:50%; background:@(_isJobClockActive ? "#198754" : "#6c757d"); display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                    <i class="bi @(_isJobClockActive ? "bi-stopwatch-fill" : "bi-stopwatch")" style="color:white; font-size:1rem;"></i>
+                </div>
+                <div style="flex:1; min-width:0;">
+                    @if (_isJobClockActive)
+                    {
+                        <p class="mb-0 fw-bold" style="font-size:0.85rem; color:#198754;">Job Timer Running</p>
+                        <p class="card-subtitle mb-0">@FormatJobElapsed()</p>
+                    }
+                    else
+                    {
+                        <p class="mb-0 fw-semibold" style="font-size:0.85rem;">Job Timer</p>
+                        <p class="card-subtitle mb-0">Not started</p>
+                    }
+                </div>
+                @if (_isJobClockActive)
+                {
+                    <button class="btn btn-sm btn-outline-danger" style="font-size:0.75rem;" @onclick="StopJobClock">
+                        <i class="bi bi-stop-circle me-1"></i>Stop
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-sm btn-outline-success" style="font-size:0.75rem;" @onclick="StartJobClock">
+                        <i class="bi bi-play-circle me-1"></i>Start
+                    </button>
+                }
+            </div>
+            @if (!string.IsNullOrEmpty(_jobClockError))
+            {
+                <div class="alert alert-danger py-2 small mb-2">@_jobClockError</div>
+            }
+        }
 
     <!-- Customer & Site Info -->
     <div class="section-header">Customer & Site</div>
@@ -408,6 +448,16 @@ else
                 <span style="font-size:0.85rem;"><i class="bi bi-journal-text me-2 text-primary"></i>Related Notes</span>
                 <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
             </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="CapturePhoto">
+                <span style="font-size:0.85rem;"><i class="bi bi-camera me-2 text-primary"></i>Take Photo</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="PickPhoto">
+                <span style="font-size:0.85rem;"><i class="bi bi-image me-2 text-primary"></i>Attach Photo from Gallery</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
             @if (_job.ScheduledDate.HasValue)
             {
                 <hr class="my-0" />
@@ -434,6 +484,9 @@ private MobileJobDetail? _job;
 private bool _loading = true;
 private bool _showAddMaterial;
 private MobileMaterialCreate _newMaterial = new();
+private bool _isJobClockActive;
+private DateTime? _jobClockStartTime;
+private string? _jobClockError;
 
 private decimal MaterialTotal => _job?.Materials.Sum(m => m.BaseCost * (decimal)m.Quantity) ?? 0;
 
@@ -449,6 +502,13 @@ protected override async Task OnInitializedAsync()
     {
         _loading = true;
         _job = await JobService.GetJobDetailAsync(Id);
+
+        // Check if there's an active job clock for this job
+        var activeClocks = await TimeService.GetActiveJobClocksAsync(_employeeId);
+        var thisJobClock = activeClocks.FirstOrDefault(c => c.JobId == Id);
+        _isJobClockActive = thisJobClock != null;
+        _jobClockStartTime = thisJobClock?.StartTime;
+
         _loading = false;
     }
 
@@ -456,25 +516,45 @@ protected override async Task OnInitializedAsync()
     {
         var oldStatus = _job?.Status;
 
-        // Auto-clock: starting travel creates a time entry
+        // Auto job-clock: starting travel starts job timer
         if (newStatus == JobStatus.EnRoute && oldStatus != JobStatus.EnRoute)
         {
-            await TimeService.ClockInAsync(_employeeId, Id, "Travel");
+            await TimeService.JobClockInAsync(_employeeId, Id);
         }
-        // Auto-clock: arriving on site closes travel, opens on-site entry
-        else if (newStatus == JobStatus.OnSite && oldStatus == JobStatus.EnRoute)
-        {
-            await TimeService.ClockOutAsync(_employeeId);
-            await TimeService.ClockInAsync(_employeeId, Id, "On-Site");
-        }
-        // Auto-clock: completing job closes any open entry
+        // Auto job-clock: completing job stops job timer
         else if (newStatus == JobStatus.Completed)
         {
-            await TimeService.ClockOutAsync(_employeeId);
+            await TimeService.JobClockOutAsync(_employeeId, Id);
         }
 
         await JobService.UpdateJobStatusAsync(Id, newStatus);
         await LoadJob();
+    }
+
+    private async Task StartJobClock()
+    {
+        _jobClockError = null;
+        var result = await TimeService.JobClockInAsync(_employeeId, Id);
+        if (result is null)
+        {
+            _jobClockError = "Start your shift first before starting a job timer.";
+            return;
+        }
+        await LoadJob();
+    }
+
+    private async Task StopJobClock()
+    {
+        _jobClockError = null;
+        await TimeService.JobClockOutAsync(_employeeId, Id);
+        await LoadJob();
+    }
+
+    private string FormatJobElapsed()
+    {
+        if (_jobClockStartTime == null) return "00:00";
+        var elapsed = DateTime.Now - _jobClockStartTime.Value;
+        return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}";
     }
 
     private async Task SaveMaterial()
@@ -536,6 +616,44 @@ protected override async Task OnInitializedAsync()
         "video" => "bi-camera-video",
         _ => "bi-file-earmark-text"
     };
+
+    private async Task CapturePhoto()
+    {
+        if (_job is null) return;
+        var result = await PhotoService.CapturePhotoAsync();
+        if (result is not null)
+        {
+            await DocumentService.CreateDocumentAsync(new MobileDocumentCreate
+            {
+                Name = result.FileName,
+                Category = DocumentCategory.Photo,
+                FilePath = result.FilePath,
+                FileType = "image",
+                FileSize = result.FileSize,
+                JobId = Id
+            });
+            await LoadJob();
+        }
+    }
+
+    private async Task PickPhoto()
+    {
+        if (_job is null) return;
+        var result = await PhotoService.PickPhotoAsync();
+        if (result is not null)
+        {
+            await DocumentService.CreateDocumentAsync(new MobileDocumentCreate
+            {
+                Name = result.FileName,
+                Category = DocumentCategory.Photo,
+                FilePath = result.FilePath,
+                FileType = "image",
+                FileSize = result.FileSize,
+                JobId = Id
+            });
+            await LoadJob();
+        }
+    }
 
     private static string GetMapsUrl(string address)
     {

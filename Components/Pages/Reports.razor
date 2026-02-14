@@ -12,12 +12,22 @@
 else if (_report != null)
 {
     <!-- Back -->
-    <div class="mb-3">
+    <div class="mb-2">
         <button class="btn btn-sm btn-outline-secondary" @onclick='() => Nav.NavigateTo("/profile")'>
             <i class="bi bi-arrow-left me-1"></i>Back to Profile
         </button>
     </div>
 
+    <!-- Report Type Tabs -->
+    <div class="sub-tab-bar mb-2">
+        <button class="sub-tab @(_tab == "tech" ? "active" : "")" @onclick='() => SetTab("tech")'>My Stats</button>
+        <button class="sub-tab @(_tab == "kpis" ? "active" : "")" @onclick='() => SetTab("kpis")'>Business</button>
+        <button class="sub-tab @(_tab == "profit" ? "active" : "")" @onclick='() => SetTab("profit")'>Profitability</button>
+        <button class="sub-tab @(_tab == "payroll" ? "active" : "")" @onclick='() => SetTab("payroll")'>Payroll</button>
+    </div>
+
+    @if (_tab == "tech")
+    {
     <!-- Period Selector -->
     <div class="sub-tab-bar mb-3">
         <button class="sub-tab @(_period == "week" ? "active" : "")" @onclick='() => SetPeriod("week")'>This Week</button>
@@ -174,6 +184,229 @@ else if (_report != null)
             </div>
         </div>
     </div>
+    }
+
+    @if (_tab == "kpis")
+    {
+        @if (_kpis != null)
+        {
+            <div class="section-header">Business Overview</div>
+            <div class="gap-grid mb-2">
+                <div class="stat-card">
+                    <div class="stat-icon text-primary"><i class="bi bi-briefcase"></i></div>
+                    <div class="stat-value">@_kpis.TotalJobs</div>
+                    <div class="stat-label">Total Jobs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
+                    <div class="stat-value">@_kpis.CompletedJobs</div>
+                    <div class="stat-label">Completed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-warning"><i class="bi bi-hourglass-split"></i></div>
+                    <div class="stat-value">@_kpis.OpenJobs</div>
+                    <div class="stat-label">Open</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-info"><i class="bi bi-people"></i></div>
+                    <div class="stat-value">@_kpis.TotalCustomers</div>
+                    <div class="stat-label">Customers</div>
+                </div>
+            </div>
+
+            <div class="section-header">Revenue & Financials</div>
+            <div class="gap-grid mb-2">
+                <div class="stat-card">
+                    <div class="stat-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+                    <div class="stat-value">@_kpis.RevenueTotal.ToString("C0")</div>
+                    <div class="stat-label">Total Revenue</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-danger"><i class="bi bi-exclamation-circle"></i></div>
+                    <div class="stat-value">@_kpis.OutstandingAR.ToString("C0")</div>
+                    <div class="stat-label">Outstanding AR</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-warning"><i class="bi bi-receipt"></i></div>
+                    <div class="stat-value">@_kpis.UnpaidInvoiceCount</div>
+                    <div class="stat-label">Unpaid Invoices</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-info"><i class="bi bi-file-earmark-text"></i></div>
+                    <div class="stat-value">@_kpis.PendingEstimates</div>
+                    <div class="stat-label">Pending Estimates</div>
+                </div>
+            </div>
+
+            <div class="section-header">Operations</div>
+            <div class="gap-grid mb-2">
+                <div class="stat-card">
+                    <div class="stat-icon text-primary"><i class="bi bi-person-badge"></i></div>
+                    <div class="stat-value">@_kpis.ActiveEmployees</div>
+                    <div class="stat-label">Active Staff</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-info"><i class="bi bi-clock-history"></i></div>
+                    <div class="stat-value">@_kpis.TotalHoursLogged.ToString("0.#")</div>
+                    <div class="stat-label">Hours Logged</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-success"><i class="bi bi-file-earmark-check"></i></div>
+                    <div class="stat-value">@_kpis.ActiveAgreements</div>
+                    <div class="stat-label">Agreements</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-warning"><i class="bi bi-tools"></i></div>
+                    <div class="stat-value">@_kpis.TotalAssets</div>
+                    <div class="stat-label">Assets</div>
+                </div>
+            </div>
+
+            <div class="section-header">Inventory</div>
+            <div class="mobile-card">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <p class="mb-0" style="font-size:0.9rem; font-weight:600;">@_kpis.InventoryItemCount items tracked</p>
+                        <p class="card-subtitle mb-0">@_kpis.LowStockCount low-stock alerts</p>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" @onclick='() => Nav.NavigateTo("/inventory")'>
+                        <i class="bi bi-box-seam me-1"></i>View
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+        }
+    }
+
+    @if (_tab == "profit")
+    {
+        @if (_profitItems != null)
+        {
+            <div class="section-header">Job Profitability (Top @_profitItems.Count)</div>
+            @if (_profitItems.Any())
+            {
+                @foreach (var job in _profitItems)
+                {
+                    <div class="mobile-card mb-1">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <div style="min-width:0; flex:1;">
+                                <div style="font-size:0.85rem; font-weight:700;">@job.JobNumber</div>
+                                @if (!string.IsNullOrWhiteSpace(job.CustomerName))
+                                {
+                                    <div class="text-muted" style="font-size:0.7rem;">@job.CustomerName</div>
+                                }
+                            </div>
+                            <div class="text-end">
+                                <div style="font-size:0.9rem; font-weight:700;" class="@(job.Profit >= 0 ? "text-success" : "text-danger")">@job.Profit.ToString("C0")</div>
+                                <span class="badge @(job.MarginPercent >= 30 ? "bg-success" : job.MarginPercent >= 10 ? "bg-warning text-dark" : "bg-danger")" style="font-size:0.6rem;">@job.MarginPercent% margin</span>
+                            </div>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2" style="font-size:0.72rem;">
+                            <span class="text-muted">Revenue: @job.Revenue.ToString("C0")</span>
+                            <span class="text-muted">Labor: @job.LaborCost.ToString("C0")</span>
+                            <span class="text-muted">Material: @job.MaterialCost.ToString("C0")</span>
+                            @if (job.ExpenseCost > 0) { <span class="text-muted">Expenses: @job.ExpenseCost.ToString("C0")</span> }
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="empty-state">
+                    <i class="bi bi-graph-up d-block"></i>
+                    <p>No profitability data yet</p>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+        }
+    }
+
+    @if (_tab == "payroll")
+    {
+        <div class="d-flex align-items-center gap-2 mb-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="PrevPayrollWeek"><i class="bi bi-chevron-left"></i></button>
+            <span style="font-size:0.8rem; font-weight:600;">@_payrollWeekStart.ToString("MMM dd") — @_payrollWeekStart.AddDays(6).ToString("MMM dd, yyyy")</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="NextPayrollWeek"><i class="bi bi-chevron-right"></i></button>
+        </div>
+
+        @if (_payroll != null)
+        {
+            <div class="gap-grid mb-2">
+                <div class="stat-card">
+                    <div class="stat-icon text-primary"><i class="bi bi-clock"></i></div>
+                    <div class="stat-value">@_payroll.TotalShiftHours.ToString("0.#")</div>
+                    <div class="stat-label">Total Hours</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+                    <div class="stat-value">@_payroll.TotalPay.ToString("C0")</div>
+                    <div class="stat-label">Total Pay</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-info"><i class="bi bi-briefcase"></i></div>
+                    <div class="stat-value">@_payroll.JobsClockedThisWeek</div>
+                    <div class="stat-label">Jobs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon text-warning"><i class="bi bi-cash"></i></div>
+                    <div class="stat-value">@_payroll.HourlyRate.ToString("C")</div>
+                    <div class="stat-label">Rate</div>
+                </div>
+            </div>
+
+            <div class="mobile-card mb-2">
+                <div class="d-flex justify-content-between" style="font-size:0.8rem;">
+                    <span>Regular (@_payroll.RegularHours.ToString("0.#")h)</span>
+                    <span class="fw-semibold">@_payroll.RegularPay.ToString("C")</span>
+                </div>
+                @if (_payroll.OvertimeHours > 0)
+                {
+                    <div class="d-flex justify-content-between" style="font-size:0.8rem;">
+                        <span class="text-warning">Overtime (@_payroll.OvertimeHours.ToString("0.#")h)</span>
+                        <span class="fw-semibold text-warning">@_payroll.OvertimePay.ToString("C")</span>
+                    </div>
+                }
+                <hr style="margin:0.3rem 0;" />
+                <div class="d-flex justify-content-between fw-bold" style="font-size:0.85rem;">
+                    <span>Total Pay</span>
+                    <span>@_payroll.TotalPay.ToString("C")</span>
+                </div>
+            </div>
+
+            @if (_payroll.Days.Any())
+            {
+                <div class="section-header">Daily Breakdown</div>
+                @foreach (var day in _payroll.Days)
+                {
+                    <div class="mobile-card mb-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <div style="font-size:0.8rem; font-weight:600;">@day.DayLabel</div>
+                                <div class="text-muted" style="font-size:0.7rem;">@day.Date.ToString("MMM dd")</div>
+                            </div>
+                            <div class="text-end">
+                                <div style="font-size:0.8rem; font-weight:600;">@day.ShiftHours.ToString("0.#")h shift</div>
+                                @if (day.JobCount > 0)
+                                {
+                                    <div class="text-muted" style="font-size:0.7rem;">@day.JobCount job@(day.JobCount != 1 ? "s" : "") (@day.JobHours.ToString("0.#")h)</div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        }
+        else
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+        }
+    }
 }
 
 @code {
@@ -182,6 +415,17 @@ private MobileTechReport? _report;
 private bool _loading = true;
 private string _period = "month";
 private DateTime _lastUpdated = DateTime.Now;
+private string _tab = "tech";
+
+// Business KPIs
+private MobileBusinessKPIs? _kpis;
+
+// Profitability
+private List<MobileJobProfitItem>? _profitItems;
+
+// Payroll
+private MobilePayrollPreview? _payroll;
+private DateTime _payrollWeekStart = StartOfWeek(DateTime.Today);
 
 protected override async Task OnInitializedAsync()
 {
@@ -190,6 +434,23 @@ protected override async Task OnInitializedAsync()
     _lastUpdated = DateTime.Now;
     _loading = false;
 }
+
+    private async Task SetTab(string tab)
+    {
+        _tab = tab;
+        if (tab == "kpis" && _kpis is null)
+        {
+            _kpis = await ReportService.GetBusinessKPIsAsync();
+        }
+        else if (tab == "profit" && _profitItems is null)
+        {
+            _profitItems = await ReportService.GetJobProfitabilityAsync();
+        }
+        else if (tab == "payroll" && _payroll is null)
+        {
+            await LoadPayroll();
+        }
+    }
 
     private async Task SetPeriod(string period)
     {
@@ -219,5 +480,30 @@ protected override async Task OnInitializedAsync()
             "Admin" => "#fd7e14",
             _ => "#6c757d",
         };
+    }
+
+    private async Task LoadPayroll()
+    {
+        _payroll = null;
+        StateHasChanged();
+        _payroll = await ReportService.GetPayrollPreviewAsync(_employeeId, _payrollWeekStart);
+    }
+
+    private async Task PrevPayrollWeek()
+    {
+        _payrollWeekStart = _payrollWeekStart.AddDays(-7);
+        await LoadPayroll();
+    }
+
+    private async Task NextPayrollWeek()
+    {
+        _payrollWeekStart = _payrollWeekStart.AddDays(7);
+        await LoadPayroll();
+    }
+
+    private static DateTime StartOfWeek(DateTime dt)
+    {
+        var diff = (7 + (dt.DayOfWeek - DayOfWeek.Monday)) % 7;
+        return dt.AddDays(-diff).Date;
     }
 }

@@ -76,14 +76,25 @@ else if (_data != null)
         <div class="alert alert-danger py-2 small mb-2">@_clockError</div>
     }
 
-    <!-- Time Clock -->
+    <!-- Time Clock (Shift) -->
     <div class="time-clock-card">
         @if (_data.IsClockedIn)
         {
-            <div class="clock-label">Clocked In</div>
+            <div class="clock-label">Shift Active</div>
             <div class="clock-time">@FormatElapsed()</div>
+            @if (_data.ActiveJobClockCount > 0)
+            {
+                <div class="d-flex align-items-center justify-content-center gap-1 mt-1" style="font-size:0.75rem; opacity:0.9;">
+                    <i class="bi bi-wrench"></i>
+                    <span>@_data.ActiveJobClockCount job@(_data.ActiveJobClockCount > 1 ? "s" : "") active</span>
+                    @if (_data.ActiveJobName != null)
+                    {
+                        <span>(@_data.ActiveJobName)</span>
+                    }
+                </div>
+            }
             <button class="btn btn-outline-light btn-sm mt-2 px-4" @onclick="ClockOut">
-                <i class="bi bi-stop-circle me-1"></i> Clock Out
+                <i class="bi bi-stop-circle me-1"></i> End Shift
             </button>
         }
         else
@@ -91,7 +102,7 @@ else if (_data != null)
             <div class="clock-label">Not Clocked In</div>
             <div class="clock-time">00:00</div>
             <button class="btn btn-light btn-sm mt-2 px-4" @onclick="ClockIn">
-                <i class="bi bi-play-circle me-1"></i> Clock In
+                <i class="bi bi-play-circle me-1"></i> Start Shift
             </button>
         }
     </div>
@@ -111,7 +122,7 @@ else if (_data != null)
         <div class="stat-card">
             <div class="stat-icon text-info"><i class="bi bi-clock-history"></i></div>
             <div class="stat-value">@_data.HoursThisWeek.ToString("0.#")h</div>
-            <div class="stat-label">This Week</div>
+            <div class="stat-label">Shift This Week</div>
         </div>
         <div class="stat-card">
             <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
@@ -119,6 +130,29 @@ else if (_data != null)
             <div class="stat-label">Completed</div>
         </div>
     </div>
+
+    <!-- Estimate/Invoice Stats (elevated roles) -->
+    @if (_isElevatedRole && (_data.DraftEstimateCount > 0 || _data.PendingInvoiceCount > 0))
+    {
+        <div class="gap-grid mb-2">
+            @if (_data.DraftEstimateCount > 0)
+            {
+                <div class="stat-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/estimates")'>
+                    <div class="stat-icon" style="color:#6f42c1;"><i class="bi bi-calculator"></i></div>
+                    <div class="stat-value">@_data.DraftEstimateCount</div>
+                    <div class="stat-label">Draft Estimates</div>
+                </div>
+            }
+            @if (_data.PendingInvoiceCount > 0)
+            {
+                <div class="stat-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/invoices")'>
+                    <div class="stat-icon text-primary"><i class="bi bi-receipt"></i></div>
+                    <div class="stat-value">@_data.PendingInvoiceCount</div>
+                    <div class="stat-label">Pending Invoices</div>
+                </div>
+            }
+        </div>
+    }
 
     <!-- Next Job Countdown -->
     @if (NextScheduledJob != null)
@@ -224,6 +258,23 @@ else if (_data != null)
                 }
 
                 <div class="swipe-actions">
+                    @if (_data.IsClockedIn)
+                    {
+                        @if (_activeJobIds.Contains(job.Id))
+                        {
+                            <button class="btn btn-outline-danger" style="font-size:0.75rem;" @onclick:stopPropagation="true"
+                                    @onclick="() => StopJobClock(job.Id)">
+                                <i class="bi bi-stop-circle me-1"></i>Stop Timer
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-info" style="font-size:0.75rem;" @onclick:stopPropagation="true"
+                                    @onclick="() => StartJobClock(job.Id)">
+                                <i class="bi bi-stopwatch me-1"></i>Start Timer
+                            </button>
+                        }
+                    }
                     @if (job.Status == JobStatus.Scheduled)
                     {
                         <button class="btn btn-outline-primary" @onclick:stopPropagation="true"
@@ -395,6 +446,8 @@ private DateTime? _lastUpdated;
 private string? _clockError;
 private Dictionary<string, bool> _canView = new();
 private UserRole _userRole;
+private bool _isElevatedRole;
+private HashSet<int> _activeJobIds = [];
 
 // Sync state
 private ISyncService? _syncService;
@@ -408,6 +461,8 @@ private bool _syncResultSuccess;
 protected override async Task OnInitializedAsync()
 {
     _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
+    var session = await AuthService.GetCurrentUserAsync();
+    _isElevatedRole = session?.Role is "Owner" or "Admin" or "Manager";
     InitSyncState();
     await LoadPermissions();
     await LoadDashboard();
@@ -477,6 +532,15 @@ protected override async Task OnInitializedAsync()
         _data = await DashboardService.GetDashboardAsync(_employeeId);
         var profile = await TimeService.GetEmployeeProfileAsync(_employeeId);
         _techName = profile?.Name?.Split(' ')[0];
+
+        // Fallback: use username from session if no employee profile linked
+        if (string.IsNullOrEmpty(_techName))
+        {
+            var session = await AuthService.GetCurrentUserAsync();
+            _techName = session?.Username;
+        }
+
+        await LoadActiveJobClocks();
         _lastUpdated = DateTime.Now;
         _loading = false;
     }
@@ -568,6 +632,45 @@ protected override async Task OnInitializedAsync()
         catch (Exception ex)
         {
             _clockError = $"Clock out failed: {ex.Message}";
+        }
+    }
+
+    private async Task LoadActiveJobClocks()
+    {
+        var clocks = await TimeService.GetActiveJobClocksAsync(_employeeId);
+        _activeJobIds = clocks.Where(c => c.JobId.HasValue).Select(c => c.JobId!.Value).ToHashSet();
+    }
+
+    private async Task StartJobClock(int jobId)
+    {
+        _clockError = null;
+        try
+        {
+            var result = await TimeService.JobClockInAsync(_employeeId, jobId);
+            if (result is null)
+            {
+                _clockError = "You must clock into your shift first before starting a job timer.";
+                return;
+            }
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _clockError = $"Job clock failed: {ex.Message}";
+        }
+    }
+
+    private async Task StopJobClock(int jobId)
+    {
+        _clockError = null;
+        try
+        {
+            await TimeService.JobClockOutAsync(_employeeId, jobId);
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _clockError = $"Job clock out failed: {ex.Message}";
         }
     }
 

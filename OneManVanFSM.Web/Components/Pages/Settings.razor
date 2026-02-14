@@ -76,6 +76,15 @@
                     </div>
                     <small class="text-muted">Applied globally to all new estimates, invoices, and other forms.</small>
                 </div>
+                <div class="col-md-4">
+                    <label class="form-label">Default Print Template</label>
+                    <select class="form-select" @bind="_defaultPrintTemplate">
+                        <option value="Classic">Classic (B&W)</option>
+                        <option value="Professional">Professional (Navy)</option>
+                        <option value="Modern">Modern (Teal)</option>
+                    </select>
+                    <small class="text-muted">Default PDF/print style for estimates, invoices, and expenses.</small>
+                </div>
             </div>
             <button class="btn btn-primary mt-3" @onclick="SaveCompanyProfile"><i class="bi bi-check-lg me-1"></i>Save Profile</button>
         </div>
@@ -213,7 +222,19 @@ else if (tab == "users")
                                             @foreach (var r in Enum.GetValues<UserRole>()) { <option value="@r">@r</option> }
                                         </select>
                                     </td>
-                                    <td>@(u.EmployeeName ?? "\u2014")</td>
+                                    <td>
+                                        <select class="form-select form-select-sm" style="width:auto;min-width:140px;"
+                                                value="@(u.EmployeeId?.ToString() ?? "")" @onchange="e => LinkEmployee(u.Id, e)">
+                                            <option value="">— None —</option>
+                                            @if (_employeeOptions is not null)
+                                            {
+                                                @foreach (var emp in _employeeOptions)
+                                                {
+                                                    <option value="@emp.Id">@emp.Name</option>
+                                                }
+                                            }
+                                        </select>
+                                    </td>
                                     <td>
                                         @if (u.IsLocked)
                                         {
@@ -1147,6 +1168,7 @@ private string _companyEmail = "";
 private string _companyTaxId = "";
 private string _companyAddress = "";
 private decimal _defaultTaxRate;
+private string _defaultPrintTemplate = "Classic";
 private string _smtpHost = "";
 private int _smtpPort = 587;
 private string _smtpUsername = "";
@@ -1246,6 +1268,9 @@ private Dictionary<string, bool> notificationSettings = new()
     private UserRole _newUserRole = UserRole.Tech;
     private string? _createUserError;
 
+    // Employee linking state
+    private List<EmployeeOption>? _employeeOptions;
+
     // Purge state
     private bool _confirmPurge;
 
@@ -1279,6 +1304,8 @@ private Dictionary<string, bool> notificationSettings = new()
         tab = "users";
         if (userList is null)
             userList = await AuthSvc.GetUsersAsync();
+        if (_employeeOptions is null)
+            _employeeOptions = await AuthSvc.GetEmployeeOptionsAsync();
         if (_permMatrix is null)
             await LoadPermissions();
     }
@@ -1314,6 +1341,28 @@ private Dictionary<string, bool> notificationSettings = new()
             await AuthSvc.UpdateUserRoleAsync(userId, role);
             userList = await AuthSvc.GetUsersAsync();
             successMessage = "User role updated.";
+        }
+        catch (Exception ex) { errorMessage = ex.Message; }
+    }
+
+    private async Task LinkEmployee(int userId, ChangeEventArgs e)
+    {
+        try
+        {
+            int? employeeId = null;
+            if (e.Value is not null && int.TryParse(e.Value.ToString(), out var eid) && eid > 0)
+                employeeId = eid;
+
+            var ok = await AuthSvc.LinkUserToEmployeeAsync(userId, employeeId);
+            if (ok)
+            {
+                userList = await AuthSvc.GetUsersAsync();
+                successMessage = employeeId.HasValue ? "User linked to employee." : "Employee link removed.";
+            }
+            else
+            {
+                errorMessage = "Failed to link user to employee.";
+            }
         }
         catch (Exception ex) { errorMessage = ex.Message; }
     }
@@ -1962,6 +2011,7 @@ private Dictionary<string, bool> notificationSettings = new()
                     _companyTaxId = profile.GetValueOrDefault("TaxId", "");
                     _companyAddress = profile.GetValueOrDefault("Address", "");
                     _defaultTaxRate = decimal.TryParse(profile.GetValueOrDefault("DefaultTaxRate", "0"), out var taxRate) ? taxRate : 0m;
+                    _defaultPrintTemplate = profile.GetValueOrDefault("DefaultPrintTemplate", "Classic");
                     _smtpHost = profile.GetValueOrDefault("SmtpHost", "");
                     _smtpPort = int.TryParse(profile.GetValueOrDefault("SmtpPort", "587"), out var port) ? port : 587;
                     _smtpUsername = profile.GetValueOrDefault("SmtpUsername", "");
@@ -1988,6 +2038,7 @@ private Dictionary<string, bool> notificationSettings = new()
                 ["TaxId"] = _companyTaxId,
                 ["Address"] = _companyAddress,
                 ["DefaultTaxRate"] = _defaultTaxRate.ToString(),
+                ["DefaultPrintTemplate"] = _defaultPrintTemplate,
                 ["SmtpHost"] = _smtpHost,
                 ["SmtpPort"] = _smtpPort.ToString(),
                 ["SmtpUsername"] = _smtpUsername,

@@ -43,6 +43,7 @@ public enum DocumentCategory
     TaxDocument,
     Permit,
     SafetySheet,
+    Photo,
     Other
 }
 

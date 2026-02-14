@@ -144,4 +144,75 @@ public class MobileInvoiceService : IMobileInvoiceService
         await _db.SaveChangesAsync();
         return invoice;
     }
+
+    public async Task<Invoice> FullCreateAsync(MobileInvoiceFullCreate model)
+    {
+        var count = await _db.Invoices.CountAsync() + 1;
+        var lines = model.Lines.Select((l, i) => new InvoiceLine
+        {
+            Description = l.Description,
+            LineType = l.LineType,
+            Quantity = l.Quantity,
+            UnitPrice = l.UnitPrice,
+            LineTotal = l.Quantity * l.UnitPrice,
+            Unit = l.Unit,
+            SortOrder = i,
+        }).ToList();
+
+        var subtotal = lines.Sum(l => l.LineTotal);
+        var markupAmount = subtotal * model.MarkupPercent / 100;
+        var taxableAmount = subtotal + markupAmount;
+        var taxAmount = taxableAmount * model.TaxRate / 100;
+
+        decimal discountAmount = 0;
+        if (model.DiscountType == "Percent" && model.DiscountValue > 0)
+            discountAmount = (taxableAmount + taxAmount) * model.DiscountValue / 100;
+        else if (model.DiscountType == "Dollar" && model.DiscountValue > 0)
+            discountAmount = model.DiscountValue;
+
+        var total = taxableAmount + taxAmount - discountAmount;
+
+        var invoice = new Invoice
+        {
+            InvoiceNumber = $"INV-{count:D5}",
+            Status = InvoiceStatus.Draft,
+            InvoiceDate = DateTime.UtcNow,
+            DueDate = model.DueDate ?? DateTime.UtcNow.AddDays(30),
+            PaymentTerms = model.PaymentTerms,
+            PricingType = "Material & Labor (Itemized)",
+            CustomerId = model.CustomerId,
+            JobId = model.JobId,
+            SiteId = model.SiteId,
+            Notes = model.Notes,
+            Terms = model.Terms,
+            Subtotal = subtotal,
+            MarkupAmount = markupAmount,
+            TaxRate = model.TaxRate,
+            TaxAmount = taxAmount,
+            DiscountType = model.DiscountType,
+            DiscountValue = model.DiscountValue,
+            DiscountAmount = discountAmount,
+            Total = total,
+            BalanceDue = total,
+            NeedsReview = false,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Lines = lines,
+        };
+        _db.Invoices.Add(invoice);
+        await _db.SaveChangesAsync();
+        return invoice;
+    }
+
+    public async Task<bool> UpdateStatusAsync(int id, InvoiceStatus status)
+    {
+        var invoice = await _db.Invoices.FindAsync(id);
+        if (invoice is null) return false;
+
+        invoice.Status = status;
+        invoice.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
 }

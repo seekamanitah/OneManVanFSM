@@ -6,6 +6,7 @@
 @implements IDisposable
 @inject IProductService ProductSvc
 @inject IDropdownService DropdownSvc
+@inject ISupplierService SupplierSvc
 @inject NavigationManager Nav
 
 <PageTitle>Products - OneManVanFSM</PageTitle>
@@ -74,6 +75,13 @@
                         <select class="form-select form-select-sm" @bind="form.FuelType">
                             <option value="">Unknown</option>
                             @foreach (var opt in _fuelTypes) { <option value="@opt">@opt</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Supplier</label>
+                        <select class="form-select form-select-sm" @bind="form.SupplierId">
+                            <option value="">-- None --</option>
+                            @foreach (var s in _supplierOptions) { <option value="@s.Id">@s.Name</option> }
                         </select>
                     </div>
                     <div class="col-12">
@@ -274,6 +282,7 @@ else if (mode == "detail" && detail is not null)
                         @if (!string.IsNullOrWhiteSpace(detail.EquipmentType)) { <div class="col-sm-4"><small class="text-muted d-block">Equipment Type</small><span>@detail.EquipmentType</span></div> }
                         @if (!string.IsNullOrWhiteSpace(detail.FuelType)) { <div class="col-sm-4"><small class="text-muted d-block">Fuel Type</small><span>@detail.FuelType</span></div> }
                         @if (!string.IsNullOrWhiteSpace(detail.Barcode)) { <div class="col-sm-4"><small class="text-muted d-block">Barcode</small><span>@detail.Barcode</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(detail.SupplierName)) { <div class="col-sm-4"><small class="text-muted d-block">Supplier</small><span>@detail.SupplierName</span></div> }
                     </div>
                     @if (!string.IsNullOrWhiteSpace(detail.Description))
                     {
@@ -559,6 +568,7 @@ else
     private bool _showCustomRefrigerant;
     private bool _showCustomVoltage;
     private decimal _defaultTaxRate = 9.75m;
+    private List<SupplierOption> _supplierOptions = [];
 
     private void RecalcProductPricing()
     {
@@ -638,6 +648,7 @@ else
         if (refrigerants.Count > 0) _refrigerantOptions = refrigerants.Where(o => o.IsActive).Select(o => o.Value).ToList();
         var voltages = await DropdownSvc.GetOptionsAsync("Voltage");
         if (voltages.Count > 0) _voltageOptions = voltages.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        _supplierOptions = await SupplierSvc.GetSupplierOptionsAsync();
         SyncProductDropdowns();
     }
 
@@ -715,7 +726,7 @@ else
             Cost = p.Cost, Price = p.Price, MSRP = p.MSRP,
             MarkupPercent = p.MarkupPercent, TaxIncludedInPrice = p.TaxIncludedInPrice,
             Unit = p.Unit, Specs = p.Specs,
-            SupplierName = p.SupplierName, IsTemplate = p.IsTemplate,
+            SupplierName = p.SupplierName, SupplierId = p.SupplierId, IsTemplate = p.IsTemplate,
             Tonnage = p.Tonnage, RefrigerantType = p.RefrigerantType,
             SEERRating = p.SEERRating, AFUERating = p.AFUERating, Voltage = p.Voltage,
             LaborWarrantyYears = p.LaborWarrantyYears, PartsWarrantyYears = p.PartsWarrantyYears,

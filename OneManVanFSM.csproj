@@ -76,6 +76,9 @@
         <Content Remove="OneManVanFSM Guidelines\**" />
         <None Remove="OneManVanFSM Guidelines\**" />
     </ItemGroup>
+    <ItemGroup>
+      <AndroidResource Include="Platforms\Android\Resources\xml\network_security_config.xml" />
+    </ItemGroup>
 
     <ItemGroup>
       <None Include=".github\copilot-instructions.md" />
@@ -87,6 +90,7 @@
         <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.0.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.0-preview.5.25277.114" />
+        <PackageReference Include="QRCoder" Version="1.7.0" />
     </ItemGroup>
 
     <ItemGroup>

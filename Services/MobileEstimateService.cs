@@ -130,6 +130,55 @@ public class MobileEstimateService : IMobileEstimateService
         return estimate;
     }
 
+    public async Task<Estimate> FullCreateAsync(MobileEstimateFullCreate model)
+    {
+        var count = await _db.Estimates.CountAsync() + 1;
+        var lines = model.Lines.Select((l, i) => new EstimateLine
+        {
+            Description = l.Description,
+            LineType = l.LineType,
+            Section = l.Section,
+            Quantity = l.Quantity,
+            UnitPrice = l.UnitPrice,
+            LineTotal = l.Quantity * l.UnitPrice,
+            Unit = l.Unit,
+            SortOrder = i,
+        }).ToList();
+
+        var subtotal = lines.Sum(l => l.LineTotal);
+        var markupAmount = subtotal * model.MarkupPercent / 100;
+        var taxableAmount = subtotal + markupAmount;
+        var taxAmount = taxableAmount * model.TaxPercent / 100;
+        var total = taxableAmount + taxAmount;
+
+        var estimate = new Estimate
+        {
+            EstimateNumber = $"EST-{count:D5}",
+            Title = model.Title ?? "Untitled Estimate",
+            Status = EstimateStatus.Draft,
+            Priority = model.Priority,
+            TradeType = model.TradeType,
+            SystemType = model.SystemType,
+            CustomerId = model.CustomerId,
+            SiteId = model.SiteId,
+            Notes = model.Notes,
+            ExpiryDate = model.ExpiryDate,
+            MarkupPercent = model.MarkupPercent,
+            TaxPercent = model.TaxPercent,
+            Subtotal = subtotal,
+            Total = total,
+            DepositRequired = model.DepositRequired,
+            NeedsReview = false,
+            CreatedFrom = "mobile",
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+            Lines = lines,
+        };
+        _db.Estimates.Add(estimate);
+        await _db.SaveChangesAsync();
+        return estimate;
+    }
+
     public async Task<bool> UpdateStatusAsync(int id, EstimateStatus status)
     {
         var e = await _db.Estimates.FindAsync(id);
@@ -144,6 +193,16 @@ public class MobileEstimateService : IMobileEstimateService
         if (status == EstimateStatus.Approved && wasNotApproved)
             await CreateJobFromEstimateAsync(e);
 
+        return true;
+    }
+
+    public async Task<bool> DeleteEstimateAsync(int id)
+    {
+        var estimate = await _db.Estimates.FindAsync(id);
+        if (estimate is null) return false;
+        estimate.IsArchived = true;
+        estimate.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
         return true;
     }
 

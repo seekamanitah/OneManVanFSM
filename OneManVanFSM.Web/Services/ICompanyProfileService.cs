@@ -15,6 +15,7 @@ public class CompanyProfile
 
     // Business defaults
     public decimal DefaultTaxRate { get; set; } = 0m;
+    public string DefaultPrintTemplate { get; set; } = "Classic";
 
     // SMTP configuration
     public string SmtpHost { get; set; } = "";

@@ -1,4 +1,4 @@
-@page "/jobs"
+﻿@page "/jobs"
 @page "/jobs/new"
 @page "/jobs/{Id:int}"
 @page "/jobs/{Id:int}/edit"
@@ -494,7 +494,7 @@ else if (_view == View.Detail && _detail is not null)
                     <div class="card-body">
                         <h6 class="text-muted"><i class="bi bi-box-seam me-1"></i>Material List</h6>
                         <p class="mb-1"><a href="materiallists/@_detail.MaterialSummary.Id">@_detail.MaterialSummary.Name</a></p>
-                        <small class="text-muted">@_detail.MaterialSummary.ItemCount items � @_detail.MaterialSummary.Total.ToString("C")</small>
+                        <small class="text-muted">@_detail.MaterialSummary.ItemCount items | @_detail.MaterialSummary.Total.ToString("C")</small>
                     </div>
                 </div>
             }
@@ -1026,6 +1026,38 @@ else if (_view == View.Form)
                 _permitRequired = false;
                 _selectedTechIds = [];
                 _selectedAssetIds = [];
+
+                // Prepopulate from query string (e.g., navigating from Customer, Site, or Asset page)
+                var qs = System.Web.HttpUtility.ParseQueryString(Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+                if (int.TryParse(qs["customerId"], out var qsCustId))
+                    _editModel.CustomerId = qsCustId;
+                if (int.TryParse(qs["siteId"], out var qsSiteId))
+                {
+                    _editModel.SiteId = qsSiteId;
+                    // Also resolve customer from site if not already set
+                    if (!_editModel.CustomerId.HasValue)
+                    {
+                        var site = _sites.FirstOrDefault(s => s.Id == qsSiteId);
+                        if (site?.CustomerId.HasValue == true)
+                            _editModel.CustomerId = site.CustomerId;
+                    }
+                }
+                if (int.TryParse(qs["assetId"], out var qsAssetId))
+                {
+                    _selectedAssetIds = [qsAssetId];
+                    // Also resolve customer/site from asset if not already set
+                    var asset = _assets.FirstOrDefault(a => a.Id == qsAssetId);
+                    if (asset is not null)
+                    {
+                        if (!_editModel.CustomerId.HasValue && asset.CustomerId.HasValue)
+                            _editModel.CustomerId = asset.CustomerId;
+                        if (!_editModel.SiteId.HasValue && asset.SiteId.HasValue)
+                            _editModel.SiteId = asset.SiteId;
+                    }
+                }
+                // Refresh filtered sites/assets for the selected customer context
+                if (_editModel.CustomerId.HasValue || _editModel.SiteId.HasValue)
+                    await RefreshSitesAndAssets();
             }
         }
         else if (Id.HasValue)

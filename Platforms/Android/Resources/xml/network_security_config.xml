@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Android 9+ (API 28) blocks cleartext HTTP by default.
+    This config permits cleartext to private/local network IPs and localhost
+    so the mobile app can reach the OneManVanFSM server via HTTP.
+    
+    If you switch to HTTPS, this file can be removed along with the
+    android:networkSecurityConfig attribute in AndroidManifest.xml.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Local network ranges (common home/office subnets) -->
+        <domain includeSubdomains="true">10.0.0.0</domain>
+        <domain includeSubdomains="true">172.16.0.0</domain>
+        <domain includeSubdomains="true">192.168.0.0</domain>
+        <domain includeSubdomains="true">192.168.1.0</domain>
+        <domain includeSubdomains="true">192.168.100.0</domain>
+
+        <!-- Specific server IP from .env -->
+        <domain includeSubdomains="false">192.168.100.107</domain>
+
+        <!-- Localhost / emulator -->
+        <domain includeSubdomains="false">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">10.0.2.2</domain>
+    </domain-config>
+
+    <!-- Allow any user-entered domain via cleartext for remote DNS redirects -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

@@ -826,7 +826,7 @@ else
     private EstimateLineEditModel _modalLine = new() { LineType = "Material", Unit = "Each", Quantity = 1 };
 
     // Print template
-    private string _printTemplate = "Professional";
+    private string _printTemplate = "Classic";
     private string PrintTemplateClass => _printTemplate switch
     {
         "Classic" => "print-template-classic",
@@ -850,6 +850,8 @@ else
     protected override async Task OnInitializedAsync()
     {
         Nav.LocationChanged += OnLocationChanged;
+        var profile = await CompanyProfileSvc.GetProfileAsync();
+        _printTemplate = profile.DefaultPrintTemplate;
         var saved = await JS.InvokeAsync<string?>("getLocalStorage", "printTemplate");
         if (!string.IsNullOrWhiteSpace(saved)) _printTemplate = saved;
     }
@@ -873,6 +875,11 @@ else
             mode = "form"; editId = null; form = new();
             await LoadFormDropdowns();
             await ApplyNewEstimateDefaults();
+
+            // Prepopulate from query string (e.g., navigating from Customer page)
+            var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            if (int.TryParse(qs["customerId"], out var qsCustId))
+                form.CustomerId = qsCustId;
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {

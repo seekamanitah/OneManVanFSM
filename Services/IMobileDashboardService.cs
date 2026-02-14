@@ -23,6 +23,11 @@ public class MobileDashboardData
     public int ExpiringAgreementCount { get; set; }
     public int MaintenanceDueCount { get; set; }
     public int WarrantyAlertCount { get; set; }
+    public int DraftEstimateCount { get; set; }
+    public int PendingInvoiceCount { get; set; }
+    public int ActiveJobClockCount { get; set; }
+    public string? ActiveJobName { get; set; }
+    public decimal JobHoursToday { get; set; }
     public List<MobileJobCard> TodayJobs { get; set; } = [];
     public List<MobileJobCard> UpcomingJobs { get; set; } = [];
     public List<MobileActivityItem> RecentActivity { get; set; } = [];

@@ -31,22 +31,49 @@ public class TimeEntriesApiController : SyncApiController
     public async Task<ActionResult<TimeEntry>> ClockIn([FromBody] TimeEntryClockInRequest req)
     {
         // Validate employee exists
-        var employeeExists = await _db.Employees.AnyAsync(e => e.Id == req.EmployeeId);
-        if (!employeeExists)
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == req.EmployeeId);
+        if (employee is null)
             return BadRequest("Employee not found.");
 
-        // Check not already clocked in
-        var active = await _db.TimeEntries
-            .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EndTime == null);
-        if (active is not null)
-            return BadRequest("Already clocked in.");
+        var entryType = req.EntryType?.Equals("JobClock", StringComparison.OrdinalIgnoreCase) == true
+            ? TimeEntryType.JobClock
+            : TimeEntryType.Shift;
+
+        if (entryType == TimeEntryType.Shift)
+        {
+            // Only one active shift per employee
+            var activeShift = await _db.TimeEntries
+                .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+            if (activeShift is not null)
+                return BadRequest("Already clocked in to a shift.");
+        }
+        else
+        {
+            // Must have an active shift to start a job clock
+            var hasShift = await _db.TimeEntries
+                .AnyAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+            if (!hasShift)
+                return BadRequest("Must clock in to a shift before starting a job clock.");
+
+            // Prevent double job clock on same job
+            if (req.JobId.HasValue)
+            {
+                var existingJobClock = await _db.TimeEntries
+                    .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.JobClock && t.JobId == req.JobId && t.EndTime == null);
+                if (existingJobClock is not null)
+                    return Ok(existingJobClock); // Idempotent — return the existing clock
+            }
+        }
 
         var entry = new TimeEntry
         {
             EmployeeId = req.EmployeeId,
             JobId = req.JobId,
             StartTime = DateTime.UtcNow,
+            EntryType = entryType,
+            HourlyRate = req.RateOverride ?? employee.HourlyRate,
             TimeCategory = req.TimeCategory,
+            IsBillable = entryType == TimeEntryType.JobClock,
             ClockInLatitude = req.Latitude,
             ClockInLongitude = req.Longitude,
             CreatedAt = DateTime.UtcNow,
@@ -57,14 +84,68 @@ public class TimeEntriesApiController : SyncApiController
         return Ok(entry);
     }
 
-    /// <summary>POST /api/timeentries/clockout</summary>
+    /// <summary>POST /api/timeentries/clockout — Ends the active shift and auto-closes any open job clocks</summary>
     [HttpPost("clockout")]
     public async Task<ActionResult<TimeEntry>> ClockOut([FromBody] TimeEntryClockOutRequest req)
     {
+        var entryType = req.EntryType?.Equals("JobClock", StringComparison.OrdinalIgnoreCase) == true
+            ? TimeEntryType.JobClock
+            : TimeEntryType.Shift;
+
+        if (entryType == TimeEntryType.Shift)
+        {
+            var activeShift = await _db.TimeEntries
+                .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+            if (activeShift is null)
+                return BadRequest("No active shift.");
+
+            // Auto-close all open job clocks
+            var openJobClocks = await _db.TimeEntries
+                .Where(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.JobClock && t.EndTime == null)
+                .ToListAsync();
+            foreach (var jc in openJobClocks)
+            {
+                jc.EndTime = DateTime.UtcNow;
+                jc.Hours = (decimal)(jc.EndTime.Value - jc.StartTime).TotalHours;
+            }
+
+            activeShift.EndTime = DateTime.UtcNow;
+            activeShift.Hours = (decimal)(activeShift.EndTime.Value - activeShift.StartTime).TotalHours;
+            if (activeShift.Hours > 8)
+                activeShift.OvertimeHours = activeShift.Hours - 8;
+            activeShift.ClockOutLatitude = req.Latitude;
+            activeShift.ClockOutLongitude = req.Longitude;
+            await _db.SaveChangesAsync();
+            return Ok(activeShift);
+        }
+        else
+        {
+            // Clock out a specific job clock (fallback — prefer /jobclockout)
+            var activeJob = await _db.TimeEntries
+                .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.JobClock && t.JobId == req.JobId && t.EndTime == null);
+            if (activeJob is null)
+                return BadRequest("No active job clock.");
+
+            activeJob.EndTime = DateTime.UtcNow;
+            activeJob.Hours = (decimal)(activeJob.EndTime.Value - activeJob.StartTime).TotalHours;
+            activeJob.ClockOutLatitude = req.Latitude;
+            activeJob.ClockOutLongitude = req.Longitude;
+            await _db.SaveChangesAsync();
+            return Ok(activeJob);
+        }
+    }
+
+    /// <summary>POST /api/timeentries/jobclockout — Ends a specific job clock</summary>
+    [HttpPost("jobclockout")]
+    public async Task<ActionResult<TimeEntry>> JobClockOut([FromBody] TimeEntryClockOutRequest req)
+    {
+        if (!req.JobId.HasValue)
+            return BadRequest("JobId is required for job clock out.");
+
         var active = await _db.TimeEntries
-            .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EndTime == null);
+            .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.JobClock && t.JobId == req.JobId && t.EndTime == null);
         if (active is null)
-            return BadRequest("Not clocked in.");
+            return BadRequest("No active job clock for this job.");
 
         active.EndTime = DateTime.UtcNow;
         active.Hours = (decimal)(active.EndTime.Value - active.StartTime).TotalHours;
@@ -74,13 +155,39 @@ public class TimeEntriesApiController : SyncApiController
         return Ok(active);
     }
 
-    /// <summary>GET /api/timeentries/active/{employeeId}</summary>
+    /// <summary>GET /api/timeentries/active/{employeeId}?entryType=Shift</summary>
     [HttpGet("active/{employeeId:int}")]
-    public async Task<ActionResult<TimeEntry?>> GetActive(int employeeId)
+    public async Task<ActionResult<TimeEntry?>> GetActive(int employeeId, [FromQuery] string? entryType = null)
     {
-        var active = await _db.TimeEntries.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EndTime == null);
+        var query = _db.TimeEntries.AsNoTracking()
+            .Where(t => t.EmployeeId == employeeId && t.EndTime == null);
+
+        if (!string.IsNullOrEmpty(entryType))
+        {
+            var type = entryType.Equals("JobClock", StringComparison.OrdinalIgnoreCase)
+                ? TimeEntryType.JobClock
+                : TimeEntryType.Shift;
+            query = query.Where(t => t.EntryType == type);
+        }
+        else
+        {
+            // Default to shift for backward compatibility
+            query = query.Where(t => t.EntryType == TimeEntryType.Shift);
+        }
+
+        var active = await query.FirstOrDefaultAsync();
         return Ok(active);
+    }
+
+    /// <summary>GET /api/timeentries/activejobs/{employeeId} — Returns all active job clocks</summary>
+    [HttpGet("activejobs/{employeeId:int}")]
+    public async Task<ActionResult<List<TimeEntry>>> GetActiveJobClocks(int employeeId)
+    {
+        var clocks = await _db.TimeEntries.AsNoTracking()
+            .Include(t => t.Job)
+            .Where(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.JobClock && t.EndTime == null)
+            .ToListAsync();
+        return Ok(clocks);
     }
 
     [HttpPost]
@@ -98,6 +205,8 @@ public class TimeEntryClockInRequest
 {
     public int EmployeeId { get; set; }
     public int? JobId { get; set; }
+    public string? EntryType { get; set; } // "Shift" or "JobClock"
+    public decimal? RateOverride { get; set; }
     public string? TimeCategory { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
@@ -106,6 +215,8 @@ public class TimeEntryClockInRequest
 public class TimeEntryClockOutRequest
 {
     public int EmployeeId { get; set; }
+    public int? JobId { get; set; }
+    public string? EntryType { get; set; } // "Shift" or "JobClock"
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
 }

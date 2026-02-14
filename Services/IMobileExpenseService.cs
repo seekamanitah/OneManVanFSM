@@ -8,6 +8,8 @@ public interface IMobileExpenseService
     Task<List<MobileExpenseCard>> GetExpensesAsync(MobileExpenseFilter? filter = null);
     Task<MobileExpenseDetail?> GetExpenseDetailAsync(int id);
     Task<int> CreateExpenseAsync(MobileExpenseCreate model);
+    Task<bool> UpdateExpenseAsync(int id, MobileExpenseUpdate model);
+    Task<bool> DeleteExpenseAsync(int id);
 }
 
 public class MobileExpenseStats
@@ -87,6 +89,20 @@ public class MobileExpenseCreate
     public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
     public int? JobId { get; set; }
     public int? CustomerId { get; set; }
+}
+
+public class MobileExpenseUpdate
+{
+    public string? Category { get; set; }
+    public string? Description { get; set; }
+    public decimal Amount { get; set; }
+    public decimal TaxAmount { get; set; }
+    public string? PaymentMethod { get; set; }
+    public bool IsBillable { get; set; }
+    public string? VendorName { get; set; }
+    public string? ReceiptNumber { get; set; }
+    public string? Notes { get; set; }
+    public ExpenseStatus Status { get; set; }
 }
 
 public class MobileExpenseFilter

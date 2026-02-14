@@ -37,13 +37,14 @@ public static class Features
     public const string Templates = "Templates";
     public const string Settings = "Settings";
     public const string Search = "Search";
+    public const string Suppliers = "Suppliers";
 
     public static readonly string[] All =
     [
         Customers, Companies, Sites, Jobs, Estimates, Inventory, Products,
         MaterialLists, Assets, ServiceHistory, ServiceAgreements, Financials,
         Invoices, Expenses, Employees, Documents, QuickNotes, Reports,
-        Calendar, Templates, Settings, Search
+        Calendar, Templates, Settings, Search, Suppliers
     ];
 
     /// <summary>

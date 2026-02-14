@@ -1,4 +1,4 @@
-@page "/calendar"
+﻿@page "/calendar"
 @page "/calendar/new"
 @page "/calendar/{Id:int}"
 @page "/calendar/{Id:int}/edit"
@@ -356,7 +356,7 @@ else
                                 <div class="flex-grow-1">
                                     <strong>@(ev.Title ?? "Untitled")</strong>
                                     <small class="text-muted ms-2">@ev.StartDateTime.ToString("h:mm tt") – @ev.EndDateTime.ToString("h:mm tt")</small>
-                                    @if (!string.IsNullOrWhiteSpace(ev.EventType)) { <small class="text-muted ms-1">� @ev.EventType</small> }
+                                    @if (!string.IsNullOrWhiteSpace(ev.EventType)) { <small class="text-muted ms-1">| @ev.EventType</small> }
                                 </div>
                                 @if (ev.CustomerName is not null) { <span class="badge bg-light text-dark me-1">@ev.CustomerName</span> }
                                 @if (ev.EmployeeName is not null) { <span class="badge bg-secondary me-1"><i class="bi bi-person-fill me-1"></i>@ev.EmployeeName</span> }

@@ -104,7 +104,9 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<ICompanyProfileService, CompanyProfileService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddSingleton<IPdfService, PdfService>();
+builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
 
 var app = builder.Build();
 
@@ -246,6 +248,21 @@ using (var scope = app.Services.CreateScope())
     // Seed default role permissions if not already present
     var permSvc = scope.ServiceProvider.GetRequiredService<IPermissionService>();
     permSvc.SeedDefaultsIfEmptyAsync().GetAwaiter().GetResult();
+
+    // Auto-link: if any user has no linked employee, try to match by email
+    var unlinkUsers = db.Users.Where(u => u.EmployeeId == null).ToList();
+    foreach (var u in unlinkUsers)
+    {
+        var match = db.Employees.FirstOrDefault(e =>
+            !string.IsNullOrEmpty(e.Email) && e.Email == u.Email && !e.IsArchived);
+        if (match is not null)
+        {
+            u.EmployeeId = match.Id;
+            u.UpdatedAt = DateTime.UtcNow;
+        }
+    }
+    if (unlinkUsers.Any(u => u.EmployeeId != null))
+        db.SaveChanges();
 }
 
 app.Run();

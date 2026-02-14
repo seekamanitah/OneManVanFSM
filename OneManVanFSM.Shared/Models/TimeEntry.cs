@@ -9,6 +9,8 @@ public class TimeEntry
     public decimal? OvertimeHours { get; set; }
     public bool IsBillable { get; set; } = true;
     public string? TimeCategory { get; set; } // Travel, On-Site, Diagnostic, Admin, Break, Training
+    public TimeEntryType EntryType { get; set; } = TimeEntryType.Shift;
+    public decimal? HourlyRate { get; set; } // Snapshot of rate at time of clock-in
     public double? ClockInLatitude { get; set; }
     public double? ClockInLongitude { get; set; }
     public double? ClockOutLatitude { get; set; }
@@ -23,4 +25,10 @@ public class TimeEntry
     public Job? Job { get; set; }
     public int? AssetId { get; set; }
     public Asset? Asset { get; set; }
+}
+
+public enum TimeEntryType
+{
+    Shift,    // Daily work shift for payroll
+    JobClock  // Per-job time tracking
 }

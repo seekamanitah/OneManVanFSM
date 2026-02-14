@@ -12,6 +12,8 @@ public class InventoryItem
     public string? Description { get; set; }
     public string? ShelfBin { get; set; } // Physical location: "Shelf B3", "Truck Drawer 2"
     public string? PreferredSupplier { get; set; }
+    public int? SupplierId { get; set; }
+    public Supplier? Supplier { get; set; }
     public InventoryLocation Location { get; set; } = InventoryLocation.Warehouse;
     public decimal Quantity { get; set; }
     public decimal MinThreshold { get; set; } // Reorder Point

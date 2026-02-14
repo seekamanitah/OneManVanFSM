@@ -24,6 +24,10 @@ public class Asset
     public string? PanelType { get; set; } // Electrical — Main Breaker, Main Lug, Sub-Panel
     public string? PipeMaterial { get; set; } // Plumbing — Copper, PEX, PVC, Cast Iron
     public int? GallonCapacity { get; set; } // Plumbing — water heater tank size
+    public decimal? FlowRateGPM { get; set; } // Plumbing — gallons per minute
+    public string? FixtureType { get; set; } // Plumbing — faucet, toilet, water heater, etc.
+    public int? CircuitCount { get; set; } // Electrical — number of circuits
+    public string? TradeType { get; set; } // HVAC, Plumbing, Electrical — drives field visibility
     public string? RefrigerantType { get; set; }
     public decimal? RefrigerantQuantity { get; set; } // oz
     public decimal? SEER2 { get; set; } // New efficiency standard

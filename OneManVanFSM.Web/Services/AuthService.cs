@@ -154,6 +154,7 @@ public class AuthService : IAuthService
                 IsActive = u.IsActive,
                 IsLocked = u.IsLocked,
                 LastLogin = u.LastLogin,
+                EmployeeId = u.EmployeeId,
                 EmployeeName = u.Employee != null ? u.Employee.Name : null,
                 CreatedAt = u.CreatedAt
             })
@@ -314,6 +315,33 @@ public class AuthService : IAuthService
         // to the /auth/logout HTTP endpoint which properly clears the cookie.
 
         return AuthResult.Success(user);
+    }
+
+    public async Task<bool> LinkUserToEmployeeAsync(int userId, int? employeeId)
+    {
+        var user = await _db.Users.FindAsync(userId);
+        if (user is null) return false;
+
+        // Validate the employee exists (if linking, not unlinking)
+        if (employeeId.HasValue)
+        {
+            var empExists = await _db.Employees.AnyAsync(e => e.Id == employeeId.Value);
+            if (!empExists) return false;
+        }
+
+        user.EmployeeId = employeeId;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<List<EmployeeOption>> GetEmployeeOptionsAsync()
+    {
+        return await _db.Employees
+            .Where(e => !e.IsArchived)
+            .OrderBy(e => e.Name)
+            .Select(e => new EmployeeOption { Id = e.Id, Name = e.Name })
+            .ToListAsync();
     }
 
     // --- Password hashing with PBKDF2 ---

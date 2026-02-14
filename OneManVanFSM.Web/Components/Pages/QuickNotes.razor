@@ -1,4 +1,4 @@
-@page "/quicknotes"
+ï»¿@page "/quicknotes"
 @page "/quicknotes/new"
 @page "/quicknotes/{Id:int}"
 @page "/quicknotes/{Id:int}/edit"
@@ -274,7 +274,7 @@ else
                             <div class="d-flex justify-content-between align-items-center">
                                 <small class="text-muted">
                                     @note.CreatedAt.ToString("MMM dd")
-                                    @if (note.CustomerName is not null) { <span class="ms-1">· @note.CustomerName</span> }
+                                    @if (note.CustomerName is not null) { <span class="ms-1">| @note.CustomerName</span> }
                                 </small>
                                 <div>
                                     @if (note.Category is not null) { <span class="badge bg-secondary">@note.Category</span> }

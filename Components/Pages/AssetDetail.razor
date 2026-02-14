@@ -1,6 +1,9 @@
 @page "/assets/{Id:int}"
 @inject IMobileAssetService AssetService
 @inject IMobileAuthService AuthService
+@inject IMobileQrCodeService QrService
+@inject IMobilePhotoService PhotoService
+@inject IMobileDocumentService DocumentService
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -376,6 +379,21 @@ else
                 <span style="font-size:0.85rem;"><i class="bi bi-wrench me-2 text-primary"></i>Log Service Record</span>
                 <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
             </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="ShareQrCode">
+                <span style="font-size:0.85rem;"><i class="bi bi-qr-code me-2 text-primary"></i>Share QR Code</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="CapturePhoto">
+                <span style="font-size:0.85rem;"><i class="bi bi-camera me-2 text-primary"></i>Take Photo</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
+            <hr class="my-0" />
+            <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="PickPhoto">
+                <span style="font-size:0.85rem;"><i class="bi bi-image me-2 text-primary"></i>Attach Photo from Gallery</span>
+                <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
+            </div>
             @if (_asset.WarrantyExpiry.HasValue && _asset.WarrantyExpiry.Value >= DateTime.UtcNow)
             {
                 <hr class="my-0" />
@@ -637,6 +655,50 @@ else
         "warranty service" => "bi-shield-check",
         _ => "bi-tools"
     };
+
+    private async Task ShareQrCode()
+    {
+        if (_asset is null) return;
+        await QrService.ShareAssetQrAsync(Id, _asset.Name, _asset.SerialNumber);
+    }
+
+    private async Task CapturePhoto()
+    {
+        if (_asset is null) return;
+        var result = await PhotoService.CapturePhotoAsync();
+        if (result is not null)
+        {
+            await DocumentService.CreateDocumentAsync(new MobileDocumentCreate
+            {
+                Name = result.FileName,
+                Category = DocumentCategory.Photo,
+                FilePath = result.FilePath,
+                FileType = "image",
+                FileSize = result.FileSize,
+                AssetId = Id
+            });
+            await LoadAsset();
+        }
+    }
+
+    private async Task PickPhoto()
+    {
+        if (_asset is null) return;
+        var result = await PhotoService.PickPhotoAsync();
+        if (result is not null)
+        {
+            await DocumentService.CreateDocumentAsync(new MobileDocumentCreate
+            {
+                Name = result.FileName,
+                Category = DocumentCategory.Photo,
+                FilePath = result.FilePath,
+                FileType = "image",
+                FileSize = result.FileSize,
+                AssetId = Id
+            });
+            await LoadAsset();
+        }
+    }
 
     private static string DocIcon(string? fileType) => fileType?.ToLower() switch
     {

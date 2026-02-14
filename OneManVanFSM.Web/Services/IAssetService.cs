@@ -78,6 +78,10 @@ public class AssetDetail
     public string? PanelType { get; set; }
     public string? PipeMaterial { get; set; }
     public int? GallonCapacity { get; set; }
+    public decimal? FlowRateGPM { get; set; }
+    public string? FixtureType { get; set; }
+    public int? CircuitCount { get; set; }
+    public string? TradeType { get; set; }
     public string? RefrigerantType { get; set; }
     public decimal? RefrigerantQuantity { get; set; }
     public string? FilterType { get; set; }
@@ -190,6 +194,10 @@ public class AssetEditModel
     public string? PanelType { get; set; }
     public string? PipeMaterial { get; set; }
     public int? GallonCapacity { get; set; }
+    public decimal? FlowRateGPM { get; set; }
+    public string? FixtureType { get; set; }
+    public int? CircuitCount { get; set; }
+    public string? TradeType { get; set; }
     public string? RefrigerantType { get; set; }
     public decimal? RefrigerantQuantity { get; set; }
     public string? FilterType { get; set; }

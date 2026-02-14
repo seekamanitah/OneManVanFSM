@@ -1,4 +1,4 @@
-@page "/templates"
+ï»¿@page "/templates"
 @page "/templates/new"
 @page "/templates/{Id:int}"
 @page "/templates/{Id:int}/edit"
@@ -522,5 +522,5 @@ else if (viewMode is "create" or "edit")
     };
 
     private static string Truncate(string value, int maxLength) =>
-        value.Length <= maxLength ? value : value[..maxLength] + "…";
+        value.Length <= maxLength ? value : value[..maxLength] + "...";
 }

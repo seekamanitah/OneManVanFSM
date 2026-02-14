@@ -60,6 +60,7 @@ public class InventoryDetail
     public string? Barcode { get; set; }
     public string? ShelfBin { get; set; }
     public string? PreferredSupplier { get; set; }
+    public int? SupplierId { get; set; }
     public InventoryLocation Location { get; set; }
     public decimal Quantity { get; set; }
     public decimal MinThreshold { get; set; }
@@ -90,6 +91,7 @@ public class InventoryEditModel
     public string? Barcode { get; set; }
     public string? ShelfBin { get; set; }
     public string? PreferredSupplier { get; set; }
+    public int? SupplierId { get; set; }
     public InventoryLocation Location { get; set; } = InventoryLocation.Warehouse;
     public decimal Quantity { get; set; }
     public decimal MinThreshold { get; set; }

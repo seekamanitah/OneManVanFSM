@@ -67,6 +67,65 @@ public class MobileInventoryService : IMobileInventoryService
         await _db.SaveChangesAsync();
     }
 
+    public async Task<MobileInventoryDetail?> GetItemDetailAsync(int id)
+    {
+        var item = await _db.InventoryItems.AsNoTracking()
+            .Include(i => i.Product)
+            .FirstOrDefaultAsync(i => i.Id == id);
+        if (item is null) return null;
+
+        return new MobileInventoryDetail
+        {
+            Id = item.Id,
+            Name = item.Name,
+            SKU = item.SKU,
+            PartNumber = item.PartNumber,
+            Barcode = item.Barcode,
+            Category = item.Category,
+            Unit = item.Unit,
+            Description = item.Description,
+            ShelfBin = item.ShelfBin,
+            PreferredSupplier = item.PreferredSupplier,
+            Location = item.Location,
+            Quantity = item.Quantity,
+            MinThreshold = item.MinThreshold,
+            MaxCapacity = item.MaxCapacity,
+            LotNumber = item.LotNumber,
+            ExpiryDate = item.ExpiryDate,
+            Cost = item.Cost,
+            Price = item.Price,
+            MarkupPercent = item.MarkupPercent,
+            LastRestockedDate = item.LastRestockedDate,
+            Notes = item.Notes,
+            ProductName = item.Product?.Name,
+            CreatedAt = item.CreatedAt,
+            UpdatedAt = item.UpdatedAt,
+        };
+    }
+
+    public async Task<bool> UpdateItemAsync(int id, MobileInventoryUpdate model)
+    {
+        var item = await _db.InventoryItems.FindAsync(id);
+        if (item is null) return false;
+
+        item.Name = model.Name;
+        item.SKU = model.SKU;
+        item.PartNumber = model.PartNumber;
+        item.Category = model.Category;
+        item.Unit = model.Unit;
+        item.Description = model.Description;
+        item.ShelfBin = model.ShelfBin;
+        item.Location = model.Location;
+        item.Quantity = model.Quantity;
+        item.MinThreshold = model.MinThreshold;
+        item.Cost = model.Cost;
+        item.Price = model.Price;
+        item.Notes = model.Notes;
+        item.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<InventoryItem> QuickCreateAsync(MobileInventoryQuickCreate model)
     {
         var item = new InventoryItem

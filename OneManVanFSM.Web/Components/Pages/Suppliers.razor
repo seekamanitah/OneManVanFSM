@@ -1,0 +1,632 @@
+@page "/suppliers"
+@page "/suppliers/new"
+@page "/suppliers/{Id:int}"
+@page "/suppliers/{Id:int}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject ISupplierService SupplierSvc
+@inject IDropdownService DropdownSvc
+@inject NavigationManager Nav
+
+<PageTitle>Suppliers - OneManVanFSM</PageTitle>
+
+@if (_loading)
+{
+    <div class="text-center py-5">
+        <div class="spinner-border text-primary" role="status"></div>
+        <p class="mt-2 text-muted">Loading...</p>
+    </div>
+}
+else if (_view == View.Form)
+{
+    <div class="d-flex align-items-center mb-3">
+        <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoBack"><i class="bi bi-arrow-left"></i></button>
+        @if (Id.HasValue)
+        {
+            <button class="btn btn-outline-secondary btn-sm me-1" @onclick="GoToPrevEdit" disabled="@(GetAdjacentEditId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextEdit" disabled="@(GetAdjacentEditId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+        }
+        <h4 class="mb-0"><i class="bi bi-truck me-2"></i>@(Id.HasValue ? "Edit" : "New") Supplier</h4>
+    </div>
+    <div class="card border-0 shadow-sm">
+        <div class="card-body">
+            <EditForm Model="_form" OnValidSubmit="SaveSupplier">
+                <DataAnnotationsValidator />
+                <ValidationSummary class="text-danger small" />
+                @if (!string.IsNullOrEmpty(_formError)) { <div class="alert alert-danger py-2 small">@_formError</div> }
+
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-building me-1"></i>Company Information</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Company Name <span class="text-danger">*</span></label>
+                        <InputText @bind-Value="_form.Name" class="form-control form-control-sm" placeholder="Supplier company name" />
+                        <ValidationMessage For="() => _form.Name" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Contact Name</label>
+                        <InputText @bind-Value="_form.ContactName" class="form-control form-control-sm" placeholder="Primary contact" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Phone</label>
+                        <InputText @bind-Value="_form.Phone" class="form-control form-control-sm" placeholder="(555) 555-5555" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Email</label>
+                        <InputText @bind-Value="_form.Email" class="form-control form-control-sm" placeholder="email@supplier.com" />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Website</label>
+                        <InputText @bind-Value="_form.Website" class="form-control form-control-sm" placeholder="https://..." />
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-credit-card me-1"></i>Account Details</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Account Number</label>
+                        <InputText @bind-Value="_form.AccountNumber" class="form-control form-control-sm" placeholder="Vendor account #" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">Payment Terms</label>
+                        <select class="form-select form-select-sm" @bind="_form.PaymentTerms">
+                            <option value="">-- Select --</option>
+                            @foreach (var t in _paymentTermsOptions) { <option value="@t">@t</option> }
+                        </select>
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-toggle-on me-1"></i>Status & Notes</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-auto d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_form.IsActive" class="form-check-input" id="supplierActive" />
+                            <label class="form-check-label" for="supplierActive">Active</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Notes</label>
+                        <InputTextArea @bind-Value="_form.Notes" class="form-control form-control-sm" rows="3" placeholder="Internal notes about this supplier..." />
+                    </div>
+                </div>
+
+                <h6 class="border-bottom pb-2 mb-3"><i class="bi bi-link-45deg me-1"></i>Company Link</h6>
+                <div class="row g-2 mb-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Link to Existing Company</label>
+                        <select class="form-select form-select-sm" value="@(_form.CompanyId?.ToString() ?? "")" @onchange="OnCompanySelected">
+                            <option value="">-- None (enter manually above) --</option>
+                            @foreach (var c in _companyOptions)
+                            {
+                                <option value="@c.Id">@c.Name</option>
+                            }
+                        </select>
+                        <small class="form-text text-muted">Select a Vendor/Supplier company, or leave blank to enter details manually.</small>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check mb-2">
+                            <InputCheckbox @bind-Value="_form.CreateCompanyRecord" class="form-check-input" id="createCompanyRecord" />
+                            <label class="form-check-label" for="createCompanyRecord">
+                                Auto-create Company record
+                                <i class="bi bi-info-circle text-muted" title="When checked, a Company of type 'Supplier' will be auto-created from the supplier details above."></i>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="GoBack">Cancel</button>
+                    <div class="d-flex gap-2 align-items-center">
+                        @if (!string.IsNullOrEmpty(_savedMsg)) { <span class="text-success small"><i class="bi bi-check-circle me-1"></i>@_savedMsg</span> }
+                        <button type="submit" class="btn btn-outline-primary btn-sm" @onclick="() => _closeAfterSave = false"><i class="bi bi-floppy me-1"></i>Save</button>
+                        <button type="submit" class="btn btn-primary btn-sm" @onclick="() => _closeAfterSave = true"><i class="bi bi-check-circle me-1"></i>Save & Close</button>
+                    </div>
+                </div>
+                @if (!string.IsNullOrEmpty(_formError)) { <div class="alert alert-danger mt-2 mb-0">@_formError</div> }
+            </EditForm>
+        </div>
+    </div>
+}
+else if (_view == View.Detail && _detail is not null)
+{
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToList" title="Back to list"><i class="bi bi-arrow-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToPrev" disabled="@(GetAdjacentId(-1) is null)" title="Previous"><i class="bi bi-chevron-left"></i></button>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="GoToNext" disabled="@(GetAdjacentId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
+            <h4 class="mb-0">
+                <i class="bi bi-truck me-2"></i>@_detail.Name
+                <span class="badge @(_detail.IsActive ? "bg-success" : "bg-secondary") ms-2 fs-6">@(_detail.IsActive ? "Active" : "Inactive")</span>
+            </h4>
+        </div>
+        <div class="dropdown">
+            <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-gear me-1"></i>Actions</button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" href="suppliers/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Supplier</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                @if (!_confirmArchive)
+                {
+                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
+                }
+                else
+                {
+                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveSupplier"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
+                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
+                }
+            </ul>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-8">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-building me-1"></i>Company Information</h6>
+                    <div class="row g-2 mt-2">
+                        @if (!string.IsNullOrWhiteSpace(_detail.ContactName)) { <div class="col-sm-6"><small class="text-muted d-block">Contact Name</small><span>@_detail.ContactName</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(_detail.Phone)) { <div class="col-sm-6"><small class="text-muted d-block">Phone</small><span>@_detail.Phone</span></div> }
+                        @if (!string.IsNullOrWhiteSpace(_detail.Email)) { <div class="col-sm-6"><small class="text-muted d-block">Email</small><a href="mailto:@_detail.Email">@_detail.Email</a></div> }
+                        @if (!string.IsNullOrWhiteSpace(_detail.Website)) { <div class="col-sm-6"><small class="text-muted d-block">Website</small><a href="@_detail.Website" target="_blank">@_detail.Website</a></div> }
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(_detail.AccountNumber) || !string.IsNullOrWhiteSpace(_detail.PaymentTerms))
+                    {
+                        <hr class="my-2" />
+                        <h6 class="text-muted"><i class="bi bi-credit-card me-1"></i>Account Details</h6>
+                        <div class="row g-2 mt-2">
+                            @if (!string.IsNullOrWhiteSpace(_detail.AccountNumber)) { <div class="col-sm-6"><small class="text-muted d-block">Account Number</small><span>@_detail.AccountNumber</span></div> }
+                            @if (!string.IsNullOrWhiteSpace(_detail.PaymentTerms)) { <div class="col-sm-6"><small class="text-muted d-block">Payment Terms</small><span class="badge bg-info text-dark">@_detail.PaymentTerms</span></div> }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+                    {
+                        <hr class="my-2" />
+                        <h6 class="text-muted"><i class="bi bi-journal-text me-1"></i>Notes</h6>
+                        <p class="text-muted small mb-0">@_detail.Notes</p>
+                    }
+
+                    <hr class="my-2" />
+                    <div class="d-flex gap-3 text-muted small">
+                        <span><i class="bi bi-clock me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-2">Linked Company</h6>
+                        @if (_detail.CompanyId.HasValue)
+                        {
+                            <a href="/companies/@_detail.CompanyId" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                                <i class="bi bi-building me-1"></i>@(_detail.CompanyName ?? "Company #" + _detail.CompanyId)
+                            </a>
+                        }
+                        else
+                        {
+                            <p class="text-muted small mb-2">No linked company record.</p>
+                        }
+                        <h6 class="text-muted mb-2 mt-3">Quick Actions</h6>
+                        <a href="/products" class="btn btn-outline-secondary btn-sm w-100 mb-2"><i class="bi bi-box-seam me-1"></i>View Products</a>
+                        <a href="/inventory" class="btn btn-outline-secondary btn-sm w-100"><i class="bi bi-boxes me-1"></i>View Inventory</a>
+                    </div>
+                </div>
+            </div>
+    </div>
+
+    @* Linked Products *@
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-box-seam me-1"></i>Linked Products</h6>
+            <span class="badge bg-primary">@_detail.LinkedProducts.Count</span>
+        </div>
+        @if (_detail.LinkedProducts.Count > 0)
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>Brand</th>
+                            <th>Part #</th>
+                            <th>Cost</th>
+                            <th>Price</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _detail.LinkedProducts)
+                        {
+                            <tr style="cursor:pointer" @onclick="@(() => GoToLinkedProduct(p.Id))">
+                                <td><strong>@p.Name</strong></td>
+                                <td>@(p.Brand ?? "--")</td>
+                                <td>@(p.PartNumber ?? "--")</td>
+                                <td>@p.Cost.ToString("C")</td>
+                                <td>@p.Price.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="card-body text-center text-muted py-3"><small>No products linked to this supplier.</small></div>
+        }
+    </div>
+
+    @* Linked Inventory *@
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+            <h6 class="mb-0"><i class="bi bi-boxes me-1"></i>Linked Inventory</h6>
+            <span class="badge bg-primary">@_detail.LinkedInventory.Count</span>
+        </div>
+        @if (_detail.LinkedInventory.Count > 0)
+        {
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Name</th>
+                            <th>SKU</th>
+                            <th>Qty</th>
+                            <th>Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var i in _detail.LinkedInventory)
+                        {
+                            <tr style="cursor:pointer" @onclick="@(() => GoToLinkedInventory(i.Id))">
+                                <td><strong>@i.Name</strong></td>
+                                <td>@(i.SKU ?? "--")</td>
+                                <td>@i.Quantity</td>
+                                <td>@i.Cost.ToString("C")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+        else
+        {
+            <div class="card-body text-center text-muted py-3"><small>No inventory items linked to this supplier.</small></div>
+        }
+    </div>
+}
+else
+{
+    @* LIST VIEW *@
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="mb-0"><i class="bi bi-truck me-2"></i>Suppliers</h4>
+        <div class="d-flex gap-2 align-items-center">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="showArchivedSuppliers" checked="@_filter.ShowArchived" @onchange="ToggleShowArchived" />
+                <label class="form-check-label small" for="showArchivedSuppliers"><i class="bi bi-archive me-1"></i>Show Archived</label>
+            </div>
+            @if (!_filter.ShowArchived)
+            {
+                <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Supplier</button>
+            }
+        </div>
+    </div>
+
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body py-2">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-8">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Search name, contact, email, account #..."
+                               @bind="_filter.Search" @bind:event="oninput" @bind:after="ReloadList" />
+                    </div>
+                </div>
+                <div class="col-md-4 text-end text-muted small">@_suppliers.Count supplier@(_suppliers.Count != 1 ? "s" : "")</div>
+            </div>
+        </div>
+    </div>
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> supplier(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (_filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
+                    else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
+    @if (_suppliers.Count == 0)
+    {
+        <div class="card border-0 shadow-sm">
+            <div class="card-body text-center py-5 text-muted">
+                <i class="bi bi-truck" style="font-size: 3rem;"></i>
+                @if (_filter.ShowArchived)
+                {
+                    <p class="mt-2 mb-1">No archived suppliers to show.</p>
+                }
+                else
+                {
+                    <p class="mt-2 mb-1">No suppliers found.</p>
+                    <button class="btn btn-outline-primary btn-sm mt-2" @onclick="GoToNew">Add Your First Supplier</button>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 shadow-sm">
+            @if (_filter.ShowArchived)
+            {
+                <div class="card-header bg-warning bg-opacity-10 border-0">
+                    <small class="text-muted"><i class="bi bi-archive me-1"></i>Showing archived suppliers. Select items to restore or permanently delete.</small>
+                </div>
+            }
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width:40px;"><input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" /></th>
+                            <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
+                            <th role="button" @onclick='() => ToggleSort("Contact")'>Contact @SortIcon("Contact")</th>
+                            <th class="d-none d-md-table-cell">Phone</th>
+                            <th role="button" @onclick='() => ToggleSort("Email")'>Email @SortIcon("Email")</th>
+                            <th class="d-none d-md-table-cell" role="button" @onclick='() => ToggleSort("Account")'>Account # @SortIcon("Account")</th>
+                            <th class="d-none d-lg-table-cell" role="button" @onclick='() => ToggleSort("Terms")'>Terms @SortIcon("Terms")</th>
+                            <th style="width:90px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in _suppliers)
+                        {
+                            <tr class="@(_selectedIds.Contains(s.Id) ? "table-active" : "")">
+                                <td @onclick:stopPropagation="true"><input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(s.Id)" @onchange="() => ToggleRowSelection(s.Id)" /></td>
+                                <td role="button" @onclick="() => GoToDetail(s.Id)" class="fw-semibold">@s.Name</td>
+                                <td>@(s.ContactName ?? "--")</td>
+                                <td class="d-none d-md-table-cell"><small>@(s.Phone ?? "--")</small></td>
+                                <td><small>@(s.Email ?? "--")</small></td>
+                                <td class="d-none d-md-table-cell"><small>@(s.AccountNumber ?? "--")</small></td>
+                                <td class="d-none d-lg-table-cell">
+                                    @if (!string.IsNullOrWhiteSpace(s.PaymentTerms)) { <span class="badge bg-info text-dark">@s.PaymentTerms</span> }
+                                    else { <span class="text-muted">--</span> }
+                                </td>
+                                <td @onclick:stopPropagation="true">
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-outline-primary btn-sm py-0 px-1" @onclick="() => GoToEdit(s.Id)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                        <button class="btn btn-outline-danger btn-sm py-0 px-1" @onclick="() => ArchiveRow(s.Id)" title="Archive"><i class="bi bi-archive"></i></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_bulkMsg))
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
+    }
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private enum View { List, Detail, Form }
+    private View _view = View.List;
+    private bool _loading = true;
+
+    private List<SupplierListItem> _suppliers = [];
+    private SupplierFilter _filter = new();
+    private SupplierDetail? _detail;
+    private SupplierEditModel _form = new();
+    private string? _formError;
+    private bool _saving;
+    private bool _confirmArchive;
+
+    private bool _closeAfterSave = true;
+    private string? _savedMsg;
+
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => _suppliers.Count > 0 && _suppliers.All(s => _selectedIds.Contains(s.Id));
+
+    private List<string> _paymentTermsOptions = ["Net 10", "Net 15", "Net 30", "Net 45", "Net 60", "Net 90", "Due on Receipt", "COD", "Prepaid"];
+    private List<CompanyOption> _companyOptions = [];
+
+    protected override void OnInitialized()
+    {
+        Nav.LocationChanged += OnLocationChanged;
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await DetermineView();
+    }
+
+    private async void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        await DetermineView();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DetermineView()
+    {
+        _loading = true;
+        var path = Nav.ToAbsoluteUri(Nav.Uri).AbsolutePath.TrimEnd('/').ToLower();
+
+        if (path.EndsWith("/new") || path.EndsWith("/edit"))
+        {
+            _view = View.Form;
+            await LoadFormDropdowns();
+            if (Id.HasValue)
+            {
+                var d = await SupplierSvc.GetSupplierAsync(Id.Value);
+                if (d is not null)
+                {
+                    _form = new SupplierEditModel
+                    {
+                        Name = d.Name, ContactName = d.ContactName, Phone = d.Phone,
+                        Email = d.Email, Website = d.Website,
+                        AccountNumber = d.AccountNumber, PaymentTerms = d.PaymentTerms,
+                        Notes = d.Notes, IsActive = d.IsActive,
+                        CompanyId = d.CompanyId,
+                        CreateCompanyRecord = !d.CompanyId.HasValue,
+                    };
+                }
+                else { _view = View.List; await ReloadList(); }
+            }
+            else
+            {
+                _form = new SupplierEditModel();
+            }
+        }
+        else if (Id.HasValue)
+        {
+            _view = View.Detail;
+            _detail = await SupplierSvc.GetSupplierAsync(Id.Value);
+            if (_detail is null) { _view = View.List; await ReloadList(); }
+        }
+        else
+        {
+            _view = View.List;
+            await ReloadList();
+        }
+        _loading = false;
+    }
+
+    public void Dispose()
+    {
+        Nav.LocationChanged -= OnLocationChanged;
+    }
+
+    private async Task ReloadList() => _suppliers = await SupplierSvc.GetSuppliersAsync(_filter);
+
+    private async Task LoadFormDropdowns()
+    {
+        var terms = await DropdownSvc.GetOptionsAsync("PaymentTerms");
+        if (terms.Count > 0) _paymentTermsOptions = terms.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        _companyOptions = await SupplierSvc.GetVendorCompanyOptionsAsync();
+    }
+
+    private async Task SaveSupplier()
+    {
+        _formError = null; _saving = true; _savedMsg = null;
+        try
+        {
+            if (Id.HasValue)
+            {
+                await SupplierSvc.UpdateSupplierAsync(Id.Value, _form);
+                if (_closeAfterSave) Nav.NavigateTo($"/suppliers/{Id.Value}");
+                else _savedMsg = "Saved!";
+            }
+            else
+            {
+                var created = await SupplierSvc.CreateSupplierAsync(_form);
+                if (_closeAfterSave) Nav.NavigateTo($"/suppliers/{created.Id}");
+                else Nav.NavigateTo($"/suppliers/{created.Id}/edit");
+            }
+        }
+        catch (Exception ex) { _formError = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ArchiveSupplier()
+    {
+        if (_detail is not null) { await SupplierSvc.ArchiveSupplierAsync(_detail.Id); _confirmArchive = false; Nav.NavigateTo("/suppliers"); }
+    }
+
+    private async Task OnCompanySelected(ChangeEventArgs e)
+    {
+        var val = e.Value?.ToString();
+        if (int.TryParse(val, out var companyId))
+        {
+            _form.CompanyId = companyId;
+            _form.CreateCompanyRecord = false;
+
+            // Auto-fill supplier fields from the selected company
+            var company = await SupplierSvc.GetCompanyBasicAsync(companyId);
+            if (company is not null)
+            {
+                _form.Name = company.Name;
+                _form.Phone = company.Phone;
+                _form.Email = company.Email;
+                _form.Website = company.Website;
+            }
+        }
+        else
+        {
+            _form.CompanyId = null;
+            _form.CreateCompanyRecord = true;
+        }
+    }
+
+    private void GoToList() => Nav.NavigateTo("/suppliers");
+    private void GoToNew() => Nav.NavigateTo("/suppliers/new");
+    private void GoToDetail(int id) => Nav.NavigateTo($"/suppliers/{id}");
+    private void GoToEdit(int id) => Nav.NavigateTo($"/suppliers/{id}/edit");
+    private async Task ArchiveRow(int id) { await SupplierSvc.ArchiveSupplierAsync(id); await ReloadList(); }
+    private void GoBack() { if (Id.HasValue) Nav.NavigateTo($"/suppliers/{Id.Value}"); else Nav.NavigateTo("/suppliers"); }
+    private void GoToLinkedProduct(int id) => Nav.NavigateTo($"/products/{id}");
+    private void GoToLinkedInventory(int id) => Nav.NavigateTo($"/inventory/{id}");
+
+    private int? GetAdjacentId(int offset)
+    {
+        if (_suppliers.Count == 0 || _detail is null) return null;
+        var idx = _suppliers.FindIndex(s => s.Id == _detail.Id);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _suppliers.Count ? _suppliers[target].Id : null;
+    }
+    private void GoToPrev() { var id = GetAdjacentId(-1); if (id.HasValue) GoToDetail(id.Value); }
+    private void GoToNext() { var id = GetAdjacentId(1); if (id.HasValue) GoToDetail(id.Value); }
+
+    private int? GetAdjacentEditId(int offset)
+    {
+        if (_suppliers.Count == 0 || !Id.HasValue) return null;
+        var idx = _suppliers.FindIndex(s => s.Id == Id.Value);
+        if (idx < 0) return null;
+        var target = idx + offset;
+        return target >= 0 && target < _suppliers.Count ? _suppliers[target].Id : null;
+    }
+    private void GoToPrevEdit() { var id = GetAdjacentEditId(-1); if (id.HasValue) Nav.NavigateTo($"/suppliers/{id.Value}/edit"); }
+    private void GoToNextEdit() { var id = GetAdjacentEditId(1); if (id.HasValue) Nav.NavigateTo($"/suppliers/{id.Value}/edit"); }
+
+    private async Task ToggleSort(string column)
+    {
+        if (_filter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true) _filter.SortDescending = !_filter.SortDescending;
+        else { _filter.SortBy = column; _filter.SortDescending = false; }
+        await ReloadList();
+    }
+
+    private RenderFragment SortIcon(string column) => builder =>
+    {
+        var css = _filter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true
+            ? (_filter.SortDescending ? "bi-sort-down" : "bi-sort-up")
+            : "bi-arrow-down-up opacity-25";
+        builder.OpenElement(0, "i");
+        builder.AddAttribute(1, "class", $"bi {css} ms-1{(_filter.SortBy?.Equals(column, StringComparison.OrdinalIgnoreCase) == true ? " text-primary" : "")}");
+        builder.CloseElement();
+    };
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (_allSelected) _selectedIds.Clear(); else foreach (var s in _suppliers) _selectedIds.Add(s.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { _filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await ReloadList(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await SupplierSvc.BulkArchiveAsync(_selectedIds.ToList()); _bulkMsg = $"{n} supplier(s) archived."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await SupplierSvc.BulkRestoreAsync(_selectedIds.ToList()); _bulkMsg = $"{n} supplier(s) restored."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await SupplierSvc.BulkDeletePermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} supplier(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+}

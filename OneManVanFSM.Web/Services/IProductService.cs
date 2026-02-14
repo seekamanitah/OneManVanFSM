@@ -69,6 +69,7 @@ public class ProductEditModel
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }
+    public int? SupplierId { get; set; }
     public string? Tonnage { get; set; }
     public string? RefrigerantType { get; set; }
     public string? SEERRating { get; set; }
@@ -105,6 +106,7 @@ public class ProductDetail
     public string? Unit { get; set; }
     public string? Specs { get; set; }
     public string? SupplierName { get; set; }
+    public int? SupplierId { get; set; }
     public string? Tonnage { get; set; }
     public string? RefrigerantType { get; set; }
     public string? SEERRating { get; set; }

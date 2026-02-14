@@ -35,10 +35,21 @@ public class RemoteMobileAuthService : IMobileAuthService
     {
         try
         {
+            _logger.LogInformation("[RemoteAuth] LoginAsync called for user '{Username}', BaseUrl='{Url}'", username, _api.BaseUrl);
+
+            if (string.IsNullOrWhiteSpace(_api.BaseUrl))
+            {
+                _logger.LogWarning("[RemoteAuth] No server URL configured.");
+                return MobileAuthResult.Failure("No server URL configured. Go to 'Configure Remote Server' and enter the server URL.");
+            }
+
             var response = await _api.LoginAsync(username, password);
 
             if (!response.Succeeded)
+            {
+                _logger.LogWarning("[RemoteAuth] Server returned login failure: {Error}", response.ErrorMessage);
                 return MobileAuthResult.Failure(response.ErrorMessage ?? "Login failed.");
+            }
 
             var session = new MobileUserSession
             {
@@ -68,11 +79,22 @@ public class RemoteMobileAuthService : IMobileAuthService
         }
         catch (HttpRequestException ex)
         {
-            return MobileAuthResult.Failure($"Cannot reach server: {ex.Message}");
+            var inner = ex.InnerException?.Message;
+            var detail = !string.IsNullOrEmpty(inner) ? $"{ex.Message} -> {inner}" : ex.Message;
+            var statusInfo = ex.StatusCode.HasValue ? $" (HTTP {(int)ex.StatusCode.Value})" : "";
+            _logger.LogWarning(ex, "[RemoteAuth] HTTP error during login.");
+            return MobileAuthResult.Failure($"Cannot reach server{statusInfo}: {detail}");
+        }
+        catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning("[RemoteAuth] Login request timed out.");
+            return MobileAuthResult.Failure("Connection timed out after 30 seconds. Check server URL, port, and firewall settings.");
         }
         catch (Exception ex)
         {
-            return MobileAuthResult.Failure($"Login error: {ex.Message}");
+            var inner = ex.InnerException is not null ? $" -> {ex.InnerException.GetType().Name}: {ex.InnerException.Message}" : "";
+            _logger.LogError(ex, "[RemoteAuth] Unexpected login error.");
+            return MobileAuthResult.Failure($"Login error ({ex.GetType().Name}): {ex.Message}{inner}");
         }
     }
 

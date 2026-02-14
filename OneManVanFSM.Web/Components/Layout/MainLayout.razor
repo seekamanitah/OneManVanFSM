@@ -64,7 +64,7 @@
             }
 
             @* Inventory & Products *@
-            @if (Can(Features.Products) || Can(Features.Inventory) || Can(Features.MaterialLists) || Can(Features.Templates))
+            @if (Can(Features.Products) || Can(Features.Inventory) || Can(Features.MaterialLists) || Can(Features.Templates) || Can(Features.Suppliers))
             {
                 <div class="nav-section-header">@(!SidebarCollapsed ? "Inventory & Products" : "")</div>
                 @if (Can(Features.Products))
@@ -89,6 +89,12 @@
                 {
                     <NavLink class="nav-link" href="templates" title="Templates">
                         <i class="bi bi-copy"></i>@if (!SidebarCollapsed) { <span>Templates</span> }
+                    </NavLink>
+                }
+                @if (Can(Features.Suppliers))
+                {
+                    <NavLink class="nav-link" href="suppliers" title="Suppliers">
+                        <i class="bi bi-truck"></i>@if (!SidebarCollapsed) { <span>Suppliers</span> }
                     </NavLink>
                 }
             }
@@ -341,7 +347,7 @@
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
-    <span class="dismiss">ðŸâ€”™</span>
+    <span class="dismiss">&#10006;</span>
 </div>
 
 @code {

@@ -17,6 +17,8 @@ public interface IAuthService
     Task<bool> AdminResetPasswordAsync(int userId, string newPassword);
     Task<AuthResult> AdminCreateUserAsync(string username, string email, string password, UserRole role);
     Task<AuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null);
+    Task<bool> LinkUserToEmployeeAsync(int userId, int? employeeId);
+    Task<List<EmployeeOption>> GetEmployeeOptionsAsync();
 }
 
 public class AuthResult
@@ -48,6 +50,7 @@ public class UserListItem
     public bool IsActive { get; set; }
     public bool IsLocked { get; set; }
     public DateTime? LastLogin { get; set; }
+    public int? EmployeeId { get; set; }
     public string? EmployeeName { get; set; }
     public DateTime CreatedAt { get; set; }
 }

@@ -57,7 +57,7 @@ public class InventoryService : IInventoryService
                 Id = i.Id, Name = i.Name, SKU = i.SKU, PartNumber = i.PartNumber,
                 Category = i.Category, Unit = i.Unit, Description = i.Description,
                 Barcode = i.Barcode, ShelfBin = i.ShelfBin,
-                PreferredSupplier = i.PreferredSupplier, Location = i.Location,
+                PreferredSupplier = i.PreferredSupplier, SupplierId = i.SupplierId, Location = i.Location,
                 Quantity = i.Quantity, MinThreshold = i.MinThreshold, MaxCapacity = i.MaxCapacity,
                 Cost = i.Cost, Price = i.Price, MarkupPercent = i.MarkupPercent,
                 TaxIncludedInPrice = i.TaxIncludedInPrice,
@@ -77,6 +77,7 @@ public class InventoryService : IInventoryService
             Category = model.Category, Unit = model.Unit, Description = model.Description,
             Barcode = model.Barcode, ShelfBin = model.ShelfBin,
             PreferredSupplier = model.PreferredSupplier,
+            SupplierId = model.SupplierId,
             Location = model.Location, Quantity = model.Quantity,
             MinThreshold = model.MinThreshold, MaxCapacity = model.MaxCapacity,
             Cost = model.Cost, Price = model.Price, MarkupPercent = model.MarkupPercent,
@@ -97,6 +98,7 @@ public class InventoryService : IInventoryService
         item.Category = model.Category; item.Unit = model.Unit; item.Description = model.Description;
         item.Barcode = model.Barcode; item.ShelfBin = model.ShelfBin;
         item.PreferredSupplier = model.PreferredSupplier;
+        item.SupplierId = model.SupplierId;
         item.Location = model.Location; item.Quantity = model.Quantity;
         item.MinThreshold = model.MinThreshold; item.MaxCapacity = model.MaxCapacity;
         item.Cost = model.Cost; item.Price = model.Price; item.MarkupPercent = model.MarkupPercent;

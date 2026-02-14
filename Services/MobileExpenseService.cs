@@ -145,4 +145,34 @@ public class MobileExpenseService : IMobileExpenseService
         await _db.SaveChangesAsync();
         return expense.Id;
     }
+
+    public async Task<bool> UpdateExpenseAsync(int id, MobileExpenseUpdate model)
+    {
+        var expense = await _db.Expenses.FindAsync(id);
+        if (expense is null) return false;
+
+        expense.Category = model.Category;
+        expense.Description = model.Description;
+        expense.Amount = model.Amount;
+        expense.TaxAmount = model.TaxAmount;
+        expense.Total = model.Amount + model.TaxAmount;
+        expense.PaymentMethod = model.PaymentMethod;
+        expense.IsBillable = model.IsBillable;
+        expense.VendorName = model.VendorName;
+        expense.ReceiptNumber = model.ReceiptNumber;
+        expense.Notes = model.Notes;
+        expense.Status = model.Status;
+        expense.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteExpenseAsync(int id)
+    {
+        var expense = await _db.Expenses.FindAsync(id);
+        if (expense is null) return false;
+        _db.Expenses.Remove(expense);
+        await _db.SaveChangesAsync();
+        return true;
+    }
 }

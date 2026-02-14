@@ -31,6 +31,8 @@ public class MobileDocumentCreate
     public string Name { get; set; } = string.Empty;
     public DocumentCategory Category { get; set; } = DocumentCategory.Other;
     public string? FileType { get; set; }
+    public string? FilePath { get; set; }
+    public long? FileSize { get; set; }
     public string? Notes { get; set; }
     public int? JobId { get; set; }
     public int? SiteId { get; set; }

@@ -61,6 +61,7 @@ public class ProductService : IProductService
                 Cost = p.Cost, Price = p.Price, MSRP = p.MSRP, MarkupPercent = p.MarkupPercent,
                 TaxIncludedInPrice = p.TaxIncludedInPrice,
                 Unit = p.Unit, Specs = p.Specs, SupplierName = p.SupplierName,
+                SupplierId = p.SupplierId,
                 Tonnage = p.Tonnage, RefrigerantType = p.RefrigerantType,
                 SEERRating = p.SEERRating, AFUERating = p.AFUERating, Voltage = p.Voltage,
                 LaborWarrantyYears = p.LaborWarrantyYears,
@@ -88,6 +89,7 @@ public class ProductService : IProductService
             MarkupPercent = model.MarkupPercent, TaxIncludedInPrice = model.TaxIncludedInPrice,
             Unit = model.Unit,
             Specs = model.Specs, SupplierName = model.SupplierName,
+            SupplierId = model.SupplierId,
             Tonnage = model.Tonnage, RefrigerantType = model.RefrigerantType,
             SEERRating = model.SEERRating, AFUERating = model.AFUERating,
             Voltage = model.Voltage, IsTemplate = model.IsTemplate,
@@ -115,6 +117,7 @@ public class ProductService : IProductService
         p.MarkupPercent = model.MarkupPercent; p.TaxIncludedInPrice = model.TaxIncludedInPrice;
         p.Unit = model.Unit;
         p.Specs = model.Specs; p.SupplierName = model.SupplierName;
+        p.SupplierId = model.SupplierId;
         p.Tonnage = model.Tonnage; p.RefrigerantType = model.RefrigerantType;
         p.SEERRating = model.SEERRating; p.AFUERating = model.AFUERating;
         p.Voltage = model.Voltage; p.IsTemplate = model.IsTemplate;

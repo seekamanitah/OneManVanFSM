@@ -68,6 +68,8 @@ public class AssetService : IAssetService
                 LocationOnSite = a.LocationOnSite,
                 AmpRating = a.AmpRating, PanelType = a.PanelType,
                 PipeMaterial = a.PipeMaterial, GallonCapacity = a.GallonCapacity,
+                FlowRateGPM = a.FlowRateGPM, FixtureType = a.FixtureType,
+                CircuitCount = a.CircuitCount, TradeType = a.TradeType,
                 RefrigerantType = a.RefrigerantType, RefrigerantQuantity = a.RefrigerantQuantity,
                 FilterType = a.FilterType, FilterChangeIntervalMonths = a.FilterChangeIntervalMonths,
                 FilterLastChanged = a.FilterLastChanged, FilterNextDue = a.FilterNextDue,
@@ -149,6 +151,8 @@ public class AssetService : IAssetService
             LocationOnSite = model.LocationOnSite,
             AmpRating = model.AmpRating, PanelType = model.PanelType,
             PipeMaterial = model.PipeMaterial, GallonCapacity = model.GallonCapacity,
+            FlowRateGPM = model.FlowRateGPM, FixtureType = model.FixtureType,
+            CircuitCount = model.CircuitCount, TradeType = model.TradeType,
             RefrigerantType = model.RefrigerantType, RefrigerantQuantity = model.RefrigerantQuantity,
             FilterType = model.FilterType, FilterChangeIntervalMonths = model.FilterChangeIntervalMonths,
             FilterLastChanged = model.FilterLastChanged, FilterNextDue = model.FilterNextDue,
@@ -194,6 +198,8 @@ public class AssetService : IAssetService
         a.LocationOnSite = model.LocationOnSite;
         a.AmpRating = model.AmpRating; a.PanelType = model.PanelType;
         a.PipeMaterial = model.PipeMaterial; a.GallonCapacity = model.GallonCapacity;
+        a.FlowRateGPM = model.FlowRateGPM; a.FixtureType = model.FixtureType;
+        a.CircuitCount = model.CircuitCount; a.TradeType = model.TradeType;
         a.RefrigerantType = model.RefrigerantType; a.RefrigerantQuantity = model.RefrigerantQuantity;
         a.FilterType = model.FilterType; a.FilterChangeIntervalMonths = model.FilterChangeIntervalMonths;
         a.FilterLastChanged = model.FilterLastChanged; a.FilterNextDue = model.FilterNextDue;

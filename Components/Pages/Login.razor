@@ -3,6 +3,7 @@
 @inject IMobileAuthService AuthService
 @inject IMobileSettingsService SettingsService
 @inject NavigationManager Nav
+@inject ApiClient Api
 
 <div class="login-container">
     <div class="login-card">
@@ -43,7 +44,7 @@
             @if (_loggingIn)
             {
                 <span class="spinner-border spinner-border-sm me-1" role="status"></span>
-                <span>Signing in…</span>
+                <span>Signing in...</span>
             }
             else
             {
@@ -95,6 +96,14 @@
                         <input type="password" class="form-control form-control-sm" @bind="_syncPassword"
                                placeholder="sync password" />
                     </div>
+
+                    <button class="btn btn-sm btn-outline-info w-100 mb-2" @onclick="TestConnection" disabled="@_testingConnection">
+                        @if (_testingConnection)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1"></span>
+                        }
+                        <i class="bi bi-wifi me-1"></i>Test Connection
+                    </button>
                 }
 
                 <button class="btn btn-sm btn-outline-primary w-100" @onclick="SaveServerConfig" disabled="@_savingConfig">
@@ -104,6 +113,46 @@
                     }
                     <i class="bi bi-check-lg me-1"></i>Save Connection
                 </button>
+            </div>
+        }
+
+        @* Diagnostic Log Panel *@
+        <div class="mt-3">
+            <button class="btn btn-sm btn-outline-dark w-100" @onclick="() => _showDiagLog = !_showDiagLog">
+                <i class="bi bi-terminal me-1"></i>
+                @(_showDiagLog ? "Hide" : "Show") Connection Diagnostics
+                @if (_diagLog.Count > 0)
+                {
+                    <span class="badge bg-secondary ms-1">@_diagLog.Count</span>
+                }
+            </button>
+        </div>
+
+        @if (_showDiagLog)
+        {
+            <div class="mt-2 p-2 border rounded bg-dark text-light" style="font-size:0.75rem; max-height:300px; overflow-y:auto; font-family:monospace;">
+                <div class="d-flex justify-content-between align-items-center mb-1">
+                    <small class="text-info fw-bold">Connection Diagnostics</small>
+                    <button class="btn btn-sm btn-outline-light py-0 px-1" @onclick="ClearDiagLog" style="font-size:0.7rem;">Clear</button>
+                </div>
+                @if (_diagLog.Count == 0)
+                {
+                    <div class="text-muted">No diagnostics yet. Try logging in or testing the connection.</div>
+                }
+                else
+                {
+                    @foreach (var entry in _diagLog)
+                    {
+                        <div class="@GetDiagCss(entry.Level) mb-1" style="word-break:break-all;">
+                            <span class="text-secondary">[@entry.Timestamp.ToString("HH:mm:ss.fff")]</span>
+                            <span class="@GetDiagLevelCss(entry.Level) fw-bold"> @entry.Level </span>
+                            @entry.Message
+                        </div>
+                    }
+                }
+                <div class="mt-1 pt-1 border-top border-secondary">
+                    <small class="text-muted">Mode: @_dbMode | URL: @(string.IsNullOrEmpty(_serverUrl) ? "(not set)" : _serverUrl) | App registered as: @(_isRemoteMode ? "REMOTE" : "LOCAL")</small>
+                </div>
             </div>
         }
     </div>
@@ -124,6 +173,12 @@
     private string _syncUsername = "";
     private string _syncPassword = "";
     private bool _savingConfig;
+    private bool _testingConnection;
+
+    // Diagnostics
+    private bool _showDiagLog;
+    private readonly List<DiagEntry> _diagLog = [];
+    private bool _isRemoteMode;
 
     protected override async Task OnInitializedAsync()
     {
@@ -131,6 +186,7 @@
         _dbMode = Preferences.Default.Get("db_mode", "Local");
         _serverUrl = Preferences.Default.Get("db_server_url", "");
         _syncUsername = Preferences.Default.Get("db_sync_username", "");
+        _isRemoteMode = _dbMode == "Remote" && !string.IsNullOrWhiteSpace(_serverUrl);
 
         try
         {
@@ -139,6 +195,14 @@
         catch
         {
             _syncPassword = "";
+        }
+
+        LogDiag("INFO", $"Login page loaded. Mode={_dbMode}, ServerURL={(string.IsNullOrEmpty(_serverUrl) ? "(empty)" : _serverUrl)}");
+        LogDiag("INFO", $"Auth service type: {AuthService.GetType().Name}");
+        if (_isRemoteMode)
+        {
+            LogDiag("INFO", $"ApiClient BaseUrl: {(string.IsNullOrEmpty(Api.BaseUrl) ? "(empty)" : Api.BaseUrl)}");
+            LogDiag("INFO", $"ApiClient IsAuthenticated: {Api.IsAuthenticated}");
         }
     }
 
@@ -154,24 +218,122 @@
         _loggingIn = true;
         StateHasChanged();
 
-        var result = await AuthService.LoginAsync(_username.Trim(), _password, _rememberMe);
+        LogDiag("INFO", $"Login attempt: user='{_username.Trim()}', mode={_dbMode}, rememberMe={_rememberMe}");
 
-        if (result.Succeeded)
+        if (_isRemoteMode)
         {
-            // Check if user must change password
-            if (result.Session?.MustChangePassword == true)
+            LogDiag("INFO", $"Remote login - ApiClient BaseUrl='{Api.BaseUrl}'");
+            LogDiag("INFO", "Testing server reachability before login...");
+            StateHasChanged();
+
+            try
             {
-                Nav.NavigateTo("/setup", forceLoad: false);
+                var (reachable, msg) = await Api.TestConnectionAsync();
+                LogDiag(reachable ? "OK" : "FAIL", $"Health check: {msg}");
+                StateHasChanged();
+
+                if (!reachable)
+                {
+                    LogDiag("FAIL", "Server is not reachable. Login will likely fail.");
+                }
+            }
+            catch (Exception ex)
+            {
+                LogDiag("FAIL", $"Health check exception: {ex.GetType().Name}: {ex.Message}");
+            }
+            StateHasChanged();
+        }
+
+        try
+        {
+            var result = await AuthService.LoginAsync(_username.Trim(), _password, _rememberMe);
+
+            if (result.Succeeded)
+            {
+                LogDiag("OK", $"Login succeeded! UserId={result.Session?.UserId}, Role={result.Session?.Role}");
+                StateHasChanged();
+
+                if (result.Session?.MustChangePassword == true)
+                {
+                    Nav.NavigateTo("/setup", forceLoad: false);
+                }
+                else
+                {
+                    Nav.NavigateTo("/", forceLoad: false);
+                }
             }
             else
             {
-                Nav.NavigateTo("/", forceLoad: false);
+                var errorMsg = result.ErrorMessage ?? "Login failed.";
+                LogDiag("FAIL", $"Login failed: {errorMsg}");
+                _error = errorMsg;
+                _loggingIn = false;
             }
         }
-        else
+        catch (HttpRequestException ex)
         {
-            _error = result.ErrorMessage ?? "Login failed.";
+            var detail = ex.InnerException?.Message ?? ex.Message;
+            LogDiag("FAIL", $"HTTP error during login: {ex.GetType().Name}: {detail}");
+            if (ex.StatusCode.HasValue)
+                LogDiag("FAIL", $"HTTP status code: {(int)ex.StatusCode.Value} ({ex.StatusCode.Value})");
+            _error = $"Cannot reach server: {detail}";
             _loggingIn = false;
+        }
+        catch (TaskCanceledException ex) when (!ex.CancellationToken.IsCancellationRequested)
+        {
+            LogDiag("FAIL", "Login request timed out. Server may be unreachable or slow.");
+            _error = "Connection timed out. Check your server URL and network.";
+            _loggingIn = false;
+        }
+        catch (Exception ex)
+        {
+            LogDiag("FAIL", $"Unexpected login error: {ex.GetType().Name}: {ex.Message}");
+            if (ex.InnerException is not null)
+                LogDiag("FAIL", $"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            _error = $"Login error: {ex.Message}";
+            _loggingIn = false;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task TestConnection()
+    {
+        _testingConnection = true;
+        _error = null;
+        _successMessage = null;
+        StateHasChanged();
+
+        LogDiag("INFO", $"Manual connection test - URL: '{_serverUrl}'");
+
+        // Temporarily set the server URL in preferences so ApiClient picks it up
+        var currentUrl = Preferences.Default.Get("db_server_url", "");
+        Preferences.Default.Set("db_server_url", _serverUrl.Trim());
+
+        try
+        {
+            LogDiag("INFO", $"ApiClient.BaseUrl resolves to: '{Api.BaseUrl}'");
+            var (reachable, msg) = await Api.TestConnectionAsync();
+            LogDiag(reachable ? "OK" : "FAIL", $"Connection test result: {msg}");
+
+            if (reachable)
+                _successMessage = $"Server reachable: {msg}";
+            else
+                _error = msg;
+        }
+        catch (Exception ex)
+        {
+            LogDiag("FAIL", $"Connection test exception: {ex.GetType().Name}: {ex.Message}");
+            if (ex.InnerException is not null)
+                LogDiag("FAIL", $"  Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+            _error = $"Test failed: {ex.Message}";
+        }
+        finally
+        {
+            // Restore original URL if not yet saved
+            Preferences.Default.Set("db_server_url", currentUrl);
+            _testingConnection = false;
+            StateHasChanged();
         }
     }
 
@@ -181,6 +343,8 @@
         _error = null;
         _successMessage = null;
         StateHasChanged();
+
+        LogDiag("INFO", $"Saving server config: mode={_dbMode}, url={(_dbMode == "Remote" ? _serverUrl.Trim() : "(local)")}");
 
         try
         {
@@ -197,13 +361,19 @@
                 SecureStorage.Default.Remove("db_sync_password");
             }
 
+            _isRemoteMode = _dbMode == "Remote" && !string.IsNullOrWhiteSpace(_serverUrl);
+
             _successMessage = _dbMode == "Remote"
                 ? "Remote server configured successfully. Please restart the app to connect."
                 : "Local database mode selected. Please restart the app to apply changes.";
-            _showServerConfig = false; // Auto-collapse after save
+            _showServerConfig = false;
+
+            LogDiag("OK", "Server config saved successfully.");
+            LogDiag("WARN", "App must be restarted for DI service registrations to use the new mode.");
         }
         catch (Exception ex)
         {
+            LogDiag("FAIL", $"Failed to save config: {ex.Message}");
             _error = $"Failed to save: {ex.Message}";
         }
         finally
@@ -211,5 +381,39 @@
             _savingConfig = false;
             StateHasChanged();
         }
+    }
+
+    // --- Diagnostic log helpers ---
+
+    private void LogDiag(string level, string message)
+    {
+        _diagLog.Add(new DiagEntry { Timestamp = DateTime.Now, Level = level, Message = message });
+        if (_diagLog.Count > 100)
+            _diagLog.RemoveAt(0);
+    }
+
+    private void ClearDiagLog() => _diagLog.Clear();
+
+    private static string GetDiagCss(string level) => level switch
+    {
+        "FAIL" => "text-danger",
+        "WARN" => "text-warning",
+        "OK" => "text-success",
+        _ => "text-light"
+    };
+
+    private static string GetDiagLevelCss(string level) => level switch
+    {
+        "FAIL" => "text-danger",
+        "WARN" => "text-warning",
+        "OK" => "text-success",
+        _ => "text-info"
+    };
+
+    private record DiagEntry
+    {
+        public DateTime Timestamp { get; init; }
+        public string Level { get; init; } = "INFO";
+        public string Message { get; init; } = "";
     }
 }

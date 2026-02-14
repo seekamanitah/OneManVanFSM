@@ -53,10 +53,26 @@ public class DashboardApiController : SyncApiController
             .Where(t => t.EmployeeId == employeeId && t.StartTime >= weekStart)
             .ToListAsync();
 
-        var hoursToday = timeEntries.Where(t => t.StartTime.Date == today).Sum(t => t.Hours);
-        var hoursThisWeek = timeEntries.Sum(t => t.Hours);
-        var activeClock = await _db.TimeEntries
-            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EndTime == null);
+        // Shift hours (for payroll display)
+        var shiftEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.Shift).ToList();
+        var jobEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.JobClock).ToList();
+        var hoursToday = shiftEntries.Where(t => t.StartTime.Date == today).Sum(t => t.Hours);
+        var hoursThisWeek = shiftEntries.Sum(t => t.Hours);
+        var jobHoursToday = jobEntries.Where(t => t.StartTime.Date == today).Sum(t => t.Hours);
+
+        var activeShift = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+
+        var activeJobClocks = await _db.TimeEntries.AsNoTracking()
+            .Include(t => t.Job)
+            .Where(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.JobClock && t.EndTime == null)
+            .ToListAsync();
+
+        var draftEstimateCount = await _db.Estimates
+            .CountAsync(e => !e.IsArchived && e.Status == EstimateStatus.Draft);
+
+        var pendingInvoiceCount = await _db.Invoices
+            .CountAsync(i => !i.IsArchived && (i.Status == InvoiceStatus.Draft || i.Status == InvoiceStatus.Sent));
 
         var completedThisWeek = await _db.Jobs
             .CountAsync(j => j.AssignedEmployeeId == employeeId
@@ -117,11 +133,17 @@ public class DashboardApiController : SyncApiController
         {
             TodayJobCount = todayJobs.Count, OpenJobCount = openJobCount,
             PendingNoteCount = pendingNotes, HoursToday = hoursToday,
-            HoursThisWeek = hoursThisWeek, IsClockedIn = activeClock != null,
-            ClockInTime = activeClock?.StartTime, CompletedThisWeek = completedThisWeek,
+            HoursThisWeek = hoursThisWeek, IsClockedIn = activeShift != null,
+            ClockInTime = activeShift?.StartTime, CompletedThisWeek = completedThisWeek,
             OverdueJobCount = overdueJobCount, UpcomingJobCount = upcomingJobs.Count,
             LowStockCount = lowStockCount, ExpiringAgreementCount = expiringAgreementCount,
             MaintenanceDueCount = maintenanceDueCount, WarrantyAlertCount = warrantyAlertCount,
+            ActiveJobClockCount = activeJobClocks.Count,
+            ActiveJobName = activeJobClocks.FirstOrDefault()?.Job?.Title
+                ?? activeJobClocks.FirstOrDefault()?.Job?.JobNumber,
+            JobHoursToday = jobHoursToday,
+            DraftEstimateCount = draftEstimateCount,
+            PendingInvoiceCount = pendingInvoiceCount,
             TodayJobs = todayJobs, UpcomingJobs = upcomingJobs, RecentActivity = recentActivity
         });
     }
@@ -144,6 +166,11 @@ public class MobileDashboardResponse
     public int ExpiringAgreementCount { get; set; }
     public int MaintenanceDueCount { get; set; }
     public int WarrantyAlertCount { get; set; }
+    public int ActiveJobClockCount { get; set; }
+    public string? ActiveJobName { get; set; }
+    public decimal JobHoursToday { get; set; }
+    public int DraftEstimateCount { get; set; }
+    public int PendingInvoiceCount { get; set; }
     public List<MobileDashboardJobCard> TodayJobs { get; set; } = [];
     public List<MobileDashboardJobCard> UpcomingJobs { get; set; } = [];
     public List<MobileDashboardActivity> RecentActivity { get; set; } = [];

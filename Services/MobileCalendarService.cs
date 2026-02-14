@@ -70,6 +70,30 @@ public class MobileCalendarService(AppDbContext db) : IMobileCalendarService
             });
         }
 
+        // Include estimates with ExpiryDate on this day
+        var estimates = await db.Estimates
+            .Include(e => e.Customer)
+            .Where(e => !e.IsArchived
+                && e.ExpiryDate != null
+                && e.ExpiryDate.Value.Date == date.Date
+                && e.Status != EstimateStatus.Expired
+                && e.Status != EstimateStatus.Rejected)
+            .ToListAsync();
+
+        foreach (var est in estimates)
+        {
+            calendarEvents.Add(new MobileCalendarEvent
+            {
+                Id = est.Id,
+                Title = $"EST: {est.Title ?? est.EstimateNumber}",
+                StartDateTime = date.Date.AddHours(9),
+                EndDateTime = date.Date.AddHours(10),
+                Status = CalendarEventStatus.Tentative,
+                EventType = "Estimate",
+                Color = "#6f42c1",
+            });
+        }
+
         return calendarEvents.OrderBy(e => e.StartDateTime).ToList();
     }
 

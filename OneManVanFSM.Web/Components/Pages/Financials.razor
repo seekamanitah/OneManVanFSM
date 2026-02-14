@@ -1,4 +1,4 @@
-@page "/financials"
+ï»¿@page "/financials"
 @rendermode InteractiveServer
 @inject IFinancialService FinSvc
 @inject NavigationManager Nav
@@ -206,7 +206,7 @@ else
                                 <div>
                                     <span class="badge @GetExpBadge(e.Status) me-1">@e.Status</span>
                                     <strong class="me-2">@(e.Category ?? "Expense")</strong>
-                                    @if (e.Description is not null) { <small class="text-muted">@(e.Description.Length > 40 ? e.Description[..40] + "…" : e.Description)</small> }
+                                    @if (e.Description is not null) { <small class="text-muted">@(e.Description.Length > 40 ? e.Description[..40] + "..." : e.Description)</small> }
                                 </div>
                                 <span class="fw-bold">@(e.Total > 0 ? e.Total.ToString("C") : e.Amount.ToString("C"))</span>
                             </a>

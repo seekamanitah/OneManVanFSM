@@ -5,6 +5,9 @@ namespace OneManVanFSM.Services;
 public interface IMobileReportService
 {
     Task<MobileTechReport> GetTechReportAsync(int employeeId);
+    Task<MobileBusinessKPIs> GetBusinessKPIsAsync();
+    Task<List<MobileJobProfitItem>> GetJobProfitabilityAsync(int count = 20);
+    Task<MobilePayrollPreview> GetPayrollPreviewAsync(int employeeId, DateTime weekStart);
 }
 
 public class MobileTechReport
@@ -55,4 +58,61 @@ public class MobileTimeCategoryBreakdown
     public string Category { get; set; } = "";
     public decimal Hours { get; set; }
     public decimal Percent { get; set; }
+}
+
+public class MobileBusinessKPIs
+{
+    public int TotalJobs { get; set; }
+    public int CompletedJobs { get; set; }
+    public int OpenJobs { get; set; }
+    public decimal RevenueTotal { get; set; }
+    public decimal OutstandingAR { get; set; }
+    public int UnpaidInvoiceCount { get; set; }
+    public int ActiveEmployees { get; set; }
+    public decimal TotalHoursLogged { get; set; }
+    public int TotalAssets { get; set; }
+    public int ActiveAgreements { get; set; }
+    public int PendingEstimates { get; set; }
+    public int TotalCustomers { get; set; }
+    public int InventoryItemCount { get; set; }
+    public int LowStockCount { get; set; }
+}
+
+public class MobileJobProfitItem
+{
+    public int JobId { get; set; }
+    public string JobNumber { get; set; } = string.Empty;
+    public string? CustomerName { get; set; }
+    public string? Trade { get; set; }
+    public decimal Revenue { get; set; }
+    public decimal LaborCost { get; set; }
+    public decimal MaterialCost { get; set; }
+    public decimal ExpenseCost { get; set; }
+    public decimal Profit => Revenue - LaborCost - MaterialCost - ExpenseCost;
+    public decimal MarginPercent => Revenue > 0 ? Math.Round(Profit / Revenue * 100, 1) : 0;
+    public DateTime? CompletedDate { get; set; }
+}
+
+public class MobilePayrollPreview
+{
+    public DateTime WeekStart { get; set; }
+    public DateTime WeekEnd { get; set; }
+    public decimal TotalShiftHours { get; set; }
+    public decimal RegularHours { get; set; }
+    public decimal OvertimeHours { get; set; }
+    public decimal RegularPay { get; set; }
+    public decimal OvertimePay { get; set; }
+    public decimal TotalPay { get; set; }
+    public decimal HourlyRate { get; set; }
+    public int JobsClockedThisWeek { get; set; }
+    public List<MobilePayrollDayPreview> Days { get; set; } = [];
+}
+
+public class MobilePayrollDayPreview
+{
+    public DateTime Date { get; set; }
+    public string DayLabel { get; set; } = "";
+    public decimal ShiftHours { get; set; }
+    public decimal JobHours { get; set; }
+    public int JobCount { get; set; }
 }

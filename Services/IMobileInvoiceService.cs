@@ -8,6 +8,8 @@ public interface IMobileInvoiceService
     Task<List<MobileInvoiceCard>> GetInvoicesAsync(MobileInvoiceFilter? filter = null);
     Task<MobileInvoiceDetail?> GetInvoiceDetailAsync(int id);
     Task<Invoice> QuickCreateAsync(MobileInvoiceQuickCreate model);
+    Task<Invoice> FullCreateAsync(MobileInvoiceFullCreate model);
+    Task<bool> UpdateStatusAsync(int id, InvoiceStatus status);
 }
 
 public class MobileInvoiceStats
@@ -98,4 +100,29 @@ public class MobileInvoiceQuickCreate
     public int? JobId { get; set; }
     public int? SiteId { get; set; }
     public string? Notes { get; set; }
+}
+
+public class MobileInvoiceFullCreate
+{
+    public int? CustomerId { get; set; }
+    public int? JobId { get; set; }
+    public int? SiteId { get; set; }
+    public string? Notes { get; set; }
+    public string? Terms { get; set; }
+    public string PaymentTerms { get; set; } = "Net 30";
+    public DateTime? DueDate { get; set; }
+    public decimal TaxRate { get; set; }
+    public decimal MarkupPercent { get; set; }
+    public string? DiscountType { get; set; }
+    public decimal DiscountValue { get; set; }
+    public List<MobileInvoiceLineCreate> Lines { get; set; } = [];
+}
+
+public class MobileInvoiceLineCreate
+{
+    public string Description { get; set; } = string.Empty;
+    public string LineType { get; set; } = "Labor";
+    public decimal Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; }
+    public string? Unit { get; set; } = "Each";
 }

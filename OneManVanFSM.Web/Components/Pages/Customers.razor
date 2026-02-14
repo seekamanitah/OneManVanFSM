@@ -204,6 +204,7 @@ else if (_view == View.Detail && _detail is not null)
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="customers/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Customer</a></li>
                 <li><a class="dropdown-item" href="sites/new?customerId=@_detail.Id"><i class="bi bi-geo-alt me-2"></i>New Site</a></li>
+                <li><a class="dropdown-item" href="assets/new?customerId=@_detail.Id"><i class="bi bi-cpu me-2"></i>New Asset</a></li>
                 <li><a class="dropdown-item" href="jobs/new?customerId=@_detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
                 <li><a class="dropdown-item" href="estimates/new?customerId=@_detail.Id"><i class="bi bi-calculator me-2"></i>New Estimate</a></li>
                 @if (!string.IsNullOrEmpty(_detail.PrimaryEmail))

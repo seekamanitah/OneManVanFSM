@@ -7,6 +7,7 @@
 @inject IInventoryService InventorySvc
 @inject IProductService ProductSvc
 @inject IDropdownService DropdownSvc
+@inject ISupplierService SupplierSvc
 @inject NavigationManager Nav
 
 <PageTitle>Inventory - OneManVanFSM</PageTitle>
@@ -102,7 +103,10 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">Supplier</label>
-                        <InputText @bind-Value="form.PreferredSupplier" class="form-control form-control-sm" placeholder="Search suppliers..." />
+                        <select class="form-select form-select-sm" @bind="form.SupplierId">
+                            <option value="">-- None --</option>
+                            @foreach (var s in _supplierOptions) { <option value="@s.Id">@s.Name</option> }
+                        </select>
                     </div>
                     <div class="col-12 mt-1">
                         <div class="form-check">
@@ -207,6 +211,14 @@ else if (mode == "detail" && detail is not null)
                             <small class="text-muted d-block">Product Template</small>
                             @if (detail.ProductId.HasValue && detail.ProductName is not null)
                             { <a href="javascript:void(0)" @onclick="() => GoToProduct(detail.ProductId.Value)">@detail.ProductName</a> }
+                            else { <span>—</span> }
+                        </div>
+                        <div class="col-sm-6">
+                            <small class="text-muted d-block">Supplier</small>
+                            @if (detail.SupplierId.HasValue && !string.IsNullOrWhiteSpace(detail.PreferredSupplier))
+                            { <a href="/suppliers/@detail.SupplierId">@detail.PreferredSupplier</a> }
+                            else if (!string.IsNullOrWhiteSpace(detail.PreferredSupplier))
+                            { <span>@detail.PreferredSupplier</span> }
                             else { <span>—</span> }
                         </div>
                     </div>
@@ -442,6 +454,7 @@ else
     private List<string> _inventoryCategories = ["Parts", "Supplies", "Equipment", "Filters", "Refrigerant", "Ductwork", "Electrical", "Plumbing", "Safety", "Tools", "Other"];
     private decimal _defaultTaxRate = 9.75m;
     private decimal _inventoryMsrp;
+    private List<SupplierOption> _supplierOptions = [];
 
     private void RecalcInventoryPricing()
     {
@@ -528,7 +541,7 @@ else
             Name = d.Name, SKU = d.SKU, PartNumber = d.PartNumber,
             Category = d.Category, Unit = d.Unit, Description = d.Description,
             Barcode = d.Barcode, ShelfBin = d.ShelfBin,
-            PreferredSupplier = d.PreferredSupplier,
+            PreferredSupplier = d.PreferredSupplier, SupplierId = d.SupplierId,
             Location = d.Location, Quantity = d.Quantity,
             MinThreshold = d.MinThreshold, MaxCapacity = d.MaxCapacity,
             Cost = d.Cost, Price = d.Price, MarkupPercent = d.MarkupPercent,
@@ -619,6 +632,7 @@ else
         _products = await ProductSvc.GetProductsAsync();
         var cats = await DropdownSvc.GetOptionsAsync("InventoryCategory");
         if (cats.Count > 0) _inventoryCategories = cats.Where(o => o.IsActive).Select(o => o.Value).ToList();
+        _supplierOptions = await SupplierSvc.GetSupplierOptionsAsync();
     }
 
     // ---- Multi-select & Bulk Actions ----

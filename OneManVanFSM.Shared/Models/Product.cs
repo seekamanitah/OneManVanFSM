@@ -21,6 +21,8 @@ public class Product
     public string? Unit { get; set; } // Count, Boxes, Ft, Rolls, etc.
     public string? Specs { get; set; } // JSON for flexible specs
     public string? SupplierName { get; set; }
+    public int? SupplierId { get; set; }
+    public Supplier? Supplier { get; set; }
 
     // Specifications
     public string? Tonnage { get; set; }

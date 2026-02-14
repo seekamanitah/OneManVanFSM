@@ -7,7 +7,9 @@ public interface IMobileEstimateService
     Task<List<MobileEstimateCard>> GetEstimatesAsync(MobileEstimateFilter? filter = null);
     Task<MobileEstimateDetail?> GetEstimateDetailAsync(int id);
     Task<Estimate> QuickCreateAsync(MobileEstimateQuickCreate model);
+    Task<Estimate> FullCreateAsync(MobileEstimateFullCreate model);
     Task<bool> UpdateStatusAsync(int id, EstimateStatus status);
+    Task<bool> DeleteEstimateAsync(int id);
 }
 
 public class MobileEstimateCard
@@ -82,4 +84,30 @@ public class MobileEstimateQuickCreate
     public string? TradeType { get; set; }
     public JobPriority Priority { get; set; } = JobPriority.Standard;
     public string? Notes { get; set; }
+}
+
+public class MobileEstimateFullCreate
+{
+    public string? Title { get; set; }
+    public int? CustomerId { get; set; }
+    public int? SiteId { get; set; }
+    public string? TradeType { get; set; }
+    public string? SystemType { get; set; }
+    public JobPriority Priority { get; set; } = JobPriority.Standard;
+    public string? Notes { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public decimal MarkupPercent { get; set; }
+    public decimal TaxPercent { get; set; }
+    public decimal? DepositRequired { get; set; }
+    public List<MobileEstimateLineCreate> Lines { get; set; } = [];
+}
+
+public class MobileEstimateLineCreate
+{
+    public string Description { get; set; } = string.Empty;
+    public string LineType { get; set; } = "Material";
+    public string? Section { get; set; }
+    public decimal Quantity { get; set; } = 1;
+    public decimal UnitPrice { get; set; }
+    public string? Unit { get; set; } = "Each";
 }

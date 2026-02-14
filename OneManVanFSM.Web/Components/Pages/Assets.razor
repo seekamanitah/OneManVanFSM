@@ -11,6 +11,8 @@
 @inject IDropdownService DropdownSvc
 @inject IJobService JobSvc
 @inject IEmployeeService EmployeeSvc
+@inject IQrCodeService QrSvc
+@inject IJSRuntime JS
 @inject NavigationManager Nav
 
 <PageTitle>Assets - OneManVanFSM</PageTitle>
@@ -107,17 +109,17 @@
                 <h6 class="text-muted mb-2"><i class="bi bi-gear me-1"></i>Equipment Type</h6>
                 <div class="row g-2">
                     <div class="col-md-3">
+                        <label class="form-label">Trade</label>
+                        <select class="form-select" @bind="_tradeTypeValue" @bind:after="OnTradeTypeChanged">
+                            <option value="">— Select Trade —</option>
+                            @foreach (var o in _tradeTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label">Equipment Type</label>
                         <select class="form-select" @bind="_assetTypeValue" @bind:after="OnAssetTypeChanged">
                             <option value="">Unknown</option>
                             @foreach (var o in _assetTypeOptions) { <option value="@o">@o</option> }
-                        </select>
-                    </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Fuel Type</label>
-                        <select class="form-select" @bind="_fuelTypeValue" @bind:after="OnFuelTypeChanged">
-                            <option value="">Unknown</option>
-                            @foreach (var o in _fuelTypeOptions) { <option value="@o">@o</option> }
                         </select>
                     </div>
                     <div class="col-md-3">
@@ -126,15 +128,27 @@
                             @foreach (var s in Enum.GetValues<AssetStatus>()) { <option value="@s">@s</option> }
                         </InputSelect>
                     </div>
-                    <div class="col-md-3">
-                        <label class="form-label">Unit Config</label>
-                        <select class="form-select" @bind="_unitConfigValue" @bind:after="OnUnitConfigChanged">
-                            <option value="">Unknown</option>
-                            @foreach (var o in _unitConfigOptions) { <option value="@o">@o</option> }
-                        </select>
-                    </div>
+                    @if (IsHvacTrade)
+                    {
+                        <div class="col-md-3">
+                            <label class="form-label">Fuel Type</label>
+                            <select class="form-select" @bind="_fuelTypeValue" @bind:after="OnFuelTypeChanged">
+                                <option value="">Unknown</option>
+                                @foreach (var o in _fuelTypeOptions) { <option value="@o">@o</option> }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Unit Config</label>
+                            <select class="form-select" @bind="_unitConfigValue" @bind:after="OnUnitConfigChanged">
+                                <option value="">Unknown</option>
+                                @foreach (var o in _unitConfigOptions) { <option value="@o">@o</option> }
+                            </select>
+                        </div>
+                    }
                 </div>
 
+                @if (IsHvacTrade)
+                {
                 <hr class="my-3" />
                 <!-- Capacity & Efficiency -->
                 <h6 class="text-muted mb-2"><i class="bi bi-thermometer-half me-1"></i>Capacity & Efficiency</h6>
@@ -189,7 +203,10 @@
                         <InputNumber @bind-Value="form.EER" class="form-control" />
                     </div>
                 </div>
+                }
 
+                @if (IsHvacTrade)
+                {
                 <hr class="my-3" />
                 <!-- Refrigerant & Electrical -->
                 <h6 class="text-muted mb-2"><i class="bi bi-snow me-1"></i>Refrigerant & Electrical</h6>
@@ -220,7 +237,79 @@
                         </select>
                     </div>
                 </div>
+                }
 
+                @if (IsPlumbingTrade)
+                {
+                <hr class="my-3" />
+                <!-- Plumbing -->
+                <h6 class="text-muted mb-2"><i class="bi bi-droplet me-1"></i>Plumbing</h6>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Pipe Material</label>
+                        <select class="form-select" @bind="_pipeMaterialValue" @bind:after="OnPipeMaterialChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _pipeMaterialOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Fixture Type</label>
+                        <select class="form-select" @bind="_fixtureTypeValue" @bind:after="OnFixtureTypeChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _fixtureTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Capacity (gal)</label>
+                        <InputNumber @bind-Value="form.GallonCapacity" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Flow Rate (GPM)</label>
+                        <InputNumber @bind-Value="form.FlowRateGPM" class="form-control" />
+                    </div>
+                </div>
+                }
+
+                @if (IsElectricalTrade)
+                {
+                <hr class="my-3" />
+                <!-- Electrical -->
+                <h6 class="text-muted mb-2"><i class="bi bi-lightning-charge me-1"></i>Electrical</h6>
+                <div class="row g-2">
+                    <div class="col-md-3">
+                        <label class="form-label">Panel Type</label>
+                        <select class="form-select" @bind="_panelTypeValue" @bind:after="OnPanelTypeChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _panelTypeOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Amp Rating</label>
+                        <InputNumber @bind-Value="form.AmpRating" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Circuit Count</label>
+                        <InputNumber @bind-Value="form.CircuitCount" class="form-control" />
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Voltage</label>
+                        <select class="form-select" @bind="_voltageValue" @bind:after="OnVoltageChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _voltageOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Phase Type</label>
+                        <select class="form-select" @bind="_phaseValue" @bind:after="OnPhaseChanged">
+                            <option value="">— Select —</option>
+                            @foreach (var o in _phaseOptions) { <option value="@o">@o</option> }
+                        </select>
+                    </div>
+                </div>
+                }
+
+                @if (IsHvacTrade)
+                {
                 <hr class="my-3" />
                 <!-- Filter Information -->
                 <h6 class="text-muted mb-2"><i class="bi bi-funnel me-1"></i>Filter Information</h6>
@@ -253,7 +342,10 @@
                         <InputDate @bind-Value="form.FilterNextDue" class="form-control" />
                     </div>
                 </div>
+                }
 
+                @if (IsHvacTrade)
+                {
                 <hr class="my-3" />
                 <!-- Thermostat -->
                 <h6 class="text-muted mb-2"><i class="bi bi-thermometer me-1"></i>Thermostat</h6>
@@ -280,6 +372,7 @@
                         </div>
                     </div>
                 </div>
+                }
 
                 <hr class="my-3" />
                 <!-- Installation & Warranty -->
@@ -457,6 +550,10 @@ else if (mode == "detail" && detail is not null)
         <button class="btn btn-outline-secondary btn-sm me-2" @onclick="GoToNextAsset" disabled="@(GetAdjacentAssetId(1) is null)" title="Next"><i class="bi bi-chevron-right"></i></button>
         <h4 class="mb-0"><i class="bi bi-cpu-fill me-2"></i>@detail.Name</h4>
         <span class="badge ms-2 @GetAssetBadge(detail.Status)">@detail.Status</span>
+        @if (!string.IsNullOrEmpty(detail.TradeType))
+        {
+            <span class="badge bg-info text-dark ms-1"><i class="bi bi-tools me-1"></i>@detail.TradeType</span>
+        }
         @{ var warrantyState = GetWarrantyState(detail); }
         @if (detail.NoWarranty)
         {
@@ -478,7 +575,10 @@ else if (mode == "detail" && detail is not null)
             <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg me-1"></i>Actions</button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><button class="dropdown-item" @onclick="EditDetail"><i class="bi bi-pencil me-2"></i>Edit Asset</button></li>
-                <li><a class="dropdown-item" href="jobs/new?assetId=@detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                <li><a class="dropdown-item" href="@NewJobFromAssetUrl()"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li><button class="dropdown-item" @onclick="ShowQrCode"><i class="bi bi-qr-code me-2"></i>View QR Code</button></li>
+                <li><button class="dropdown-item" @onclick="DownloadQrCode"><i class="bi bi-download me-2"></i>Download QR Code</button></li>
                 <li><hr class="dropdown-divider" /></li>
                 @if (!_confirmArchive)
                 {
@@ -589,14 +689,34 @@ else if (mode == "detail" && detail is not null)
             }
 
             <!-- Plumbing Specs -->
-            @if (detail.PipeMaterial is not null || detail.GallonCapacity.HasValue)
+            @if (detail.PipeMaterial is not null || detail.GallonCapacity.HasValue || detail.FlowRateGPM.HasValue || detail.FixtureType is not null)
             {
                 <div class="card border-0 shadow-sm mb-3">
                     <div class="card-body">
                         <h6 class="text-muted mb-2"><i class="bi bi-droplet me-1"></i>Plumbing</h6>
                         <div class="row g-2">
-                            @if (detail.PipeMaterial is not null) { <div class="col-sm-6"><strong>Pipe Material:</strong> @detail.PipeMaterial</div> }
-                            @if (detail.GallonCapacity.HasValue) { <div class="col-sm-6"><strong>Capacity:</strong> @detail.GallonCapacity gal</div> }
+                            @if (detail.PipeMaterial is not null) { <div class="col-sm-3"><strong>Pipe Material:</strong> @detail.PipeMaterial</div> }
+                            @if (detail.FixtureType is not null) { <div class="col-sm-3"><strong>Fixture Type:</strong> @detail.FixtureType</div> }
+                            @if (detail.GallonCapacity.HasValue) { <div class="col-sm-3"><strong>Capacity:</strong> @detail.GallonCapacity gal</div> }
+                            @if (detail.FlowRateGPM.HasValue) { <div class="col-sm-3"><strong>Flow Rate:</strong> @detail.FlowRateGPM GPM</div> }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Electrical Specs -->
+            @if (detail.AmpRating.HasValue || detail.PanelType is not null || detail.CircuitCount.HasValue
+                || (detail.TradeType == "Electrical" && (detail.Voltage is not null || detail.Phase is not null)))
+            {
+                <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-2"><i class="bi bi-lightning-charge me-1"></i>Electrical</h6>
+                        <div class="row g-2">
+                            @if (detail.PanelType is not null) { <div class="col-sm-3"><strong>Panel Type:</strong> @detail.PanelType</div> }
+                            @if (detail.AmpRating.HasValue) { <div class="col-sm-3"><strong>Amp Rating:</strong> @detail.AmpRating A</div> }
+                            @if (detail.CircuitCount.HasValue) { <div class="col-sm-3"><strong>Circuits:</strong> @detail.CircuitCount</div> }
+                            @if (detail.Voltage is not null) { <div class="col-sm-3"><strong>Voltage:</strong> @detail.Voltage</div> }
+                            @if (detail.Phase is not null) { <div class="col-sm-3"><strong>Phase:</strong> @detail.Phase</div> }
                         </div>
                     </div>
                 </div>
@@ -967,6 +1087,7 @@ else
                     @if (!_confirmBulkDelete) { <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button> }
                     else { <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button> <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button> }
                 }
+                <button class="btn btn-info btn-sm text-white" @onclick="BulkExportQrLabels"><i class="bi bi-qr-code me-1"></i>QR Labels</button>
                 <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
             </div>
         </div>
@@ -1036,6 +1157,34 @@ else
     }
 }
 
+@* ---- QR Code Modal ---- *@
+@if (_showQrModal && detail is not null)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5)">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header py-2">
+                    <h6 class="modal-title"><i class="bi bi-qr-code me-2"></i>QR Code</h6>
+                    <button type="button" class="btn-close" @onclick="() => _showQrModal = false"></button>
+                </div>
+                <div class="modal-body text-center">
+                    @if (_qrPngBase64 is not null)
+                    {
+                        <img src="data:image/png;base64,@_qrPngBase64" alt="QR Code" class="img-fluid mb-2" style="max-width:200px" />
+                        <div class="fw-semibold">@detail.Name</div>
+                        @if (!string.IsNullOrEmpty(detail.SerialNumber)) { <div class="text-muted small">SN: @detail.SerialNumber</div> }
+                        <div class="text-muted small">/assets/@detail.Id</div>
+                    }
+                </div>
+                <div class="modal-footer py-1">
+                    <button class="btn btn-primary btn-sm" @onclick="DownloadQrCode"><i class="bi bi-download me-1"></i>Download PNG</button>
+                    <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showQrModal = false">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 @code {
 [Parameter] public int? Id { get; set; }
 
@@ -1093,6 +1242,10 @@ private List<string> _filterSizeOptions = [];
 private List<string> _filterTypeOptions = [];
 private List<string> _thermostatTypeOptions = [];
 private List<string> _locationOptions = [];
+private List<string> _tradeTypeOptions = [];
+private List<string> _pipeMaterialOptions = [];
+private List<string> _fixtureTypeOptions = [];
+private List<string> _panelTypeOptions = [];
 
 // Bound select values for dropdown ? form sync
 private string _brandValue = "";
@@ -1107,6 +1260,15 @@ private string _filterTypeValue = "";
 private string _thermostatTypeValue = "";
 private string _locationValue = "";
 private string _tonnageValue = "";
+private string _tradeTypeValue = "";
+private string _pipeMaterialValue = "";
+private string _fixtureTypeValue = "";
+private string _panelTypeValue = "";
+
+// Trade-aware computed helpers
+private bool IsHvacTrade => string.IsNullOrEmpty(_tradeTypeValue) || _tradeTypeValue == "HVAC" || _tradeTypeValue == "General";
+private bool IsPlumbingTrade => _tradeTypeValue == "Plumbing" || _tradeTypeValue == "General";
+private bool IsElectricalTrade => _tradeTypeValue == "Electrical" || _tradeTypeValue == "General";
 
 // Computed warranty expiries for live display in form
 private DateTime? _laborExpiry;
@@ -1189,6 +1351,10 @@ private async Task LoadDropdownOptions()
     _filterTypeOptions = (await DropdownSvc.GetOptionsAsync("FilterType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
     _thermostatTypeOptions = (await DropdownSvc.GetOptionsAsync("ThermostatType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
     _locationOptions = (await DropdownSvc.GetOptionsAsync("AssetLocation")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _tradeTypeOptions = (await DropdownSvc.GetOptionsAsync("TradeType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _pipeMaterialOptions = (await DropdownSvc.GetOptionsAsync("PipeMaterial")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _fixtureTypeOptions = (await DropdownSvc.GetOptionsAsync("FixtureType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
+    _panelTypeOptions = (await DropdownSvc.GetOptionsAsync("PanelType")).Where(o => o.IsActive).Select(o => o.Value).ToList();
 }
 
 private void SyncDropdownSelects()
@@ -1204,6 +1370,10 @@ private void SyncDropdownSelects()
     _filterTypeValue = form.FilterType ?? "";
     _thermostatTypeValue = form.ThermostatType ?? "";
     _locationValue = form.LocationOnSite ?? "";
+    _tradeTypeValue = form.TradeType ?? "";
+    _pipeMaterialValue = form.PipeMaterial ?? "";
+    _fixtureTypeValue = form.FixtureType ?? "";
+    _panelTypeValue = form.PanelType ?? "";
     // Sync tonnage dropdown
     if (form.Tonnage.HasValue)
     {
@@ -1260,6 +1430,10 @@ private void OnFilterSizeChanged() => form.FilterSize = string.IsNullOrEmpty(_fi
 private void OnFilterTypeChanged() => form.FilterType = string.IsNullOrEmpty(_filterTypeValue) ? null : _filterTypeValue;
 private void OnThermostatTypeChanged() => form.ThermostatType = string.IsNullOrEmpty(_thermostatTypeValue) ? null : _thermostatTypeValue;
 private void OnLocationChanged() => form.LocationOnSite = string.IsNullOrEmpty(_locationValue) ? null : _locationValue;
+private void OnTradeTypeChanged() => form.TradeType = string.IsNullOrEmpty(_tradeTypeValue) ? null : _tradeTypeValue;
+private void OnPipeMaterialChanged() => form.PipeMaterial = string.IsNullOrEmpty(_pipeMaterialValue) ? null : _pipeMaterialValue;
+private void OnFixtureTypeChanged() => form.FixtureType = string.IsNullOrEmpty(_fixtureTypeValue) ? null : _fixtureTypeValue;
+private void OnPanelTypeChanged() => form.PanelType = string.IsNullOrEmpty(_panelTypeValue) ? null : _panelTypeValue;
 
 private async Task OnAssetCustomerChanged()
 {
@@ -1419,6 +1593,16 @@ private async Task UnlinkAsset(int linkedAssetId)
     await LoadDetail(detail.Id);
 }
 
+private string NewJobFromAssetUrl()
+{
+    var url = $"jobs/new?assetId={detail?.Id}";
+    if (detail?.CustomerId.HasValue == true)
+        url += $"&customerId={detail.CustomerId}";
+    if (detail?.SiteId.HasValue == true)
+        url += $"&siteId={detail.SiteId}";
+    return url;
+}
+
 public void Dispose()
 {
     Nav.LocationChanged -= OnLocationChanged;
@@ -1454,6 +1638,8 @@ private async Task LoadForEdit(int id)
         LocationOnSite = d.LocationOnSite,
         AmpRating = d.AmpRating, PanelType = d.PanelType,
         PipeMaterial = d.PipeMaterial, GallonCapacity = d.GallonCapacity,
+        FlowRateGPM = d.FlowRateGPM, FixtureType = d.FixtureType,
+        CircuitCount = d.CircuitCount, TradeType = d.TradeType,
         RefrigerantType = d.RefrigerantType, RefrigerantQuantity = d.RefrigerantQuantity,
         FilterType = d.FilterType, FilterChangeIntervalMonths = d.FilterChangeIntervalMonths,
         FilterLastChanged = d.FilterLastChanged, FilterNextDue = d.FilterNextDue,
@@ -1612,4 +1798,46 @@ private async Task LoadForEdit(int id)
     private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await AssetSvc.BulkArchiveAssetsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} asset(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadAssets(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
     private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await AssetSvc.BulkRestoreAssetsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} asset(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadAssets(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
     private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await AssetSvc.BulkDeleteAssetsPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} asset(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadAssets(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+
+    // ---- QR Code ----
+    private bool _showQrModal;
+    private string? _qrPngBase64;
+
+    private void ShowQrCode()
+    {
+        if (detail is null) return;
+        var png = QrSvc.GenerateAssetQrPng(detail.Id, detail.Name, detail.SerialNumber);
+        _qrPngBase64 = Convert.ToBase64String(png);
+        _showQrModal = true;
+    }
+
+    private async Task DownloadQrCode()
+    {
+        if (detail is null) return;
+        var png = QrSvc.GenerateAssetQrPng(detail.Id, detail.Name, detail.SerialNumber, 20);
+        var base64 = Convert.ToBase64String(png);
+        var fileName = $"QR_{detail.Name.Replace(" ", "_")}_{detail.Id}.png";
+        await JS.InvokeVoidAsync("eval",
+            $"(() => {{ var a=document.createElement('a'); a.href='data:image/png;base64,{base64}'; a.download='{fileName}'; document.body.appendChild(a); a.click(); a.remove(); }})()");
+    }
+
+    private async Task BulkExportQrLabels()
+    {
+        if (_selectedIds.Count == 0 || assets is null) return;
+        var selectedAssets = assets.Where(a => _selectedIds.Contains(a.Id)).ToList();
+        var labels = selectedAssets.Select(a => new QrLabelInfo
+        {
+            AssetId = a.Id,
+            Name = a.Name,
+            SerialNumber = a.SerialNumber,
+            AssetType = a.AssetType,
+            SiteName = a.SiteName,
+            CustomerName = a.CustomerName,
+        }).ToList();
+
+        var html = QrSvc.GenerateQrLabelSheetHtml(labels);
+        var base64 = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(html));
+        await JS.InvokeVoidAsync("eval",
+            $"(() => {{ var w=window.open(); w.document.write(atob('{base64}')); w.document.close(); }})()");
+    }
 }

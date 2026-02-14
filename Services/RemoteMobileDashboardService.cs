@@ -42,6 +42,11 @@ public class RemoteMobileDashboardService : IMobileDashboardService
                 ExpiringAgreementCount = response.ExpiringAgreementCount,
                 MaintenanceDueCount = response.MaintenanceDueCount,
                 WarrantyAlertCount = response.WarrantyAlertCount,
+                ActiveJobClockCount = response.ActiveJobClockCount,
+                ActiveJobName = response.ActiveJobName,
+                JobHoursToday = response.JobHoursToday,
+                DraftEstimateCount = response.DraftEstimateCount,
+                PendingInvoiceCount = response.PendingInvoiceCount,
                 TodayJobs = response.TodayJobs?.Select(j => new MobileJobCard
                 {
                     Id = j.Id, JobNumber = j.JobNumber, Title = j.Title,
@@ -93,6 +98,11 @@ public class RemoteMobileDashboardService : IMobileDashboardService
         public int ExpiringAgreementCount { get; set; }
         public int MaintenanceDueCount { get; set; }
         public int WarrantyAlertCount { get; set; }
+        public int ActiveJobClockCount { get; set; }
+        public string? ActiveJobName { get; set; }
+        public decimal JobHoursToday { get; set; }
+        public int DraftEstimateCount { get; set; }
+        public int PendingInvoiceCount { get; set; }
         public List<RemoteJobCardDto>? TodayJobs { get; set; }
         public List<RemoteJobCardDto>? UpcomingJobs { get; set; }
         public List<RemoteActivityDto>? RecentActivity { get; set; }

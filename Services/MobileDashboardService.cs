@@ -53,17 +53,34 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
                 && n.IsUrgent);
 
         var timeEntries = await db.TimeEntries
+            .Include(t => t.Job)
             .Where(t => t.EmployeeId == employeeId && t.StartTime >= weekStart)
             .ToListAsync();
 
-        var hoursToday = timeEntries
+        var shiftEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.Shift).ToList();
+        var jobClockEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.JobClock).ToList();
+
+        var hoursToday = shiftEntries
             .Where(t => t.StartTime.Date == today)
             .Sum(t => t.Hours);
 
-        var hoursThisWeek = timeEntries.Sum(t => t.Hours);
+        var hoursThisWeek = shiftEntries.Sum(t => t.Hours);
+
+        var jobHoursToday = jobClockEntries
+            .Where(t => t.StartTime.Date == today)
+            .Sum(t => t.Hours);
 
         var activeClock = await db.TimeEntries
-            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EndTime == null);
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Shift
+                && t.EndTime == null);
+
+        var activeJobClocks = await db.TimeEntries
+            .Include(t => t.Job)
+            .Where(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.JobClock
+                && t.EndTime == null)
+            .ToListAsync();
 
         var completedThisWeek = await db.Jobs
             .CountAsync(j => j.AssignedEmployeeId == employeeId
@@ -144,6 +161,13 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
                     || (a.PartsWarrantyExpiry.HasValue && a.PartsWarrantyExpiry.Value >= today.AddDays(-30) && a.PartsWarrantyExpiry.Value <= today.AddDays(90))
                     || (a.CompressorWarrantyExpiry.HasValue && a.CompressorWarrantyExpiry.Value >= today.AddDays(-30) && a.CompressorWarrantyExpiry.Value <= today.AddDays(90))));
 
+        var draftEstimateCount = await db.Estimates
+            .CountAsync(e => !e.IsArchived && e.Status == EstimateStatus.Draft);
+
+        var pendingInvoiceCount = await db.Invoices
+            .CountAsync(i => !i.IsArchived
+                && (i.Status == InvoiceStatus.Sent || i.Status == InvoiceStatus.Invoiced || i.Status == InvoiceStatus.Overdue));
+
         return new MobileDashboardData
         {
             TodayJobCount = todayJobs.Count,
@@ -160,6 +184,12 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
             ExpiringAgreementCount = expiringAgreementCount,
             MaintenanceDueCount = maintenanceDueCount,
             WarrantyAlertCount = warrantyAlertCount,
+            DraftEstimateCount = draftEstimateCount,
+            PendingInvoiceCount = pendingInvoiceCount,
+            ActiveJobClockCount = activeJobClocks.Count,
+            ActiveJobName = activeJobClocks.FirstOrDefault()?.Job?.Title
+                ?? activeJobClocks.FirstOrDefault()?.Job?.JobNumber,
+            JobHoursToday = jobHoursToday,
             TodayJobs = todayJobs,
             UpcomingJobs = upcomingJobs,
             RecentActivity = recentActivity,

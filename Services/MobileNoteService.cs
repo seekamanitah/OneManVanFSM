@@ -53,6 +53,19 @@ public class MobileNoteService(AppDbContext db) : IMobileNoteService
         return note;
     }
 
+    public async Task<bool> UpdateNoteAsync(int id, MobileNoteUpdate model)
+    {
+        var note = await db.QuickNotes.FindAsync(id);
+        if (note is null) return false;
+        note.Title = model.Title;
+        note.Text = model.Text;
+        note.Category = model.Category;
+        note.IsUrgent = model.IsUrgent;
+        note.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> DeleteNoteAsync(int id)
     {
         var note = await db.QuickNotes.FindAsync(id);

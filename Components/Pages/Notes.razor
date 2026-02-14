@@ -105,22 +105,67 @@ else if (FilteredNotes.Any())
                     }
                     <span class="card-title">@(note.Title ?? "Quick Note")</span>
                 </div>
-                <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;" @onclick="() => DeleteNote(note.Id)">
-                    <i class="bi bi-trash3"></i>
-                </button>
+                <div class="d-flex gap-1">
+                    <button class="btn btn-sm btn-outline-primary" style="min-height:32px; padding:2px 8px;" @onclick="() => StartEdit(note)">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-danger" style="min-height:32px; padding:2px 8px;" @onclick="() => DeleteNote(note.Id)">
+                        <i class="bi bi-trash3"></i>
+                    </button>
+                </div>
             </div>
-            <p class="mb-1" style="font-size:0.85rem; white-space:pre-wrap;">@note.Text</p>
-            <div class="d-flex justify-content-between align-items-center">
-                @if (note.Category != null)
-                {
-                    <span class="badge bg-light text-dark" style="font-size:0.7rem;">@note.Category</span>
-                }
-                else
-                {
-                    <span></span>
-                }
-                <span class="text-muted" style="font-size:0.7rem;">@note.CreatedAt.ToString("MMM dd, h:mm tt")</span>
-            </div>
+
+            @if (_editingNoteId == note.Id)
+            {
+                <!-- Inline Edit Form -->
+                <div style="padding:0.5rem 0;">
+                    <div class="mb-1">
+                        <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Title (optional)" @bind="_editNote.Title" />
+                    </div>
+                    <div class="mb-1">
+                        <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Note text\u2026" @bind="_editNote.Text"></textarea>
+                    </div>
+                    <div class="mb-1">
+                        <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_editNote.Category">
+                            <option value="">Category</option>
+                            <option value="Repair">Repair</option>
+                            <option value="Inspection">Inspection</option>
+                            <option value="Follow-Up">Follow-Up</option>
+                            <option value="Safety">Safety</option>
+                            <option value="General">General</option>
+                        </select>
+                    </div>
+                    <div class="form-check mb-1">
+                        <input class="form-check-input" type="checkbox" id="editUrgentCheck" @bind="_editNote.IsUrgent" />
+                        <label class="form-check-label" for="editUrgentCheck" style="font-size:0.8rem;">Mark as Urgent</label>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveEdit" disabled="@string.IsNullOrWhiteSpace(_editNote.Text)">
+                            <i class="bi bi-check-lg me-1"></i>Update
+                        </button>
+                        <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="CancelEdit">Cancel</button>
+                    </div>
+                    @if (_editError != null)
+                    {
+                        <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_editError</div>
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="mb-1" style="font-size:0.85rem; white-space:pre-wrap;">@note.Text</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    @if (note.Category != null)
+                    {
+                        <span class="badge bg-light text-dark" style="font-size:0.7rem;">@note.Category</span>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                    <span class="text-muted" style="font-size:0.7rem;">@note.CreatedAt.ToString("MMM dd, h:mm tt")</span>
+                </div>
+            }
         </div>
     }
 }
@@ -143,14 +188,19 @@ else if (!_showCreate)
 [SupplyParameterFromQuery] public int? JobId { get; set; }
 
 private int _employeeId;
-private List<MobileNoteItem> _notes = [];
-private bool _loading = true;
-private bool _showCreate;
-private MobileNoteCreate _newNote = new();
-private string? _saveError;
-private string _categoryFilter = "All";
-private string _search = string.Empty;
-private readonly string[] _categories = ["All", "Repair", "Safety", "Follow-Up", "Inspection", "General"];
+    private List<MobileNoteItem> _notes = [];
+    private bool _loading = true;
+    private bool _showCreate;
+    private MobileNoteCreate _newNote = new();
+    private string? _saveError;
+    private string _categoryFilter = "All";
+    private string _search = string.Empty;
+    private readonly string[] _categories = ["All", "Repair", "Safety", "Follow-Up", "Inspection", "General"];
+
+    // Edit state
+    private int? _editingNoteId;
+    private MobileNoteUpdate _editNote = new();
+    private string? _editError;
 
 private IEnumerable<MobileNoteItem> FilteredNotes
 {
@@ -230,6 +280,46 @@ private void ShowCreate()
     private async Task DeleteNote(int id)
     {
         await NoteService.DeleteNoteAsync(id);
+        await LoadNotes();
+    }
+
+    private void StartEdit(MobileNoteItem note)
+    {
+        _editingNoteId = note.Id;
+        _editNote = new MobileNoteUpdate
+        {
+            Title = note.Title,
+            Text = note.Text,
+            Category = note.Category,
+            IsUrgent = note.IsUrgent
+        };
+        _editError = null;
+    }
+
+    private void CancelEdit()
+    {
+        _editingNoteId = null;
+        _editError = null;
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_editingNoteId is not int id) return;
+        if (string.IsNullOrWhiteSpace(_editNote.Text))
+        {
+            _editError = "Note text is required.";
+            return;
+        }
+
+        var ok = await NoteService.UpdateNoteAsync(id, _editNote);
+        if (!ok)
+        {
+            _editError = "Failed to update note.";
+            return;
+        }
+
+        _editingNoteId = null;
+        _editError = null;
         await LoadNotes();
     }
 }

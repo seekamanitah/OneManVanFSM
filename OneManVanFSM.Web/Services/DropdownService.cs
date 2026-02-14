@@ -131,7 +131,7 @@ public class DropdownService : IDropdownService
     private static readonly Dictionary<string, string[]> DefaultCategories = new()
     {
         ["SystemType"] = ["Split System", "Package Unit", "Mini-Split", "Ductless", "Geothermal", "Heat Pump", "Furnace", "Boiler", "RTU", "Trunk Duct"],
-        ["EquipmentCategory"] = ["AC Unit", "Furnace", "Heat Pump", "Ductless Mini-Split", "RTU", "Boiler", "Air Handler", "Thermostat"],
+        ["EquipmentCategory"] = ["AC Unit", "Furnace", "Heat Pump", "Ductless Mini-Split", "RTU", "Boiler", "Air Handler", "Thermostat", "Water Heater", "Tankless Water Heater", "Sump Pump", "Water Softener", "Backflow Preventer", "Garbage Disposal", "Electrical Panel", "Sub-Panel", "Generator", "EV Charger", "Transfer Switch"],
         ["ExpenseCategory"] = ["Parts", "Materials", "Tools", "Fuel", "Subcontractor", "Permits", "Misc"],
         ["ExpenseLineType"] = ["Material", "Equipment", "Fuel", "Disposal", "Permit", "Subcontractor", "Fee", "Other"],
         ["ProductCategory"] = ["Ductwork", "Refrigerant", "Controls", "Filters", "Parts", "Equipment", "Tools", "Misc"],
@@ -141,7 +141,7 @@ public class DropdownService : IDropdownService
         ["UnitConfiguration"] = ["Split System", "Packaged Unit", "Furnace", "Air Handler", "Condenser", "Mini-Split", "Ductless", "Heat Pump", "Coil", "Boiler"],
         ["TradeType"] = ["HVAC", "Plumbing", "Electrical", "General"],
         ["MaterialListSection"] = ["General", "Ductwork", "Flex Duct", "Take Offs", "Boots", "Returns", "Trunk Line", "Hard Pipe", "Grills/Registers", "Sealing & Taping", "Support & Hangers", "Insulation", "Fittings", "Equipment", "Accessories", "Disposal", "Permits", "Misc", "Labor"],
-        ["JobType"] = ["Service Call", "Inspection", "Repair", "Emergency", "New Install", "Changeout", "Ductwork", "Startup", "Estimate", "Maintenance", "Diagnostic", "Tune-Up", "Replacement", "Retrofit"],
+        ["JobType"] = ["Service Call", "Inspection", "Repair", "Emergency", "New Install", "Changeout", "Ductwork", "Startup", "Estimate", "Maintenance", "Diagnostic", "Tune-Up", "Replacement", "Retrofit", "Drain Cleaning", "Leak Repair", "Re-Pipe", "Fixture Install", "Water Heater Replacement", "Backflow Testing", "Sewer Line", "Gas Line", "Panel Upgrade", "Circuit Install", "Troubleshooting", "EV Charger Install", "Generator Install", "Lighting", "Outlet/Switch", "Rewire"],
         ["TimeCategory"] = ["Travel", "On-Site", "Diagnostic", "Admin", "Break", "Training"],
         ["HeatingFuelSource"] = ["Natural Gas", "Propane", "Electric", "Oil", "Geothermal", "Solar"],
         ["FilterSize"] = ["14x20x1", "14x25x1", "16x20x1", "16x25x1", "20x20x1", "20x25x1", "16x25x4", "20x20x4", "20x25x4", "Custom"],
@@ -184,5 +184,6 @@ public class DropdownService : IDropdownService
         ["ServiceHistoryIssueType"] = ["Leak", "Defect", "Vibration", "Noise", "Electrical", "Compressor", "Refrigerant", "Thermostat", "Ductwork", "Other"],
         ["DocumentCategory"] = ["Contract", "Warranty", "Receipt", "Manual", "Photo", "Report", "Permit", "License", "Insurance", "Other"],
         ["DocumentAccessLevel"] = ["Private", "Internal", "Shared"],
+        ["FixtureType"] = ["Faucet", "Toilet", "Water Heater", "Tankless Water Heater", "Sink", "Shower", "Bathtub", "Garbage Disposal", "Sump Pump", "Water Softener", "Backflow Preventer", "Hose Bib", "Sewer Cleanout"],
     };
 }

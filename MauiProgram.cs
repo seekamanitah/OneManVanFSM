@@ -77,21 +77,24 @@ namespace OneManVanFSM
 
                 // Read-only / local-cache services (populated by SyncService)
                 builder.Services.AddScoped<IMobileCalendarService, MobileCalendarService>();
-                builder.Services.AddScoped<IMobileNoteService, MobileNoteService>();
+                builder.Services.AddScoped<IMobileNoteService, RemoteMobileNoteService>();
                 builder.Services.AddScoped<IMobileDocumentService, MobileDocumentService>();
                 builder.Services.AddScoped<IMobileAssetService, MobileAssetService>();
                 builder.Services.AddScoped<IMobileSearchService, MobileSearchService>();
-                builder.Services.AddScoped<IMobileInventoryService, MobileInventoryService>();
-                builder.Services.AddScoped<IMobileEstimateService, MobileEstimateService>();
-                builder.Services.AddScoped<IMobileReportService, MobileReportService>();
+                builder.Services.AddScoped<IMobileInventoryService, RemoteMobileInventoryService>();
+                builder.Services.AddScoped<IMobileEstimateService, RemoteMobileEstimateService>();
+                builder.Services.AddScoped<IMobileReportService, RemoteMobileReportService>();
                 builder.Services.AddScoped<IMobileServiceAgreementService, MobileServiceAgreementService>();
                 builder.Services.AddScoped<IMobileSiteService, MobileSiteService>();
                 builder.Services.AddScoped<IMobileCompanyService, MobileCompanyService>();
                 builder.Services.AddScoped<IMobileProductService, MobileProductService>();
-                builder.Services.AddScoped<IMobileExpenseService, MobileExpenseService>();
+                builder.Services.AddScoped<IMobileExpenseService, RemoteMobileExpenseService>();
                 builder.Services.AddScoped<IMobileInvoiceService, MobileInvoiceService>();
+                builder.Services.AddScoped<IMobilePdfService, MobilePdfService>();
+                builder.Services.AddScoped<IMobileQrCodeService, MobileQrCodeService>();
+                builder.Services.AddScoped<IMobilePhotoService, MobilePhotoService>();
 
-                System.Diagnostics.Debug.WriteLine("[DI] Remote mode — registered API-backed services.");
+                System.Diagnostics.Debug.WriteLine("[DI] Remote mode \u2014 registered API-backed services.");
             }
             else
             {
@@ -115,8 +118,11 @@ namespace OneManVanFSM
                 builder.Services.AddScoped<IMobileProductService, MobileProductService>();
                 builder.Services.AddScoped<IMobileExpenseService, MobileExpenseService>();
                 builder.Services.AddScoped<IMobileInvoiceService, MobileInvoiceService>();
+                builder.Services.AddScoped<IMobilePdfService, MobilePdfService>();
+                builder.Services.AddScoped<IMobileQrCodeService, MobileQrCodeService>();
+                builder.Services.AddScoped<IMobilePhotoService, MobilePhotoService>();
 
-                System.Diagnostics.Debug.WriteLine("[DI] Local mode — registered direct-DB services.");
+                System.Diagnostics.Debug.WriteLine("[DI] Local mode \u2014 registered direct-DB services.");
             }
 
 #if DEBUG

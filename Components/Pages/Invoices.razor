@@ -3,6 +3,8 @@
 @inject IMobileCustomerService CustomerService
 @inject IMobileJobService JobService
 @inject IMobileSiteService SiteService
+@inject IMobileAuthService AuthService
+@inject IMobilePdfService PdfService
 @inject NavigationManager Nav
 
 @if (_loading)
@@ -131,7 +133,7 @@ else if (_mode == "detail" && _detail != null)
                         <div style="font-size:0.8rem; font-weight:500;">@l.Description</div>
                         <div style="font-size:0.7rem;" class="text-muted">
                             @l.Quantity x @l.UnitPrice.ToString("C")
-                            @if (!string.IsNullOrWhiteSpace(l.LineType)) { <span>· @l.LineType</span> }
+                            @if (!string.IsNullOrWhiteSpace(l.LineType)) { <span>ï¿½ @l.LineType</span> }
                         </div>
                     </div>
                     <span style="font-size:0.8rem; font-weight:600;">@l.LineTotal.ToString("C")</span>
@@ -154,7 +156,7 @@ else if (_mode == "detail" && _detail != null)
                         <div style="font-size:0.8rem; font-weight:500;">@p.PaymentDate.ToString("MMM dd, yyyy")</div>
                         <div style="font-size:0.7rem;" class="text-muted">
                             @p.Method
-                            @if (!string.IsNullOrWhiteSpace(p.Reference)) { <span>· Ref: @p.Reference</span> }
+                            @if (!string.IsNullOrWhiteSpace(p.Reference)) { <span>ï¿½ Ref: @p.Reference</span> }
                         </div>
                     </div>
                     <span style="font-size:0.85rem; font-weight:600; color:#198754;">@p.Amount.ToString("C")</span>
@@ -178,44 +180,217 @@ else if (_mode == "detail" && _detail != null)
         </div>
     }
 
-    <div class="text-muted text-center" style="font-size:0.65rem;">Created @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt") · Updated @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
+    <!-- Status Actions -->
+    @if (_isElevatedRole)
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Actions</div>
+            @if (!string.IsNullOrEmpty(_statusMessage))
+            {
+                <div class="alert @(_statusSuccess ? "alert-success" : "alert-danger") py-1 mb-2" style="font-size:0.8rem; border-radius:8px;">
+                    <i class="bi @(_statusSuccess ? "bi-check-circle-fill" : "bi-x-circle-fill") me-1"></i>@_statusMessage
+                </div>
+            }
+            <div class="d-flex flex-wrap gap-2">
+                @if (_detail.Status == InvoiceStatus.Draft)
+                {
+                    <button class="btn btn-outline-primary flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                            @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Sent)">
+                        <i class="bi bi-send me-1"></i>Mark as Sent
+                    </button>
+                }
+                @if (_detail.Status == InvoiceStatus.Draft || _detail.Status == InvoiceStatus.Sent)
+                {
+                    <button class="btn btn-primary flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                            @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Invoiced)">
+                        @if (_updatingStatus) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                        <i class="bi bi-receipt me-1"></i>Invoice
+                    </button>
+                }
+                @if (_detail.Status is InvoiceStatus.Sent or InvoiceStatus.Invoiced or InvoiceStatus.Overdue)
+                {
+                    <button class="btn btn-success flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                            @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Paid)">
+                        <i class="bi bi-check-circle me-1"></i>Mark Paid
+                    </button>
+                }
+                @if (_detail.Status != InvoiceStatus.Void && _detail.Status != InvoiceStatus.Paid)
+                {
+                    <button class="btn btn-outline-danger flex-fill" style="font-size:0.8rem;" disabled="@_updatingStatus"
+                            @onclick="() => ChangeInvoiceStatus(InvoiceStatus.Void)">
+                        <i class="bi bi-x-circle me-1"></i>Void
+                    </button>
+                }
+            </div>
+            <hr class="my-2" />
+            <button class="btn btn-outline-primary w-100" style="font-size:0.8rem;" disabled="@_sharingPdf"
+                    @onclick="ShareInvoicePdf">
+                @if (_sharingPdf) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                <i class="bi bi-file-earmark-pdf me-1"></i>Share as PDF
+            </button>
+        </div>
+    }
+
+    <div class="text-muted text-center" style="font-size:0.65rem;">Created @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt") â€” Updated @_detail.UpdatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
 }
 else
 {
     @if (_showCreate)
     {
         <div class="mobile-card" style="padding:0.75rem;">
-            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-receipt me-1"></i>Quick Draft Invoice</h6>
-            <div class="mb-1">
-                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.CustomerId">
-                    <option value="">Customer *</option>
-                    @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
-                </select>
-            </div>
-            <div class="mb-1">
-                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.JobId">
-                    <option value="">Job (optional)</option>
-                    @foreach (var j in _jobOpts) { <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option> }
-                </select>
-            </div>
-            <div class="mb-1">
-                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.SiteId">
-                    <option value="">Site (optional)</option>
-                    @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
-                </select>
-            </div>
-            <div class="mb-1">
-                <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_newInvoice.Notes"></textarea>
-            </div>
-            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
-                <i class="bi bi-info-circle me-1"></i>Creates a Draft invoice (Net 30). Add line items, tax, and pricing on the web app.
-            </div>
-            <div class="d-flex gap-2 mt-1">
-                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveInvoice" disabled="@(!_newInvoice.CustomerId.HasValue)">
-                    <i class="bi bi-check-lg me-1"></i>Create Draft
-                </button>
-                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
-            </div>
+            @if (_isElevatedRole)
+            {
+                <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-receipt me-1"></i>New Invoice</h6>
+                <div class="mb-1">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullInvoice.CustomerId">
+                        <option value="">Customer *</option>
+                        @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullInvoice.JobId">
+                        <option value="">Job (optional)</option>
+                        @foreach (var j in _jobOpts) { <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option> }
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullInvoice.SiteId">
+                        <option value="">Site (optional)</option>
+                        @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                    </select>
+                </div>
+                <div class="row g-1 mb-1">
+                    <div class="col-6">
+                        <label style="font-size:0.75rem;" class="text-muted">Due Date</label>
+                        <input type="date" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullInvoice.DueDate" />
+                    </div>
+                    <div class="col-6">
+                        <label style="font-size:0.75rem;" class="text-muted">Payment Terms</label>
+                        <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullInvoice.PaymentTerms">
+                            <option value="Due on Receipt">Due on Receipt</option>
+                            <option value="Net 15">Net 15</option>
+                            <option value="Net 30">Net 30</option>
+                            <option value="Net 45">Net 45</option>
+                            <option value="Net 60">Net 60</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Line Items -->
+                <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
+                    <span style="font-size:0.8rem; font-weight:600;">Line Items (@_fullInvoice.Lines.Count)</span>
+                    <button class="btn btn-sm btn-outline-primary" style="font-size:0.7rem; padding:2px 8px;" @onclick="AddInvoiceLine">
+                        <i class="bi bi-plus me-1"></i>Add
+                    </button>
+                </div>
+                @for (var idx = 0; idx < _fullInvoice.Lines.Count; idx++)
+                {
+                    var i = idx;
+                    var line = _fullInvoice.Lines[i];
+                    <div class="border rounded p-2 mb-1" style="background:#f8f9fa; font-size:0.85rem;">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-semibold" style="font-size:0.75rem;">Item @(i + 1)</span>
+                            <button class="btn btn-sm btn-outline-danger" style="font-size:0.65rem; padding:1px 5px;" @onclick="() => RemoveInvoiceLine(i)">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </div>
+                        <input type="text" class="form-control mb-1" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Description *" @bind="line.Description" />
+                        <div class="row g-1">
+                            <div class="col-4">
+                                <select class="form-select" style="min-height:34px; font-size:0.8rem; padding:4px 6px;" @bind="line.LineType">
+                                    <option value="Labor">Labor</option>
+                                    <option value="Material">Material</option>
+                                    <option value="Equipment">Equipment</option>
+                                    <option value="Fee">Fee</option>
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Qty" @bind="line.Quantity" step="0.5" min="0.1" />
+                            </div>
+                            <div class="col-4">
+                                <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Price" @bind="line.UnitPrice" step="0.01" min="0" />
+                            </div>
+                        </div>
+                        <div class="text-end mt-1" style="font-size:0.75rem; color:var(--primary); font-weight:600;">
+                            = @((line.Quantity * line.UnitPrice).ToString("C"))
+                        </div>
+                    </div>
+                }
+
+                <!-- Pricing -->
+                <div class="row g-1 mb-1 mt-2">
+                    <div class="col-6">
+                        <label style="font-size:0.75rem;" class="text-muted">Tax %</label>
+                        <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" @bind="_fullInvoice.TaxRate" step="0.1" min="0" />
+                    </div>
+                    <div class="col-6">
+                        <label style="font-size:0.75rem;" class="text-muted">Markup %</label>
+                        <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" @bind="_fullInvoice.MarkupPercent" step="1" min="0" />
+                    </div>
+                </div>
+
+                <!-- Calculated Total Preview -->
+                <div class="border rounded p-2 mb-1" style="background:#e8f5e9; font-size:0.8rem;">
+                    <div class="d-flex justify-content-between"><span class="text-muted">Subtotal</span><span>@InvPreviewSubtotal.ToString("C")</span></div>
+                    @if (_fullInvoice.MarkupPercent > 0)
+                    {
+                        <div class="d-flex justify-content-between"><span class="text-muted">Markup (@_fullInvoice.MarkupPercent%)</span><span>@InvPreviewMarkup.ToString("C")</span></div>
+                    }
+                    @if (_fullInvoice.TaxRate > 0)
+                    {
+                        <div class="d-flex justify-content-between"><span class="text-muted">Tax (@_fullInvoice.TaxRate%)</span><span>@InvPreviewTax.ToString("C")</span></div>
+                    }
+                    <hr class="my-1" />
+                    <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@InvPreviewTotal.ToString("C")</span></div>
+                </div>
+
+                <div class="mb-1">
+                    <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_fullInvoice.Notes"></textarea>
+                </div>
+                <div class="mb-1">
+                    <textarea class="form-control" rows="1" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Payment Terms Text (optional)" @bind="_fullInvoice.Terms"></textarea>
+                </div>
+                <div class="d-flex gap-2 mt-1">
+                    <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveInvoice" disabled="@(!_fullInvoice.CustomerId.HasValue)">
+                        <i class="bi bi-check-lg me-1"></i>Create Invoice
+                    </button>
+                    <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+                </div>
+            }
+            else
+            {
+                <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-receipt me-1"></i>Quick Draft Invoice</h6>
+                <div class="mb-1">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.CustomerId">
+                        <option value="">Customer *</option>
+                        @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.JobId">
+                        <option value="">Job (optional)</option>
+                        @foreach (var j in _jobOpts) { <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option> }
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newInvoice.SiteId">
+                        <option value="">Site (optional)</option>
+                        @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                    </select>
+                </div>
+                <div class="mb-1">
+                    <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_newInvoice.Notes"></textarea>
+                </div>
+                <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
+                    <i class="bi bi-info-circle me-1"></i>Creates a Draft invoice (Net 30). Add line items, tax, and pricing on the web app.
+                </div>
+                <div class="d-flex gap-2 mt-1">
+                    <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveInvoice" disabled="@(!_newInvoice.CustomerId.HasValue)">
+                        <i class="bi bi-check-lg me-1"></i>Create Draft
+                    </button>
+                    <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
+                </div>
+            }
             @if (_saveError != null)
             {
                 <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
@@ -283,7 +458,7 @@ else
                         </div>
                         <div style="font-size:0.75rem;" class="text-muted mt-1">
                             @(inv.CustomerName ?? "â€”")
-                            @if (!string.IsNullOrWhiteSpace(inv.JobNumber)) { <span>· @inv.JobNumber</span> }
+                            @if (!string.IsNullOrWhiteSpace(inv.JobNumber)) { <span>ï¿½ @inv.JobNumber</span> }
                         </div>
                         @if (inv.DueDate.HasValue)
                         {
@@ -331,13 +506,22 @@ else
     private MobileInvoiceFilter _filter = new();
     private bool _showCreate;
     private MobileInvoiceQuickCreate _newInvoice = new();
+    private MobileInvoiceFullCreate _fullInvoice = new();
     private List<MobileCustomerCard> _custOpts = [];
     private List<MobileSiteCard> _siteOpts = [];
     private List<MobileJobCard> _jobOpts = [];
     private string? _saveError;
+    private bool _isElevatedRole;
+    private bool _updatingStatus;
+    private string? _statusMessage;
+    private bool _statusSuccess;
+    private bool _sharingPdf;
 
     protected override async Task OnInitializedAsync()
     {
+        var session = await AuthService.GetCurrentUserAsync();
+        _isElevatedRole = session?.Role is "Owner" or "Admin" or "Manager";
+
         await LoadData();
         _loading = false;
     }
@@ -363,6 +547,7 @@ else
     {
         _mode = "list";
         _detail = null;
+        _statusMessage = null;
         await LoadData();
     }
 
@@ -375,6 +560,9 @@ else
     private async Task ShowCreateInvoice()
     {
         _newInvoice = new();
+        _fullInvoice = new();
+        if (_isElevatedRole)
+            _fullInvoice.Lines.Add(new MobileInvoiceLineCreate());
         _saveError = null;
         _custOpts = await CustomerService.GetCustomersAsync();
         _siteOpts = await SiteService.GetSitesAsync();
@@ -384,15 +572,80 @@ else
 
     private async Task SaveInvoice()
     {
-        if (!_newInvoice.CustomerId.HasValue) { _saveError = "Customer is required."; return; }
         try
         {
             _saveError = null;
-            await InvoiceSvc.QuickCreateAsync(_newInvoice);
+            if (_isElevatedRole)
+            {
+                if (!_fullInvoice.CustomerId.HasValue) { _saveError = "Customer is required."; return; }
+                if (!_fullInvoice.Lines.Any(l => !string.IsNullOrWhiteSpace(l.Description))) { _saveError = "At least one line item is required."; return; }
+                _fullInvoice.Lines.RemoveAll(l => string.IsNullOrWhiteSpace(l.Description));
+                await InvoiceSvc.FullCreateAsync(_fullInvoice);
+            }
+            else
+            {
+                if (!_newInvoice.CustomerId.HasValue) { _saveError = "Customer is required."; return; }
+                await InvoiceSvc.QuickCreateAsync(_newInvoice);
+            }
             _showCreate = false;
             await LoadData();
         }
         catch (Exception ex) { _saveError = ex.Message; }
+    }
+
+    private void AddInvoiceLine() => _fullInvoice.Lines.Add(new MobileInvoiceLineCreate());
+    private void RemoveInvoiceLine(int index) { if (_fullInvoice.Lines.Count > 1) _fullInvoice.Lines.RemoveAt(index); }
+
+    private decimal InvPreviewSubtotal => _fullInvoice.Lines.Sum(l => l.Quantity * l.UnitPrice);
+    private decimal InvPreviewMarkup => InvPreviewSubtotal * _fullInvoice.MarkupPercent / 100;
+    private decimal InvPreviewTax => (InvPreviewSubtotal + InvPreviewMarkup) * _fullInvoice.TaxRate / 100;
+    private decimal InvPreviewTotal => InvPreviewSubtotal + InvPreviewMarkup + InvPreviewTax;
+
+    private async Task ChangeInvoiceStatus(InvoiceStatus newStatus)
+    {
+        if (_detail == null) return;
+        _updatingStatus = true;
+        _statusMessage = null;
+        StateHasChanged();
+        try
+        {
+            var success = await InvoiceSvc.UpdateStatusAsync(_detail.Id, newStatus);
+            if (success)
+            {
+                _statusMessage = $"Status updated to {newStatus}.";
+                _statusSuccess = true;
+                await ViewDetail(_detail.Id);
+            }
+            else
+            {
+                _statusMessage = "Failed to update status.";
+                _statusSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            _statusMessage = ex.Message;
+            _statusSuccess = false;
+        }
+        _updatingStatus = false;
+    }
+
+    private async Task ShareInvoicePdf()
+    {
+        if (_detail is null) return;
+        _sharingPdf = true;
+        StateHasChanged();
+        try
+        {
+            var filePath = await PdfService.GenerateInvoiceDocumentAsync(_detail.Id);
+            if (filePath is not null)
+                await PdfService.ShareDocumentAsync(filePath, $"Invoice {_detail.InvoiceNumber}");
+        }
+        finally
+        {
+            _sharingPdf = false;
+            StateHasChanged();
+        }
     }
 
     private static string GetStatusBadge(InvoiceStatus s) => s switch

@@ -6,6 +6,7 @@ public interface IMobileNoteService
 {
     Task<List<MobileNoteItem>> GetNotesAsync(int? jobId = null);
     Task<QuickNote> CreateNoteAsync(MobileNoteCreate model);
+    Task<bool> UpdateNoteAsync(int id, MobileNoteUpdate model);
     Task<bool> DeleteNoteAsync(int id);
 }
 
@@ -31,4 +32,12 @@ public class MobileNoteCreate
     public string? EntityType { get; set; }
     public int? EntityId { get; set; }
     public int? CreatedByEmployeeId { get; set; }
+}
+
+public class MobileNoteUpdate
+{
+    public string? Title { get; set; }
+    public string Text { get; set; } = string.Empty;
+    public string? Category { get; set; }
+    public bool IsUrgent { get; set; }
 }

@@ -153,8 +153,8 @@ else if (_view == View.Detail && _detail is not null)
             <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-plus-lg me-1"></i>Actions</button>
             <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="sites/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Site</a></li>
-                <li><a class="dropdown-item" href="jobs/new?siteId=@_detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
-                <li><a class="dropdown-item" href="assets/new?siteId=@_detail.Id"><i class="bi bi-cpu me-2"></i>Add Asset</a></li>
+                <li><a class="dropdown-item" href="@NewJobFromSiteUrl()"><i class="bi bi-wrench me-2"></i>New Job</a></li>
+                <li><a class="dropdown-item" href="@NewAssetFromSiteUrl()"><i class="bi bi-cpu me-2"></i>Add Asset</a></li>
                 <li><hr class="dropdown-divider" /></li>
                 @if (!_confirmArchive)
                 {
@@ -599,6 +599,11 @@ else if (_view == View.Form)
                     Zip = "37367"
                 };
                 _hasAtticAccess = false; _hasCrawlSpace = false; _hasBasement = false; _isNewConstruction = false;
+
+                // Prepopulate from query string (e.g., navigating from Customer page)
+                var qs = System.Web.HttpUtility.ParseQueryString(Navigation.ToAbsoluteUri(Navigation.Uri).Query);
+                if (int.TryParse(qs["customerId"], out var qsCustId))
+                    _editModel.CustomerId = qsCustId;
             }
         }
         else if (Id.HasValue)
@@ -657,6 +662,22 @@ else if (_view == View.Form)
     private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
     private void GoToJob(int id) => Navigation.NavigateTo($"/jobs/{id}");
     private void GoBack() { if (Id.HasValue) Navigation.NavigateTo($"/sites/{Id.Value}"); else Navigation.NavigateTo("/sites"); }
+
+    private string NewJobFromSiteUrl()
+    {
+        var url = $"jobs/new?siteId={_detail?.Id}";
+        if (_detail?.CustomerId.HasValue == true)
+            url += $"&customerId={_detail.CustomerId}";
+        return url;
+    }
+
+    private string NewAssetFromSiteUrl()
+    {
+        var url = $"assets/new?siteId={_detail?.Id}";
+        if (_detail?.CustomerId.HasValue == true)
+            url += $"&customerId={_detail.CustomerId}";
+        return url;
+    }
 
     private async Task SaveSite()
     {

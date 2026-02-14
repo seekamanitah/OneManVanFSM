@@ -39,6 +39,7 @@ public enum CompanyType
 {
     Customer,
     Vendor,
+    Supplier,
     Subcontractor,
     Partner
 }

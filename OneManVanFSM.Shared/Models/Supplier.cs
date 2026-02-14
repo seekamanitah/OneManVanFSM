@@ -13,4 +13,8 @@ public class Supplier
     public string? Notes { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // Optional link to a Company record (auto-created as Vendor/Supplier type)
+    public int? CompanyId { get; set; }
+    public Company? Company { get; set; }
 }

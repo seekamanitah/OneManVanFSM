@@ -133,7 +133,108 @@ else if (_mode == "detail" && _detail != null)
         </div>
     }
 
+    <!-- Actions -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Actions</div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="StartEdit"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="DeleteExpense"><i class="bi bi-trash3 me-1"></i>Delete</button>
+        </div>
+    </div>
+
     <div class="text-muted text-center" style="font-size:0.65rem;">Created @_detail.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
+}
+else if (_mode == "edit" && _detail != null)
+{
+    <!-- Edit Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="CancelEdit"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Edit Expense</span>
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Category</label>
+            <select class="form-select form-select-sm" @bind="_editForm.Category">
+                <option value="">\u2014 Select \u2014</option>
+                <option value="Materials">Materials</option>
+                <option value="Fuel">Fuel</option>
+                <option value="Tools">Tools</option>
+                <option value="Disposal">Disposal</option>
+                <option value="Supplies">Supplies</option>
+                <option value="Permits">Permits</option>
+                <option value="Subcontractor">Subcontractor</option>
+                <option value="Meals">Meals</option>
+                <option value="Travel">Travel</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.Description" placeholder="What was purchased?" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Amount</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_editForm.Amount" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Tax</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_editForm.TaxAmount" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Vendor</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.VendorName" placeholder="Store or vendor name" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Payment Method</label>
+                <select class="form-select form-select-sm" @bind="_editForm.PaymentMethod">
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Check">Check</option>
+                    <option value="ACH">ACH</option>
+                    <option value="Zelle">Zelle</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Status</label>
+                <select class="form-select form-select-sm" @bind="_editForm.Status">
+                    <option value="@ExpenseStatus.Pending">Pending</option>
+                    <option value="@ExpenseStatus.Approved">Approved</option>
+                    <option value="@ExpenseStatus.Reimbursed">Reimbursed</option>
+                    <option value="@ExpenseStatus.Denied">Denied</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Receipt #</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.ReceiptNumber" placeholder="Optional receipt number" />
+        </div>
+        <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="editBillable" @bind="_editForm.IsBillable" />
+            <label class="form-check-label" for="editBillable" style="font-size:0.78rem;">Billable to customer</label>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Notes" placeholder="Additional notes..."></textarea>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="CancelEdit">Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Update Expense
+        </button>
+    </div>
 }
 else if (_mode == "create")
 {
@@ -336,6 +437,7 @@ else
     private List<MobileExpenseCard> _expenses = [];
     private MobileExpenseDetail? _detail;
     private MobileExpenseCreate _form = new();
+    private MobileExpenseUpdate _editForm = new();
     private MobileExpenseFilter _filter = new();
     private List<MobileJobCard> _jobs = [];
 
@@ -426,6 +528,52 @@ else
         ExpenseStatus.Denied => "bg-danger",
         _ => "bg-secondary",
     };
+
+    private void CancelEdit() => _mode = "detail";
+
+    private void StartEdit()
+    {
+        if (_detail is null) return;
+        _editForm = new MobileExpenseUpdate
+        {
+            Category = _detail.Category,
+            Description = _detail.Description,
+            Amount = _detail.Amount,
+            TaxAmount = _detail.TaxAmount,
+            PaymentMethod = _detail.PaymentMethod,
+            IsBillable = _detail.IsBillable,
+            VendorName = _detail.VendorName,
+            ReceiptNumber = _detail.ReceiptNumber,
+            Notes = _detail.Notes,
+            Status = _detail.Status,
+        };
+        _error = null;
+        _mode = "edit";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_detail is null) return;
+        if (_editForm.Amount <= 0) { _error = "Amount must be greater than zero."; return; }
+
+        try
+        {
+            _saving = true;
+            _error = null;
+            var ok = await ExpenseSvc.UpdateExpenseAsync(_detail.Id, _editForm);
+            if (!ok) { _error = "Failed to update expense."; return; }
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task DeleteExpense()
+    {
+        if (_detail is null) return;
+        await ExpenseSvc.DeleteExpenseAsync(_detail.Id);
+        await BackToList();
+    }
 
     private static string GetCategoryIcon(string? category) => category switch
     {

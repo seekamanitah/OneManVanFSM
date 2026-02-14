@@ -79,6 +79,8 @@ public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocu
             Name = model.Name,
             Category = model.Category,
             FileType = model.FileType,
+            FilePath = model.FilePath,
+            FileSize = model.FileSize,
             Notes = model.Notes,
             JobId = model.JobId,
             SiteId = model.SiteId,
