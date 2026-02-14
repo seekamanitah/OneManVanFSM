@@ -36,11 +36,12 @@ public static class DatabaseInitializer
         }
         else
         {
-            // Fix any empty-string values in decimal columns (legacy data issue)
+            // Fix any empty-string values in decimal/DateTime columns (legacy data issue)
             var conn = context.Database.GetDbConnection();
             if (conn.State != ConnectionState.Open)
                 conn.Open();
             SanitizeEmptyDecimalColumns(context, conn);
+            SanitizeEmptyDateTimeColumns(context, conn);
         }
     }
 
@@ -154,8 +155,9 @@ public static class DatabaseInitializer
             }
         }
 
-        // Phase 3: Fix any empty-string values in decimal columns (caused by prior TEXT default)
+        // Phase 3: Fix any empty-string values in decimal/DateTime columns (caused by prior TEXT default)
         SanitizeEmptyDecimalColumns(context, connection);
+        SanitizeEmptyDateTimeColumns(context, connection);
 
         Console.WriteLine("[DatabaseInitializer] Non-destructive schema migration completed — data preserved.");
     }
@@ -183,6 +185,8 @@ public static class DatabaseInitializer
             var underlying = Nullable.GetUnderlyingType(clrType) ?? clrType;
             if (underlying == typeof(decimal) || underlying == typeof(double) || underlying == typeof(float))
                 return "'0'";
+            if (underlying == typeof(DateTime) || underlying == typeof(DateTimeOffset))
+                return "'0001-01-01 00:00:00'";
         }
 
         return "''";
@@ -222,6 +226,47 @@ public static class DatabaseInitializer
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[DatabaseInitializer] Sanitize warning for {tableName}.{columnName}: {ex.Message}");
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Scans all tables for DateTime columns that contain empty strings and replaces
+    /// them with a valid default or NULL. This fixes data corrupted by ALTER TABLE
+    /// ADD COLUMN with DEFAULT '' on DateTime TEXT columns.
+    /// </summary>
+    private static void SanitizeEmptyDateTimeColumns(AppDbContext context, System.Data.Common.DbConnection connection)
+    {
+        foreach (var entityType in context.Model.GetEntityTypes())
+        {
+            var tableName = entityType.GetTableName();
+            if (string.IsNullOrEmpty(tableName))
+                continue;
+
+            var storeObject = StoreObjectIdentifier.Table(tableName, entityType.GetSchema());
+            foreach (var property in entityType.GetProperties())
+            {
+                var underlying = Nullable.GetUnderlyingType(property.ClrType) ?? property.ClrType;
+                if (underlying != typeof(DateTime) && underlying != typeof(DateTimeOffset))
+                    continue;
+
+                var columnName = property.GetColumnName(storeObject);
+                if (string.IsNullOrEmpty(columnName))
+                    continue;
+
+                try
+                {
+                    var replacement = property.IsNullable ? "NULL" : "'0001-01-01 00:00:00'";
+                    using var cmd = connection.CreateCommand();
+                    cmd.CommandText = $"UPDATE \"{tableName}\" SET \"{columnName}\" = {replacement} WHERE \"{columnName}\" = ''";
+                    var affected = cmd.ExecuteNonQuery();
+                    if (affected > 0)
+                        Console.WriteLine($"[DatabaseInitializer] Sanitized {affected} empty DateTime value(s) in {tableName}.{columnName}");
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[DatabaseInitializer] DateTime sanitize warning for {tableName}.{columnName}: {ex.Message}");
                 }
             }
         }
