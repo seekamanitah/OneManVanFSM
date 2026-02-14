@@ -133,6 +133,22 @@ public class MobileAuthService : IMobileAuthService
         return session?.EmployeeId;
     }
 
+    public async Task RefreshSessionAsync()
+    {
+        if (_cachedSession is null) return;
+        var user = await _db.Users
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(u => u.Id == _cachedSession.UserId && u.IsActive && !u.IsLocked);
+        if (user is null) return;
+
+        _cachedSession.EmployeeId = user.EmployeeId;
+        _cachedSession.EmployeeName = user.Employee?.Name;
+        _cachedSession.Territory = user.Employee?.Territory;
+        _cachedSession.Role = user.Role.ToString();
+
+        await PersistSessionAsync(_cachedSession);
+    }
+
     // --- Session persistence via MAUI SecureStorage ---
 
     private async Task PersistSessionAsync(MobileUserSession session)

@@ -44,8 +44,17 @@ public class EstimatesApiController : SyncApiController
 
         if (string.IsNullOrEmpty(estimate.EstimateNumber))
         {
-            var count = await _db.Estimates.CountAsync();
-            estimate.EstimateNumber = $"EST-{count + 1:D4}";
+            var maxNumbers = await _db.Estimates
+                .Where(e => e.EstimateNumber != null && e.EstimateNumber.StartsWith("EST-"))
+                .Select(e => e.EstimateNumber!.Substring(4))
+                .ToListAsync();
+
+            var max = maxNumbers
+                .Select(n => int.TryParse(n, out var v) ? v : 0)
+                .DefaultIfEmpty(0)
+                .Max();
+
+            estimate.EstimateNumber = $"EST-{max + 1:D4}";
         }
 
         estimate.CreatedAt = DateTime.UtcNow;

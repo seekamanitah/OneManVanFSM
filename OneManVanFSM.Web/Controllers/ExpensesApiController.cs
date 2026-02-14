@@ -15,7 +15,7 @@ public class ExpensesApiController : SyncApiController
     [HttpGet]
     public async Task<ActionResult<SyncResponse<Expense>>> GetAll([FromQuery] DateTime? since)
     {
-        var query = _db.Expenses.AsNoTracking().AsQueryable();
+        var query = _db.Expenses.AsNoTracking().Where(e => !e.IsArchived);
         if (since.HasValue)
             query = query.Where(e => e.UpdatedAt > since.Value);
 
@@ -100,7 +100,8 @@ public class ExpensesApiController : SyncApiController
         var expense = await _db.Expenses.FindAsync(id);
         if (expense is null) return NotFound();
 
-        _db.Expenses.Remove(expense);
+        expense.IsArchived = true;
+        expense.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return NoContent();
     }

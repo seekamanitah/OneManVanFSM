@@ -95,4 +95,33 @@ public class AuthApiController : ControllerBase
         var token = _jwtService.GenerateToken(userId, username, role, eid);
         return Ok(ApiLoginResponse.Success(token, DateTime.UtcNow.AddHours(24), userId, eid, username, role));
     }
+
+    /// <summary>
+    /// Returns fresh user profile data from the database, including the current
+    /// EmployeeId. Use this after sync to detect server-side employee linking changes.
+    /// GET /api/authapi/me
+    /// </summary>
+    [HttpGet("me")]
+    [Authorize(AuthenticationSchemes = "Bearer")]
+    public async Task<ActionResult<ApiLoginResponse>> Me()
+    {
+        var userIdStr = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdStr, out var userId) || userId <= 0)
+            return Ok(ApiLoginResponse.Failure("Invalid token."));
+
+        var user = await _db.Users
+            .Include(u => u.Employee)
+            .FirstOrDefaultAsync(u => u.Id == userId);
+
+        if (user is null)
+            return Ok(ApiLoginResponse.Failure("User not found."));
+
+        return Ok(ApiLoginResponse.Success(
+            "", // No new token — caller keeps existing one
+            DateTime.UtcNow.AddHours(24),
+            user.Id,
+            user.EmployeeId,
+            user.Username,
+            user.Role.ToString()));
+    }
 }

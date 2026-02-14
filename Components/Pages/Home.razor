@@ -508,6 +508,9 @@ protected override async Task OnInitializedAsync()
 
         if (result.Succeeded)
         {
+            // Refresh session to pick up server-side changes (e.g., employee linking)
+            await AuthService.RefreshSessionAsync();
+            _employeeId = await AuthService.GetEmployeeIdAsync() ?? 0;
             await LoadDashboard();
             _ = ClearSyncMessage();
         }

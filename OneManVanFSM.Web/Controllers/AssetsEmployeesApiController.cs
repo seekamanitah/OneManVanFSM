@@ -50,11 +50,25 @@ public class AssetsApiController : SyncApiController
         if (existing is null) return NotFound();
         if (asset.UpdatedAt < existing.UpdatedAt)
             return Conflict(new SyncConflict { EntityId = id, EntityType = "Asset", Message = "Server version is newer.", ServerUpdatedAt = existing.UpdatedAt, ClientUpdatedAt = asset.UpdatedAt });
+        var createdAt = existing.CreatedAt;
         _db.Entry(existing).CurrentValues.SetValues(asset);
         existing.Id = id;
+        existing.CreatedAt = createdAt;
         existing.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(existing);
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var asset = await _db.Assets.FindAsync(id);
+        if (asset is null) return NotFound();
+
+        asset.Status = AssetStatus.Decommissioned;
+        asset.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 }
 
@@ -79,5 +93,51 @@ public class EmployeesApiController : SyncApiController
     {
         var employee = await _db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id);
         return employee is not null ? Ok(employee) : NotFound();
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<Employee>> Create([FromBody] Employee employee)
+    {
+        employee.Id = 0;
+        employee.CreatedAt = DateTime.UtcNow;
+        employee.UpdatedAt = DateTime.UtcNow;
+        _db.Employees.Add(employee);
+        await _db.SaveChangesAsync();
+        return CreatedAtAction(nameof(Get), new { id = employee.Id }, employee);
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<Employee>> Update(int id, [FromBody] Employee employee)
+    {
+        var existing = await _db.Employees.FindAsync(id);
+        if (existing is null) return NotFound();
+
+        if (employee.UpdatedAt < existing.UpdatedAt)
+            return Conflict(new SyncConflict
+            {
+                EntityId = id, EntityType = "Employee",
+                Message = "Server version is newer.",
+                ServerUpdatedAt = existing.UpdatedAt, ClientUpdatedAt = employee.UpdatedAt
+            });
+
+        var createdAt = existing.CreatedAt;
+        _db.Entry(existing).CurrentValues.SetValues(employee);
+        existing.Id = id;
+        existing.CreatedAt = createdAt;
+        existing.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(existing);
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id)
+    {
+        var employee = await _db.Employees.FindAsync(id);
+        if (employee is null) return NotFound();
+
+        employee.IsArchived = true;
+        employee.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return NoContent();
     }
 }

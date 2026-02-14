@@ -30,6 +30,7 @@ public class Employee
     public ICollection<TimeEntry> TimeEntries { get; set; } = [];
     public ICollection<Expense> Expenses { get; set; } = [];
     public ICollection<Job> AssignedJobs { get; set; } = [];
+    public ICollection<Document> Documents { get; set; } = [];
 }
 
 public enum EmployeeRole
@@ -38,7 +39,6 @@ public enum EmployeeRole
     Admin,
     Dispatcher,
     Tech,
-    Technician,
     Manager,
     Apprentice
 }

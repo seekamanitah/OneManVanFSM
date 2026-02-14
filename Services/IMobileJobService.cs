@@ -197,7 +197,7 @@ public class MobileMaterialCreate
     public int JobId { get; set; }
     public string Section { get; set; } = "General";
     public string ItemName { get; set; } = string.Empty;
-    public decimal Quantity { get; set; } = 1;
+    public int Quantity { get; set; } = 1;
     public string? Unit { get; set; } = "ea";
     public decimal BaseCost { get; set; }
     public string? Notes { get; set; }

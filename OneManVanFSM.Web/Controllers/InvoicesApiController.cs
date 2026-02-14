@@ -45,8 +45,17 @@ public class InvoicesApiController : SyncApiController
 
         if (string.IsNullOrEmpty(invoice.InvoiceNumber))
         {
-            var count = await _db.Invoices.CountAsync();
-            invoice.InvoiceNumber = $"INV-{count + 1:D4}";
+            var maxNumbers = await _db.Invoices
+                .Where(i => i.InvoiceNumber != null && i.InvoiceNumber.StartsWith("INV-"))
+                .Select(i => i.InvoiceNumber!.Substring(4))
+                .ToListAsync();
+
+            var max = maxNumbers
+                .Select(n => int.TryParse(n, out var v) ? v : 0)
+                .DefaultIfEmpty(0)
+                .Max();
+
+            invoice.InvoiceNumber = $"INV-{max + 1:D4}";
         }
 
         invoice.CreatedAt = DateTime.UtcNow;

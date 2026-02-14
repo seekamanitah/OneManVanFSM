@@ -147,6 +147,27 @@ public class RemoteMobileAuthService : IMobileAuthService
             "Password change must be completed on the web server. Please log in at the server URL to change your password."));
     }
 
+    public async Task RefreshSessionAsync()
+    {
+        if (_cachedSession is null) return;
+        try
+        {
+            var me = await _api.GetAsync<ApiLoginResponse>("api/authapi/me");
+            if (me is null || !me.Succeeded) return;
+
+            _cachedSession.EmployeeId = me.EmployeeId;
+            _cachedSession.Role = me.Role ?? _cachedSession.Role;
+            _cachedSession.Username = me.Username ?? _cachedSession.Username;
+
+            await PersistSessionAsync(_cachedSession);
+            _logger.LogInformation("[RemoteAuth] Session refreshed — EmployeeId={Eid}", me.EmployeeId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[RemoteAuth] Failed to refresh session from server.");
+        }
+    }
+
     private async Task PersistSessionAsync(MobileUserSession session)
     {
         await SecureStorage.Default.SetAsync(StorageKeyUserId, session.UserId.ToString());

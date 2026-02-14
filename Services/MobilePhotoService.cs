@@ -21,7 +21,10 @@ public class MobilePhotoService : IMobilePhotoService
 
     public async Task<PhotoResult?> PickPhotoAsync()
     {
-        var photo = await MediaPicker.Default.PickPhotoAsync();
+        var photo = await MediaPicker.Default.PickPhotoAsync(new MediaPickerOptions
+        {
+            Title = "Select a photo"
+        });
         return await SavePhotoAsync(photo);
     }
 

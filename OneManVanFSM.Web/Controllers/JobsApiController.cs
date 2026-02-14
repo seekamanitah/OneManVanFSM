@@ -88,8 +88,10 @@ public class JobsApiController : SyncApiController
                 ClientUpdatedAt = job.UpdatedAt
             });
 
+        var createdAt = existing.CreatedAt;
         _db.Entry(existing).CurrentValues.SetValues(job);
-        existing.Id = id; // Preserve ID
+        existing.Id = id;
+        existing.CreatedAt = createdAt;
         existing.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(existing);
@@ -126,7 +128,16 @@ public class JobsApiController : SyncApiController
 
     private async Task<string> GenerateJobNumber()
     {
-        var count = await _db.Jobs.CountAsync();
-        return $"JOB-{count + 1:D5}";
+        var maxNumber = await _db.Jobs
+            .Where(j => j.JobNumber != null && j.JobNumber.StartsWith("JOB-"))
+            .Select(j => j.JobNumber!.Substring(4))
+            .ToListAsync();
+
+        var max = maxNumber
+            .Select(n => int.TryParse(n, out var v) ? v : 0)
+            .DefaultIfEmpty(0)
+            .Max();
+
+        return $"JOB-{max + 1:D5}";
     }
 }

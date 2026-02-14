@@ -18,6 +18,7 @@ public class Expense
     public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsArchived { get; set; }
 
     // Navigation properties
     public int? EmployeeId { get; set; }

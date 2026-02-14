@@ -8,6 +8,7 @@
 @inject ICustomerService CustomerSvc
 @inject ISiteService SiteSvc
 @inject IJobService JobSvc
+@inject IInventoryService InvSvc
 @inject ICompanyProfileService CompanyProfileSvc
 @inject IEmailService EmailSvc
 @inject IPdfService PdfSvc
@@ -340,8 +341,405 @@ else if (mode == "detail" && detail is not null)
                 <div class="card-body">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">Items (@detail.Items.Count)</h6>
-                        <button class="btn btn-primary btn-sm" @onclick="ShowAddItem"><i class="bi bi-plus-lg me-1"></i>Add Item</button>
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-outline-warning btn-sm" @onclick="ToggleHvacQuickAdd"><i class="bi bi-lightning me-1"></i>HVAC Quick-Add</button>
+                            <button class="btn btn-primary btn-sm" @onclick="ShowAddItem"><i class="bi bi-plus-lg me-1"></i>Add Item</button>
+                        </div>
                     </div>
+
+                    @* HVAC Quick-Add Panel *@
+                    @if (_showHvacQuickAdd)
+                    {
+                        <div class="card border-warning mb-3">
+                            <div class="card-header bg-warning bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
+                                <strong class="small"><i class="bi bi-lightning me-1"></i>HVAC Quick-Add</strong>
+                                <button class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="ToggleHvacQuickAdd"><i class="bi bi-x-lg"></i></button>
+                            </div>
+                            <div class="card-body py-2">
+                                @* Subcategory tabs *@
+                                <ul class="nav nav-pills nav-fill mb-3">
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "equipment" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "equipment"'><i class="bi bi-cpu me-1"></i>Equipment</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "ductwork" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "ductwork"'><i class="bi bi-wind me-1"></i>Ductwork</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "supply" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "supply"'><i class="bi bi-arrow-up-right-square me-1"></i>Supply Trunk</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "return" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "return"'><i class="bi bi-arrow-down-left-square me-1"></i>Return Trunk</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "misc" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "misc"'><i class="bi bi-box me-1"></i>Misc</button>
+                                    </li>
+                                </ul>
+
+                                @* ── EQUIPMENT TAB ── *@
+                                @if (_hvacQuickAddTab == "equipment")
+                                {
+                                    <p class="text-muted small mb-2">Add equipment manually or pull from your Products catalog.</p>
+
+                                    @* Product search row *@
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-md-5">
+                                            <div class="input-group input-group-sm">
+                                                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                                                <input type="text" class="form-control form-control-sm" placeholder="Search products to auto-fill..." @bind="_equipProductSearch" @bind:event="oninput" @bind:after="SearchEquipProducts" />
+                                                @if (!string.IsNullOrEmpty(_equipProductSearch))
+                                                {
+                                                    <button class="btn btn-outline-secondary btn-sm" @onclick='() => { _equipProductSearch = ""; _equipProductOptions = []; }'><i class="bi bi-x"></i></button>
+                                                }
+                                            </div>
+                                        </div>
+                                        @if (_equipProductOptions.Any())
+                                        {
+                                            <div class="col-md-7">
+                                                <div class="list-group list-group-flush border rounded" style="max-height:150px;overflow-y:auto;">
+                                                    @foreach (var p in _equipProductOptions)
+                                                    {
+                                                        <button type="button" class="list-group-item list-group-item-action py-1 px-2 small d-flex justify-content-between align-items-center" @onclick="() => AddEquipmentFromProduct(p)">
+                                                            <span><strong>@p.Name</strong> @if (!string.IsNullOrEmpty(p.Category)) { <span class="text-muted">(@p.Category)</span> }</span>
+                                                            <span class="text-nowrap ms-2">@p.Cost.ToString("C") @if (p.StockQty.HasValue) { <span class="badge bg-secondary ms-1">Stock: @p.StockQty</span> }</span>
+                                                        </button>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-2 align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="min-width:120px;">Type</th>
+                                                    <th style="min-width:120px;">Name / Description</th>
+                                                    <th style="min-width:80px;">Brand</th>
+                                                    <th style="min-width:80px;">Model</th>
+                                                    <th style="width:80px;">Tons/BTU</th>
+                                                    <th style="width:55px;" class="text-center">Qty</th>
+                                                    <th style="min-width:90px;">Notes</th>
+                                                    <th style="width:30px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in _hvacEquipmentRows)
+                                                {
+                                                    <tr class="@(row.ProductId.HasValue ? "table-info" : "")">
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.EquipmentType">
+                                                                @foreach (var t in EquipmentTypes)
+                                                                {
+                                                                    <option value="@t">@t</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="@(row.ProductId.HasValue ? "From product" : "Custom name")" @bind="row.CustomName" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="Brand" @bind="row.Brand" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="Model #" @bind="row.Model" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="e.g. 3 Ton" @bind="row.TonnageBtu" /></td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:55px;margin:auto;" @bind="row.Qty" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="Notes" @bind="row.Notes" /></td>
+                                                        <td><button class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveEquipmentRow(row)" disabled="@(_hvacEquipmentRows.Count <= 1)"><i class="bi bi-x"></i></button></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddEquipmentRow"><i class="bi bi-plus-lg me-1"></i>Add Custom Row</button>
+                                }
+
+                                @* ── DUCTWORK TAB ── *@
+                                @if (_hvacQuickAddTab == "ductwork")
+                                {
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <p class="text-muted small mb-0">Set quantities per flex size. Boot sizes default by duct diameter but can be changed.</p>
+                                        <button class="btn btn-sm btn-outline-warning py-0 px-1" @onclick="() => _showHvacAccessories = !_showHvacAccessories" title="Toggle accessories">
+                                            <i class="bi bi-gear me-1"></i>@(_showHvacAccessories ? "Hide" : "Show") Extras
+                                        </button>
+                                    </div>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-2 align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:65px;">Flex</th>
+                                                    <th style="width:70px;" class="text-center">Qty</th>
+                                                    <th style="width:70px;" class="text-center">Take-Off</th>
+                                                    <th style="min-width:120px;">Collar Type</th>
+                                                    <th style="width:70px;" class="text-center">Boot</th>
+                                                    <th style="min-width:90px;">Boot Size</th>
+                                                    <th style="width:70px;" class="text-center">Grill</th>
+                                                    <th style="min-width:90px;">Mount</th>
+                                                    @if (_showHvacAccessories)
+                                                    {
+                                                        <th style="width:70px;" class="text-center">Damper</th>
+                                                    }
+                                                    <th style="width:30px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in _hvacBundleRows)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" value="@row.Size" @onchange="e => OnHvacSizeChanged(row, int.Parse(e.Value?.ToString() ?? row.Size.ToString()))">
+                                                                @foreach (var s in FlexSizes)
+                                                                {
+                                                                    <option value="@s">@s"</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:60px;margin:auto;" @bind="row.FlexQty" /></td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:60px;margin:auto;" @bind="row.TakeOffQty" /></td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.TakeOffStyle">
+                                                                @foreach (var style in TakeOffStyles)
+                                                                {
+                                                                    <option value="@style">@style</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:60px;margin:auto;" @bind="row.BootQty" /></td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.BootSize">
+                                                                @foreach (var bs in BootSizeOptions)
+                                                                {
+                                                                    <option value="@bs">@bs</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:60px;margin:auto;" @bind="row.GrillQty" /></td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.GrillMount">
+                                                                @foreach (var mt in GrillMountOptions)
+                                                                {
+                                                                    <option value="@mt">@mt</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        @if (_showHvacAccessories)
+                                                        {
+                                                            <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:60px;margin:auto;" @bind="row.DamperQty" /></td>
+                                                        }
+                                                        <td><button class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveHvacSize(row)" disabled="@(_hvacBundleRows.Count <= 1)"><i class="bi bi-x"></i></button></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddHvacSize" disabled="@(_hvacBundleRows.Count >= FlexSizes.Length)"><i class="bi bi-plus-lg me-1"></i>Add Size</button>
+                                }
+
+                                @* ── SUPPLY TRUNK TAB ── *@
+                                @if (_hvacQuickAddTab == "supply")
+                                {
+                                    <p class="text-muted small mb-2">Add supply trunk sections (rectangular or round pipe), reducers, end caps, elbows, and fittings.</p>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-2 align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:80px;">Shape</th>
+                                                    <th style="min-width:130px;">Item</th>
+                                                    <th style="min-width:100px;">Size</th>
+                                                    <th style="width:80px;" class="text-center">Length (ft)</th>
+                                                    <th style="width:60px;" class="text-center">Qty</th>
+                                                    <th style="min-width:100px;">Notes</th>
+                                                    <th style="width:30px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in _hvacSupplyTrunkRows)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" value="@row.DuctShape" @onchange="e => OnSupplyShapeChanged(row, e.Value?.ToString())">
+                                                                <option value="Rect">Rect</option>
+                                                                <option value="Round">Round</option>
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.ItemType">
+                                                                <option value="Trunk Section">@(row.DuctShape == "Round" ? "Round Pipe" : "Trunk Section")</option>
+                                                                @foreach (var ft in TrunkFittingTypes)
+                                                                {
+                                                                    <option value="@ft">@ft</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            @if (row.DuctShape == "Round")
+                                                            {
+                                                                <select class="form-select form-select-sm" @bind="row.Size">
+                                                                                 @foreach (var rp in RoundPipeSizes)
+                                                                                {
+                                                                                    <option value="@rp">@(rp)"</option>
+                                                                                }
+                                                                            </select>
+                                                                        }
+                                                                        else
+                                                                        {
+                                                                            <select class="form-select form-select-sm" @bind="row.Size">
+                                                                                @foreach (var sz in RectTrunkSizes)
+                                                                                {
+                                                                                    <option value="@sz">@sz</option>
+                                                                                }
+                                                                            </select>
+                                                                        }
+                                                                    </td>
+                                                                    <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:65px;margin:auto;" @bind="row.LengthFt" /></td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:55px;margin:auto;" @bind="row.Qty" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="Notes" @bind="row.Notes" /></td>
+                                                        <td><button class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveSupplyTrunkRow(row)" disabled="@(_hvacSupplyTrunkRows.Count <= 1)"><i class="bi bi-x"></i></button></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddSupplyTrunkRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
+                                }
+
+                                @* ── RETURN TRUNK TAB ── *@
+                                @if (_hvacQuickAddTab == "return")
+                                {
+                                    <p class="text-muted small mb-2">Add return trunk sections (rectangular or round pipe), drops, filter grilles, return boxes, and plenums.</p>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-2 align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="width:80px;">Shape</th>
+                                                    <th style="min-width:140px;">Item</th>
+                                                    <th style="min-width:100px;">Size</th>
+                                                    <th style="width:60px;" class="text-center">Qty</th>
+                                                    <th style="min-width:100px;">Notes</th>
+                                                    <th style="width:30px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in _hvacReturnTrunkRows)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" value="@row.DuctShape" @onchange="e => OnReturnShapeChanged(row, e.Value?.ToString())">
+                                                                <option value="Rect">Rect</option>
+                                                                <option value="Round">Round</option>
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.ItemType">
+                                                                @foreach (var rt in ReturnItemTypes)
+                                                                {
+                                                                    <option value="@rt">@rt</option>
+                                                                }
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            @if (row.ItemType is "Filter Grille")
+                                                            {
+                                                                <select class="form-select form-select-sm" @bind="row.Size">
+                                                                    @foreach (var fg in FilterGrilleSizes)
+                                                                    {
+                                                                        <option value="@fg">@fg</option>
+                                                                    }
+                                                                </select>
+                                                            }
+                                                            else if (row.DuctShape == "Round")
+                                                            {
+                                                                <select class="form-select form-select-sm" @bind="row.Size">
+                                                                    @foreach (var rp in RoundPipeSizes)
+                                                                    {
+                                                                        <option value="@rp">@(rp)"</option>
+                                                                    }
+                                                                </select>
+                                                            }
+                                                            else
+                                                            {
+                                                                <select class="form-select form-select-sm" @bind="row.Size">
+                                                                    @foreach (var sz in RectTrunkSizes)
+                                                                    {
+                                                                        <option value="@sz">@sz</option>
+                                                                    }
+                                                                </select>
+                                                            }
+                                                        </td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:55px;margin:auto;" @bind="row.Qty" /></td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="Notes" @bind="row.Notes" /></td>
+                                                        <td><button class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveReturnTrunkRow(row)" disabled="@(_hvacReturnTrunkRows.Count <= 1)"><i class="bi bi-x"></i></button></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddReturnTrunkRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
+                                }
+
+                                @* ── MISC TAB ── *@
+                                @if (_hvacQuickAddTab == "misc")
+                                {
+                                    <p class="text-muted small mb-2">Quick-add sealing, taping, supports, insulation, and any other items.</p>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered mb-2 align-middle">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th style="min-width:180px;">Item</th>
+                                                    <th style="width:80px;">Section</th>
+                                                    <th style="width:60px;" class="text-center">Qty</th>
+                                                    <th style="width:70px;">Unit</th>
+                                                    <th style="min-width:100px;">Notes</th>
+                                                    <th style="width:30px;"></th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                @foreach (var row in _hvacMiscRows)
+                                                {
+                                                    <tr>
+                                                        <td>
+                                                            <input type="text" class="form-control form-control-sm" list="miscPresetList" placeholder="Type or pick preset" @bind="row.ItemName" />
+                                                        </td>
+                                                        <td><input type="text" class="form-control form-control-sm" @bind="row.Section" /></td>
+                                                        <td class="text-center"><input type="number" min="0" step="1" class="form-control form-control-sm text-center" style="width:55px;margin:auto;" @bind="row.Qty" /></td>
+                                                        <td>
+                                                            <select class="form-select form-select-sm" @bind="row.Unit">
+                                                                <option value="ea">ea</option>
+                                                                <option value="roll">roll</option>
+                                                                <option value="box">box</option>
+                                                                <option value="can">can</option>
+                                                                <option value="tube">tube</option>
+                                                                <option value="ft">ft</option>
+                                                                <option value="lb">lb</option>
+                                                            </select>
+                                                        </td>
+                                                        <td><input type="text" class="form-control form-control-sm" placeholder="Notes" @bind="row.Notes" /></td>
+                                                        <td><button class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveMiscRow(row)" disabled="@(_hvacMiscRows.Count <= 1)"><i class="bi bi-x"></i></button></td>
+                                                    </tr>
+                                                }
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <datalist id="miscPresetList">
+                                        @foreach (var p in MiscPresets)
+                                        {
+                                            <option value="@p" />
+                                        }
+                                    </datalist>
+                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddMiscRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
+                                }
+
+                                @* ── Shared footer: Add All + Reset ── *@
+                                <hr class="my-2" />
+                                <div class="d-flex gap-2 align-items-center flex-wrap">
+                                    <button class="btn btn-warning btn-sm" @onclick="AddHvacBundle" disabled="@(!HvacHasItems)">
+                                        <i class="bi bi-check-lg me-1"></i>Add All to List
+                                    </button>
+                                    <button class="btn btn-outline-secondary btn-sm" @onclick="ResetHvacBundle">Reset All</button>
+                                    <span class="text-muted small ms-auto">@HvacTotalItemCount items across all tabs</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(_hvacBundleMsg))
+                                {
+                                    <div class="alert alert-success py-1 px-2 small mt-2 mb-0">@_hvacBundleMsg</div>
+                                }
+                            </div>
+                        </div>
+                    }
 
                     @* Inline add/edit form *@
                     @if (_showItemForm)
@@ -350,26 +748,63 @@ else if (mode == "detail" && detail is not null)
                             <div class="card-body py-2">
                                 <h6 class="mb-2">@(_editingItemId.HasValue ? "Edit" : "Add") Item</h6>
 
-                                @* Product picker *@
-                                <div class="row g-2 mb-2">
-                                    <div class="col-md-6">
-                                        <label class="form-label small fw-semibold"><i class="bi bi-search me-1"></i>Search Products</label>
-                                        <input type="text" class="form-control form-control-sm" placeholder="Type to search products..." @bind="_productSearch" @bind:event="oninput" @bind:after="SearchProducts" />
-                                    </div>
-                                    @if (_productOptions.Any())
-                                    {
+                                @* Source tabs *@
+                                <ul class="nav nav-pills nav-fill mb-3">
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link @(_mlItemSource == "custom" ? "active bg-primary text-white" : "text-dark")" @onclick='() => SwitchMlItemSource("custom")'><i class="bi bi-pencil me-1"></i>Custom Item</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link @(_mlItemSource == "inventory" ? "active bg-primary text-white" : "text-dark")" @onclick='() => SwitchMlItemSource("inventory")'><i class="bi bi-box-seam me-1"></i>From Inventory</button>
+                                    </li>
+                                    <li class="nav-item">
+                                        <button type="button" class="nav-link @(_mlItemSource == "product" ? "active bg-primary text-white" : "text-dark")" @onclick='() => SwitchMlItemSource("product")'><i class="bi bi-tag me-1"></i>From Product</button>
+                                    </li>
+                                </ul>
+
+                                @if (_mlItemSource == "inventory")
+                                {
+                                    <div class="row g-2 mb-2">
                                         <div class="col-md-6">
-                                            <label class="form-label small">Select Product</label>
-                                            <select class="form-select form-select-sm" @onchange="OnProductSelected">
-                                                <option value="">— Pick to auto-fill —</option>
-                                                @foreach (var p in _productOptions)
-                                                {
-                                                    <option value="@p.Id">@p.Name (@(p.Category ?? "–")) — @p.Cost.ToString("C") @(p.StockQty.HasValue ? $"[Stock: {p.StockQty}]" : "")</option>
-                                                }
-                                            </select>
+                                            <label class="form-label small fw-semibold"><i class="bi bi-search me-1"></i>Search Inventory</label>
+                                            <input type="text" class="form-control form-control-sm" placeholder="Type to search inventory..." @bind="_inventorySearch" @bind:event="oninput" @bind:after="SearchInventory" />
                                         </div>
-                                    }
-                                </div>
+                                        @if (_filteredInventory.Any())
+                                        {
+                                            <div class="col-md-6">
+                                                <label class="form-label small">Select Inventory Item</label>
+                                                <select class="form-select form-select-sm" @onchange="OnInventorySelected">
+                                                    <option value="">— Pick to auto-fill —</option>
+                                                    @foreach (var inv in _filteredInventory)
+                                                    {
+                                                        <option value="@inv.Id">@inv.Name (@(inv.Category ?? "–")) — @inv.Cost.ToString("C") [Stock: @inv.Quantity]</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                @if (_mlItemSource == "product")
+                                {
+                                    <div class="row g-2 mb-2">
+                                        <div class="col-md-6">
+                                            <label class="form-label small fw-semibold"><i class="bi bi-search me-1"></i>Search Products</label>
+                                            <input type="text" class="form-control form-control-sm" placeholder="Type to search products..." @bind="_productSearch" @bind:event="oninput" @bind:after="SearchProducts" />
+                                        </div>
+                                        @if (_productOptions.Any())
+                                        {
+                                            <div class="col-md-6">
+                                                <label class="form-label small">Select Product</label>
+                                                <select class="form-select form-select-sm" @onchange="OnProductSelected">
+                                                    <option value="">— Pick to auto-fill —</option>
+                                                    @foreach (var p in _productOptions)
+                                                    {
+                                                        <option value="@p.Id">@p.Name (@(p.Category ?? "–")) — @p.Cost.ToString("C") @(p.StockQty.HasValue ? $"[Stock: {p.StockQty}]" : "")</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                        }
+                                    </div>
+                                }
 
                                 @* Pairing suggestions *@
                                 @if (_pairingSuggestions.Any())
@@ -399,7 +834,7 @@ else if (mode == "detail" && detail is not null)
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label small">Qty</label>
-                                        <input type="number" step="0.01" class="form-control form-control-sm" @bind="_itemForm.Quantity" />
+                                        <input type="number" step="1" min="1" class="form-control form-control-sm" @bind="_itemForm.Quantity" />
                                     </div>
                                     <div class="col-md-2">
                                         <label class="form-label small">Unit</label>
@@ -467,7 +902,8 @@ else if (mode == "detail" && detail is not null)
                                                 <td class="print-price-col">@item.FlatPrice.ToString("C")</td>
                                                 <td class="print-price-col">@item.MarkupPercent%</td>
                                                 <td class="text-end no-print">
-                                                    <button class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="() => EditItem(item)" title="Edit"><i class="bi bi-pencil"></i></button>
+                                                    <button class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="() => DuplicateItem(item)" title="Duplicate"><i class="bi bi-copy"></i></button>
+                                                    <button class="btn btn-sm btn-outline-secondary py-0 px-1 ms-1" @onclick="() => EditItem(item)" title="Edit"><i class="bi bi-pencil"></i></button>
                                                     <button class="btn btn-sm btn-outline-danger py-0 px-1 ms-1" @onclick="() => RemoveItem(item.Id)" title="Remove"><i class="bi bi-trash"></i></button>
                                                 </td>
                                             </tr>
@@ -748,11 +1184,201 @@ else
     private string _productSearch = "";
     private List<MaterialProductOption> _productOptions = [];
 
+    // Inventory picker
+    private string _inventorySearch = "";
+    private List<InventoryListItem> _allInventoryItems = [];
+    private List<InventoryListItem> _filteredInventory = [];
+
+    // Item source tab
+    private string _mlItemSource = "custom";
+
     // HVAC pairings
     private List<ItemAssociation> _pairingSuggestions = [];
 
     // Stock check
     private List<MaterialStockCheck>? _stockChecks;
+
+    // HVAC Quick-Add
+    private bool _showHvacQuickAdd;
+    private string? _hvacBundleMsg;
+    private string _hvacQuickAddTab = "ductwork";
+    private bool _showHvacAccessories;
+
+    // --- Ductwork tab state ---
+    private List<HvacBundleRow> _hvacBundleRows = InitHvacRows();
+
+    private static readonly string[] TakeOffStyles = ["Flat Collar", "Round Collar"];
+    private static readonly string[] BootSizeOptions = ["4x10", "4x12", "6x10", "6x12"];
+    private static readonly string[] GrillMountOptions = ["Floor", "Ceiling"];
+    private static readonly int[] FlexSizes = [5, 6, 7, 8];
+
+    private static string GetDefaultBootSize(int flexSize) => flexSize switch
+    {
+        5 or 6 => "4x10",
+        7 or 8 => "4x12",
+        _ => "4x10"
+    };
+
+    private static List<HvacBundleRow> InitHvacRows() =>
+    [
+        new() { Size = 5, BootSize = "4x10" },
+    ];
+
+    private void AddHvacSize()
+    {
+        var usedSizes = _hvacBundleRows.Select(r => r.Size).ToHashSet();
+        var nextSize = FlexSizes.FirstOrDefault(s => !usedSizes.Contains(s));
+        if (nextSize > 0)
+            _hvacBundleRows.Add(new HvacBundleRow { Size = nextSize, BootSize = GetDefaultBootSize(nextSize) });
+    }
+
+    private void RemoveHvacSize(HvacBundleRow row)
+    {
+        if (_hvacBundleRows.Count > 1) _hvacBundleRows.Remove(row);
+    }
+
+    private void OnHvacSizeChanged(HvacBundleRow row, int newSize)
+    {
+        row.Size = newSize;
+        row.BootSize = GetDefaultBootSize(newSize);
+    }
+
+    private class HvacBundleRow
+    {
+        public int Size { get; set; }
+        public int FlexQty { get; set; }
+        public int TakeOffQty { get; set; }
+        public string TakeOffStyle { get; set; } = "Flat Collar";
+        public int BootQty { get; set; }
+        public string BootSize { get; set; } = "";
+        public int GrillQty { get; set; }
+        public string GrillMount { get; set; } = "Floor";
+        public int DamperQty { get; set; }
+    }
+
+    // --- Equipment tab state ---
+    private List<HvacEquipmentRow> _hvacEquipmentRows = [new()];
+    private string _equipProductSearch = "";
+    private List<MaterialProductOption> _equipProductOptions = [];
+
+    private static readonly string[] EquipmentTypes =
+        ["Furnace", "Air Handler", "Condenser", "Heat Pump", "Mini Split", "Package Unit", "Coil", "Thermostat", "Line Set", "Disconnect", "Whip", "Pad"];
+
+    private void AddEquipmentRow() => _hvacEquipmentRows.Add(new());
+    private void RemoveEquipmentRow(HvacEquipmentRow row) { if (_hvacEquipmentRows.Count > 1) _hvacEquipmentRows.Remove(row); }
+
+    private async Task SearchEquipProducts()
+    {
+        if (_equipProductSearch.Length >= 2)
+            _equipProductOptions = await ListSvc.GetProductOptionsAsync(_equipProductSearch);
+        else
+            _equipProductOptions = [];
+    }
+
+    private void AddEquipmentFromProduct(MaterialProductOption product)
+    {
+        _hvacEquipmentRows.Add(new HvacEquipmentRow
+        {
+            EquipmentType = product.Category ?? "Equipment",
+            CustomName = product.Name,
+            Qty = 1,
+            ProductId = product.Id,
+            InventoryItemId = product.InventoryItemId,
+            BaseCost = product.Cost,
+        });
+        _equipProductSearch = "";
+        _equipProductOptions = [];
+    }
+
+    private class HvacEquipmentRow
+    {
+        public string EquipmentType { get; set; } = "Furnace";
+        public string? CustomName { get; set; }
+        public string? Brand { get; set; }
+        public string? Model { get; set; }
+        public string? TonnageBtu { get; set; }
+        public int Qty { get; set; }
+        public string? Notes { get; set; }
+        public int? ProductId { get; set; }
+        public int? InventoryItemId { get; set; }
+        public decimal BaseCost { get; set; }
+    }
+
+    // --- Supply Trunk tab state ---
+    private List<HvacSupplyTrunkRow> _hvacSupplyTrunkRows = [new()];
+
+    private static readonly string[] RectTrunkSizes =
+        ["8x8", "8x10", "8x12", "10x10", "10x12", "10x14", "12x12", "12x14", "14x14", "14x16", "16x16", "16x20", "20x20", "20x24", "24x24"];
+
+    private static readonly int[] RoundPipeSizes = [10, 12, 14, 16, 18, 20, 22];
+
+    private static readonly string[] TrunkFittingTypes =
+        ["Reducer", "End Cap", "Tee", "Elbow", "Offset", "Starting Collar"];
+
+    private void AddSupplyTrunkRow() => _hvacSupplyTrunkRows.Add(new());
+    private void RemoveSupplyTrunkRow(HvacSupplyTrunkRow row) { if (_hvacSupplyTrunkRows.Count > 1) _hvacSupplyTrunkRows.Remove(row); }
+
+    private void OnSupplyShapeChanged(HvacSupplyTrunkRow row, string? newShape)
+    {
+        row.DuctShape = newShape ?? "Rect";
+        row.Size = row.DuctShape == "Round" ? "10" : "10x12";
+    }
+
+    private class HvacSupplyTrunkRow
+    {
+        public string DuctShape { get; set; } = "Rect";
+        public string ItemType { get; set; } = "Trunk Section";
+        public string Size { get; set; } = "10x12";
+        public int LengthFt { get; set; }
+        public int Qty { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    // --- Return Trunk tab state ---
+    private List<HvacReturnTrunkRow> _hvacReturnTrunkRows = [new()];
+
+    private static readonly string[] ReturnItemTypes =
+        ["Return Trunk Section", "Return Drop", "Filter Grille", "Return Box", "Plenum", "Return Elbow", "Return Boot"];
+
+    private static readonly string[] FilterGrilleSizes =
+        ["14x20", "14x25", "16x20", "16x25", "20x20", "20x25", "20x30", "24x24", "24x30", "25x25"];
+
+    private void AddReturnTrunkRow() => _hvacReturnTrunkRows.Add(new());
+    private void RemoveReturnTrunkRow(HvacReturnTrunkRow row) { if (_hvacReturnTrunkRows.Count > 1) _hvacReturnTrunkRows.Remove(row); }
+
+    private void OnReturnShapeChanged(HvacReturnTrunkRow row, string? newShape)
+    {
+        row.DuctShape = newShape ?? "Rect";
+        row.Size = row.DuctShape == "Round" ? "10" : "20x25";
+    }
+
+    private class HvacReturnTrunkRow
+    {
+        public string DuctShape { get; set; } = "Rect";
+        public string ItemType { get; set; } = "Return Trunk Section";
+        public string? Size { get; set; } = "20x25";
+        public int Qty { get; set; }
+        public string? Notes { get; set; }
+    }
+
+    // --- Misc tab state ---
+    private List<HvacMiscRow> _hvacMiscRows = [new()];
+
+    private static readonly string[] MiscPresets =
+        ["Mastic", "Foil Tape (UL 181A)", "Duct Sealant", "Spray Foam", "Cork Tape", "Zip Screws", "Hangers / Straps",
+         "Insulation Wrap", "Fire-Rated Caulk", "Condensate Line", "Drain Pan", "Gas Line", "Flue Pipe", "Refrigerant"];
+
+    private void AddMiscRow() => _hvacMiscRows.Add(new());
+    private void RemoveMiscRow(HvacMiscRow row) { if (_hvacMiscRows.Count > 1) _hvacMiscRows.Remove(row); }
+
+    private class HvacMiscRow
+    {
+        public string ItemName { get; set; } = "";
+        public string? Section { get; set; } = "Misc";
+        public int Qty { get; set; }
+        public string? Unit { get; set; } = "ea";
+        public string? Notes { get; set; }
+    }
 
     // Print options
     private bool _printExternalNotes = true;
@@ -952,6 +1578,7 @@ else
         _sites = await SiteSvc.GetSitesAsync();
         _jobs = await ListSvc.GetJobOptionsAsync();
         _templates = await ListSvc.GetListsAsync(new MaterialListFilter { IsTemplate = true });
+        _allInventoryItems = await InvSvc.GetItemsAsync();
     }
 
     // --- Template selector ---
@@ -1049,6 +1676,43 @@ else
             _itemForm.Section = product.Category;
     }
 
+    // --- Inventory picker ---
+    private Task SearchInventory()
+    {
+        if (_inventorySearch.Length >= 2)
+            _filteredInventory = _allInventoryItems
+                .Where(i => i.Name.Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase)
+                    || (i.SKU ?? "").Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase)
+                    || (i.PartNumber ?? "").Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase)
+                    || (i.Category ?? "").Contains(_inventorySearch, StringComparison.OrdinalIgnoreCase))
+                .Take(25).ToList();
+        else
+            _filteredInventory = [];
+        return Task.CompletedTask;
+    }
+
+    private void OnInventorySelected(ChangeEventArgs e)
+    {
+        if (!int.TryParse(e.Value?.ToString(), out var invId)) return;
+        var inv = _allInventoryItems.FirstOrDefault(i => i.Id == invId);
+        if (inv is null) return;
+        _itemForm.ItemName = inv.Name;
+        _itemForm.BaseCost = inv.Cost;
+        _itemForm.Unit = inv.Unit ?? "ea";
+        _itemForm.InventoryItemId = inv.Id;
+        if (!string.IsNullOrEmpty(inv.Category) && _sectionPresets.Contains(inv.Category))
+            _itemForm.Section = inv.Category;
+    }
+
+    private void SwitchMlItemSource(string source)
+    {
+        _mlItemSource = source;
+        _productSearch = "";
+        _productOptions = [];
+        _inventorySearch = "";
+        _filteredInventory = [];
+    }
+
     // --- HVAC pairing suggestions ---
     private async Task OnItemNameChanged()
     {
@@ -1084,8 +1748,11 @@ else
         _itemForm = new MaterialListItemEditModel();
         _showItemForm = true;
         _itemError = null;
+        _mlItemSource = "custom";
         _productSearch = "";
         _productOptions = [];
+        _inventorySearch = "";
+        _filteredInventory = [];
         _pairingSuggestions = [];
     }
 
@@ -1113,8 +1780,11 @@ else
         _showItemForm = false;
         _editingItemId = null;
         _itemError = null;
+        _mlItemSource = "custom";
         _productSearch = "";
         _productOptions = [];
+        _inventorySearch = "";
+        _filteredInventory = [];
         _pairingSuggestions = [];
     }
 
@@ -1150,6 +1820,228 @@ else
         await LoadDetailView(detail.Id);
     }
 
+    private void DuplicateItem(MaterialListItemDto item)
+    {
+        _editingItemId = null;
+        _itemForm = new MaterialListItemEditModel
+        {
+            ItemName = item.ItemName,
+            Section = item.Section ?? "General",
+            Quantity = item.Quantity,
+            Unit = item.Unit,
+            BaseCost = item.BaseCost,
+            LaborHours = item.LaborHours,
+            FlatPrice = item.FlatPrice,
+            MarkupPercent = item.MarkupPercent,
+            ProductId = item.ProductId,
+            InventoryItemId = item.InventoryItemId,
+            SortOrder = item.SortOrder,
+            Notes = item.Notes,
+        };
+        _showItemForm = true;
+        _itemError = null;
+        _mlItemSource = "custom";
+        _productSearch = "";
+        _productOptions = [];
+        _inventorySearch = "";
+        _filteredInventory = [];
+        _pairingSuggestions = [];
+    }
+
+    // --- HVAC Quick-Add ---
+    private void ToggleHvacQuickAdd()
+    {
+        _showHvacQuickAdd = !_showHvacQuickAdd;
+        if (_showHvacQuickAdd) _hvacBundleMsg = null;
+    }
+
+    private int HvacTotalItemCount =>
+        _hvacBundleRows.Sum(r => r.FlexQty + r.TakeOffQty + r.BootQty + r.GrillQty + r.DamperQty)
+        + _hvacEquipmentRows.Sum(r => r.Qty)
+        + _hvacSupplyTrunkRows.Sum(r => r.Qty)
+        + _hvacReturnTrunkRows.Sum(r => r.Qty)
+        + _hvacMiscRows.Where(r => !string.IsNullOrWhiteSpace(r.ItemName)).Sum(r => r.Qty);
+
+    private bool HvacHasItems => HvacTotalItemCount > 0;
+
+    private void ResetHvacBundle()
+    {
+        _hvacBundleRows = InitHvacRows();
+        _hvacEquipmentRows = [new()];
+        _hvacSupplyTrunkRows = [new()];
+        _hvacReturnTrunkRows = [new()];
+        _hvacMiscRows = [new()];
+        _showHvacAccessories = false;
+        _equipProductSearch = "";
+        _equipProductOptions = [];
+        _hvacBundleMsg = null;
+    }
+
+    private async Task AddHvacBundle()
+    {
+        if (detail is null) return;
+        var count = 0;
+
+        // Equipment tab
+        foreach (var row in _hvacEquipmentRows.Where(r => r.Qty > 0))
+        {
+            string name;
+            if (!string.IsNullOrWhiteSpace(row.CustomName))
+            {
+                name = row.CustomName;
+            }
+            else
+            {
+                name = row.EquipmentType;
+                if (!string.IsNullOrWhiteSpace(row.Brand)) name += $" — {row.Brand}";
+                if (!string.IsNullOrWhiteSpace(row.Model)) name += $" {row.Model}";
+                if (!string.IsNullOrWhiteSpace(row.TonnageBtu)) name += $" ({row.TonnageBtu})";
+            }
+            await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+            {
+                ItemName = name,
+                Section = "Equipment",
+                Quantity = row.Qty,
+                Unit = "ea",
+                BaseCost = row.BaseCost,
+                ProductId = row.ProductId,
+                InventoryItemId = row.InventoryItemId,
+                Notes = row.Notes,
+            });
+            count++;
+        }
+
+        // Ductwork tab
+        foreach (var row in _hvacBundleRows)
+        {
+            if (row.FlexQty > 0)
+            {
+                await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+                {
+                    ItemName = $"{row.Size}\" Flex Supply Duct",
+                    Section = "Flex Duct",
+                    Quantity = row.FlexQty,
+                    Unit = "ea",
+                });
+                count++;
+            }
+            if (row.TakeOffQty > 0)
+            {
+                await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+                {
+                    ItemName = $"{row.Size}\" {row.TakeOffStyle} Take-Off",
+                    Section = "Take Offs",
+                    Quantity = row.TakeOffQty,
+                    Unit = "ea",
+                });
+                count++;
+            }
+            if (row.BootQty > 0)
+            {
+                await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+                {
+                    ItemName = $"{row.BootSize} Floor Boot ({row.Size}\" duct)",
+                    Section = "Boots",
+                    Quantity = row.BootQty,
+                    Unit = "ea",
+                });
+                count++;
+            }
+            if (row.GrillQty > 0)
+            {
+                await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+                {
+                    ItemName = $"{row.BootSize} Register Grill — {row.GrillMount}",
+                    Section = "Grills/Registers",
+                    Quantity = row.GrillQty,
+                    Unit = "ea",
+                });
+                count++;
+            }
+            if (row.DamperQty > 0)
+            {
+                await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+                {
+                    ItemName = $"{row.Size}\" Duct Damper",
+                    Section = "Accessories",
+                    Quantity = row.DamperQty,
+                    Unit = "ea",
+                });
+                count++;
+            }
+        }
+
+        // Supply Trunk tab
+        foreach (var row in _hvacSupplyTrunkRows.Where(r => r.Qty > 0))
+        {
+            string name;
+            if (row.ItemType == "Trunk Section")
+            {
+                var label = row.DuctShape == "Round" ? "Round Supply Pipe" : "Supply Trunk";
+                var sizeLabel = row.DuctShape == "Round" ? $"{row.Size}\"" : row.Size;
+                name = $"{sizeLabel} {label} — {row.LengthFt} ft";
+            }
+            else
+            {
+                var shapePrefix = row.DuctShape == "Round" ? "Round " : "";
+                var sizeLabel = row.DuctShape == "Round" ? $"{row.Size}\"" : row.Size;
+                name = $"{sizeLabel} {shapePrefix}Supply {row.ItemType}";
+            }
+            await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+            {
+                ItemName = name,
+                Section = row.DuctShape == "Round" ? "Hard Pipe" : "Trunk Line",
+                Quantity = row.Qty,
+                Unit = row.ItemType == "Trunk Section" ? "pc" : "ea",
+                Notes = row.Notes,
+            });
+            count++;
+        }
+
+        // Return Trunk tab
+        foreach (var row in _hvacReturnTrunkRows.Where(r => r.Qty > 0))
+        {
+            string name;
+            if (string.IsNullOrWhiteSpace(row.Size))
+                name = row.ItemType;
+            else if (row.DuctShape == "Round" && row.ItemType is "Return Trunk Section" or "Return Drop")
+                name = $"{row.Size}\" Round {row.ItemType}";
+            else
+                name = $"{row.Size} {row.ItemType}";
+            await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+            {
+                ItemName = name,
+                Section = row.DuctShape == "Round" ? "Hard Pipe" : "Returns",
+                Quantity = row.Qty,
+                Unit = "ea",
+                Notes = row.Notes,
+            });
+            count++;
+        }
+
+        // Misc tab
+        foreach (var row in _hvacMiscRows.Where(r => !string.IsNullOrWhiteSpace(r.ItemName) && r.Qty > 0))
+        {
+            await ListSvc.AddItemAsync(detail.Id, new MaterialListItemEditModel
+            {
+                ItemName = row.ItemName,
+                Section = row.Section ?? "Misc",
+                Quantity = row.Qty,
+                Unit = row.Unit ?? "ea",
+                Notes = row.Notes,
+            });
+            count++;
+        }
+
+        if (count > 0)
+        {
+            _hvacBundleMsg = $"Added {count} item(s) to the list.";
+            ResetHvacBundle();
+            _hvacBundleMsg = $"Added {count} item(s) to the list.";
+            await LoadDetailView(detail.Id);
+        }
+    }
+
     // --- Print / PDF ---
     private async Task PrintList(bool supplyHouseMode)
     {
@@ -1168,7 +2060,19 @@ else
         else
             await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-no-prices')");
 
-        await JS.InvokeVoidAsync("window.print");
+        try
+        {
+            // Use timeout to prevent blocking; print dialog can be canceled by user
+            await JS.InvokeVoidAsync("window.print").AsTask().WaitAsync(TimeSpan.FromSeconds(30));
+        }
+        catch (TaskCanceledException)
+        {
+            // User canceled print dialog or browser canceled - ignore
+        }
+        catch (TimeoutException)
+        {
+            // Print took too long - ignore
+        }
     }
 
     // --- Email ---

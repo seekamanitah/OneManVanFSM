@@ -8,7 +8,7 @@ public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocu
 {
     public async Task<List<MobileDocumentItem>> GetDocumentsAsync(MobileDocumentFilter? filter = null)
     {
-        var query = db.Documents.AsQueryable();
+        var query = db.Documents.Where(d => !d.IsArchived).AsQueryable();
 
         if (filter is not null)
         {
@@ -87,6 +87,7 @@ public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocu
             AssetId = model.AssetId,
             UploadedByEmployeeId = model.UploadedByEmployeeId,
             UploadDate = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
         };
         db.Documents.Add(doc);
@@ -98,7 +99,8 @@ public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocu
     {
         var doc = await db.Documents.FindAsync(id);
         if (doc is null) return false;
-        db.Documents.Remove(doc);
+        doc.IsArchived = true;
+        doc.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return true;
     }

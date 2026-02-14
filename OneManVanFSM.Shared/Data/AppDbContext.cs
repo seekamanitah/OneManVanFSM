@@ -101,6 +101,10 @@ public class AppDbContext : DbContext
                 .WithMany(s => s.Assets)
                 .HasForeignKey(a => a.SiteId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(a => a.Customer)
+                .WithMany(c => c.Assets)
+                .HasForeignKey(a => a.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // InventoryItem
@@ -109,6 +113,10 @@ public class AppDbContext : DbContext
             e.HasOne(i => i.Product)
                 .WithMany(p => p.InventoryItems)
                 .HasForeignKey(i => i.ProductId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(i => i.Supplier)
+                .WithMany()
+                .HasForeignKey(i => i.SupplierId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -229,6 +237,10 @@ public class AppDbContext : DbContext
                 .WithMany(co => co.Invoices)
                 .HasForeignKey(i => i.CompanyId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(i => i.Site)
+                .WithMany()
+                .HasForeignKey(i => i.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Payment
@@ -343,6 +355,10 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Supplier>(e =>
         {
             e.HasIndex(s => s.Name);
+            e.HasOne(s => s.Company)
+                .WithMany()
+                .HasForeignKey(s => s.CompanyId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // DropdownOption
@@ -384,6 +400,14 @@ public class AppDbContext : DbContext
                 .WithMany(co => co.Expenses)
                 .HasForeignKey(exp => exp.CompanyId)
                 .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(exp => exp.Customer)
+                .WithMany()
+                .HasForeignKey(exp => exp.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(exp => exp.Invoice)
+                .WithMany()
+                .HasForeignKey(exp => exp.InvoiceId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // ServiceAgreement
@@ -405,6 +429,18 @@ public class AppDbContext : DbContext
         {
             e.HasIndex(qn => qn.Category);
             e.HasIndex(qn => qn.EntityType);
+            e.HasOne(qn => qn.CreatedByEmployee)
+                .WithMany()
+                .HasForeignKey(qn => qn.CreatedByEmployeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(qn => qn.Customer)
+                .WithMany(c => c.QuickNotes)
+                .HasForeignKey(qn => qn.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(qn => qn.Job)
+                .WithMany(j => j.QuickNotes)
+                .HasForeignKey(qn => qn.JobId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Document
@@ -415,12 +451,24 @@ public class AppDbContext : DbContext
                 .HasForeignKey(d => d.UploadedByEmployeeId)
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.Employee)
-                .WithMany()
+                .WithMany(emp => emp.Documents)
                 .HasForeignKey(d => d.EmployeeId)
                 .OnDelete(DeleteBehavior.SetNull);
             e.HasOne(d => d.Job)
                 .WithMany(j => j.Documents)
                 .HasForeignKey(d => d.JobId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(d => d.Customer)
+                .WithMany(c => c.Documents)
+                .HasForeignKey(d => d.CustomerId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(d => d.Site)
+                .WithMany()
+                .HasForeignKey(d => d.SiteId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(d => d.Asset)
+                .WithMany()
+                .HasForeignKey(d => d.AssetId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
 
@@ -429,6 +477,10 @@ public class AppDbContext : DbContext
         {
             e.HasIndex(u => u.Username).IsUnique();
             e.HasIndex(u => u.Email).IsUnique();
+            e.HasOne(u => u.Employee)
+                .WithMany()
+                .HasForeignKey(u => u.EmployeeId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
 
         // AuditLog
@@ -500,6 +552,40 @@ public class AppDbContext : DbContext
                 .WithMany(sh => sh.ClaimActions)
                 .HasForeignKey(ca => ca.ServiceHistoryRecordId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        // CalendarEvent
+        modelBuilder.Entity<CalendarEvent>(e =>
+        {
+            e.HasOne(ce => ce.Job)
+                .WithMany()
+                .HasForeignKey(ce => ce.JobId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(ce => ce.Employee)
+                .WithMany()
+                .HasForeignKey(ce => ce.EmployeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(ce => ce.ServiceAgreement)
+                .WithMany()
+                .HasForeignKey(ce => ce.ServiceAgreementId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // ExpenseLine
+        modelBuilder.Entity<ExpenseLine>(e =>
+        {
+            e.HasOne(el => el.Expense)
+                .WithMany(exp => exp.Lines)
+                .HasForeignKey(el => el.ExpenseId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(el => el.Product)
+                .WithMany()
+                .HasForeignKey(el => el.ProductId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(el => el.InventoryItem)
+                .WithMany()
+                .HasForeignKey(el => el.InventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
         });
     }
 }

@@ -289,7 +289,7 @@ else
                                         <th style="width:70px;" class="text-center">Qty</th>
                                         <th style="width:100px;" class="text-end">Unit Price</th>
                                         <th style="width:90px;" class="text-end">Total</th>
-                                        <th style="width:40px;"></th>
+                                        <th style="width:70px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -305,7 +305,10 @@ else
                                             <td class="text-center">@line.Quantity</td>
                                             <td class="text-end">@line.UnitPrice.ToString("C")</td>
                                             <td class="text-end">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
-                                            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveExpenseLine(capturedIdx)"><i class="bi bi-x"></i></button></td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="() => DuplicateExpenseLine(capturedIdx)" title="Duplicate"><i class="bi bi-copy"></i></button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 ms-1" @onclick="() => RemoveExpenseLine(capturedIdx)"><i class="bi bi-x"></i></button>
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -851,6 +854,24 @@ else
     private void RemoveExpenseLine(int idx)
     {
         if (idx >= 0 && idx < expenseForm.Lines.Count) expenseForm.Lines.RemoveAt(idx);
+        RecalcExpenseAmount();
+    }
+
+    private void DuplicateExpenseLine(int idx)
+    {
+        if (idx < 0 || idx >= expenseForm.Lines.Count) return;
+        var src = expenseForm.Lines[idx];
+        expenseForm.Lines.Insert(idx + 1, new ExpenseLineEditModel
+        {
+            ProductId = src.ProductId,
+            InventoryItemId = src.InventoryItemId,
+            Description = src.Description,
+            LineType = src.LineType,
+            Unit = src.Unit,
+            Quantity = src.Quantity,
+            UnitPrice = src.UnitPrice,
+            Notes = src.Notes
+        });
         RecalcExpenseAmount();
     }
 

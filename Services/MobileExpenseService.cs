@@ -14,7 +14,7 @@ public class MobileExpenseService : IMobileExpenseService
         var now = DateTime.UtcNow;
         var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        var expenses = await _db.Expenses.ToListAsync();
+        var expenses = await _db.Expenses.Where(e => !e.IsArchived).ToListAsync();
 
         return new MobileExpenseStats
         {
@@ -31,6 +31,7 @@ public class MobileExpenseService : IMobileExpenseService
             .Include(e => e.Job)
             .Include(e => e.Customer)
             .Include(e => e.Lines)
+            .Where(e => !e.IsArchived)
             .AsQueryable();
 
         if (filter?.Status.HasValue == true)
@@ -171,7 +172,8 @@ public class MobileExpenseService : IMobileExpenseService
     {
         var expense = await _db.Expenses.FindAsync(id);
         if (expense is null) return false;
-        _db.Expenses.Remove(expense);
+        expense.IsArchived = true;
+        expense.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
     }

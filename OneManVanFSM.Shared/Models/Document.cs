@@ -15,6 +15,8 @@ public class Document
     public string? Notes { get; set; }
     public DateTime UploadDate { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public bool IsArchived { get; set; }
 
     // Polymorphic relationships
     public int? CustomerId { get; set; }

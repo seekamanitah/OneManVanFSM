@@ -100,7 +100,7 @@ public class MaterialListItemDto
     public int Id { get; set; }
     public string? Section { get; set; }
     public string ItemName { get; set; } = string.Empty;
-    public decimal Quantity { get; set; }
+    public int Quantity { get; set; }
     public string? Unit { get; set; }
     public decimal BaseCost { get; set; }
     public decimal LaborHours { get; set; }
@@ -136,7 +136,7 @@ public class MaterialListItemEditModel
     [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "Item name is required.")]
     public string ItemName { get; set; } = string.Empty;
     public string Section { get; set; } = "General";
-    public decimal Quantity { get; set; } = 1;
+    public int Quantity { get; set; } = 1;
     public string? Unit { get; set; } = "ea";
     public decimal BaseCost { get; set; }
     public decimal LaborHours { get; set; }

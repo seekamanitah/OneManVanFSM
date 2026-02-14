@@ -106,15 +106,23 @@ public class SyncService : ISyncService
                 "Employees" => await PullAndMerge<Employee>($"api/employees{sinceParam}", e => e.Id, (db, e) => db.Employees),
                 "Assets" => await PullAndMerge<Asset>($"api/assets{sinceParam}", e => e.Id, (db, e) => db.Assets),
                 "Products" => await PullAndMerge<Product>($"api/products{sinceParam}", e => e.Id, (db, e) => db.Products),
-                "Estimates" => await PullAndMerge<Estimate>($"api/estimates{sinceParam}", e => e.Id, (db, e) => db.Estimates),
-                "Invoices" => await PullAndMerge<Invoice>($"api/invoices{sinceParam}", e => e.Id, (db, e) => db.Invoices),
-                "Expenses" => await PullAndMerge<Expense>($"api/expenses{sinceParam}", e => e.Id, (db, e) => db.Expenses),
+                "Estimates" => await PullAndMergeWithChildren<Estimate, EstimateLine>(
+                    $"api/estimates{sinceParam}", e => e.Id, (db, _) => db.Estimates,
+                    e => e.Lines, l => l.EstimateId),
+                "Invoices" => await PullAndMergeWithChildren<Invoice, InvoiceLine>(
+                    $"api/invoices{sinceParam}", e => e.Id, (db, _) => db.Invoices,
+                    e => e.Lines, l => l.InvoiceId),
+                "Expenses" => await PullAndMergeWithChildren<Expense, ExpenseLine>(
+                    $"api/expenses{sinceParam}", e => e.Id, (db, _) => db.Expenses,
+                    e => e.Lines, l => l.ExpenseId),
                 "Inventory" => await PullAndMerge<InventoryItem>($"api/inventory{sinceParam}", e => e.Id, (db, e) => db.InventoryItems),
                 "QuickNotes" => await PullAndMerge<QuickNote>($"api/notes{sinceParam}", e => e.Id, (db, e) => db.QuickNotes),
                 "Documents" => await PullAndMerge<Document>($"api/documents{sinceParam}", e => e.Id, (db, e) => db.Documents),
                 "TimeEntries" => await PullAndMerge<TimeEntry>($"api/timeentries{sinceParam}", e => e.Id, (db, e) => db.TimeEntries),
                 "ServiceAgreements" => await PullAndMerge<ServiceAgreement>($"api/serviceagreements{sinceParam}", e => e.Id, (db, e) => db.ServiceAgreements),
-                "MaterialLists" => await PullAndMerge<MaterialList>($"api/materiallists{sinceParam}", e => e.Id, (db, e) => db.MaterialLists),
+                "MaterialLists" => await PullAndMergeWithChildren<MaterialList, MaterialListItem>(
+                    $"api/materiallists{sinceParam}", e => e.Id, (db, _) => db.MaterialLists,
+                    e => e.Items, i => i.MaterialListId),
                 _ => 0
             };
 
@@ -147,20 +155,24 @@ public class SyncService : ISyncService
 
         var dbSet = getDbSet(_db, response.Data[0]);
 
+        // Batch-fetch existing IDs to avoid N+1 FindAsync calls
+        var incomingIds = response.Data.Select(getId).ToList();
+        var existingIds = new HashSet<int>(
+            await dbSet.AsNoTracking()
+                .Cast<object>()
+                .Select(e => EF.Property<int>(e, "Id"))
+                .Where(id => incomingIds.Contains(id))
+                .ToListAsync());
+
         foreach (var entity in response.Data)
         {
             var id = getId(entity);
-            var existing = await dbSet.FindAsync(id);
-
-            if (existing is not null)
+            if (existingIds.Contains(id))
             {
-                // Detach existing and attach updated version
-                _db.Entry(existing).State = EntityState.Detached;
                 _db.Entry(entity).State = EntityState.Modified;
             }
             else
             {
-                // New entity from server — add to local DB
                 dbSet.Add(entity);
             }
         }
@@ -169,6 +181,99 @@ public class SyncService : ISyncService
         _db.ChangeTracker.Clear();
 
         return response.Data.Count;
+    }
+
+    /// <summary>
+    /// Specialised pull-and-merge for entities that include child collections
+    /// (e.g., Invoice→Lines, MaterialList→Items). For existing parents the old
+    /// children are removed before upserting so EF Core does not attempt to
+    /// re-add children that already exist locally.
+    /// </summary>
+    private async Task<int> PullAndMergeWithChildren<TParent, TChild>(
+        string apiPath,
+        Func<TParent, int> getParentId,
+        Func<AppDbContext, TParent, DbSet<TParent>> getParentDbSet,
+        Func<TParent, IEnumerable<TChild>> getChildren,
+        Func<TChild, int> getChildFk) where TParent : class where TChild : class
+    {
+        var response = await _api.GetAsync<SyncResponse<TParent>>(apiPath);
+        if (response is null || response.Data.Count == 0) return 0;
+
+        var parentDbSet = getParentDbSet(_db, response.Data[0]);
+        var incomingIds = response.Data.Select(getParentId).ToList();
+        var existingIds = new HashSet<int>(
+            await parentDbSet.AsNoTracking()
+                .Cast<object>()
+                .Select(e => EF.Property<int>(e, "Id"))
+                .Where(id => incomingIds.Contains(id))
+                .ToListAsync());
+
+        // Pre-load all existing children for the incoming parent IDs so we can
+        // remove stale ones before upserting. Done in-memory since the FK filter
+        // delegate cannot be translated to SQL by EF Core.
+        var allExistingChildren = await _db.Set<TChild>().AsNoTracking().ToListAsync();
+        var childrenByParent = allExistingChildren
+            .GroupBy(getChildFk)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        _db.ChangeTracker.Clear();
+
+        foreach (var entity in response.Data)
+        {
+            var id = getParentId(entity);
+            var incomingChildren = getChildren(entity).ToList();
+
+            if (existingIds.Contains(id))
+            {
+                // Remove old child rows belonging to this parent
+                if (childrenByParent.TryGetValue(id, out var oldChildren) && oldChildren.Count > 0)
+                {
+                    foreach (var child in oldChildren)
+                        _db.Entry(child).State = EntityState.Deleted;
+                    await _db.SaveChangesAsync();
+                    _db.ChangeTracker.Clear();
+                }
+
+                // Clear navigation collection so EF won't track children as Added
+                ClearNavigationCollection<TParent, TChild>(entity);
+                _db.Entry(entity).State = EntityState.Modified;
+                await _db.SaveChangesAsync();
+                _db.ChangeTracker.Clear();
+
+                // Now add children fresh
+                if (incomingChildren.Count > 0)
+                {
+                    _db.Set<TChild>().AddRange(incomingChildren);
+                    await _db.SaveChangesAsync();
+                    _db.ChangeTracker.Clear();
+                }
+            }
+            else
+            {
+                parentDbSet.Add(entity);
+            }
+        }
+
+        await _db.SaveChangesAsync();
+        _db.ChangeTracker.Clear();
+
+        return response.Data.Count;
+    }
+
+    /// <summary>
+    /// Clears the navigation collection on the parent entity so EF Core won't
+    /// try to track children as Added when we set the parent state to Modified.
+    /// </summary>
+    private static void ClearNavigationCollection<TParent, TChild>(TParent entity)
+        where TParent : class where TChild : class
+    {
+        // Use reflection to find and clear the ICollection<TChild> property
+        var collProp = typeof(TParent).GetProperties()
+            .FirstOrDefault(p => typeof(IEnumerable<TChild>).IsAssignableFrom(p.PropertyType) && p.CanWrite);
+        if (collProp is not null)
+        {
+            var emptyList = Activator.CreateInstance(typeof(List<TChild>));
+            collProp.SetValue(entity, emptyList);
+        }
     }
 
     // ?????????????????????? Timestamp Tracking ??????????????????????

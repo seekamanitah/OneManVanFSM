@@ -50,8 +50,10 @@ public class SitesApiController : SyncApiController
         if (existing is null) return NotFound();
         if (site.UpdatedAt < existing.UpdatedAt)
             return Conflict(new SyncConflict { EntityId = id, EntityType = "Site", Message = "Server version is newer.", ServerUpdatedAt = existing.UpdatedAt, ClientUpdatedAt = site.UpdatedAt });
+        var createdAt = existing.CreatedAt;
         _db.Entry(existing).CurrentValues.SetValues(site);
         existing.Id = id;
+        existing.CreatedAt = createdAt;
         existing.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(existing);
@@ -110,8 +112,10 @@ public class CompaniesApiController : SyncApiController
         if (existing is null) return NotFound();
         if (company.UpdatedAt < existing.UpdatedAt)
             return Conflict(new SyncConflict { EntityId = id, EntityType = "Company", Message = "Server version is newer.", ServerUpdatedAt = existing.UpdatedAt, ClientUpdatedAt = company.UpdatedAt });
+        var createdAt = existing.CreatedAt;
         _db.Entry(existing).CurrentValues.SetValues(company);
         existing.Id = id;
+        existing.CreatedAt = createdAt;
         existing.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(existing);

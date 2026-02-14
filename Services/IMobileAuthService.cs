@@ -35,6 +35,13 @@ public interface IMobileAuthService
     /// Optionally update username and email.
     /// </summary>
     Task<MobileAuthResult> CompleteFirstTimeSetupAsync(string currentPassword, string newPassword, string? newUsername = null, string? newEmail = null);
+
+    /// <summary>
+    /// Re-fetches the user profile from the server (remote mode) or local DB
+    /// to pick up changes made server-side (e.g., employee linking).
+    /// Updates the cached session and SecureStorage.
+    /// </summary>
+    Task RefreshSessionAsync();
 }
 
 public class MobileAuthResult

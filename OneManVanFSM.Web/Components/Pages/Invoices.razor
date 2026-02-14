@@ -441,7 +441,7 @@ else
                     <div class="row g-2 mb-3">
                         <div class="col-md-4">
                             <label class="form-label">Customer</label>
-                            <InputSelect @bind-Value="invoiceForm.CustomerId" class="form-select form-select-sm">
+                            <InputSelect @bind-Value="invoiceForm.CustomerId" @bind-Value:after="OnInvoiceCustomerChanged" class="form-select form-select-sm">
                                 <option value="">— Select Customer —</option>
                                 @foreach (var c in _customers) { <option value="@c.Id">@c.Name</option> }
                             </InputSelect>
@@ -530,7 +530,7 @@ else
                                         <th style="width:70px;" class="text-center">Qty</th>
                                         <th style="width:100px;" class="text-end">Unit Price</th>
                                         <th style="width:90px;" class="text-end">Total</th>
-                                        <th style="width:40px;"></th>
+                                        <th style="width:70px;"></th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -546,7 +546,10 @@ else
                                             <td class="text-center"><input type="number" class="form-control form-control-sm border-0 p-0 text-center" style="width:60px;" step="0.01" @bind="line.Quantity" @bind:event="oninput" @onchange="RecalcInvoiceTotals" /></td>
                                             <td class="text-end"><input type="number" class="form-control form-control-sm border-0 p-0 text-end" style="width:90px;" step="0.01" @bind="line.UnitPrice" @bind:event="oninput" @onchange="RecalcInvoiceTotals" /></td>
                                             <td class="text-end">@((line.Quantity * line.UnitPrice).ToString("C"))</td>
-                                            <td class="text-center"><button type="button" class="btn btn-sm btn-outline-danger py-0 px-1" @onclick="() => RemoveInvoiceLine(capturedIdx)"><i class="bi bi-x"></i></button></td>
+                                            <td class="text-center">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="() => DuplicateInvoiceLine(capturedIdx)" title="Duplicate"><i class="bi bi-copy"></i></button>
+                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-1 ms-1" @onclick="() => RemoveInvoiceLine(capturedIdx)"><i class="bi bi-x"></i></button>
+                                            </td>
                                         </tr>
                                     }
                                 </tbody>
@@ -934,6 +937,8 @@ else
     private List<AssetListItem> _assetOptions = [];
     private List<JobListItem> _jobOptions = [];
     private List<SiteListItem> _siteOptions = [];
+    private List<JobListItem> _allJobOptions = [];
+    private List<SiteListItem> _allSiteOptions = [];
     private List<InventoryListItem> _inventoryItems = [];
     private List<JobLinkedAsset> _linkedAssetInfo = [];
     private InvoiceDetail? invoiceDetail;
@@ -991,6 +996,8 @@ else
         _assetOptions = await AssetSvc.GetAssetsAsync();
         _jobOptions = await JobSvc.GetJobsAsync();
         _siteOptions = await SiteSvc.GetSitesAsync();
+        _allJobOptions = _jobOptions;
+        _allSiteOptions = _siteOptions;
         _inventoryItems = await InvSvc.GetItemsAsync();
         var statuses = await DropdownSvc.GetOptionsAsync("InvoiceStatus");
         if (statuses.Count > 0) _invoiceStatuses = statuses.Where(o => o.IsActive).Select(o => o.Value).ToList();
@@ -1230,6 +1237,23 @@ else
         RecalcInvoiceTotals();
     }
 
+    private void DuplicateInvoiceLine(int idx)
+    {
+        if (idx < 0 || idx >= invoiceForm.Lines.Count) return;
+        var src = invoiceForm.Lines[idx];
+        invoiceForm.Lines.Insert(idx + 1, new InvoiceLineEditModel
+        {
+            ProductId = src.ProductId,
+            AssetId = src.AssetId,
+            Description = src.Description,
+            LineType = src.LineType,
+            Unit = src.Unit,
+            Quantity = src.Quantity,
+            UnitPrice = src.UnitPrice
+        });
+        RecalcInvoiceTotals();
+    }
+
     private async Task OnJobSelected(ChangeEventArgs e)
     {
         _linkedAssetInfo = [];
@@ -1240,7 +1264,10 @@ else
             if (jobDetail is not null)
             {
                 if (!invoiceForm.CustomerId.HasValue && jobDetail.CustomerId.HasValue)
+                {
                     invoiceForm.CustomerId = jobDetail.CustomerId;
+                    await OnInvoiceCustomerChanged();
+                }
                 if (!invoiceForm.SiteId.HasValue && jobDetail.SiteId.HasValue)
                     invoiceForm.SiteId = jobDetail.SiteId;
                 if (string.IsNullOrWhiteSpace(invoiceForm.Notes) && !string.IsNullOrWhiteSpace(jobDetail.Description))
@@ -1268,6 +1295,32 @@ else
             invoiceForm.JobId = null;
         }
         RecalcInvoiceTotals();
+    }
+
+    private async Task OnInvoiceCustomerChanged()
+    {
+        if (invoiceForm.CustomerId.HasValue)
+        {
+            var custId = invoiceForm.CustomerId.Value;
+            _siteOptions = _allSiteOptions.Where(s => s.CustomerId == custId).ToList();
+            _jobOptions = _allJobOptions.Where(j => j.CustomerName is not null
+                && _customers.Any(c => c.Id == custId && c.Name == j.CustomerName)).ToList();
+
+            // Auto-select single site
+            if (_siteOptions.Count == 1 && !invoiceForm.SiteId.HasValue)
+                invoiceForm.SiteId = _siteOptions[0].Id;
+
+            // Clear site/job if no longer valid in filtered list
+            if (invoiceForm.SiteId.HasValue && !_siteOptions.Any(s => s.Id == invoiceForm.SiteId))
+                invoiceForm.SiteId = null;
+            if (invoiceForm.JobId.HasValue && !_jobOptions.Any(j => j.Id == invoiceForm.JobId))
+                invoiceForm.JobId = null;
+        }
+        else
+        {
+            _siteOptions = _allSiteOptions;
+            _jobOptions = _allJobOptions;
+        }
     }
 
     private async Task ResetTaxRate()

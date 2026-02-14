@@ -18,9 +18,9 @@ public class DocumentsApiController : SyncApiController
     {
         var query = _db.Documents.AsNoTracking().AsQueryable();
         if (since.HasValue)
-            query = query.Where(d => d.CreatedAt > since.Value);
+            query = query.Where(d => d.UpdatedAt > since.Value);
 
-        var data = await query.OrderByDescending(d => d.CreatedAt).ToListAsync();
+        var data = await query.OrderByDescending(d => d.UpdatedAt).ToListAsync();
         return Ok(new SyncResponse<Document> { Data = data, TotalCount = data.Count });
     }
 
@@ -36,6 +36,7 @@ public class DocumentsApiController : SyncApiController
     {
         document.Id = 0;
         document.CreatedAt = DateTime.UtcNow;
+        document.UpdatedAt = DateTime.UtcNow;
         document.UploadDate = DateTime.UtcNow;
         _db.Documents.Add(document);
         await _db.SaveChangesAsync();
@@ -63,6 +64,7 @@ public class DocumentsApiController : SyncApiController
         existing.AssetId = document.AssetId;
         existing.JobId = document.JobId;
         existing.EmployeeId = document.EmployeeId;
+        existing.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
         return Ok(existing);
@@ -74,7 +76,8 @@ public class DocumentsApiController : SyncApiController
         var doc = await _db.Documents.FindAsync(id);
         if (doc is null) return NotFound();
 
-        _db.Documents.Remove(doc);
+        doc.IsArchived = true;
+        doc.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return NoContent();
     }

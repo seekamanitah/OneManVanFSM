@@ -58,8 +58,10 @@ public class CustomersApiController : SyncApiController
                 ServerUpdatedAt = existing.UpdatedAt, ClientUpdatedAt = customer.UpdatedAt
             });
 
+        var createdAt = existing.CreatedAt;
         _db.Entry(existing).CurrentValues.SetValues(customer);
         existing.Id = id;
+        existing.CreatedAt = createdAt;
         existing.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return Ok(existing);

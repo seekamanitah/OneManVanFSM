@@ -38,7 +38,7 @@ public class MaterialListItem
     public MaterialList MaterialList { get; set; } = null!;
     public string Section { get; set; } = string.Empty; // Ductwork, Grills, Sealing, etc.
     public string ItemName { get; set; } = string.Empty;
-    public decimal Quantity { get; set; }
+    public int Quantity { get; set; }
     public string? Unit { get; set; }
     public decimal BaseCost { get; set; }
     public decimal? LaborHours { get; set; }
@@ -57,5 +57,7 @@ public enum MaterialListStatus
 {
     Draft,
     Approved,
-    Ordered
+    Ordered,
+    Completed,
+    Cancelled
 }
