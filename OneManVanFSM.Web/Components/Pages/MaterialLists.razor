@@ -342,7 +342,7 @@ else if (mode == "detail" && detail is not null)
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h6 class="mb-0">Items (@detail.Items.Count)</h6>
                         <div class="d-flex gap-1">
-                            <button class="btn btn-outline-warning btn-sm" @onclick="ToggleHvacQuickAdd"><i class="bi bi-lightning me-1"></i>HVAC Quick-Add</button>
+                            <button class="btn btn-outline-primary btn-sm" @onclick="ToggleHvacQuickAdd"><i class="bi bi-lightning me-1"></i>HVAC Quick-Add</button>
                             <button class="btn btn-primary btn-sm" @onclick="ShowAddItem"><i class="bi bi-plus-lg me-1"></i>Add Item</button>
                         </div>
                     </div>
@@ -350,8 +350,8 @@ else if (mode == "detail" && detail is not null)
                     @* HVAC Quick-Add Panel *@
                     @if (_showHvacQuickAdd)
                     {
-                        <div class="card border-warning mb-3">
-                            <div class="card-header bg-warning bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
+                        <div class="card border-primary mb-3">
+                            <div class="card-header bg-primary bg-opacity-10 py-2 d-flex justify-content-between align-items-center">
                                 <strong class="small"><i class="bi bi-lightning me-1"></i>HVAC Quick-Add</strong>
                                 <button class="btn btn-sm btn-outline-secondary py-0 px-1" @onclick="ToggleHvacQuickAdd"><i class="bi bi-x-lg"></i></button>
                             </div>
@@ -359,19 +359,19 @@ else if (mode == "detail" && detail is not null)
                                 @* Subcategory tabs *@
                                 <ul class="nav nav-pills nav-fill mb-3">
                                     <li class="nav-item">
-                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "equipment" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "equipment"'><i class="bi bi-cpu me-1"></i>Equipment</button>
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "equipment" ? "active bg-primary text-white" : "text-dark")" @onclick='() => _hvacQuickAddTab = "equipment"'><i class="bi bi-cpu me-1"></i>Equipment</button>
                                     </li>
                                     <li class="nav-item">
-                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "ductwork" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "ductwork"'><i class="bi bi-wind me-1"></i>Ductwork</button>
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "ductwork" ? "active bg-primary text-white" : "text-dark")" @onclick='() => _hvacQuickAddTab = "ductwork"'><i class="bi bi-wind me-1"></i>Ductwork</button>
                                     </li>
                                     <li class="nav-item">
-                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "supply" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "supply"'><i class="bi bi-arrow-up-right-square me-1"></i>Supply Trunk</button>
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "supply" ? "active bg-primary text-white" : "text-dark")" @onclick='() => _hvacQuickAddTab = "supply"'><i class="bi bi-arrow-up-right-square me-1"></i>Supply Trunk</button>
                                     </li>
                                     <li class="nav-item">
-                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "return" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "return"'><i class="bi bi-arrow-down-left-square me-1"></i>Return Trunk</button>
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "return" ? "active bg-primary text-white" : "text-dark")" @onclick='() => _hvacQuickAddTab = "return"'><i class="bi bi-arrow-down-left-square me-1"></i>Return Trunk</button>
                                     </li>
                                     <li class="nav-item">
-                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "misc" ? "active bg-warning text-dark" : "text-dark")" @onclick='() => _hvacQuickAddTab = "misc"'><i class="bi bi-box me-1"></i>Misc</button>
+                                        <button type="button" class="nav-link py-1 px-2 @(_hvacQuickAddTab == "misc" ? "active bg-primary text-white" : "text-dark")" @onclick='() => _hvacQuickAddTab = "misc"'><i class="bi bi-box me-1"></i>Misc</button>
                                     </li>
                                 </ul>
 
@@ -446,7 +446,7 @@ else if (mode == "detail" && detail is not null)
                                             </tbody>
                                         </table>
                                     </div>
-                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddEquipmentRow"><i class="bi bi-plus-lg me-1"></i>Add Custom Row</button>
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="AddEquipmentRow"><i class="bi bi-plus-lg me-1"></i>Add Custom Row</button>
                                 }
 
                                 @* ── DUCTWORK TAB ── *@
@@ -454,7 +454,7 @@ else if (mode == "detail" && detail is not null)
                                 {
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <p class="text-muted small mb-0">Set quantities per flex size. Boot sizes default by duct diameter but can be changed.</p>
-                                        <button class="btn btn-sm btn-outline-warning py-0 px-1" @onclick="() => _showHvacAccessories = !_showHvacAccessories" title="Toggle accessories">
+                                        <button class="btn btn-sm btn-outline-primary py-0 px-1" @onclick="() => _showHvacAccessories = !_showHvacAccessories" title="Toggle accessories">
                                             <i class="bi bi-gear me-1"></i>@(_showHvacAccessories ? "Hide" : "Show") Extras
                                         </button>
                                     </div>
@@ -527,7 +527,7 @@ else if (mode == "detail" && detail is not null)
                                             </tbody>
                                         </table>
                                     </div>
-                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddHvacSize" disabled="@(_hvacBundleRows.Count >= FlexSizes.Length)"><i class="bi bi-plus-lg me-1"></i>Add Size</button>
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="AddHvacSize" disabled="@(_hvacBundleRows.Count >= FlexSizes.Length)"><i class="bi bi-plus-lg me-1"></i>Add Size</button>
                                 }
 
                                 @* ── SUPPLY TRUNK TAB ── *@
@@ -595,7 +595,7 @@ else if (mode == "detail" && detail is not null)
                                             </tbody>
                                         </table>
                                     </div>
-                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddSupplyTrunkRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="AddSupplyTrunkRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
                                 }
 
                                 @* ── RETURN TRUNK TAB ── *@
@@ -669,7 +669,7 @@ else if (mode == "detail" && detail is not null)
                                             </tbody>
                                         </table>
                                     </div>
-                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddReturnTrunkRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="AddReturnTrunkRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
                                 }
 
                                 @* ── MISC TAB ── *@
@@ -721,13 +721,13 @@ else if (mode == "detail" && detail is not null)
                                             <option value="@p" />
                                         }
                                     </datalist>
-                                    <button class="btn btn-outline-warning btn-sm" @onclick="AddMiscRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
+                                    <button class="btn btn-outline-primary btn-sm" @onclick="AddMiscRow"><i class="bi bi-plus-lg me-1"></i>Add Row</button>
                                 }
 
                                 @* ── Shared footer: Add All + Reset ── *@
                                 <hr class="my-2" />
                                 <div class="d-flex gap-2 align-items-center flex-wrap">
-                                    <button class="btn btn-warning btn-sm" @onclick="AddHvacBundle" disabled="@(!HvacHasItems)">
+                                    <button class="btn btn-primary btn-sm" @onclick="AddHvacBundle" disabled="@(!HvacHasItems)">
                                         <i class="bi bi-check-lg me-1"></i>Add All to List
                                     </button>
                                     <button class="btn btn-outline-secondary btn-sm" @onclick="ResetHvacBundle">Reset All</button>

@@ -45,12 +45,12 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         var entry = new TimeEntry
         {
             EmployeeId = employeeId,
-            StartTime = DateTime.Now,
+            StartTime = DateTime.UtcNow,
             EntryType = TimeEntryType.Shift,
             HourlyRate = emp.HourlyRate,
             IsBillable = true,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
         };
         db.TimeEntries.Add(entry);
         await db.SaveChangesAsync();
@@ -68,9 +68,21 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
 
         foreach (var jc in activeJobClocks)
         {
-            jc.EndTime = DateTime.Now;
+            jc.EndTime = DateTime.UtcNow;
             jc.Hours = Math.Round((decimal)(jc.EndTime.Value - jc.StartTime).TotalHours, 2);
-            jc.UpdatedAt = DateTime.Now;
+            jc.UpdatedAt = DateTime.UtcNow;
+        }
+
+        // Close any active break
+        var activeBreak = await db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Break
+                && t.EndTime == null);
+        if (activeBreak is not null)
+        {
+            activeBreak.EndTime = DateTime.UtcNow;
+            activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
+            activeBreak.UpdatedAt = DateTime.UtcNow;
         }
 
         // Then close the shift
@@ -80,7 +92,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EndTime == null);
         if (shift is null) return null;
 
-        shift.EndTime = DateTime.Now;
+        shift.EndTime = DateTime.UtcNow;
         shift.Hours = Math.Round((decimal)(shift.EndTime.Value - shift.StartTime).TotalHours, 2);
 
         // Calculate overtime (daily: hours > 8)
@@ -88,7 +100,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         {
             shift.OvertimeHours = shift.Hours - 8;
         }
-        shift.UpdatedAt = DateTime.Now;
+        shift.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
         return shift;
@@ -130,12 +142,12 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         {
             EmployeeId = employeeId,
             JobId = jobId,
-            StartTime = DateTime.Now,
+            StartTime = DateTime.UtcNow,
             EntryType = TimeEntryType.JobClock,
             HourlyRate = rateOverride ?? emp.HourlyRate,
             IsBillable = true,
-            CreatedAt = DateTime.Now,
-            UpdatedAt = DateTime.Now,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
         };
         db.TimeEntries.Add(entry);
         await db.SaveChangesAsync();
@@ -151,9 +163,9 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EndTime == null);
         if (entry is null) return null;
 
-        entry.EndTime = DateTime.Now;
+        entry.EndTime = DateTime.UtcNow;
         entry.Hours = Math.Round((decimal)(entry.EndTime.Value - entry.StartTime).TotalHours, 2);
-        entry.UpdatedAt = DateTime.Now;
+        entry.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         return entry;
     }
@@ -166,6 +178,63 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EntryType == TimeEntryType.JobClock
                 && t.EndTime == null)
             .ToListAsync();
+    }
+
+    // ── Break / Pause (within a shift) ──
+
+    public async Task<TimeEntry?> ShiftPauseAsync(int employeeId, string? reason = null)
+    {
+        // Must have an active shift
+        var activeShift = await db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Shift
+                && t.EndTime == null);
+        if (activeShift is null) return null;
+
+        // Prevent double-pause
+        var existingBreak = await db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Break
+                && t.EndTime == null);
+        if (existingBreak is not null) return existingBreak;
+
+        var entry = new TimeEntry
+        {
+            EmployeeId = employeeId,
+            StartTime = DateTime.UtcNow,
+            EntryType = TimeEntryType.Break,
+            IsBillable = false,
+            TimeCategory = "Break",
+            Notes = reason,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+        db.TimeEntries.Add(entry);
+        await db.SaveChangesAsync();
+        return entry;
+    }
+
+    public async Task<TimeEntry?> ShiftResumeAsync(int employeeId)
+    {
+        var activeBreak = await db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Break
+                && t.EndTime == null);
+        if (activeBreak is null) return null;
+
+        activeBreak.EndTime = DateTime.UtcNow;
+        activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
+        activeBreak.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return activeBreak;
+    }
+
+    public async Task<TimeEntry?> GetActiveBreakAsync(int employeeId)
+    {
+        return await db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Break
+                && t.EndTime == null);
     }
 
     // ── Queries ──
@@ -189,7 +258,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
 
     public async Task<MobileTimeSummary> GetTimeSummaryAsync(int employeeId)
     {
-        var today = DateTime.Now.Date;
+        var today = DateTime.UtcNow.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
         var monthStart = new DateTime(today.Year, today.Month, 1);
 

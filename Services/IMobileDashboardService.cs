@@ -14,8 +14,12 @@ public class MobileDashboardData
     public int PendingNoteCount { get; set; }
     public decimal HoursToday { get; set; }
     public decimal HoursThisWeek { get; set; }
+    public decimal HoursThisMonth { get; set; }
     public bool IsClockedIn { get; set; }
     public DateTime? ClockInTime { get; set; }
+    public bool IsPaused { get; set; }
+    public DateTime? PauseStartTime { get; set; }
+    public int TotalBreakMinutesToday { get; set; }
     public int CompletedThisWeek { get; set; }
     public int OverdueJobCount { get; set; }
     public int UpcomingJobCount { get; set; }

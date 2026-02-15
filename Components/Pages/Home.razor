@@ -115,30 +115,60 @@ else if (_data != null)
     <div class="time-clock-card">
         @if (_data.IsClockedIn)
         {
-            <div class="clock-label">Shift Active</div>
-            <div class="clock-time">@FormatElapsed()</div>
+            <div class="d-flex justify-content-between align-items-center">
+                <div class="text-start">
+                    <div class="clock-label">Clocked In @_data.ClockInTime?.ToLocalTime().ToString("h:mm tt")</div>
+                    <div class="clock-time">@FormatElapsed()</div>
+                </div>
+                <div class="d-flex flex-column gap-1 align-items-end">
+                    <div class="d-flex gap-1">
+                        @if (_data.IsPaused)
+                        {
+                            <button class="btn btn-warning btn-sm px-2 py-0" style="font-size:0.7rem;" @onclick="ResumeShift">
+                                <i class="bi bi-play-fill me-1"></i>Resume
+                            </button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-outline-light btn-sm px-2 py-0" style="font-size:0.7rem;" @onclick="PauseShift">
+                                <i class="bi bi-pause-fill me-1"></i>Pause
+                            </button>
+                        }
+                        <button class="btn btn-outline-light btn-sm px-2 py-0" style="font-size:0.7rem;" @onclick="ClockOut">
+                            <i class="bi bi-stop-circle me-1"></i>End
+                        </button>
+                    </div>
+                    <div style="font-size:0.55rem; opacity:0.75; line-height:1.2;" class="text-end">
+                        <span>Wk @_data.HoursThisWeek.ToString("0.#")h</span>
+                        <span class="ms-1">Mo @_data.HoursThisMonth.ToString("0.#")h</span>
+                        @if (_data.TotalBreakMinutesToday > 0) { <span class="ms-1">Brk @(_data.TotalBreakMinutesToday)m</span> }
+                    </div>
+                </div>
+            </div>
+            @if (_data.IsPaused)
+            {
+                <div class="text-center mt-1" style="font-size:0.65rem; opacity:0.9;"><i class="bi bi-pause-circle me-1"></i>Paused — @FormatPauseElapsed()</div>
+            }
             @if (_data.ActiveJobClockCount > 0)
             {
-                <div class="d-flex align-items-center justify-content-center gap-1 mt-1" style="font-size:0.75rem; opacity:0.9;">
+                <div class="d-flex align-items-center justify-content-center gap-1 mt-1" style="font-size:0.65rem; opacity:0.85;">
                     <i class="bi bi-wrench"></i>
                     <span>@_data.ActiveJobClockCount job@(_data.ActiveJobClockCount > 1 ? "s" : "") active</span>
-                    @if (_data.ActiveJobName != null)
-                    {
-                        <span>(@_data.ActiveJobName)</span>
-                    }
+                    @if (_data.ActiveJobName != null) { <span>(@_data.ActiveJobName)</span> }
                 </div>
             }
-            <button class="btn btn-outline-light btn-sm mt-2 px-4" @onclick="ClockOut">
-                <i class="bi bi-stop-circle me-1"></i> End Shift
-            </button>
         }
         else
         {
-            <div class="clock-label">Not Clocked In</div>
-            <div class="clock-time">00:00</div>
-            <button class="btn btn-light btn-sm mt-2 px-4" @onclick="ClockIn">
-                <i class="bi bi-play-circle me-1"></i> Start Shift
-            </button>
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <div class="clock-label">Not Clocked In</div>
+                    <div style="font-size:0.6rem; opacity:0.7;">Wk @_data.HoursThisWeek.ToString("0.#")h · Mo @_data.HoursThisMonth.ToString("0.#")h</div>
+                </div>
+                <button class="btn btn-light btn-sm px-3" @onclick="ClockIn">
+                    <i class="bi bi-play-circle me-1"></i>Start Shift
+                </button>
+            </div>
         }
     </div>
 
@@ -633,7 +663,7 @@ protected override async Task OnInitializedAsync()
         _clockCts?.Cancel();
         _clockCts = new CancellationTokenSource();
         _clockTimer?.Dispose();
-        _clockTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        _clockTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         _ = TickClockAsync(_clockCts.Token);
     }
 
@@ -728,7 +758,8 @@ protected override async Task OnInitializedAsync()
     private string FormatElapsed()
     {
         if (_data?.ClockInTime == null) return "00:00";
-        var elapsed = DateTime.Now - _data.ClockInTime.Value;
+        var elapsed = DateTime.UtcNow - _data.ClockInTime.Value;
+        if (elapsed.TotalSeconds < 0) elapsed = TimeSpan.Zero;
         return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}";
     }
 
@@ -772,6 +803,44 @@ protected override async Task OnInitializedAsync()
         {
             _clockError = $"Clock out failed: {ex.Message}";
         }
+    }
+
+    private async Task PauseShift()
+    {
+        _clockError = null;
+        try
+        {
+            await TimeService.ShiftPauseAsync(_employeeId, "Lunch/Break");
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _clockError = $"Pause failed: {ex.Message}";
+        }
+    }
+
+    private async Task ResumeShift()
+    {
+        _clockError = null;
+        try
+        {
+            await TimeService.ShiftResumeAsync(_employeeId);
+            await LoadDashboard();
+        }
+        catch (Exception ex)
+        {
+            _clockError = $"Resume failed: {ex.Message}";
+        }
+    }
+
+    private string FormatPauseElapsed()
+    {
+        if (_data?.PauseStartTime == null) return "0m";
+        var elapsed = DateTime.UtcNow - _data.PauseStartTime.Value;
+        if (elapsed.TotalSeconds < 0) elapsed = TimeSpan.Zero;
+        return elapsed.TotalHours >= 1
+            ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes}m"
+            : $"{(int)elapsed.TotalMinutes}m";
     }
 
     private async Task LoadActiveJobClocks()

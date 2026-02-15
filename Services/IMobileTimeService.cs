@@ -19,6 +19,11 @@ public interface IMobileTimeService
     Task<TimeEntry?> JobClockOutAsync(int employeeId, int jobId);
     Task<List<TimeEntry>> GetActiveJobClocksAsync(int employeeId);
 
+    // Break/Pause (within a shift)
+    Task<TimeEntry?> ShiftPauseAsync(int employeeId, string? reason = null);
+    Task<TimeEntry?> ShiftResumeAsync(int employeeId);
+    Task<TimeEntry?> GetActiveBreakAsync(int employeeId);
+
     Task<List<MobileTimeEntrySummary>> GetRecentEntriesAsync(int employeeId, int count = 10);
     Task<MobileTimeSummary> GetTimeSummaryAsync(int employeeId);
     Task<MobileEmployeeProfile?> GetEmployeeProfileAsync(int employeeId);

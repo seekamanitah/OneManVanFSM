@@ -8,7 +8,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
 {
     public async Task<MobileDashboardData> GetDashboardAsync(int employeeId, bool isElevated = false)
     {
-        var today = DateTime.Now.Date;
+        var today = DateTime.UtcNow.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
 
         var todayJobs = await db.Jobs.AsNoTracking()
@@ -59,12 +59,22 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
 
         var shiftEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.Shift).ToList();
         var jobClockEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.JobClock).ToList();
+        var breakEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.Break).ToList();
 
         var hoursToday = shiftEntries
             .Where(t => t.StartTime.Date == today)
             .Sum(t => t.Hours);
 
         var hoursThisWeek = shiftEntries.Sum(t => t.Hours);
+
+        // For month totals, query separately since weekStart may not cover full month
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var monthEntries = await db.TimeEntries.AsNoTracking()
+            .Where(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Shift
+                && t.StartTime >= monthStart)
+            .ToListAsync();
+        var hoursThisMonth = monthEntries.Sum(t => t.Hours);
 
         var jobHoursToday = jobClockEntries
             .Where(t => t.StartTime.Date == today)
@@ -74,6 +84,15 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
             .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
                 && t.EntryType == TimeEntryType.Shift
                 && t.EndTime == null);
+
+        var activeBreak = await db.TimeEntries.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId
+                && t.EntryType == TimeEntryType.Break
+                && t.EndTime == null);
+
+        var totalBreakMinutesToday = (int)breakEntries
+            .Where(t => t.StartTime.Date == today && t.EndTime.HasValue)
+            .Sum(t => (decimal)(t.EndTime!.Value - t.StartTime).TotalMinutes);
 
         var activeJobClocks = await db.TimeEntries.AsNoTracking()
             .Include(t => t.Job)
@@ -177,8 +196,12 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
             PendingNoteCount = pendingNotes,
             HoursToday = hoursToday,
             HoursThisWeek = hoursThisWeek,
+            HoursThisMonth = hoursThisMonth,
             IsClockedIn = activeClock != null,
             ClockInTime = activeClock?.StartTime,
+            IsPaused = activeBreak != null,
+            PauseStartTime = activeBreak?.StartTime,
+            TotalBreakMinutesToday = totalBreakMinutesToday,
             CompletedThisWeek = completedThisWeek,
             OverdueJobCount = overdueJobCount,
             UpcomingJobCount = upcomingJobs.Count,

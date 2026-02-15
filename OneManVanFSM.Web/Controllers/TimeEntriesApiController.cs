@@ -204,6 +204,66 @@ public class TimeEntriesApiController : SyncApiController
         await _db.SaveChangesAsync();
         return Ok(entry);
     }
+
+    /// <summary>POST /api/timeentries/pause — Start a break (pause shift)</summary>
+    [HttpPost("pause")]
+    public async Task<ActionResult<TimeEntry>> PauseShift([FromBody] PauseRequest req)
+    {
+        // Must have an active shift
+        var shift = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+        if (shift is null)
+            return BadRequest("No active shift to pause.");
+
+        // Prevent double-pause
+        var existingBreak = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.Break && t.EndTime == null);
+        if (existingBreak is not null)
+            return Ok(existingBreak); // Idempotent — return existing break
+
+        var breakEntry = new TimeEntry
+        {
+            EmployeeId = req.EmployeeId,
+            StartTime = DateTime.UtcNow,
+            EntryType = TimeEntryType.Break,
+            IsBillable = false,
+            TimeCategory = "Break",
+            Notes = req.Reason,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+
+        _db.TimeEntries.Add(breakEntry);
+        await _db.SaveChangesAsync();
+        return Ok(breakEntry);
+    }
+
+    /// <summary>POST /api/timeentries/resume — End break (resume shift)</summary>
+    [HttpPost("resume")]
+    public async Task<ActionResult<TimeEntry>> ResumeShift([FromBody] ResumeRequest req)
+    {
+        var activeBreak = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == req.EmployeeId && t.EntryType == TimeEntryType.Break && t.EndTime == null);
+        if (activeBreak is null)
+            return BadRequest("No active break to resume from.");
+
+        activeBreak.EndTime = DateTime.UtcNow;
+        activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
+        activeBreak.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(activeBreak);
+    }
+}
+
+public class PauseRequest
+{
+    public int EmployeeId { get; set; }
+    public string? Reason { get; set; }
+}
+
+public class ResumeRequest
+{
+    public int EmployeeId { get; set; }
 }
 
 public class TimeEntryClockInRequest
