@@ -313,6 +313,129 @@ public class RemoteMobileTimeService : IMobileTimeService
             .ToListAsync();
     }
 
+    // ── Break / Pause ──
+
+    public async Task<TimeEntry?> ShiftPauseAsync(int employeeId, string? reason = null)
+    {
+        // Must have an active shift
+        var shift = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+        if (shift is null) return null;
+
+        // Prevent double-pause
+        var existingBreak = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Break && t.EndTime == null);
+        if (existingBreak is not null) return existingBreak;
+
+        try
+        {
+            var request = new { employeeId, reason };
+            var entry = await _api.PostAsync<TimeEntry>("api/timeentries/pause", request);
+            if (entry is not null)
+            {
+                var local = await _db.TimeEntries.FindAsync(entry.Id);
+                if (local is null)
+                {
+                    // Clear navigation properties
+                    entry.Employee = null!;
+                    entry.Job = null;
+                    entry.Asset = null;
+
+                    _db.TimeEntries.Add(entry);
+                    await _db.SaveChangesAsync();
+                    _db.ChangeTracker.Clear();
+                }
+            }
+            return entry;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "ShiftPause offline for employee {EmployeeId}.", employeeId);
+            // Offline fallback - save locally
+            var entry = new TimeEntry
+            {
+                EmployeeId = employeeId,
+                StartTime = DateTime.UtcNow,
+                EntryType = TimeEntryType.Break,
+                IsBillable = false,
+                TimeCategory = "Break",
+                Notes = reason,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            _db.TimeEntries.Add(entry);
+            await _db.SaveChangesAsync();
+            _db.ChangeTracker.Clear();
+
+            _offlineQueue.Enqueue(new OfflineQueueItem
+            {
+                HttpMethod = "POST",
+                Endpoint = "api/timeentries/pause",
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { employeeId, reason }),
+                Description = $"Pause shift for employee {employeeId}"
+            });
+            return entry;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ShiftPause failed for employee {EmployeeId}.", employeeId);
+            return null;
+        }
+    }
+
+    public async Task<TimeEntry?> ShiftResumeAsync(int employeeId)
+    {
+        var activeBreak = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Break && t.EndTime == null);
+        if (activeBreak is null) return null;
+
+        try
+        {
+            var request = new { employeeId };
+            var entry = await _api.PostAsync<TimeEntry>("api/timeentries/resume", request);
+            if (entry is not null)
+            {
+                // Update local record
+                activeBreak.EndTime = entry.EndTime;
+                activeBreak.Hours = entry.Hours;
+                activeBreak.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync();
+                _db.ChangeTracker.Clear();
+            }
+            return entry;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "ShiftResume offline for employee {EmployeeId}.", employeeId);
+            // Offline fallback - update locally
+            activeBreak.EndTime = DateTime.UtcNow;
+            activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
+            activeBreak.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+            _db.ChangeTracker.Clear();
+
+            _offlineQueue.Enqueue(new OfflineQueueItem
+            {
+                HttpMethod = "POST",
+                Endpoint = "api/timeentries/resume",
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { employeeId }),
+                Description = $"Resume shift for employee {employeeId}"
+            });
+            return activeBreak;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "ShiftResume failed for employee {EmployeeId}.", employeeId);
+            return null;
+        }
+    }
+
+    public async Task<TimeEntry?> GetActiveBreakAsync(int employeeId)
+    {
+        return await _db.TimeEntries.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Break && t.EndTime == null);
+    }
+
     // ── Queries ──
 
     public async Task<List<MobileTimeEntrySummary>> GetRecentEntriesAsync(int employeeId, int count = 10)
@@ -330,7 +453,7 @@ public class RemoteMobileTimeService : IMobileTimeService
 
     public async Task<MobileTimeSummary> GetTimeSummaryAsync(int employeeId)
     {
-        var today = DateTime.Now.Date;
+        var today = DateTime.UtcNow.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
         var monthStart = new DateTime(today.Year, today.Month, 1);
 

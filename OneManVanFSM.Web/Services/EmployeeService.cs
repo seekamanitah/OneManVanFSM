@@ -79,7 +79,8 @@ public class EmployeeService : IEmployeeService
                 .Select(t => new EmployeeTimeEntry
                 {
                     Id = t.Id, StartTime = t.StartTime, EndTime = t.EndTime,
-                    Hours = t.Hours, JobTitle = t.Job?.Title, IsBillable = t.IsBillable
+                    Hours = t.Hours, JobTitle = t.Job?.Title, IsBillable = t.IsBillable,
+                    EntryType = t.EntryType, TimeCategory = t.TimeCategory
                 }).ToList()
         };
     }
@@ -244,7 +245,8 @@ public class EmployeeService : IEmployeeService
                 Entries = dayEntries.Select(e => new EmployeeTimeEntry
                 {
                     Id = e.Id, StartTime = e.StartTime, EndTime = e.EndTime,
-                    Hours = e.Hours, JobTitle = e.Job?.Title, IsBillable = e.IsBillable
+                    Hours = e.Hours, JobTitle = e.Job?.Title, IsBillable = e.IsBillable,
+                    EntryType = e.EntryType, TimeCategory = e.TimeCategory
                 }).ToList()
             });
         }
@@ -316,7 +318,7 @@ public class EmployeeService : IEmployeeService
         };
     }
 
-    public async Task<TimeEntry> AddManualTimeEntryAsync(int employeeId, int? jobId, DateTime start, DateTime end, bool isBillable, string? notes)
+    public async Task<TimeEntry> AddManualTimeEntryAsync(int employeeId, int? jobId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType = TimeEntryType.Shift, string? timeCategory = null)
     {
         var hours = Math.Round((decimal)(end - start).TotalHours, 2);
         var entry = new TimeEntry
@@ -327,10 +329,37 @@ public class EmployeeService : IEmployeeService
             EndTime = end,
             Hours = hours,
             IsBillable = isBillable,
-            Notes = notes
+            Notes = notes,
+            EntryType = entryType,
+            TimeCategory = timeCategory
         };
         _db.TimeEntries.Add(entry);
         await _db.SaveChangesAsync();
         return entry;
+    }
+
+    public async Task<bool> UpdateTimeEntryAsync(int entryId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType, string? timeCategory)
+    {
+        var entry = await _db.TimeEntries.FindAsync(entryId);
+        if (entry is null) return false;
+        entry.StartTime = start;
+        entry.EndTime = end;
+        entry.Hours = Math.Round((decimal)(end - start).TotalHours, 2);
+        entry.IsBillable = isBillable;
+        entry.Notes = notes;
+        entry.EntryType = entryType;
+        entry.TimeCategory = timeCategory;
+        entry.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteTimeEntryAsync(int entryId)
+    {
+        var entry = await _db.TimeEntries.FindAsync(entryId);
+        if (entry is null) return false;
+        _db.TimeEntries.Remove(entry);
+        await _db.SaveChangesAsync();
+        return true;
     }
 }

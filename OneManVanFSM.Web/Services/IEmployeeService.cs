@@ -20,7 +20,9 @@ public interface IEmployeeService
     Task<TimeEntry?> GetActiveClockAsync(int employeeId);
     Task<List<TimesheetDay>> GetWeeklyTimesheetAsync(int employeeId, DateTime weekStart);
     Task<PayPeriodSummary> GetPaySummaryAsync(int employeeId, DateTime periodStart, DateTime periodEnd);
-    Task<TimeEntry> AddManualTimeEntryAsync(int employeeId, int? jobId, DateTime start, DateTime end, bool isBillable, string? notes);
+    Task<TimeEntry> AddManualTimeEntryAsync(int employeeId, int? jobId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType = TimeEntryType.Shift, string? timeCategory = null);
+    Task<bool> UpdateTimeEntryAsync(int entryId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType, string? timeCategory);
+    Task<bool> DeleteTimeEntryAsync(int entryId);
 }
 
 public class EmployeeFilter
@@ -94,6 +96,8 @@ public class EmployeeTimeEntry
     public decimal Hours { get; set; }
     public string? JobTitle { get; set; }
     public bool IsBillable { get; set; }
+    public TimeEntryType EntryType { get; set; }
+    public string? TimeCategory { get; set; }
 }
 
 public class EmployeeEditModel

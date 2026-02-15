@@ -31,5 +31,6 @@ public class TimeEntry
 public enum TimeEntryType
 {
     Shift,    // Daily work shift for payroll
-    JobClock  // Per-job time tracking
+    JobClock, // Per-job time tracking
+    Break     // Break/pause within a shift (lunch, etc.)
 }

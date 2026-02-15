@@ -36,8 +36,12 @@ public class RemoteMobileDashboardService : IMobileDashboardService
                 PendingNoteCount = response.PendingNoteCount,
                 HoursToday = response.HoursToday,
                 HoursThisWeek = response.HoursThisWeek,
+                HoursThisMonth = response.HoursThisMonth,
                 IsClockedIn = response.IsClockedIn,
                 ClockInTime = response.ClockInTime,
+                IsPaused = response.IsPaused,
+                PauseStartTime = response.PauseStartTime,
+                TotalBreakMinutesToday = response.TotalBreakMinutesToday,
                 CompletedThisWeek = response.CompletedThisWeek,
                 OverdueJobCount = response.OverdueJobCount,
                 UpcomingJobCount = response.UpcomingJobCount,
@@ -92,8 +96,12 @@ public class RemoteMobileDashboardService : IMobileDashboardService
         public int PendingNoteCount { get; set; }
         public decimal HoursToday { get; set; }
         public decimal HoursThisWeek { get; set; }
+        public decimal HoursThisMonth { get; set; }
         public bool IsClockedIn { get; set; }
         public DateTime? ClockInTime { get; set; }
+        public bool IsPaused { get; set; }
+        public DateTime? PauseStartTime { get; set; }
+        public int TotalBreakMinutesToday { get; set; }
         public int CompletedThisWeek { get; set; }
         public int OverdueJobCount { get; set; }
         public int UpcomingJobCount { get; set; }

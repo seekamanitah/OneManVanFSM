@@ -53,15 +53,29 @@ public class DashboardApiController : SyncApiController
             .Where(t => t.EmployeeId == employeeId && t.StartTime >= weekStart)
             .ToListAsync();
 
-        // Shift hours (for payroll display)
         var shiftEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.Shift).ToList();
         var jobEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.JobClock).ToList();
+        var breakEntries = timeEntries.Where(t => t.EntryType == TimeEntryType.Break).ToList();
         var hoursToday = shiftEntries.Where(t => t.StartTime.Date == today).Sum(t => t.Hours);
         var hoursThisWeek = shiftEntries.Sum(t => t.Hours);
+
+        // Month totals
+        var monthStart = new DateTime(today.Year, today.Month, 1);
+        var monthShiftEntries = await _db.TimeEntries
+            .Where(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Shift && t.StartTime >= monthStart)
+            .ToListAsync();
+        var hoursThisMonth = monthShiftEntries.Sum(t => t.Hours);
         var jobHoursToday = jobEntries.Where(t => t.StartTime.Date == today).Sum(t => t.Hours);
 
         var activeShift = await _db.TimeEntries
             .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
+
+        var activeBreak = await _db.TimeEntries
+            .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Break && t.EndTime == null);
+
+        var totalBreakMinutesToday = (int)breakEntries
+            .Where(t => t.StartTime.Date == today && t.EndTime.HasValue)
+            .Sum(t => (decimal)(t.EndTime!.Value - t.StartTime).TotalMinutes);
 
         var activeJobClocks = await _db.TimeEntries.AsNoTracking()
             .Include(t => t.Job)
@@ -134,8 +148,13 @@ public class DashboardApiController : SyncApiController
         {
             TodayJobCount = todayJobs.Count, OpenJobCount = openJobCount,
             PendingNoteCount = pendingNotes, HoursToday = hoursToday,
-            HoursThisWeek = hoursThisWeek, IsClockedIn = activeShift != null,
-            ClockInTime = activeShift?.StartTime, CompletedThisWeek = completedThisWeek,
+            HoursThisWeek = hoursThisWeek, HoursThisMonth = hoursThisMonth,
+            IsClockedIn = activeShift != null,
+            ClockInTime = activeShift?.StartTime,
+            IsPaused = activeBreak != null,
+            PauseStartTime = activeBreak?.StartTime,
+            TotalBreakMinutesToday = totalBreakMinutesToday,
+            CompletedThisWeek = completedThisWeek,
             OverdueJobCount = overdueJobCount, UpcomingJobCount = upcomingJobs.Count,
             LowStockCount = lowStockCount, ExpiringAgreementCount = expiringAgreementCount,
             MaintenanceDueCount = maintenanceDueCount, WarrantyAlertCount = warrantyAlertCount,
@@ -158,8 +177,12 @@ public class MobileDashboardResponse
     public int PendingNoteCount { get; set; }
     public decimal HoursToday { get; set; }
     public decimal HoursThisWeek { get; set; }
+    public decimal HoursThisMonth { get; set; }
     public bool IsClockedIn { get; set; }
     public DateTime? ClockInTime { get; set; }
+    public bool IsPaused { get; set; }
+    public DateTime? PauseStartTime { get; set; }
+    public int TotalBreakMinutesToday { get; set; }
     public int CompletedThisWeek { get; set; }
     public int OverdueJobCount { get; set; }
     public int UpcomingJobCount { get; set; }
