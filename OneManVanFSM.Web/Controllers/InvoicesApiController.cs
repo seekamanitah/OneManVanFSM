@@ -99,6 +99,9 @@ public class InvoicesApiController : SyncApiController
         existing.Terms = invoice.Terms;
         existing.IncludeSiteLocation = invoice.IncludeSiteLocation;
         existing.IncludeAssetInfo = invoice.IncludeAssetInfo;
+        existing.IncludeJobDescription = invoice.IncludeJobDescription;
+        existing.IncludeNotes = invoice.IncludeNotes;
+        existing.HideLineItemPrices = invoice.HideLineItemPrices;
         existing.CustomerId = invoice.CustomerId;
         existing.CompanyId = invoice.CompanyId;
         existing.JobId = invoice.JobId;

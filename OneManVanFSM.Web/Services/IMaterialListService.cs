@@ -9,6 +9,11 @@ public interface IMaterialListService
     Task<MaterialList> CreateListAsync(MaterialListEditModel model);
     Task<MaterialList> UpdateListAsync(int id, MaterialListEditModel model);
     Task<bool> ArchiveListAsync(int id);
+    Task<bool> RestoreListAsync(int id);
+    Task<bool> DeleteListPermanentlyAsync(int id);
+    Task<int> BulkArchiveListsAsync(List<int> ids);
+    Task<int> BulkRestoreListsAsync(List<int> ids);
+    Task<int> BulkDeleteListsPermanentlyAsync(List<int> ids);
     Task<MaterialListItemDto> AddItemAsync(int listId, MaterialListItemEditModel model);
     Task<MaterialListItemDto> UpdateItemAsync(int listId, int itemId, MaterialListItemEditModel model);
     Task<bool> RemoveItemAsync(int listId, int itemId);

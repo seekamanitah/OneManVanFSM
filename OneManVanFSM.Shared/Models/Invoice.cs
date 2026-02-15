@@ -27,6 +27,7 @@ public class Invoice
     public bool IncludeAssetInfo { get; set; } = true;
     public bool IncludeJobDescription { get; set; }
     public bool IncludeNotes { get; set; } = true;
+    public bool HideLineItemPrices { get; set; }
     public bool IsArchived { get; set; }
     public bool NeedsReview { get; set; }
     public string? CreatedFrom { get; set; }

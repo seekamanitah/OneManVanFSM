@@ -13,7 +13,18 @@
 
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-copy me-2"></i>Templates</h4>
-    <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Template</button>
+    <div class="d-flex gap-2 align-items-center">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="showArchivedTemplates" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+            <label class="form-check-label small" for="showArchivedTemplates">
+                <i class="bi bi-archive me-1"></i>Show Archived
+            </label>
+        </div>
+        @if (!filter.ShowArchived)
+        {
+            <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Template</button>
+        }
+    </div>
 </div>
 
 @if (errorMessage is not null)
@@ -59,6 +70,50 @@
     </div>
 
     @* List Table *@
+    @if (_bulkMsg is not null)
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") alert-dismissible fade show py-2 mb-3" role="alert">
+            @_bulkMsg
+            <button type="button" class="btn-close" @onclick="() => _bulkMsg = null"></button>
+        </div>
+    }
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> template(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     @if (templates is null)
     {
         <div class="text-center py-5"><div class="spinner-border text-primary"></div></div>
@@ -73,9 +128,18 @@
     else
     {
         <div class="table-responsive">
+            @if (filter.ShowArchived)
+            {
+                <div class="bg-warning bg-opacity-10 p-2 border-bottom">
+                    <small class="text-muted"><i class="bi bi-archive me-1"></i>Showing archived templates. Select items to restore or permanently delete.</small>
+                </div>
+            }
             <table class="table table-hover align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th style="width:40px;">
+                            <input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" />
+                        </th>
                         <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                         <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
                         <th>Default</th>
@@ -88,8 +152,11 @@
                 <tbody>
                     @foreach (var tpl in templates)
                     {
-                        <tr class="cursor-pointer" @onclick="() => GoToDetail(tpl.Id)">
-                            <td>
+                        <tr class="@(_selectedIds.Contains(tpl.Id) ? "table-active" : "") cursor-pointer">
+                            <td @onclick:stopPropagation="true">
+                                <input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(tpl.Id)" @onchange="() => ToggleRowSelection(tpl.Id)" />
+                            </td>
+                            <td @onclick="() => GoToDetail(tpl.Id)">
                                 <strong>@tpl.Name</strong>
                                 @if (!string.IsNullOrWhiteSpace(tpl.Description))
                                 {
@@ -132,20 +199,15 @@ else if (viewMode == "detail" && detail is not null)
             <button class="btn btn-sm me-1 @(detail.IsCompanyDefault ? "btn-outline-warning" : "btn-outline-success")" @onclick="ToggleDefault">
                 <i class="bi @(detail.IsCompanyDefault ? "bi-star-fill" : "bi-star") me-1"></i>@(detail.IsCompanyDefault ? "Remove Default" : "Make Default")
             </button>
-            <div class="dropdown d-inline-block">
-                <button class="btn btn-outline-danger btn-sm dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-archive me-1"></i>Archive</button>
-                <ul class="dropdown-menu dropdown-menu-end">
-                    @if (_confirmArchive)
-                    {
-                        <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Archive</button></li>
-                        <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-1"></i>Cancel</button></li>
-                    }
-                    else
-                    {
-                        <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive Template</button></li>
-                    }
-                </ul>
-            </div>
+            @if (!_confirmArchive)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button>
+            }
+            else
+            {
+                <button class="btn btn-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-1"></i>Confirm?</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmArchive = false">Cancel</button>
+            }
         </div>
     </div>
 
@@ -334,6 +396,13 @@ else if (viewMode is "create" or "edit")
     private string? errorMessage;
     private bool _confirmArchive;
 
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => templates is not null && templates.Count > 0 && templates.All(t => _selectedIds.Contains(t.Id));
+
     private TemplateFilter filter = new();
     private string selectedType = "";
     private string selectedDefault = "";
@@ -476,6 +545,80 @@ else if (viewMode is "create" or "edit")
     }
 
     private void GoToList() => Navigation.NavigateTo("/templates");
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id)
+    {
+        if (!_selectedIds.Remove(id)) _selectedIds.Add(id);
+        _confirmBulkDelete = false;
+    }
+
+    private void ToggleSelectAll()
+    {
+        if (templates is null) return;
+        if (_allSelected)
+            _selectedIds.Clear();
+        else
+            foreach (var t in templates) _selectedIds.Add(t.Id);
+        _confirmBulkDelete = false;
+    }
+
+    private void ClearSelection()
+    {
+        _selectedIds.Clear();
+        _confirmBulkDelete = false;
+        _bulkMsg = null;
+    }
+
+    private async Task ToggleShowArchived(ChangeEventArgs e)
+    {
+        filter.ShowArchived = (bool)(e.Value ?? false);
+        ClearSelection();
+        await LoadTemplates();
+    }
+
+    private async Task BulkArchive()
+    {
+        if (_selectedIds.Count == 0) return;
+        try
+        {
+            var count = await TemplateService.BulkArchiveTemplatesAsync(_selectedIds.ToList());
+            _bulkMsg = $"{count} template(s) archived.";
+            _bulkMsgIsError = false;
+            ClearSelection();
+            await LoadTemplates();
+        }
+        catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; }
+    }
+
+    private async Task BulkRestore()
+    {
+        if (_selectedIds.Count == 0) return;
+        try
+        {
+            var count = await TemplateService.BulkRestoreTemplatesAsync(_selectedIds.ToList());
+            _bulkMsg = $"{count} template(s) restored.";
+            _bulkMsgIsError = false;
+            ClearSelection();
+            await LoadTemplates();
+        }
+        catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; }
+    }
+
+    private async Task BulkDeletePermanently()
+    {
+        if (_selectedIds.Count == 0) return;
+        try
+        {
+            var count = await TemplateService.BulkDeleteTemplatesPermanentlyAsync(_selectedIds.ToList());
+            _bulkMsg = $"{count} template(s) permanently deleted.";
+            _bulkMsgIsError = false;
+            ClearSelection();
+            await LoadTemplates();
+        }
+        catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; }
+    }
+
     private void GoToNew() => Navigation.NavigateTo("/templates/new");
     private void GoToDetail(int id) => Navigation.NavigateTo($"/templates/{id}");
     private void GoToEdit(int id) => Navigation.NavigateTo($"/templates/{id}/edit");

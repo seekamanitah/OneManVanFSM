@@ -91,6 +91,7 @@ public class InvoiceDetail
     public bool IncludeAssetInfo { get; set; }
     public bool IncludeJobDescription { get; set; }
     public bool IncludeNotes { get; set; }
+    public bool HideLineItemPrices { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string? CustomerEmail { get; set; }
@@ -195,6 +196,7 @@ public class InvoiceEditModel
     public bool IncludeAssetInfo { get; set; } = true;
     public bool IncludeJobDescription { get; set; }
     public bool IncludeNotes { get; set; } = true;
+    public bool HideLineItemPrices { get; set; }
     public List<InvoiceLineEditModel> Lines { get; set; } = [];
 }
 

@@ -180,18 +180,17 @@ else if (_view == ViewMode.Detail && _detail is not null)
                 <li><a class="dropdown-item" href="companies/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Company</a></li>
                 <li><a class="dropdown-item" href="jobs/new?companyId=@_detail.Id"><i class="bi bi-wrench me-2"></i>New Job</a></li>
                 <li><a class="dropdown-item" href="estimates/new?companyId=@_detail.Id"><i class="bi bi-calculator me-2"></i>New Estimate</a></li>
-                <li><hr class="dropdown-divider" /></li>
-                @if (!_confirmArchive)
-                {
-                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
-                }
-                else
-                {
-                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveCompany"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
-                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
-                }
             </ul>
         </div>
+        @if (!_confirmArchive)
+        {
+            <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button>
+        }
+        else
+        {
+            <button class="btn btn-danger btn-sm" @onclick="ArchiveCompany"><i class="bi bi-exclamation-triangle me-1"></i>Confirm?</button>
+            <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmArchive = false">Cancel</button>
+        }
     </div>
 
     @* Company Info Card *@
@@ -474,6 +473,50 @@ else
         </div>
     </div>
 
+    @if (_bulkMsg is not null)
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") alert-dismissible fade show py-2 mb-3" role="alert">
+            @_bulkMsg
+            <button type="button" class="btn-close" @onclick="() => _bulkMsg = null"></button>
+        </div>
+    }
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> company(ies) selected</span>
+            <div class="d-flex gap-2">
+                @if (_filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     @if (_companies.Count == 0)
     {
         <div class="card border-0 shadow-sm">
@@ -498,6 +541,9 @@ else
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
+                            <th style="width:40px;">
+                                <input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" />
+                            </th>
                             <th role="button" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                             <th role="button" @onclick='() => ToggleSort("Type")'>Type @SortIcon("Type")</th>
                             <th class="d-none d-md-table-cell">Contact</th>
@@ -511,8 +557,11 @@ else
                     <tbody>
                         @foreach (var co in _companies)
                         {
-                            <tr role="button" @onclick='() => Nav.NavigateTo($"/companies/{co.Id}")'>
-                                <td class="fw-semibold">@co.Name</td>
+                            <tr class="@(_selectedIds.Contains(co.Id) ? "table-active" : "")" role="button">
+                                <td @onclick:stopPropagation="true">
+                                    <input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(co.Id)" @onchange="() => ToggleRowSelection(co.Id)" />
+                                </td>
+                                <td class="fw-semibold" @onclick='() => Nav.NavigateTo($"/companies/{co.Id}")'>@co.Name</td>
                                 <td><span class="badge @TypeBadge(co.Type)">@co.Type</span></td>
                                 <td class="d-none d-md-table-cell">
                                     <small>
@@ -557,6 +606,13 @@ else
     // Detail
     private CompanyDetail? _detail;
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => _companies.Count > 0 && _companies.All(c => _selectedIds.Contains(c.Id));
 
     // Form
     private CompanyEditModel _editModel = new();
@@ -743,6 +799,14 @@ else
             Nav.NavigateTo("/companies");
         }
     }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (_allSelected) _selectedIds.Clear(); else foreach (var c in _companies) _selectedIds.Add(c.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await CompanySvc.BulkArchiveCompaniesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} company(ies) archived."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await CompanySvc.BulkRestoreCompaniesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} company(ies) restored."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await CompanySvc.BulkDeleteCompaniesPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} company(ies) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await ReloadList(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
 
     private static string TypeBadge(CompanyType type) => type switch
     {

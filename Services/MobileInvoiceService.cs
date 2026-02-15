@@ -89,6 +89,7 @@ public class MobileInvoiceService : IMobileInvoiceService
             BalanceDue = i.BalanceDue,
             Notes = i.Notes,
             Terms = i.Terms,
+            HideLineItemPrices = i.HideLineItemPrices,
             NeedsReview = i.NeedsReview,
             CustomerId = i.CustomerId,
             CustomerName = i.Customer?.Name,

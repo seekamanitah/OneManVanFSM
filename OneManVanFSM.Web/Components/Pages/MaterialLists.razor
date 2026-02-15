@@ -191,18 +191,17 @@ else if (mode == "detail" && detail is not null)
                     <li><button class="dropdown-item" @onclick="EditDetail"><i class="bi bi-pencil me-1"></i>Edit</button></li>
                     <li><button class="dropdown-item" @onclick="ConvertToEstimate"><i class="bi bi-calculator me-1"></i>Convert to Estimate</button></li>
                     <li><button class="dropdown-item" @onclick="CheckStock"><i class="bi bi-box-seam me-1"></i>Check Inventory Stock</button></li>
-                    <li><hr class="dropdown-divider" /></li>
-                    @if (_confirmArchive)
-                    {
-                        <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Archive</button></li>
-                        <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-1"></i>Cancel</button></li>
-                    }
-                    else
-                    {
-                        <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button></li>
-                    }
                 </ul>
             </div>
+            @if (!_confirmArchive)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button>
+            }
+            else
+            {
+                <button class="btn btn-danger btn-sm" @onclick="ArchiveDetail"><i class="bi bi-exclamation-triangle me-1"></i>Confirm?</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmArchive = false">Cancel</button>
+            }
         </div>
     </div>
 
@@ -279,32 +278,44 @@ else if (mode == "detail" && detail is not null)
 
         @if (detail.Items.Any())
         {
-            var sections = detail.Items.OrderBy(i => i.SortOrder).GroupBy(i => i.Section ?? "General");
-            <table class="print-doc-table">
-                <thead><tr><th>Item</th><th class="text-center">Qty</th><th>Unit</th><th class="text-end print-price-col">Cost</th><th class="text-end print-price-col">Price</th></tr></thead>
-                <tbody>
-                    @foreach (var grp in sections)
-                    {
-                        @if (sections.Count() > 1)
+            var allItems = detail.Items.OrderBy(i => i.SortOrder).ToList();
+            var sections = allItems.GroupBy(i => i.Section ?? "General");
+            var flatList = new List<(string? Section, string ItemName, decimal Qty, decimal BaseCost, decimal FlatPrice, bool IsDivider)>();
+            foreach (var grp in sections)
+            {
+                if (sections.Count() > 1) flatList.Add((grp.Key, grp.Key, 0, 0, 0, true));
+                foreach (var item in grp) flatList.Add((grp.Key, item.ItemName + (!string.IsNullOrWhiteSpace(item.Notes) ? $" — {item.Notes}" : ""), item.Quantity, item.BaseCost, item.FlatPrice, false));
+            }
+            var half = (int)Math.Ceiling(flatList.Count / 2.0);
+            var leftCol = flatList.Take(half).ToList();
+            var rightCol = flatList.Skip(half).ToList();
+            var priceCols = _includePricesOnPdf ? 2 : 0;
+            var colSpan = 2 + priceCols;
+            <div class="print-matlist-2col">
+                <table class="print-doc-table print-matlist-half">
+                    <thead><tr><th>Item</th><th class="text-center" style="width:40px;">Qty</th>@if (_includePricesOnPdf) { <th class="text-end print-price-col" style="width:55px;">Cost</th><th class="text-end print-price-col" style="width:55px;">Price</th> }</tr></thead>
+                    <tbody>
+                        @foreach (var row in leftCol)
                         {
-                            <tr class="print-section-divider"><td colspan="5">@grp.Key</td></tr>
+                            @if (row.IsDivider) { <tr class="print-section-divider"><td colspan="@colSpan">@row.ItemName</td></tr> }
+                            else { <tr><td>@row.ItemName</td><td class="text-center">@row.Qty</td>@if (_includePricesOnPdf) { <td class="text-end print-price-col">@row.BaseCost.ToString("C")</td><td class="text-end print-price-col">@row.FlatPrice.ToString("C")</td> }</tr> }
                         }
-                        @foreach (var item in grp)
+                    </tbody>
+                </table>
+                <table class="print-doc-table print-matlist-half">
+                    <thead><tr><th>Item</th><th class="text-center" style="width:40px;">Qty</th>@if (_includePricesOnPdf) { <th class="text-end print-price-col" style="width:55px;">Cost</th><th class="text-end print-price-col" style="width:55px;">Price</th> }</tr></thead>
+                    <tbody>
+                        @foreach (var row in rightCol)
                         {
-                            <tr>
-                                <td>@item.ItemName@(!string.IsNullOrWhiteSpace(item.Notes) ? $" — {item.Notes}" : "")</td>
-                                <td class="text-center">@item.Quantity</td>
-                                <td>@(item.Unit ?? "Each")</td>
-                                <td class="text-end print-price-col">@item.BaseCost.ToString("C")</td>
-                                <td class="text-end print-price-col">@item.FlatPrice.ToString("C")</td>
-                            </tr>
+                            @if (row.IsDivider) { <tr class="print-section-divider"><td colspan="@colSpan">@row.ItemName</td></tr> }
+                            else { <tr><td>@row.ItemName</td><td class="text-center">@row.Qty</td>@if (_includePricesOnPdf) { <td class="text-end print-price-col">@row.BaseCost.ToString("C")</td><td class="text-end print-price-col">@row.FlatPrice.ToString("C")</td> }</tr> }
                         }
-                    }
-                </tbody>
-            </table>
+                    </tbody>
+                </table>
+            </div>
         }
 
-        <div class="print-doc-totals">
+        <div class="print-doc-totals print-price-col">
             <div class="print-total-row print-total-subtotal"><span class="print-total-label">Material Cost</span><span class="print-total-value">@detail.TotalMaterialCost.ToString("C")</span></div>
             @if (detail.TotalLaborCost > 0) { <div class="print-total-row"><span class="print-total-label">Labor</span><span class="print-total-value">@detail.TotalLaborCost.ToString("C")</span></div> }
             @if (detail.MarkupPercent > 0) { <div class="print-total-row"><span class="print-total-label">Markup (@detail.MarkupPercent%)</span><span class="print-total-value">@((detail.TotalMaterialCost * detail.MarkupPercent / 100).ToString("C"))</span></div> }
@@ -323,7 +334,7 @@ else if (mode == "detail" && detail is not null)
             }
         </div>
 
-        <div class="print-doc-footer">
+        <div class="print-doc-footer print-matlist-footer">
             @if (_companyProfile is not null)
             {
                 @if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) { <span class="print-footer-item"><i class="bi bi-telephone print-footer-icon"></i> @_companyProfile.Phone</span> }
@@ -331,7 +342,7 @@ else if (mode == "detail" && detail is not null)
                 @if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) { <span class="print-footer-item"><i class="bi bi-geo-alt print-footer-icon"></i> @_companyProfile.Address</span> }
             }
         </div>
-        <div class="print-doc-thankyou">Thank you for your business!</div>
+        <div class="print-doc-thankyou print-matlist-thankyou">Thank you for your business!</div>
     </div>
 
     <div class="print-screen-only">
@@ -983,6 +994,26 @@ else if (mode == "detail" && detail is not null)
                     </div>
                 </div>
             </div>
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <strong><i class="bi bi-journal-text me-1"></i>Quick Notes</strong>
+                    @if (_notesSaving)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary"></span>
+                    }
+                    else if (_notesSaved)
+                    {
+                        <span class="badge bg-success"><i class="bi bi-check me-1"></i>Saved</span>
+                    }
+                </div>
+                <div class="card-body">
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-globe me-1"></i>External Notes</label>
+                    <textarea class="form-control form-control-sm mb-2" rows="3" @bind="_quickExternalNotes" placeholder="Notes visible to customer..."></textarea>
+                    <label class="form-label small text-muted mb-1"><i class="bi bi-lock me-1"></i>Internal Notes <span class="badge bg-secondary">Internal Only</span></label>
+                    <textarea class="form-control form-control-sm mb-2" rows="3" @bind="_quickInternalNotes" placeholder="Private notes..."></textarea>
+                    <button class="btn btn-outline-primary btn-sm w-100" @onclick="SaveQuickNotes" disabled="@_notesSaving"><i class="bi bi-floppy me-1"></i>Save Notes</button>
+                </div>
+            </div>
         </div>
     </div>
     </div> @* end print-screen-only *@
@@ -1053,7 +1084,7 @@ else
         <h4 class="mb-0"><i class="bi bi-list-check me-2"></i>Material Lists</h4>
         <div class="d-flex align-items-center gap-2">
             <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="chkMlArchived" @bind="filter.ShowArchived" @bind:after="LoadLists" />
+                <input class="form-check-input" type="checkbox" id="chkMlArchived" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
                 <label class="form-check-label small" for="chkMlArchived"><i class="bi bi-archive me-1"></i>Show Archived</label>
             </div>
             @if (!filter.ShowArchived)
@@ -1093,6 +1124,51 @@ else
             </div>
         </div>
     </div>
+
+    @if (_bulkMsg is not null)
+    {
+        <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") alert-dismissible fade show py-2 mb-3" role="alert">
+            @_bulkMsg
+            <button type="button" class="btn-close" @onclick="() => _bulkMsg = null"></button>
+        </div>
+    }
+
+    @if (_selectedIds.Count > 0)
+    {
+        <div class="alert alert-info d-flex justify-content-between align-items-center py-2 mb-3">
+            <span><strong>@_selectedIds.Count</strong> list(s) selected</span>
+            <div class="d-flex gap-2">
+                @if (filter.ShowArchived)
+                {
+                    <button class="btn btn-success btn-sm" @onclick="BulkRestore"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                else
+                {
+                    <button class="btn btn-warning btn-sm" @onclick="BulkArchive"><i class="bi bi-archive me-1"></i>Archive</button>
+                    @if (!_confirmBulkDelete)
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="() => _confirmBulkDelete = true"><i class="bi bi-trash3 me-1"></i>Delete Permanently</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm fw-semibold" @onclick="BulkDeletePermanently"><i class="bi bi-exclamation-triangle me-1"></i>Confirm Delete Forever</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmBulkDelete = false">Cancel</button>
+                    }
+                }
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ClearSelection"><i class="bi bi-x-lg me-1"></i>Clear</button>
+            </div>
+        </div>
+    }
+
     <div class="card border-0 shadow-sm">
         @if (lists is null)
         {
@@ -1114,8 +1190,17 @@ else
         else
         {
             <div class="table-responsive">
+                @if (filter.ShowArchived)
+                {
+                    <div class="bg-warning bg-opacity-10 p-2 border-bottom">
+                        <small class="text-muted"><i class="bi bi-archive me-1"></i>Showing archived lists. Select items to restore or permanently delete.</small>
+                    </div>
+                }
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-light"><tr>
+                        <th style="width:40px;">
+                            <input type="checkbox" class="form-check-input" checked="@_allSelected" @onchange="ToggleSelectAll" title="Select all" />
+                        </th>
                         <th style="cursor:pointer" @onclick='() => ToggleSort("Name")'>Name @SortIcon("Name")</th>
                         <th style="cursor:pointer" @onclick='() => ToggleSort("Status")'>Status @SortIcon("Status")</th>
                         <th>Method</th><th>Customer</th><th>Job</th><th>Items</th>
@@ -1126,8 +1211,11 @@ else
                     <tbody>
                         @foreach (var ml in lists)
                         {
-                            <tr style="cursor:pointer" @onclick="() => GoToDetail(ml.Id)">
-                                <td>
+                            <tr class="@(_selectedIds.Contains(ml.Id) ? "table-active" : "")" style="cursor:pointer">
+                                <td @onclick:stopPropagation="true">
+                                    <input type="checkbox" class="form-check-input" checked="@_selectedIds.Contains(ml.Id)" @onchange="() => ToggleRowSelection(ml.Id)" />
+                                </td>
+                                <td @onclick="() => GoToDetail(ml.Id)">
                                     <strong>@ml.Name</strong>
                                     @if (ml.IsTemplate) { <span class="badge bg-info ms-1">Template</span> }
                                     @if (!string.IsNullOrEmpty(ml.TradeType)) { <span class="badge bg-dark ms-1">@ml.TradeType</span> }
@@ -1164,6 +1252,13 @@ else
     private int? editId;
     private string? errorMsg;
     private bool _confirmArchive;
+
+    // Multi-select & bulk action state
+    private HashSet<int> _selectedIds = [];
+    private bool _confirmBulkDelete;
+    private string? _bulkMsg;
+    private bool _bulkMsgIsError;
+    private bool _allSelected => lists is not null && lists.Count > 0 && lists.All(m => _selectedIds.Contains(m.Id));
 
     // Save/Close state
     private bool _closeAfterSave = true;
@@ -1385,6 +1480,12 @@ else
     private bool _printInternalNotes;
     private bool _includePricesOnPdf = true;
 
+    // Quick notes state
+    private string? _quickExternalNotes;
+    private string? _quickInternalNotes;
+    private bool _notesSaving;
+    private bool _notesSaved;
+
     // Email modal state
     private bool _showEmailModal;
     private string _emailTo = "";
@@ -1427,6 +1528,23 @@ else
         {
             await LoadDropdowns();
             mode = "form"; editId = null; form = new();
+
+            // Prepopulate from query string (e.g., navigating from Job, Customer, or Site page)
+            var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
+            if (int.TryParse(qs["jobId"], out var qsJobId))
+            {
+                form.JobId = qsJobId;
+                // Auto-fill name from job
+                var linkedJob = _jobs.FirstOrDefault(j => j.Id == qsJobId);
+                if (linkedJob is not null && string.IsNullOrEmpty(form.Name))
+                    form.Name = $"Materials — {linkedJob.Display}";
+            }
+            if (int.TryParse(qs["customerId"], out var qsCustId))
+                form.CustomerId = qsCustId;
+            if (int.TryParse(qs["siteId"], out var qsSiteId))
+                form.SiteId = qsSiteId;
+            if (form.CustomerId.HasValue)
+                await RefreshMaterialSites();
         }
         else if (Id.HasValue && uri.AbsolutePath.Contains("/edit", StringComparison.OrdinalIgnoreCase))
         {
@@ -1456,7 +1574,13 @@ else
         detail = await ListSvc.GetListAsync(id);
         _stockChecks = null;
         mode = detail is not null ? "detail" : "list";
-        if (mode == "detail") _companyProfile = await CompanyProfileSvc.GetProfileAsync();
+        if (mode == "detail")
+        {
+            _companyProfile = await CompanyProfileSvc.GetProfileAsync();
+            _quickExternalNotes = detail!.ExternalNotes;
+            _quickInternalNotes = detail.InternalNotes;
+            _notesSaved = false;
+        }
         if (mode == "list") await LoadLists();
     }
 
@@ -1523,6 +1647,42 @@ else
     private async Task ArchiveDetail()
     {
         if (detail is not null) { await ListSvc.ArchiveListAsync(detail.Id); _confirmArchive = false; Nav.NavigateTo("/materiallists"); }
+    }
+
+    // ---- Multi-select & Bulk Actions ----
+    private void ToggleRowSelection(int id) { if (!_selectedIds.Remove(id)) _selectedIds.Add(id); _confirmBulkDelete = false; }
+    private void ToggleSelectAll() { if (lists is null) return; if (_allSelected) _selectedIds.Clear(); else foreach (var m in lists) _selectedIds.Add(m.Id); _confirmBulkDelete = false; }
+    private void ClearSelection() { _selectedIds.Clear(); _confirmBulkDelete = false; _bulkMsg = null; }
+    private async Task ToggleShowArchived(ChangeEventArgs e) { filter.ShowArchived = (bool)(e.Value ?? false); ClearSelection(); await LoadLists(); }
+    private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await ListSvc.BulkArchiveListsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} list(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadLists(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await ListSvc.BulkRestoreListsAsync(_selectedIds.ToList()); _bulkMsg = $"{n} list(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadLists(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+    private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await ListSvc.BulkDeleteListsPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} list(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadLists(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+
+    // ---- Quick Notes ----
+    private async Task SaveQuickNotes()
+    {
+        if (detail is null) return;
+        _notesSaving = true;
+        _notesSaved = false;
+        try
+        {
+            var model = new MaterialListEditModel
+            {
+                Name = detail.Name, IsTemplate = detail.IsTemplate,
+                Status = detail.Status, TradeType = detail.TradeType,
+                PricingMethod = detail.PricingMethod, Notes = detail.Notes,
+                InternalNotes = _quickInternalNotes,
+                ExternalNotes = _quickExternalNotes,
+                PONumber = detail.PONumber,
+                JobId = detail.JobId, CustomerId = detail.CustomerId, SiteId = detail.SiteId
+            };
+            await ListSvc.UpdateListAsync(detail.Id, model);
+            detail.InternalNotes = _quickInternalNotes;
+            detail.ExternalNotes = _quickExternalNotes;
+            _notesSaved = true;
+        }
+        catch (Exception ex) { errorMsg = ex.Message; }
+        finally { _notesSaving = false; }
     }
 
     private void GoToList() => Nav.NavigateTo("/materiallists");
@@ -2073,6 +2233,11 @@ else
         {
             // Print took too long - ignore
         }
+        finally
+        {
+            // Always clean up body classes to avoid affecting other pages
+            await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-no-prices','print-supply-house')");
+        }
     }
 
     // --- Email ---
@@ -2129,7 +2294,7 @@ else
         StateHasChanged();
         try
         {
-            var pdfHtml = BuildMaterialListPdfHtml(detail, _includePricesOnPdf);
+            var pdfHtml = BuildMaterialListPdfHtml(detail, _includePricesOnPdf, _printExternalNotes, _printInternalNotes);
             var pdfBytes = await PdfSvc.GeneratePdfFromHtmlAsync(pdfHtml);
             var fileName = $"MaterialList_{detail.Name.Replace(" ", "_")}_{DateTime.Now:yyyyMMdd}.pdf";
             await EmailSvc.SendEmailAsync(new EmailMessage
@@ -2145,7 +2310,7 @@ else
         finally { _emailSending = false; }
     }
 
-    private string BuildMaterialListPdfHtml(MaterialListDetail d, bool includePrices = true)
+    private string BuildMaterialListPdfHtml(MaterialListDetail d, bool includePrices = true, bool includeExternalNotes = true, bool includeInternalNotes = false)
     {
         var sb = new System.Text.StringBuilder();
         sb.Append("<div class=\"print-doc\">");
@@ -2193,35 +2358,50 @@ else
         }
         sb.Append("</div>");
 
-        // Items
+        // Items — 2-column layout, no Unit column
         if (d.Items.Any())
         {
             var groups = d.Items.OrderBy(i => i.SortOrder).GroupBy(i => i.Section ?? "General");
-            var colSpan = includePrices ? "5" : "3";
-            sb.Append("<table class=\"print-doc-table\"><thead><tr>");
-            sb.Append("<th>Item</th><th class=\"text-center\">Qty</th><th>Unit</th>");
-            if (includePrices) sb.Append("<th class=\"text-end\">Cost</th><th class=\"text-end\">Price</th>");
-            sb.Append("</tr></thead><tbody>");
+            var flatList = new List<(string Key, string ItemName, decimal Qty, decimal BaseCost, decimal FlatPrice, bool IsDivider)>();
             foreach (var grp in groups)
             {
-                if (groups.Count() > 1) sb.Append($"<tr class=\"print-section-divider\"><td colspan=\"{colSpan}\">{Enc(grp.Key)}</td></tr>");
+                if (groups.Count() > 1) flatList.Add((grp.Key, grp.Key, 0, 0, 0, true));
                 foreach (var item in grp)
                 {
-                    sb.Append("<tr>");
-                    sb.Append($"<td>{Enc(item.ItemName)}");
-                    if (!string.IsNullOrWhiteSpace(item.Notes)) sb.Append($" &mdash; {Enc(item.Notes)}");
-                    sb.Append("</td>");
-                    sb.Append($"<td class=\"text-center\">{item.Quantity}</td>");
-                    sb.Append($"<td>{Enc(item.Unit ?? "Each")}</td>");
-                    if (includePrices)
-                    {
-                        sb.Append($"<td class=\"text-end\">{item.BaseCost:C}</td>");
-                        sb.Append($"<td class=\"text-end\">{item.FlatPrice:C}</td>");
-                    }
-                    sb.Append("</tr>");
+                    var name = Enc(item.ItemName);
+                    if (!string.IsNullOrWhiteSpace(item.Notes)) name += $" &mdash; {Enc(item.Notes)}";
+                    flatList.Add((grp.Key, name, item.Quantity, item.BaseCost, item.FlatPrice, false));
                 }
             }
+            var half = (int)Math.Ceiling(flatList.Count / 2.0);
+            var leftCol = flatList.Take(half).ToList();
+            var rightCol = flatList.Skip(half).ToList();
+            var colSpan = includePrices ? "4" : "2";
+
+            sb.Append("<div class=\"print-matlist-2col\">");
+            // Left table
+            sb.Append("<table class=\"print-doc-table print-matlist-half\"><thead><tr>");
+            sb.Append("<th>Item</th><th class=\"text-center\" style=\"width:40px;\">Qty</th>");
+            if (includePrices) sb.Append("<th class=\"text-end\" style=\"width:55px;\">Cost</th><th class=\"text-end\" style=\"width:55px;\">Price</th>");
+            sb.Append("</tr></thead><tbody>");
+            foreach (var row in leftCol)
+            {
+                if (row.IsDivider) sb.Append($"<tr class=\"print-section-divider\"><td colspan=\"{colSpan}\">{Enc(row.Key)}</td></tr>");
+                else { sb.Append($"<tr><td>{row.ItemName}</td><td class=\"text-center\">{row.Qty}</td>"); if (includePrices) sb.Append($"<td class=\"text-end\">{row.BaseCost:C}</td><td class=\"text-end\">{row.FlatPrice:C}</td>"); sb.Append("</tr>"); }
+            }
             sb.Append("</tbody></table>");
+            // Right table
+            sb.Append("<table class=\"print-doc-table print-matlist-half\"><thead><tr>");
+            sb.Append("<th>Item</th><th class=\"text-center\" style=\"width:40px;\">Qty</th>");
+            if (includePrices) sb.Append("<th class=\"text-end\" style=\"width:55px;\">Cost</th><th class=\"text-end\" style=\"width:55px;\">Price</th>");
+            sb.Append("</tr></thead><tbody>");
+            foreach (var row in rightCol)
+            {
+                if (row.IsDivider) sb.Append($"<tr class=\"print-section-divider\"><td colspan=\"{colSpan}\">{Enc(row.Key)}</td></tr>");
+                else { sb.Append($"<tr><td>{row.ItemName}</td><td class=\"text-center\">{row.Qty}</td>"); if (includePrices) sb.Append($"<td class=\"text-end\">{row.BaseCost:C}</td><td class=\"text-end\">{row.FlatPrice:C}</td>"); sb.Append("</tr>"); }
+            }
+            sb.Append("</tbody></table>");
+            sb.Append("</div>");
         }
 
         // Totals
@@ -2235,16 +2415,23 @@ else
             sb.Append("</div>");
         }
 
-        // Notes
-        if (!string.IsNullOrWhiteSpace(d.ExternalNotes))
+        // Notes — placed ABOVE the footer/thankyou so they appear before the sign-off
+        if ((includeExternalNotes && !string.IsNullOrWhiteSpace(d.ExternalNotes)) || (includeInternalNotes && !string.IsNullOrWhiteSpace(d.InternalNotes)))
         {
             sb.Append("<div class=\"print-doc-terms\">");
-            sb.Append($"<div class=\"print-doc-terms-block\"><div class=\"print-terms-heading\">Notes</div><p class=\"print-terms-text\">{Enc(d.ExternalNotes)}</p></div>");
+            if (includeExternalNotes && !string.IsNullOrWhiteSpace(d.ExternalNotes))
+            {
+                sb.Append($"<div class=\"print-doc-terms-block\"><div class=\"print-terms-heading\">Notes</div><p class=\"print-terms-text\">{Enc(d.ExternalNotes)}</p></div>");
+            }
+            if (includeInternalNotes && !string.IsNullOrWhiteSpace(d.InternalNotes))
+            {
+                sb.Append($"<div class=\"print-doc-terms-block\"><div class=\"print-terms-heading\">Internal Notes</div><p class=\"print-terms-text\">{Enc(d.InternalNotes)}</p></div>");
+            }
             sb.Append("</div>");
         }
 
-        // Footer
-        sb.Append("<div class=\"print-doc-footer\">");
+        // Footer — uses static positioning for material lists so notes flow naturally above
+        sb.Append("<div class=\"print-doc-footer print-matlist-footer\">");
         if (_companyProfile is not null)
         {
             if (!string.IsNullOrWhiteSpace(_companyProfile.Phone)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-telephone print-footer-icon\"></i> {Enc(_companyProfile.Phone)}</span>");
@@ -2252,7 +2439,7 @@ else
             if (!string.IsNullOrWhiteSpace(_companyProfile.Address)) sb.Append($"<span class=\"print-footer-item\"><i class=\"bi bi-geo-alt print-footer-icon\"></i> {Enc(_companyProfile.Address)}</span>");
         }
         sb.Append("</div>");
-        sb.Append("<div class=\"print-doc-thankyou\">Thank you for your business!</div>");
+        sb.Append("<div class=\"print-doc-thankyou print-matlist-thankyou\">Thank you for your business!</div>");
         sb.Append("</div>");
         return PdfService.WrapInHtmlDocument(sb.ToString());
     }

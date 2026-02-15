@@ -559,17 +559,55 @@
         margin: 8pt 0 !important;
     }
 
+    /* -- Material list 2-column layout -------------------------------- */
+    .print-matlist-2col {
+        display: flex !important;
+        gap: 8pt;
+        margin-bottom: 4pt;
+    }
+
+    .print-matlist-half {
+        flex: 1 1 50%;
+        min-width: 0;
+    }
+
+    .print-matlist-half th,
+    .print-matlist-half td {
+        font-size: 7pt !important;
+        padding: 1.5pt 3pt !important;
+    }
+
+    .print-matlist-half th:first-child,
+    .print-matlist-half td:first-child {
+        max-width: 180pt;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Material list footer/thankyou: static flow so notes appear above */
+    .print-matlist-footer {
+        position: static !important;
+        margin-top: 12pt;
+    }
+
+    .print-matlist-thankyou {
+        position: static !important;
+        margin-top: 4pt;
+    }
+
     /* -- Supply house mode - hide price columns ----------------------- */
     body.print-supply-house .print-price-col {
         display: none !important;
     }
 
-    /* -- No-prices mode - hide cost/price columns and totals ---------- */
+    /* -- No-prices mode - hide cost/price columns and breakdown rows -- */
     body.print-no-prices .print-doc-table th:nth-child(4),
     body.print-no-prices .print-doc-table td:nth-child(4),
     body.print-no-prices .print-doc-table th:nth-child(5),
     body.print-no-prices .print-doc-table td:nth-child(5),
-    body.print-no-prices .print-doc-totals {
+    body.print-no-prices .print-doc-totals .print-total-subtotal,
+    body.print-no-prices .print-doc-totals .print-total-row:not(.print-grand-total):not(.print-balance-due):not(.print-balance-paid) {
         display: none !important;
     }
 

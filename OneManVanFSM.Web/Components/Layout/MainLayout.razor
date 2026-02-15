@@ -18,7 +18,7 @@
 
     <aside class="app-sidebar @(SidebarCollapsed ? "collapsed" : "") @(_mobileMenuOpen ? "mobile-open" : "")">
         <div class="sidebar-brand">
-            <a href="/">
+            <a href="javascript:void(0)" @onclick="() => _showAbout = true" title="About OneManVanFSM">
                 <i class="bi bi-tools"></i>
                 @if (!SidebarCollapsed)
                 {
@@ -209,6 +209,11 @@
                     <i class="bi bi-gear-fill"></i>@if (!SidebarCollapsed) { <span>Settings</span> }
                 </NavLink>
             }
+
+            @* Help *@
+            <NavLink class="nav-link" href="help" title="Help">
+                <i class="bi bi-question-circle-fill"></i>@if (!SidebarCollapsed) { <span>Help</span> }
+            </NavLink>
         </nav>
     </aside>
 
@@ -344,6 +349,40 @@
     </div>
 </div>
 
+@if (_showAbout)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background:rgba(0,0,0,.5);z-index:9999;" @onclick="() => _showAbout = false">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation>
+            <div class="modal-content">
+                <div class="modal-header py-2 bg-primary text-white">
+                    <h6 class="modal-title"><i class="bi bi-tools me-2"></i>About OneManVanFSM</h6>
+                    <button type="button" class="btn-close btn-close-white" @onclick="() => _showAbout = false"></button>
+                </div>
+                <div class="modal-body text-center">
+                    <div class="mb-3">
+                        <i class="bi bi-tools" style="font-size:3rem; color:var(--bs-primary);"></i>
+                    </div>
+                    <h5 class="fw-bold">OneManVanFSM</h5>
+                    <p class="text-muted mb-1">Field Service Management</p>
+                    <p class="small text-muted mb-3">Version 1.0.0</p>
+                    <hr />
+                    <p class="small mb-1">A comprehensive field service management platform for HVAC, plumbing, electrical, and general contracting businesses.</p>
+                    <p class="small text-muted mb-2">Built with .NET 10, Blazor, and MAUI.</p>
+                    <hr />
+                    <p class="small fw-semibold mb-1">Created by Christopher Eikel</p>
+                    <p class="small text-muted mb-1">with <strong>MtnManApps</strong></p>
+                    <p class="small mb-0"><a href="https://chillwiththepenguin.com/onemanvanfsm" target="_blank" rel="noopener noreferrer" class="text-primary"><i class="bi bi-globe me-1"></i>chillwiththepenguin.com/onemanvanfsm</a></p>
+                </div>
+                <div class="modal-footer py-2 justify-content-center">
+                    <a href="/" class="btn btn-sm btn-outline-primary"><i class="bi bi-speedometer2 me-1"></i>Go to Dashboard</a>
+                    <a href="help" class="btn btn-sm btn-outline-secondary"><i class="bi bi-question-circle me-1"></i>Help</a>
+                    <button type="button" class="btn btn-sm btn-primary" @onclick="() => _showAbout = false">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
@@ -354,6 +393,7 @@
 private bool SidebarCollapsed { get; set; }
 private bool _mobileMenuOpen;
 private bool _darkMode;
+private bool _showAbout;
 private string _userName = "User";
 private string _userRole = "User";
 private string _searchText = string.Empty;

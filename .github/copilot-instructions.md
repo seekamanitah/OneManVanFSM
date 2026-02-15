@@ -9,3 +9,4 @@
 ## Code Style
 - Use specific formatting rules.
 - Follow naming conventions.
+- When styling tabs, buttons, and interactive elements, always use the app's darker blue (primary) color — never light/muted blues. Ensure consistent use of the primary dark blue for active states and interactive elements across all pages.
