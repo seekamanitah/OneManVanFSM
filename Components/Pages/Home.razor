@@ -41,7 +41,7 @@ else if (_data != null)
                 <div class="text-muted" style="font-size:0.65rem;">
                     @if (_syncService?.LastSyncTime != null)
                     {
-                        @:Last sync: @_syncService.LastSyncTime.Value.ToString("MMM dd, h:mm tt")
+                        @:Last sync: @_syncService.LastSyncTime.Value.ToLocalTime().ToString("MMM dd, h:mm tt")
                     }
                     else
                     {

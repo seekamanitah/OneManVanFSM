@@ -180,6 +180,20 @@ app.MapGet("/health", async (AppDbContext db) =>
     }
 });
 
+// Admin endpoint to manually trigger database sanitization (fixes empty string corruption)
+app.MapPost("/admin/sanitize-database", (AppDbContext db) =>
+{
+    try
+    {
+        DatabaseInitializer.SanitizeLegacyData(db);
+        return Results.Ok(new { status = "success", message = "Database sanitization completed", timestamp = DateTime.UtcNow });
+    }
+    catch (Exception ex)
+    {
+        return Results.Json(new { status = "error", message = ex.Message, timestamp = DateTime.UtcNow }, statusCode: 500);
+    }
+});
+
 // Ensure schema is up-to-date and tables exist (no data seeded)
 using (var scope = app.Services.CreateScope())
 {
@@ -189,6 +203,9 @@ using (var scope = app.Services.CreateScope())
     DatabaseInitializer.EnsureSchemaUpToDate(db);
 
     db.Database.EnsureCreated();
+
+    // Fix any legacy data corruption (empty strings in decimal/DateTime columns)
+    DatabaseInitializer.SanitizeLegacyData(db);
 
     // Seed default HVAC item associations (auto-pairings) if not already present
     if (!db.ItemAssociations.Any())

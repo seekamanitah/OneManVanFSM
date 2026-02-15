@@ -34,15 +34,25 @@ public static class DatabaseInitializer
             context.Database.EnsureDeleted();
             // EnsureCreated will be called by the caller in Program.cs.
         }
-        else
-        {
-            // Fix any empty-string values in decimal/DateTime columns (legacy data issue)
-            var conn = context.Database.GetDbConnection();
-            if (conn.State != ConnectionState.Open)
-                conn.Open();
-            SanitizeEmptyDecimalColumns(context, conn);
-            SanitizeEmptyDateTimeColumns(context, conn);
-        }
+    }
+
+    /// <summary>
+    /// Sanitizes legacy data corruption issues (empty strings in decimal/DateTime columns).
+    /// Call this AFTER EnsureCreated to fix any existing data issues.
+    /// </summary>
+    public static void SanitizeLegacyData(AppDbContext context)
+    {
+        if (!context.Database.CanConnect())
+            return;
+
+        var conn = context.Database.GetDbConnection();
+        if (conn.State != ConnectionState.Open)
+            conn.Open();
+
+        Console.WriteLine("[DatabaseInitializer] Running legacy data sanitization...");
+        SanitizeEmptyDecimalColumns(context, conn);
+        SanitizeEmptyDateTimeColumns(context, conn);
+        Console.WriteLine("[DatabaseInitializer] Legacy data sanitization complete.");
     }
 
     private static bool HasSchemaMismatch(AppDbContext context)

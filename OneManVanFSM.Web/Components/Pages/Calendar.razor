@@ -347,7 +347,8 @@ else
                     <div class="list-group list-group-flush">
                         @foreach (var ev in group.OrderBy(e => e.StartDateTime))
                         {
-                            <a class="list-group-item list-group-item-action d-flex align-items-center" href="javascript:void(0)" @onclick="() => GoToDetail(ev.Id)">
+                            var navAction = ev.Id < 0 ? (Action)(() => GoToJob(-ev.Id)) : () => GoToDetail(ev.Id);
+                            <a class="list-group-item list-group-item-action d-flex align-items-center" href="javascript:void(0)" @onclick="navAction">
                                 @if (!string.IsNullOrWhiteSpace(ev.Color))
                                 {
                                     <span class="d-inline-block rounded-circle me-2" style="width:10px;height:10px;background:@ev.Color;flex-shrink:0;"></span>
@@ -417,7 +418,8 @@ else
                                         @foreach (var ev in dayEvents.Take(3))
                                         {
                                             var bgColor = !string.IsNullOrWhiteSpace(ev.Color) ? ev.Color : GetEventColor(ev.Status);
-                                            <div class="rounded px-1 mb-1 text-truncate" style="font-size:0.7rem;background:@(bgColor);color:#fff;cursor:pointer;line-height:1.4;" @onclick="() => GoToDetail(ev.Id)" title="@ev.Title @ev.StartDateTime.ToString("h:mm tt")">
+                                            var navAction = ev.Id < 0 ? (Action)(() => GoToJob(-ev.Id)) : () => GoToDetail(ev.Id);
+                                            <div class="rounded px-1 mb-1 text-truncate" style="font-size:0.7rem;background:@(bgColor);color:#fff;cursor:pointer;line-height:1.4;" @onclick="navAction" title="@ev.Title @ev.StartDateTime.ToString("h:mm tt")">
                                                 @ev.StartDateTime.ToString("h:mm") @(ev.Title ?? "Event")
                                             </div>
                                         }
@@ -496,7 +498,8 @@ else
                                         @foreach (var ev in dayEvts.Take(2))
                                         {
                                             var bgColor = !string.IsNullOrWhiteSpace(ev.Color) ? ev.Color : GetEventColor(ev.Status);
-                                            <div class="rounded px-1 mb-1 text-truncate" style="font-size:0.65rem;background:@(bgColor);color:#fff;cursor:pointer;line-height:1.3;" @onclick="() => GoToDetail(ev.Id)" title="@ev.Title @ev.StartDateTime.ToString("h:mm tt")–@ev.EndDateTime.ToString("h:mm tt")">
+                                            var navAction = ev.Id < 0 ? (Action)(() => GoToJob(-ev.Id)) : () => GoToDetail(ev.Id);
+                                            <div class="rounded px-1 mb-1 text-truncate" style="font-size:0.65rem;background:@(bgColor);color:#fff;cursor:pointer;line-height:1.3;" @onclick="navAction" title="@ev.Title @ev.StartDateTime.ToString("h:mm tt")–@ev.EndDateTime.ToString("h:mm tt")">
                                                 @(ev.Title ?? "Event")
                                             </div>
                                         }

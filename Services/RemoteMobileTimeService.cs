@@ -56,6 +56,12 @@ public class RemoteMobileTimeService : IMobileTimeService
                 var existing = await _db.TimeEntries.FindAsync(entry.Id);
                 if (existing is null)
                 {
+                    // Clear navigation properties to prevent EF Core tracking conflicts
+                    // The API may include Employee/Job references that conflict with local tracking
+                    entry.Employee = null!;
+                    entry.Job = null;
+                    entry.Asset = null;
+
                     _db.TimeEntries.Add(entry);
                     await _db.SaveChangesAsync();
                     _db.ChangeTracker.Clear();
@@ -207,6 +213,11 @@ public class RemoteMobileTimeService : IMobileTimeService
                 var local = await _db.TimeEntries.FindAsync(entry.Id);
                 if (local is null)
                 {
+                    // Clear navigation properties to prevent EF Core tracking conflicts
+                    entry.Employee = null!;
+                    entry.Job = null;
+                    entry.Asset = null;
+
                     _db.TimeEntries.Add(entry);
                     await _db.SaveChangesAsync();
                     _db.ChangeTracker.Clear();

@@ -170,17 +170,35 @@ public class RemoteMobileAuthService : IMobileAuthService
 
     private async Task PersistSessionAsync(MobileUserSession session)
     {
-        await SecureStorage.Default.SetAsync(StorageKeyUserId, session.UserId.ToString());
-        await SecureStorage.Default.SetAsync(StorageKeyUsername, session.Username);
-        await SecureStorage.Default.SetAsync(StorageKeyEmail, session.Email);
-        await SecureStorage.Default.SetAsync(StorageKeyRole, session.Role);
+        try
+        {
+            // Android SecureStorage has limitations: no null values, size limits, and some versions fail with empty strings
+            await SecureStorage.Default.SetAsync(StorageKeyUserId, session.UserId.ToString());
 
-        if (session.EmployeeId.HasValue)
-            await SecureStorage.Default.SetAsync(StorageKeyEmployeeId, session.EmployeeId.Value.ToString());
-        if (session.EmployeeName is not null)
-            await SecureStorage.Default.SetAsync(StorageKeyEmployeeName, session.EmployeeName);
-        if (session.Territory is not null)
-            await SecureStorage.Default.SetAsync(StorageKeyTerritory, session.Territory);
+            if (!string.IsNullOrWhiteSpace(session.Username))
+                await SecureStorage.Default.SetAsync(StorageKeyUsername, session.Username);
+
+            if (!string.IsNullOrWhiteSpace(session.Email))
+                await SecureStorage.Default.SetAsync(StorageKeyEmail, session.Email);
+
+            if (!string.IsNullOrWhiteSpace(session.Role))
+                await SecureStorage.Default.SetAsync(StorageKeyRole, session.Role);
+
+            if (session.EmployeeId.HasValue)
+                await SecureStorage.Default.SetAsync(StorageKeyEmployeeId, session.EmployeeId.Value.ToString());
+
+            if (!string.IsNullOrWhiteSpace(session.EmployeeName))
+                await SecureStorage.Default.SetAsync(StorageKeyEmployeeName, session.EmployeeName);
+
+            if (!string.IsNullOrWhiteSpace(session.Territory))
+                await SecureStorage.Default.SetAsync(StorageKeyTerritory, session.Territory);
+        }
+        catch (Exception ex)
+        {
+            // Android SecureStorage can fail with "Value does not fall within the expected range" 
+            // on some devices/OS versions. Log but don't crash - session will be in-memory only.
+            _logger.LogWarning(ex, "[RemoteAuth] Failed to persist session to SecureStorage. Session will be memory-only.");
+        }
     }
 
     private async Task<MobileUserSession?> RestoreSessionAsync()

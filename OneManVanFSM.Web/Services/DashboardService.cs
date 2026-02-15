@@ -37,8 +37,6 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
                 && j.ScheduledDate != null
                 && j.ScheduledDate.Value.Date >= rangeStart
                 && j.ScheduledDate.Value.Date < rangeEnd
-                && j.Status != JobStatus.Completed
-                && j.Status != JobStatus.Closed
                 && j.Status != JobStatus.Cancelled)
             .OrderBy(j => j.ScheduledDate)
             .ThenBy(j => j.ScheduledTime)
