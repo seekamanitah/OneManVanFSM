@@ -11,7 +11,7 @@ public class TemplateService : ITemplateService
 
     public async Task<List<TemplateListItem>> GetTemplatesAsync(TemplateFilter? filter = null)
     {
-        var query = _db.Templates.Where(t => !t.IsArchived).AsQueryable();
+        var query = _db.Templates.Where(t => (filter != null && filter.ShowArchived) ? t.IsArchived : !t.IsArchived).AsQueryable();
         if (filter is not null)
         {
             if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -43,7 +43,8 @@ public class TemplateService : ITemplateService
             UsageCount = t.UsageCount,
             LastUsed = t.LastUsed,
             CustomerName = t.Customer != null ? t.Customer.Name : null,
-            CompanyName = t.Company != null ? t.Company.Name : null
+            CompanyName = t.Company != null ? t.Company.Name : null,
+            IsArchived = t.IsArchived
         }).ToListAsync();
     }
 
@@ -140,6 +141,61 @@ public class TemplateService : ITemplateService
         template.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;
+    }
+
+    public async Task<bool> ArchiveTemplateAsync(int id)
+    {
+        var template = await _db.Templates.FindAsync(id);
+        if (template is null) return false;
+        template.IsArchived = true;
+        template.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RestoreTemplateAsync(int id)
+    {
+        var template = await _db.Templates.FindAsync(id);
+        if (template is null) return false;
+        template.IsArchived = false;
+        template.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteTemplatePermanentlyAsync(int id)
+    {
+        var template = await _db.Templates.Include(t => t.Versions).FirstOrDefaultAsync(t => t.Id == id);
+        if (template is null) return false;
+        _db.TemplateVersions.RemoveRange(template.Versions);
+        _db.Templates.Remove(template);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveTemplatesAsync(List<int> ids)
+    {
+        var templates = await _db.Templates.Where(t => ids.Contains(t.Id) && !t.IsArchived).ToListAsync();
+        foreach (var t in templates) { t.IsArchived = true; t.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return templates.Count;
+    }
+
+    public async Task<int> BulkRestoreTemplatesAsync(List<int> ids)
+    {
+        var templates = await _db.Templates.Where(t => ids.Contains(t.Id) && t.IsArchived).ToListAsync();
+        foreach (var t in templates) { t.IsArchived = false; t.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return templates.Count;
+    }
+
+    public async Task<int> BulkDeleteTemplatesPermanentlyAsync(List<int> ids)
+    {
+        var templates = await _db.Templates.Include(t => t.Versions).Where(t => ids.Contains(t.Id)).ToListAsync();
+        foreach (var t in templates) _db.TemplateVersions.RemoveRange(t.Versions);
+        _db.Templates.RemoveRange(templates);
+        await _db.SaveChangesAsync();
+        return templates.Count;
     }
 
     public async Task<bool> CloneTemplateAsync(int id, string newName)

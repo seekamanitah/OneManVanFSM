@@ -155,19 +155,18 @@ else if (_view == View.Detail && _detail is not null)
                 <li><a class="dropdown-item" href="sites/@_detail.Id/edit"><i class="bi bi-pencil me-2"></i>Edit Site</a></li>
                 <li><a class="dropdown-item" href="@NewJobFromSiteUrl()"><i class="bi bi-wrench me-2"></i>New Job</a></li>
                 <li><a class="dropdown-item" href="@NewAssetFromSiteUrl()"><i class="bi bi-cpu me-2"></i>Add Asset</a></li>
-                <li><hr class="dropdown-divider" /></li>
-                @if (!_confirmArchive)
-                {
-                    <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
-                }
-                else
-                {
-                    <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveSite"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
-                    <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
-                }
-            </ul>
-        </div>
-    </div>
+                        </ul>
+                    </div>
+                    @if (!_confirmArchive)
+                    {
+                        <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button>
+                    }
+                    else
+                    {
+                        <button class="btn btn-danger btn-sm" @onclick="ArchiveSite"><i class="bi bi-exclamation-triangle me-1"></i>Confirm?</button>
+                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmArchive = false">Cancel</button>
+                    }
+                </div>
 
     @* Site Info *@
     <div class="card border-0 shadow-sm mb-3">

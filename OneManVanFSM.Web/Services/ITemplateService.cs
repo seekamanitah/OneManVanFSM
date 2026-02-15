@@ -9,6 +9,12 @@ public interface ITemplateService
     Task<Template> CreateTemplateAsync(TemplateEditModel model);
     Task<bool> UpdateTemplateAsync(int id, TemplateEditModel model);
     Task<bool> DeleteTemplateAsync(int id);
+    Task<bool> ArchiveTemplateAsync(int id);
+    Task<bool> RestoreTemplateAsync(int id);
+    Task<bool> DeleteTemplatePermanentlyAsync(int id);
+    Task<int> BulkArchiveTemplatesAsync(List<int> ids);
+    Task<int> BulkRestoreTemplatesAsync(List<int> ids);
+    Task<int> BulkDeleteTemplatesPermanentlyAsync(List<int> ids);
     Task<bool> CloneTemplateAsync(int id, string newName);
     Task<bool> IncrementUsageAsync(int id);
 }
@@ -20,6 +26,7 @@ public class TemplateFilter
     public bool? IsCompanyDefault { get; set; }
     public string? SortBy { get; set; } = "Name";
     public bool SortDescending { get; set; }
+    public bool ShowArchived { get; set; }
 }
 
 public class TemplateListItem
@@ -33,6 +40,7 @@ public class TemplateListItem
     public DateTime? LastUsed { get; set; }
     public string? CustomerName { get; set; }
     public string? CompanyName { get; set; }
+    public bool IsArchived { get; set; }
 }
 
 public class TemplateDetail

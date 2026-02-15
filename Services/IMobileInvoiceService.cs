@@ -53,6 +53,7 @@ public class MobileInvoiceDetail
     public decimal BalanceDue { get; set; }
     public string? Notes { get; set; }
     public string? Terms { get; set; }
+    public bool HideLineItemPrices { get; set; }
     public bool NeedsReview { get; set; }
     public int? CustomerId { get; set; }
     public string? CustomerName { get; set; }

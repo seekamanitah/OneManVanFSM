@@ -185,18 +185,17 @@ else if (_view == View.Detail && _detail is not null)
                     {
                         <li><button class="dropdown-item" @onclick="CreateInvoiceForJob"><i class="bi bi-receipt me-2"></i>Create Invoice</button></li>
                     }
-                    <li><hr class="dropdown-divider" /></li>
-                    @if (!_confirmArchive)
-                    {
-                        <li><button class="dropdown-item text-danger" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-2"></i>Archive</button></li>
-                    }
-                    else
-                    {
-                        <li><button class="dropdown-item text-danger fw-semibold" @onclick="ArchiveJob"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Archive?</button></li>
-                        <li><button class="dropdown-item" @onclick="() => _confirmArchive = false"><i class="bi bi-x-lg me-2"></i>Cancel</button></li>
-                    }
                 </ul>
             </div>
+            @if (!_confirmArchive)
+            {
+                <button class="btn btn-outline-danger btn-sm" @onclick="() => _confirmArchive = true"><i class="bi bi-archive me-1"></i>Archive</button>
+            }
+            else
+            {
+                <button class="btn btn-danger btn-sm" @onclick="ArchiveJob"><i class="bi bi-exclamation-triangle me-1"></i>Confirm?</button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmArchive = false">Cancel</button>
+            }
         </div>
     </div>
 
@@ -488,16 +487,23 @@ else if (_view == View.Detail && _detail is not null)
             </div>
 
             @* Material List *@
-            @if (_detail.MaterialSummary is not null)
-            {
-                <div class="card border-0 shadow-sm mb-3">
-                    <div class="card-body">
-                        <h6 class="text-muted"><i class="bi bi-box-seam me-1"></i>Material List</h6>
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <h6 class="text-muted"><i class="bi bi-box-seam me-1"></i>Material List</h6>
+                    @if (_detail.MaterialSummary is not null)
+                    {
                         <p class="mb-1"><a href="materiallists/@_detail.MaterialSummary.Id">@_detail.MaterialSummary.Name</a></p>
                         <small class="text-muted">@_detail.MaterialSummary.ItemCount items | @_detail.MaterialSummary.Total.ToString("C")</small>
-                    </div>
+                    }
+                    else
+                    {
+                        <p class="text-muted mb-2">No material list linked to this job.</p>
+                        <a href="@GetNewMaterialListUrl()" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-plus-lg me-1"></i>Create Material List
+                        </a>
+                    }
                 </div>
-            }
+            </div>
 
             @* Time Entries *@
             <div class="card border-0 shadow-sm mb-3">
@@ -1282,6 +1288,15 @@ else if (_view == View.Form)
     };
 
     private void GoToAsset(int id) => Navigation.NavigateTo($"/assets/{id}");
+
+    private string GetNewMaterialListUrl()
+    {
+        if (_detail is null) return "/materiallists/new";
+        var url = $"materiallists/new?jobId={_detail.Id}";
+        if (_detail.CustomerId.HasValue) url += $"&customerId={_detail.CustomerId}";
+        if (_detail.SiteId.HasValue) url += $"&siteId={_detail.SiteId}";
+        return url;
+    }
 
     private async Task PrintJob() => await JS.InvokeVoidAsync("window.print");
 

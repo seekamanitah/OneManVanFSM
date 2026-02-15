@@ -73,6 +73,7 @@ public class FinancialService : IFinancialService
             IncludeAssetInfo = i.IncludeAssetInfo,
             IncludeJobDescription = i.IncludeJobDescription,
             IncludeNotes = i.IncludeNotes,
+            HideLineItemPrices = i.HideLineItemPrices,
             CustomerId = i.CustomerId,
             CustomerName = i.Customer?.Name,
             CustomerEmail = i.Customer?.PrimaryEmail,
@@ -166,6 +167,7 @@ public class FinancialService : IFinancialService
             IncludeAssetInfo = model.IncludeAssetInfo,
             IncludeJobDescription = model.IncludeJobDescription,
             IncludeNotes = model.IncludeNotes,
+            HideLineItemPrices = model.HideLineItemPrices,
             CustomerId = model.CustomerId, CompanyId = model.CompanyId,
             JobId = model.JobId, SiteId = model.SiteId,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -245,6 +247,7 @@ public class FinancialService : IFinancialService
         inv.IncludeAssetInfo = model.IncludeAssetInfo;
         inv.IncludeJobDescription = model.IncludeJobDescription;
         inv.IncludeNotes = model.IncludeNotes;
+        inv.HideLineItemPrices = model.HideLineItemPrices;
         inv.CustomerId = model.CustomerId; inv.CompanyId = model.CompanyId;
         inv.JobId = model.JobId; inv.SiteId = model.SiteId;
         inv.UpdatedAt = DateTime.UtcNow;

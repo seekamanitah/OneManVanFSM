@@ -126,7 +126,19 @@
         @{ var isMaterialLabor = invoiceDetail.PricingType?.Contains("Material", StringComparison.OrdinalIgnoreCase) == true; }
         @if (invoiceDetail.Lines.Any())
         {
-            @if (isMaterialLabor)
+            @if (invoiceDetail.HideLineItemPrices)
+            {
+                <table class="print-doc-table">
+                    <thead><tr><th>Description</th><th class="text-center">Qty</th></tr></thead>
+                    <tbody>
+                        @foreach (var l in invoiceDetail.Lines.OrderBy(x => x.SortOrder))
+                        {
+                            <tr><td>@l.Description</td><td class="text-center">@l.Quantity</td></tr>
+                        }
+                    </tbody>
+                </table>
+            }
+            else if (isMaterialLabor)
             {
                 var grouped = invoiceDetail.Lines.OrderBy(x => x.SortOrder).GroupBy(x => x.LineType ?? "Other");
                 <table class="print-doc-table">
@@ -158,10 +170,13 @@
         }
 
         <div class="print-doc-totals">
-            <div class="print-total-row print-total-subtotal"><span class="print-total-label">Subtotal</span><span class="print-total-value">@invoiceDetail.Subtotal.ToString("C")</span></div>
-            @if (invoiceDetail.TaxAmount > 0) { <div class="print-total-row"><span class="print-total-label">Tax (@(invoiceDetail.TaxRate)%)</span><span class="print-total-value">@invoiceDetail.TaxAmount.ToString("C")</span></div> }
-            @if (invoiceDetail.MarkupAmount > 0) { <div class="print-total-row"><span class="print-total-label">Markup</span><span class="print-total-value">@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
-            @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount > 0) { <div class="print-total-row"><span class="print-total-label">Discount@(invoiceDetail.DiscountType == "Percent" ? $" ({invoiceDetail.DiscountValue}%)" : "")</span><span class="print-total-value">-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
+            @if (!invoiceDetail.HideLineItemPrices)
+            {
+                <div class="print-total-row print-total-subtotal"><span class="print-total-label">Subtotal</span><span class="print-total-value">@invoiceDetail.Subtotal.ToString("C")</span></div>
+                @if (invoiceDetail.TaxAmount > 0) { <div class="print-total-row"><span class="print-total-label">Tax (@(invoiceDetail.TaxRate)%)</span><span class="print-total-value">@invoiceDetail.TaxAmount.ToString("C")</span></div> }
+                @if (invoiceDetail.MarkupAmount > 0) { <div class="print-total-row"><span class="print-total-label">Markup</span><span class="print-total-value">@invoiceDetail.MarkupAmount.ToString("C")</span></div> }
+                @if (invoiceDetail.DiscountAmount.HasValue && invoiceDetail.DiscountAmount > 0) { <div class="print-total-row"><span class="print-total-label">Discount@(invoiceDetail.DiscountType == "Percent" ? $" ({invoiceDetail.DiscountValue}%)" : "")</span><span class="print-total-value">-@invoiceDetail.DiscountAmount.Value.ToString("C")</span></div> }
+            }
             <div class="print-total-row print-grand-total"><span class="print-total-label">Total</span><span class="print-total-value">@invoiceDetail.Total.ToString("C")</span></div>
             @if (invoiceDetail.AmountPaid > 0) { <div class="print-total-row"><span class="print-total-label">Amount Paid</span><span class="print-total-value">@invoiceDetail.AmountPaid.ToString("C")</span></div> }
             @if (invoiceDetail.BalanceDue > 0)
@@ -670,6 +685,10 @@ else
                         <input type="checkbox" class="form-check-input" id="includeNotes" @bind="invoiceForm.IncludeNotes" />
                         <label class="form-check-label" for="includeNotes">Include Notes on Invoice</label>
                     </div>
+                    <div class="form-check mb-3">
+                        <input type="checkbox" class="form-check-input" id="hideLineItemPrices" @bind="invoiceForm.HideLineItemPrices" />
+                        <label class="form-check-label" for="hideLineItemPrices">Hide Line Item Prices (show items without individual prices, display flat total only)</label>
+                    </div>
 
                     <div class="d-flex justify-content-between border-top pt-3">
                         <button type="button" class="btn btn-outline-secondary btn-sm" @onclick="CloseForm">Cancel</button>
@@ -1111,6 +1130,7 @@ else
             IncludeAssetInfo = invoiceDetail.IncludeAssetInfo,
             IncludeJobDescription = invoiceDetail.IncludeJobDescription,
             IncludeNotes = invoiceDetail.IncludeNotes,
+            HideLineItemPrices = invoiceDetail.HideLineItemPrices,
             CustomerId = invoiceDetail.CustomerId,
             CompanyId = invoiceDetail.CompanyId,
             JobId = invoiceDetail.JobId,
@@ -1448,7 +1468,21 @@ else
             ? new MarkupString(invoiceFilter.SortDescending ? " <i class='bi bi-caret-down-fill'></i>" : " <i class='bi bi-caret-up-fill'></i>")
             : default;
 
-    private async Task PrintInvoice() => await JS.InvokeVoidAsync("triggerPrint");
+    private async Task PrintInvoice()
+    {
+        if (invoiceDetail?.HideLineItemPrices == true)
+            await JS.InvokeVoidAsync("eval", "document.body.classList.add('print-no-prices')");
+        else
+            await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-no-prices')");
+        try
+        {
+            await JS.InvokeVoidAsync("triggerPrint");
+        }
+        finally
+        {
+            await JS.InvokeVoidAsync("eval", "document.body.classList.remove('print-no-prices')");
+        }
+    }
 
     private async Task SetPrintTemplate(string template)
     {
@@ -1580,26 +1614,27 @@ else
         // Line items
         if (d.Lines.Count > 0)
         {
-            var materialLines = d.Lines.Where(l => l.LineType != "Labor").ToList();
-            var laborLines = d.Lines.Where(l => l.LineType == "Labor").ToList();
-            sb.Append("<table class=\"print-doc-table\"><thead><tr>");
-            sb.Append("<th>Description</th><th class=\"text-center\">Qty</th><th class=\"text-end\">Unit Price</th><th class=\"text-end\">Total</th>");
-            sb.Append("</tr></thead><tbody>");
-            if (materialLines.Count > 0 && laborLines.Count > 0)
-                sb.Append("<tr class=\"print-section-divider\"><td colspan=\"4\">Materials</td></tr>");
-            foreach (var line in materialLines)
+            if (d.HideLineItemPrices)
             {
-                sb.Append("<tr>");
-                sb.Append($"<td>{Enc(line.Description)}</td>");
-                sb.Append($"<td class=\"text-center\">{line.Quantity}</td>");
-                sb.Append($"<td class=\"text-end\">{line.UnitPrice:C}</td>");
-                sb.Append($"<td class=\"text-end\">{line.Quantity * line.UnitPrice:C}</td>");
-                sb.Append("</tr>");
+                sb.Append("<table class=\"print-doc-table\"><thead><tr>");
+                sb.Append("<th>Description</th><th class=\"text-center\">Qty</th>");
+                sb.Append("</tr></thead><tbody>");
+                foreach (var line in d.Lines.OrderBy(l => l.SortOrder))
+                {
+                    sb.Append($"<tr><td>{Enc(line.Description)}</td><td class=\"text-center\">{line.Quantity}</td></tr>");
+                }
+                sb.Append("</tbody></table>");
             }
-            if (laborLines.Count > 0)
+            else
             {
-                sb.Append("<tr class=\"print-section-divider\"><td colspan=\"4\">Labor</td></tr>");
-                foreach (var line in laborLines)
+                var materialLines = d.Lines.Where(l => l.LineType != "Labor").ToList();
+                var laborLines = d.Lines.Where(l => l.LineType == "Labor").ToList();
+                sb.Append("<table class=\"print-doc-table\"><thead><tr>");
+                sb.Append("<th>Description</th><th class=\"text-center\">Qty</th><th class=\"text-end\">Unit Price</th><th class=\"text-end\">Total</th>");
+                sb.Append("</tr></thead><tbody>");
+                if (materialLines.Count > 0 && laborLines.Count > 0)
+                    sb.Append("<tr class=\"print-section-divider\"><td colspan=\"4\">Materials</td></tr>");
+                foreach (var line in materialLines)
                 {
                     sb.Append("<tr>");
                     sb.Append($"<td>{Enc(line.Description)}</td>");
@@ -1608,15 +1643,31 @@ else
                     sb.Append($"<td class=\"text-end\">{line.Quantity * line.UnitPrice:C}</td>");
                     sb.Append("</tr>");
                 }
+                if (laborLines.Count > 0)
+                {
+                    sb.Append("<tr class=\"print-section-divider\"><td colspan=\"4\">Labor</td></tr>");
+                    foreach (var line in laborLines)
+                    {
+                        sb.Append("<tr>");
+                        sb.Append($"<td>{Enc(line.Description)}</td>");
+                        sb.Append($"<td class=\"text-center\">{line.Quantity}</td>");
+                        sb.Append($"<td class=\"text-end\">{line.UnitPrice:C}</td>");
+                        sb.Append($"<td class=\"text-end\">{line.Quantity * line.UnitPrice:C}</td>");
+                        sb.Append("</tr>");
+                    }
+                }
+                sb.Append("</tbody></table>");
             }
-            sb.Append("</tbody></table>");
         }
 
         // Totals
         sb.Append("<div class=\"print-doc-totals\">");
-        sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Subtotal</span><span class=\"print-total-value\">{d.Subtotal:C}</span></div>");
-        if (d.TaxRate > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Tax ({d.TaxRate}%)</span><span class=\"print-total-value\">{d.TaxAmount:C}</span></div>");
-        if (d.DiscountAmount.HasValue && d.DiscountAmount > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Discount{(d.DiscountType == "Percent" ? $" ({d.DiscountValue}%)" : "")}</span><span class=\"print-total-value\">-{d.DiscountAmount.Value:C}</span></div>");
+        if (!d.HideLineItemPrices)
+        {
+            sb.Append($"<div class=\"print-total-row print-total-subtotal\"><span class=\"print-total-label\">Subtotal</span><span class=\"print-total-value\">{d.Subtotal:C}</span></div>");
+            if (d.TaxRate > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Tax ({d.TaxRate}%)</span><span class=\"print-total-value\">{d.TaxAmount:C}</span></div>");
+            if (d.DiscountAmount.HasValue && d.DiscountAmount > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Discount{(d.DiscountType == "Percent" ? $" ({d.DiscountValue}%)" : "")}</span><span class=\"print-total-value\">-{d.DiscountAmount.Value:C}</span></div>");
+        }
         sb.Append($"<div class=\"print-total-row print-grand-total\"><span class=\"print-total-label\">Total</span><span class=\"print-total-value\">{d.Total:C}</span></div>");
         if (d.AmountPaid > 0) sb.Append($"<div class=\"print-total-row\"><span class=\"print-total-label\">Paid</span><span class=\"print-total-value\">{d.AmountPaid:C}</span></div>");
         var balClass = d.BalanceDue <= 0 ? "print-balance-paid" : "print-balance-due";

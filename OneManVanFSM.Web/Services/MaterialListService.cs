@@ -141,6 +141,50 @@ public class MaterialListService : IMaterialListService
         return true;
     }
 
+    public async Task<bool> RestoreListAsync(int id)
+    {
+        var list = await _db.MaterialLists.FindAsync(id);
+        if (list is null) return false;
+        list.IsArchived = false; list.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteListPermanentlyAsync(int id)
+    {
+        var list = await _db.MaterialLists.Include(m => m.Items).FirstOrDefaultAsync(m => m.Id == id);
+        if (list is null) return false;
+        _db.MaterialListItems.RemoveRange(list.Items);
+        _db.MaterialLists.Remove(list);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveListsAsync(List<int> ids)
+    {
+        var lists = await _db.MaterialLists.Where(m => ids.Contains(m.Id) && !m.IsArchived).ToListAsync();
+        foreach (var m in lists) { m.IsArchived = true; m.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return lists.Count;
+    }
+
+    public async Task<int> BulkRestoreListsAsync(List<int> ids)
+    {
+        var lists = await _db.MaterialLists.Where(m => ids.Contains(m.Id) && m.IsArchived).ToListAsync();
+        foreach (var m in lists) { m.IsArchived = false; m.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return lists.Count;
+    }
+
+    public async Task<int> BulkDeleteListsPermanentlyAsync(List<int> ids)
+    {
+        var lists = await _db.MaterialLists.Include(m => m.Items).Where(m => ids.Contains(m.Id)).ToListAsync();
+        foreach (var m in lists) _db.MaterialListItems.RemoveRange(m.Items);
+        _db.MaterialLists.RemoveRange(lists);
+        await _db.SaveChangesAsync();
+        return lists.Count;
+    }
+
     public async Task<MaterialListItemDto> AddItemAsync(int listId, MaterialListItemEditModel model)
     {
         var list = await _db.MaterialLists.Include(m => m.Items).FirstOrDefaultAsync(m => m.Id == listId)

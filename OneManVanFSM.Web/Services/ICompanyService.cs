@@ -9,6 +9,11 @@ public interface ICompanyService
     Task<Company> CreateCompanyAsync(CompanyEditModel model);
     Task<Company> UpdateCompanyAsync(int id, CompanyEditModel model);
     Task<bool> ArchiveCompanyAsync(int id);
+    Task<bool> RestoreCompanyAsync(int id);
+    Task<bool> DeleteCompanyPermanentlyAsync(int id);
+    Task<int> BulkArchiveCompaniesAsync(List<int> ids);
+    Task<int> BulkRestoreCompaniesAsync(List<int> ids);
+    Task<int> BulkDeleteCompaniesPermanentlyAsync(List<int> ids);
     Task<List<CompanyDropdownItem>> GetCompanyDropdownAsync();
 }
 

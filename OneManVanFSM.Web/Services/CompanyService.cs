@@ -238,6 +238,49 @@ public class CompanyService : ICompanyService
         return true;
     }
 
+    public async Task<bool> RestoreCompanyAsync(int id)
+    {
+        var company = await _db.Companies.FindAsync(id);
+        if (company is null) return false;
+        company.IsArchived = false;
+        company.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> DeleteCompanyPermanentlyAsync(int id)
+    {
+        var company = await _db.Companies.FindAsync(id);
+        if (company is null) return false;
+        _db.Companies.Remove(company);
+        await _db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<int> BulkArchiveCompaniesAsync(List<int> ids)
+    {
+        var companies = await _db.Companies.Where(c => ids.Contains(c.Id) && !c.IsArchived).ToListAsync();
+        foreach (var c in companies) { c.IsArchived = true; c.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return companies.Count;
+    }
+
+    public async Task<int> BulkRestoreCompaniesAsync(List<int> ids)
+    {
+        var companies = await _db.Companies.Where(c => ids.Contains(c.Id) && c.IsArchived).ToListAsync();
+        foreach (var c in companies) { c.IsArchived = false; c.UpdatedAt = DateTime.UtcNow; }
+        await _db.SaveChangesAsync();
+        return companies.Count;
+    }
+
+    public async Task<int> BulkDeleteCompaniesPermanentlyAsync(List<int> ids)
+    {
+        var companies = await _db.Companies.Where(c => ids.Contains(c.Id)).ToListAsync();
+        _db.Companies.RemoveRange(companies);
+        await _db.SaveChangesAsync();
+        return companies.Count;
+    }
+
     public async Task<List<CompanyDropdownItem>> GetCompanyDropdownAsync()
     {
         return await _db.Companies
