@@ -18,13 +18,13 @@
 
     <aside class="app-sidebar @(SidebarCollapsed ? "collapsed" : "") @(_mobileMenuOpen ? "mobile-open" : "")">
         <div class="sidebar-brand">
-            <a href="/">
+            <button type="button" class="brand-button" @onclick="ShowAboutModal" title="About OneManVanFSM">
                 <i class="bi bi-tools"></i>
                 @if (!SidebarCollapsed)
                 {
                     <span>OneManVan</span>
                 }
-            </a>
+            </button>
         </div>
 
         <nav class="sidebar-nav">
@@ -220,7 +220,7 @@
                 <button class="btn btn-link sidebar-toggle" @onclick="ToggleSidebar" title="Toggle sidebar">
                     <i class="bi bi-list"></i>
                 </button>
-                <a class="header-brand d-md-none" href="/">OneManVan</a>
+                <button type="button" class="header-brand d-md-none" @onclick="ShowAboutModal" title="About OneManVanFSM">OneManVan</button>
             </div>
 
             <div class="header-center">
@@ -344,6 +344,66 @@
     </div>
 </div>
 
+@* About Modal *@
+@if (_showAboutModal)
+{
+    <div class="modal fade show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);" @onclick="HideAboutModal">
+        <div class="modal-dialog modal-dialog-centered" @onclick:stopPropagation="true">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-tools text-primary me-2"></i>About OneManVanFSM
+                    </h5>
+                    <button type="button" class="btn-close" @onclick="HideAboutModal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-tools" style="font-size: 4rem; color: var(--bs-primary);"></i>
+                        <h4 class="mt-3">OneManVanFSM</h4>
+                        <p class="text-muted">Field Service Management Solution</p>
+                        <small class="text-muted">Version 1.0.0</small>
+                    </div>
+
+                    <hr />
+
+                    <div class="mb-3">
+                        <h6 class="fw-bold"><i class="bi bi-info-circle me-2"></i>About This Application</h6>
+                        <p class="small text-muted">
+                            OneManVanFSM is a comprehensive field service management solution designed for 
+                            small to medium-sized service businesses. Manage jobs, customers, inventory, 
+                            scheduling, invoicing, and more — all in one integrated platform.
+                        </p>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="fw-bold"><i class="bi bi-person-circle me-2"></i>Created By</h6>
+                        <p class="mb-1 small">
+                            <strong>Christopher Eikel</strong><br />
+                            <span class="text-muted">MtnManApps</span>
+                        </p>
+                    </div>
+
+                    <div>
+                        <h6 class="fw-bold"><i class="bi bi-globe me-2"></i>More Information</h6>
+                        <p class="small mb-2">
+                            <a href="https://chillwiththepenguin.com/onemanvanfsm" target="_blank" class="text-decoration-none">
+                                <i class="bi bi-link-45deg"></i> chillwiththepenguin.com/onemanvanfsm
+                                <i class="bi bi-box-arrow-up-right ms-1" style="font-size: 0.75rem;"></i>
+                            </a>
+                        </p>
+                        <small class="text-muted">
+                            Visit our website for documentation, support, and updates.
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" @onclick="HideAboutModal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
     <a href="." class="reload">Reload</a>
@@ -360,6 +420,7 @@ private string _searchText = string.Empty;
 private string _selectedPeriod = "today";
 private string _selectedPeriodLabel = "Today";
 private List<AppNotification> _notifications = [];
+private bool _showAboutModal;
 
 // Permission state
 private bool _permsLoaded;
@@ -484,5 +545,15 @@ private async Task LoadPermissions()
     private async Task PrintPage()
     {
         await JS.InvokeVoidAsync("triggerPrint");
+    }
+
+    private void ShowAboutModal()
+    {
+        _showAboutModal = true;
+    }
+
+    private void HideAboutModal()
+    {
+        _showAboutModal = false;
     }
 }

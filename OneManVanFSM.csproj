@@ -22,8 +22,12 @@
         <ApplicationId>com.companyname.onemanvanfsm</ApplicationId>
 
         <!-- Versions -->
-        <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-        <ApplicationVersion>1</ApplicationVersion>
+        <!-- Semantic versioning: MAJOR.MINOR.PATCH -->
+        <ApplicationDisplayVersion>1.0.0</ApplicationDisplayVersion>
+        <!-- Build number: days since Jan 1, 2025 + hour*100 (fits in Int32, auto-increments) -->
+        <ApplicationVersion>$([System.Math]::Floor($([System.DateTime]::UtcNow.Subtract($([System.DateTime]::Parse('2025-01-01'))).TotalDays)).ToString('F0'))$([System.DateTime]::UtcNow.ToString('HHmm'))</ApplicationVersion>
+        <!-- Build timestamp for display purposes -->
+        <InformationalVersion>$([System.DateTime]::UtcNow.ToString('yyyy-MM-dd-HHmm'))-$(Configuration)</InformationalVersion>
 
         <!-- To develop, package, and publish an app to the Microsoft Store, see: https://aka.ms/MauiTemplateUnpackaged -->
         <WindowsPackageType>None</WindowsPackageType>

@@ -47,6 +47,9 @@ public class RemoteMobileDashboardService : IMobileDashboardService
                 WarrantyAlertCount = response.WarrantyAlertCount,
                 ActiveJobClockCount = response.ActiveJobClockCount,
                 ActiveJobName = response.ActiveJobName,
+                ActiveJobId = response.ActiveJobId,
+                ActiveJobNumber = response.ActiveJobNumber,
+                ActiveJobCustomerName = response.ActiveJobCustomerName,
                 JobHoursToday = response.JobHoursToday,
                 DraftEstimateCount = response.DraftEstimateCount,
                 PendingInvoiceCount = response.PendingInvoiceCount,
@@ -103,6 +106,9 @@ public class RemoteMobileDashboardService : IMobileDashboardService
         public int WarrantyAlertCount { get; set; }
         public int ActiveJobClockCount { get; set; }
         public string? ActiveJobName { get; set; }
+        public int? ActiveJobId { get; set; }
+        public string? ActiveJobNumber { get; set; }
+        public string? ActiveJobCustomerName { get; set; }
         public decimal JobHoursToday { get; set; }
         public int DraftEstimateCount { get; set; }
         public int PendingInvoiceCount { get; set; }

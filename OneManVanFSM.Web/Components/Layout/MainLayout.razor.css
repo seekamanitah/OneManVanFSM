@@ -43,6 +43,26 @@
     gap: 0.6rem;
 }
 
+.sidebar-brand .brand-button {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.15rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    width: 100%;
+}
+
+.sidebar-brand .brand-button:hover {
+    opacity: 0.8;
+}
+
 .sidebar-brand i {
     font-size: 1.4rem;
     color: #4ea8de;
@@ -148,6 +168,15 @@
     color: #1a2332;
     text-decoration: none;
     font-size: 1.1rem;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+}
+
+.header-brand:hover {
+    opacity: 0.7;
 }
 
 .header-center {

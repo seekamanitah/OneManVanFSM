@@ -11,6 +11,22 @@
 
 <PageTitle>Settings - OneManVanFSM</PageTitle>
 
+<style>
+    .column-header-clickable {
+        cursor: pointer;
+        user-select: none;
+        transition: background-color 0.15s ease;
+    }
+
+    .column-header-clickable:hover {
+        background-color: rgba(13, 110, 253, 0.1) !important;
+    }
+
+    .column-header-clickable:active {
+        background-color: rgba(13, 110, 253, 0.2) !important;
+    }
+</style>
+
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h4 class="mb-0"><i class="bi bi-gear-fill me-2"></i>Settings</h4>
 </div>
@@ -21,7 +37,7 @@
     <li class="nav-item"><a class="nav-link @(tab == "custom" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchToCustom()'>Customizations</a></li>
     <li class="nav-item"><a class="nav-link @(tab == "notifications" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "notifications"'>Notifications</a></li>
     <li class="nav-item"><a class="nav-link @(tab == "templates" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToTemplates">Templates</a></li>
-    <li class="nav-item"><a class="nav-link @(tab == "mobile" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "mobile"'>Mobile & Theme</a></li>
+    <li class="nav-item"><a class="nav-link @(tab == "mobile" ? "active" : "")" href="javascript:void(0)" @onclick="SwitchToMobile">Mobile & Theme</a></li>
     <li class="nav-item"><a class="nav-link @(tab == "database" ? "active" : "")" href="javascript:void(0)" @onclick='() => tab = "database"'>Database</a></li>
     <li class="nav-item"><a class="nav-link @(tab == "data" ? "active" : "")" href="javascript:void(0)" @onclick='() => SwitchToData()'>Data Management</a></li>
 </ul>
@@ -338,7 +354,7 @@ else if (tab == "users")
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
                             <h6 class="mb-0"><i class="bi bi-shield-check me-1"></i>Role Permission Matrix</h6>
-                            <small class="text-muted">Configure what each role can view, edit, and delete. Owner always has full access.</small>
+                            <small class="text-muted">Configure what each role can view, edit, and delete. Owner always has full access. <strong>Click column headers to toggle entire columns.</strong></small>
                         </div>
                         <div>
                             @if (_permSaving)
@@ -373,9 +389,13 @@ else if (tab == "users")
                                         <th></th>
                                         @foreach (var role in _permRoles)
                                         {
-                                            <th class="text-center" style="font-size:0.7rem;">View</th>
-                                            <th class="text-center" style="font-size:0.7rem;">Edit</th>
-                                            <th class="text-center" style="font-size:0.7rem;">Del</th>
+                                            var isOwner = role == UserRole.Owner;
+                                            <th class="text-center @(isOwner ? "" : "column-header-clickable")" style="font-size:0.7rem;" title="@(isOwner ? "Owner always has full access" : "Click to toggle all")"
+                                                @onclick="() => ToggleColumn(role, PermissionType.View)" disabled="@isOwner">View</th>
+                                            <th class="text-center @(isOwner ? "" : "column-header-clickable")" style="font-size:0.7rem;" title="@(isOwner ? "Owner always has full access" : "Click to toggle all")"
+                                                @onclick="() => ToggleColumn(role, PermissionType.Edit)" disabled="@isOwner">Edit</th>
+                                            <th class="text-center @(isOwner ? "" : "column-header-clickable")" style="font-size:0.7rem;" title="@(isOwner ? "Owner always has full access" : "Click to toggle all")"
+                                                @onclick="() => ToggleColumn(role, PermissionType.Delete)" disabled="@isOwner">Del</th>
                                         }
                                     </tr>
                                 </thead>
@@ -690,6 +710,195 @@ else if (tab == "templates")
 }
 else if (tab == "mobile")
 {
+    <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body">
+            <h5><i class="bi bi-phone me-2"></i>Mobile App Version Info</h5>
+            <p class="text-muted small">Information about the current published mobile app version. Field technicians should have this version or newer.</p>
+
+            <div class="row g-3 mt-2">
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center justify-content-between border rounded p-3 bg-light">
+                        <div class="flex-grow-1">
+                            <div class="text-muted small">Published Version</div>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="text" class="form-control form-control-sm" style="width: 100px;" @bind="_publishedVersion" @bind:event="oninput" />
+                                <button class="btn btn-sm btn-outline-primary" @onclick="SavePublishedVersion" title="Save" disabled="@_savingPublishedVersion">
+                                    @if (_savingPublishedVersion)
+                                    {
+                                        <span class="spinner-border spinner-border-sm"></span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-check-lg"></i>
+                                    }
+                                </button>
+                            </div>
+                        </div>
+                        <i class="bi bi-phone-fill text-primary" style="font-size: 2rem; opacity: 0.3;"></i>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center justify-content-between border rounded p-3 bg-light">
+                        <div>
+                            <div class="text-muted small">Build Number</div>
+                            <div class="fs-5 fw-bold">@GetCurrentMobileBuildNumber()</div>
+                        </div>
+                        <i class="bi bi-hammer text-secondary" style="font-size: 2rem; opacity: 0.3;"></i>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="d-flex align-items-center justify-content-between border rounded p-3 bg-light">
+                        <div>
+                            <div class="text-muted small">Build Date</div>
+                            <div class="fs-6 fw-semibold">@GetMobileBuildDate()</div>
+                        </div>
+                        <i class="bi bi-calendar-check text-info" style="font-size: 2rem; opacity: 0.3;"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info mt-3 mb-0 d-flex align-items-start" style="border-left: 4px solid #0dcaf0;">
+                <i class="bi bi-info-circle-fill me-2 mt-1"></i>
+                <div>
+                    <strong>For Field Technicians:</strong>
+                    <p class="mb-1 small">To check your installed version, open the mobile app and go to <strong>Settings → About</strong>.</p>
+                    <p class="mb-0 small">If your build is more than 48 hours old, consider rebuilding or installing the latest APK to get the newest features and fixes.</p>
+                </div>
+            </div>
+
+            <div class="mt-3">
+                <h6 class="text-muted">Version Tracking</h6>
+                <div class="small text-muted">
+                    <p class="mb-1">• Build numbers auto-increment on every compilation (format: days since Jan 2025 + HHmm)</p>
+                    <p class="mb-1">• Mobile apps show a warning banner on home screen if build is > 24 hours old</p>
+                    <p class="mb-0">• See <code>VERSION_TRACKING_GUIDE.md</code> in project root for full documentation</p>
+                </div>
+            </div>
+
+            <hr class="my-4" />
+
+            <h6><i class="bi bi-phone me-2"></i>Device Fleet Status</h6>
+            <p class="text-muted small">Track which versions are installed on field devices. Devices are automatically registered during first sync.</p>
+
+            @if (_mobileDevices is null)
+            {
+                <div class="text-center py-3"><div class="spinner-border spinner-border-sm"></div> Loading devices...</div>
+            }
+            else if (!_mobileDevices.Any())
+            {
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-phone-x" style="font-size:2rem;"></i>
+                    <p class="mt-2 mb-0">No mobile devices have synced yet. Install and sync the mobile app to register devices here.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0 align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Device</th>
+                                <th>User / Employee</th>
+                                <th>Version</th>
+                                <th>Build</th>
+                                <th>Build Age</th>
+                                <th>Last Sync</th>
+                                <th>Status</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var device in _mobileDevices)
+                            {
+                                <tr class="@(device.IsActive ? "" : "text-muted")">
+                                    <td>
+                                        <div class="fw-semibold">@(device.DeviceName ?? device.DeviceId)</div>
+                                        <small class="text-muted">@device.Platform @device.OsVersion</small>
+                                    </td>
+                                    <td>
+                                        @if (!string.IsNullOrEmpty(device.EmployeeName))
+                                        {
+                                            <div>@device.EmployeeName</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(device.Username))
+                                        {
+                                            <small class="text-muted">@device.Username</small>
+                                        }
+                                        @if (string.IsNullOrEmpty(device.EmployeeName) && string.IsNullOrEmpty(device.Username))
+                                        {
+                                            <span class="text-muted">—</span>
+                                        }
+                                    </td>
+                                    <td>@device.AppVersion</td>
+                                    <td>
+                                        <span class="font-monospace small">@device.BuildNumber</span>
+                                    </td>
+                                    <td>
+                                        <span class="@(device.IsOutdated ? "badge bg-warning text-dark" : "text-muted small")">
+                                            @device.BuildAge
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">@device.LastSyncTime.ToLocalTime().ToString("MMM dd, h:mm tt")</small>
+                                    </td>
+                                    <td>
+                                        @if (device.IsActive)
+                                        {
+                                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        }
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary" title="Toggle Active" @onclick="() => ToggleDeviceActive(device.Id, device.IsActive)">
+                                                <i class="bi @(device.IsActive ? "bi-pause-circle" : "bi-play-circle")"></i>
+                                            </button>
+                                            <button class="btn btn-outline-info" title="Edit Notes" @onclick="() => ShowDeviceNotes(device)">
+                                                <i class="bi bi-chat-left-text"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                @if (!string.IsNullOrEmpty(device.Notes))
+                                {
+                                    <tr class="table-light">
+                                        <td colspan="8" class="small text-muted py-1">
+                                            <i class="bi bi-chat-quote me-1"></i><strong>Notes:</strong> @device.Notes
+                                        </td>
+                                    </tr>
+                                }
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <small class="text-muted d-block mt-2">
+                    @_mobileDevices.Count device(s) registered • @_mobileDevices.Count(d => d.IsActive) active • @_mobileDevices.Count(d => d.IsOutdated) outdated
+                </small>
+            }
+
+            @if (_showDeviceNotesModal)
+            {
+                <div class="card border-primary mt-3">
+                    <div class="card-body">
+                        <h6 class="text-primary"><i class="bi bi-chat-left-text me-1"></i>Edit Device Notes: @_editingDevice?.DeviceName</h6>
+                        <div class="mb-2">
+                            <label class="form-label small">Notes</label>
+                            <textarea class="form-control form-control-sm" rows="3" @bind="_deviceNotes" placeholder="e.g., Primary tech device, Testing only, etc."></textarea>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary btn-sm me-1" @onclick="SaveDeviceNotes"><i class="bi bi-check-lg me-1"></i>Save</button>
+                            <button class="btn btn-outline-secondary btn-sm" @onclick="() => _showDeviceNotesModal = false">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
     <div class="card border-0 shadow-sm">
         <div class="card-body">
             <h5>Mobile & App Preferences</h5>
@@ -1284,9 +1493,18 @@ private Dictionary<string, bool> notificationSettings = new()
     private bool _permSaving;
     private string? _permError;
 
+    // Mobile device tracking state
+    private List<MobileDeviceInfo>? _mobileDevices;
+    private string _publishedVersion = "1.0.0";
+    private bool _savingPublishedVersion;
+    private bool _showDeviceNotesModal;
+    private MobileDeviceInfo? _editingDevice;
+    private string _deviceNotes = "";
+
     protected override async Task OnInitializedAsync()
     {
         await LoadCompanyProfile();
+        await LoadPublishedVersion();
     }
 
     private async Task SwitchToCustom()
@@ -1991,6 +2209,56 @@ private Dictionary<string, bool> notificationSettings = new()
         catch (Exception ex) { _permError = $"Reset failed: {ex.Message}"; }
     }
 
+    private enum PermissionType { View, Edit, Delete }
+
+    /// <summary>
+    /// Toggles all checkboxes in a specific column (role + permission type).
+    /// If any checkbox is unchecked, set all to checked; otherwise set all to unchecked.
+    /// </summary>
+    private void ToggleColumn(UserRole role, PermissionType permType)
+    {
+        if (_permMatrix is null || role == UserRole.Owner) return;
+
+        // Determine current state: if any feature is unchecked, we'll check all; otherwise uncheck all
+        bool anyUnchecked = false;
+        foreach (var feature in Features.All)
+        {
+            var key = (role, feature);
+            var perm = GetPerm(key);
+            bool currentValue = permType switch
+            {
+                PermissionType.View => perm.CanView,
+                PermissionType.Edit => perm.CanEdit,
+                PermissionType.Delete => perm.CanDelete,
+                _ => false
+            };
+            if (!currentValue)
+            {
+                anyUnchecked = true;
+                break;
+            }
+        }
+
+        // Toggle: if any was unchecked, set all to true; otherwise set all to false
+        bool newValue = anyUnchecked;
+        foreach (var feature in Features.All)
+        {
+            var key = (role, feature);
+            switch (permType)
+            {
+                case PermissionType.View:
+                    SetPerm(key, v: newValue, null, null);
+                    break;
+                case PermissionType.Edit:
+                    SetPerm(key, null, ed: newValue, null);
+                    break;
+                case PermissionType.Delete:
+                    SetPerm(key, null, null, del: newValue);
+                    break;
+            }
+        }
+    }
+
     // ---- Company Profile ----
     private static string CompanyProfilePath => Path.Combine(AppContext.BaseDirectory, "companyprofile.json");
 
@@ -2131,5 +2399,132 @@ private Dictionary<string, bool> notificationSettings = new()
             >= 7 => $"{digits[..3]}-{digits[3..Math.Min(7, digits.Length)]}",
             _ => digits
         };
+    }
+
+    // ---- Mobile App Version Helpers ----
+    private string GetCurrentMobileBuildNumber()
+    {
+        // Calculate the expected build number if building mobile app now
+        // Format: days since 2025-01-01 + HHmm (e.g., 461713 = 46 days + 17:13)
+        var days = (int)(DateTime.UtcNow - new DateTime(2025, 1, 1)).TotalDays;
+        var hourMin = DateTime.UtcNow.ToString("HHmm");
+        return $"{days}{hourMin}";
+    }
+
+    private string GetMobileBuildDate()
+    {
+        try
+        {
+            var buildNum = int.Parse(GetCurrentMobileBuildNumber());
+            var days = buildNum / 10000;
+            var hourMin = buildNum % 10000;
+            var hour = hourMin / 100;
+            var minute = hourMin % 100;
+            var buildDate = new DateTime(2025, 1, 1).AddDays(days).AddHours(hour).AddMinutes(minute);
+            return buildDate.ToLocalTime().ToString("MMM dd, yyyy h:mm tt");
+        }
+        catch
+        {
+            return "Unknown";
+        }
+    }
+
+    // ---- Mobile Device Tracking ----
+    private async Task SwitchToMobile()
+    {
+        tab = "mobile";
+        if (_mobileDevices is null)
+            _mobileDevices = await DataSvc.GetMobileDevicesAsync();
+    }
+
+    private async Task LoadPublishedVersion()
+    {
+        try
+        {
+            if (File.Exists(CompanyProfilePath))
+            {
+                var json = await File.ReadAllTextAsync(CompanyProfilePath);
+                var profile = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+                if (profile is not null && profile.TryGetValue("PublishedMobileVersion", out var version))
+                {
+                    _publishedVersion = version;
+                }
+            }
+        }
+        catch { /* Use default */ }
+    }
+
+    private async Task SavePublishedVersion()
+    {
+        _savingPublishedVersion = true;
+        errorMessage = null;
+        try
+        {
+            // Load existing profile
+            Dictionary<string, string> profile = [];
+            if (File.Exists(CompanyProfilePath))
+            {
+                var json = await File.ReadAllTextAsync(CompanyProfilePath);
+                profile = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(json) ?? [];
+            }
+
+            // Update published version
+            profile["PublishedMobileVersion"] = _publishedVersion;
+
+            // Save back
+            var updatedJson = System.Text.Json.JsonSerializer.Serialize(profile, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
+            await File.WriteAllTextAsync(CompanyProfilePath, updatedJson);
+
+            successMessage = "Published version updated successfully.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save published version: {ex.Message}";
+        }
+        finally
+        {
+            _savingPublishedVersion = false;
+        }
+    }
+
+    private async Task ToggleDeviceActive(int deviceId, bool currentState)
+    {
+        errorMessage = null;
+        try
+        {
+            await DataSvc.SetDeviceActiveAsync(deviceId, !currentState);
+            _mobileDevices = await DataSvc.GetMobileDevicesAsync();
+            successMessage = "Device status updated.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to update device: {ex.Message}";
+        }
+    }
+
+    private void ShowDeviceNotes(MobileDeviceInfo device)
+    {
+        _editingDevice = device;
+        _deviceNotes = device.Notes ?? "";
+        _showDeviceNotesModal = true;
+    }
+
+    private async Task SaveDeviceNotes()
+    {
+        if (_editingDevice is null) return;
+        errorMessage = null;
+        try
+        {
+            await DataSvc.UpdateDeviceNotesAsync(_editingDevice.Id, _deviceNotes);
+            _mobileDevices = await DataSvc.GetMobileDevicesAsync();
+            _showDeviceNotesModal = false;
+            _editingDevice = null;
+            _deviceNotes = "";
+            successMessage = "Device notes updated.";
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to save notes: {ex.Message}";
+        }
     }
 }

@@ -45,6 +45,7 @@ public class AppDbContext : DbContext
     public DbSet<DropdownOption> DropdownOptions => Set<DropdownOption>();
     public DbSet<ItemAssociation> ItemAssociations => Set<ItemAssociation>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<MobileDevice> MobileDevices => Set<MobileDevice>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -589,6 +590,21 @@ public class AppDbContext : DbContext
             e.HasOne(el => el.InventoryItem)
                 .WithMany()
                 .HasForeignKey(el => el.InventoryItemId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        // MobileDevice
+        modelBuilder.Entity<MobileDevice>(e =>
+        {
+            e.HasIndex(md => md.DeviceId).IsUnique();
+            e.HasIndex(md => md.LastSyncTime);
+            e.HasOne(md => md.Employee)
+                .WithMany()
+                .HasForeignKey(md => md.EmployeeId)
+                .OnDelete(DeleteBehavior.SetNull);
+            e.HasOne(md => md.User)
+                .WithMany()
+                .HasForeignKey(md => md.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
     }

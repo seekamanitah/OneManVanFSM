@@ -27,6 +27,9 @@ public class MobileDashboardData
     public int PendingInvoiceCount { get; set; }
     public int ActiveJobClockCount { get; set; }
     public string? ActiveJobName { get; set; }
+    public int? ActiveJobId { get; set; }
+    public string? ActiveJobNumber { get; set; }
+    public string? ActiveJobCustomerName { get; set; }
     public decimal JobHoursToday { get; set; }
     public List<MobileJobCard> TodayJobs { get; set; } = [];
     public List<MobileJobCard> UpcomingJobs { get; set; } = [];

@@ -77,6 +77,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
 
         var activeJobClocks = await db.TimeEntries.AsNoTracking()
             .Include(t => t.Job)
+                .ThenInclude(j => j!.Customer)
             .Where(t => t.EmployeeId == employeeId
                 && t.EntryType == TimeEntryType.JobClock
                 && t.EndTime == null)
@@ -190,6 +191,9 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
             ActiveJobClockCount = activeJobClocks.Count,
             ActiveJobName = activeJobClocks.FirstOrDefault()?.Job?.Title
                 ?? activeJobClocks.FirstOrDefault()?.Job?.JobNumber,
+            ActiveJobId = activeJobClocks.FirstOrDefault()?.Job?.Id,
+            ActiveJobNumber = activeJobClocks.FirstOrDefault()?.Job?.JobNumber,
+            ActiveJobCustomerName = activeJobClocks.FirstOrDefault()?.Job?.Customer?.Name,
             JobHoursToday = jobHoursToday,
             TodayJobs = todayJobs,
             UpcomingJobs = upcomingJobs,

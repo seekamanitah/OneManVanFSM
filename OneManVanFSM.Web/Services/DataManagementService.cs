@@ -1472,4 +1472,54 @@ public class DataManagementService : IDataManagementService
             return false;
         }
     }
+
+    // ---- Mobile Device Version Tracking ----
+
+    public async Task<List<MobileDeviceInfo>> GetMobileDevicesAsync()
+    {
+        return await _db.MobileDevices
+            .Include(d => d.Employee)
+            .Include(d => d.User)
+            .OrderByDescending(d => d.LastSyncTime)
+            .Select(d => new MobileDeviceInfo
+            {
+                Id = d.Id,
+                DeviceId = d.DeviceId,
+                DeviceName = d.DeviceName,
+                Platform = d.Platform,
+                OsVersion = d.OsVersion,
+                AppVersion = d.AppVersion,
+                BuildNumber = d.BuildNumber,
+                BuildTimestamp = d.BuildTimestamp,
+                EmployeeId = d.EmployeeId,
+                EmployeeName = d.Employee != null ? d.Employee.Name : null,
+                UserId = d.UserId,
+                Username = d.User != null ? d.User.Username : null,
+                LastSyncTime = d.LastSyncTime,
+                FirstSeenAt = d.FirstSeenAt,
+                IsActive = d.IsActive,
+                Notes = d.Notes
+            })
+            .ToListAsync();
+    }
+
+    public async Task UpdateDeviceNotesAsync(int deviceId, string? notes)
+    {
+        var device = await _db.MobileDevices.FindAsync(deviceId);
+        if (device is not null)
+        {
+            device.Notes = notes;
+            await _db.SaveChangesAsync();
+        }
+    }
+
+    public async Task SetDeviceActiveAsync(int deviceId, bool isActive)
+    {
+        var device = await _db.MobileDevices.FindAsync(deviceId);
+        if (device is not null)
+        {
+            device.IsActive = isActive;
+            await _db.SaveChangesAsync();
+        }
+    }
 }

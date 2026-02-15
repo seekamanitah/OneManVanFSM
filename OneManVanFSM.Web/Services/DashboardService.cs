@@ -89,6 +89,7 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
             .ToListAsync();
 
         var timeEntries = await db.TimeEntries
+            .Include(t => t.Job)
             .Where(t => t.StartTime >= timeEntriesStart)
             .ToListAsync();
 
@@ -100,6 +101,7 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
         {
             var empTimes = timeEntries.Where(t => t.EmployeeId == e.Id).ToList();
             var empExpenses = expenses.Where(x => x.EmployeeId == e.Id).ToList();
+            var activeEntry = empTimes.FirstOrDefault(t => t.EndTime == null);
             return new EmployeeSummary
             {
                 EmployeeId = e.Id,
@@ -107,6 +109,8 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
                 HoursToday = empTimes.Where(t => t.StartTime.Date == today).Sum(t => t.Hours),
                 HoursThisWeek = empTimes.Sum(t => t.Hours),
                 PendingExpenses = empExpenses.Sum(x => x.Amount),
+                IsOnShift = activeEntry is not null,
+                CurrentJobTitle = activeEntry?.Job?.Title,
             };
         }).ToList();
 

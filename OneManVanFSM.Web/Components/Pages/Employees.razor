@@ -7,6 +7,7 @@
 @inject IEmployeeService EmployeeSvc
 @inject IJobService JobSvc
 @inject IDropdownService DropdownSvc
+@inject IShiftService ShiftSvc
 @inject NavigationManager Nav
 
 <PageTitle>Employees - OneManVanFSM</PageTitle>
@@ -523,13 +524,176 @@ else
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="mb-0"><i class="bi bi-person-badge-fill me-2"></i>Employees</h4>
         <div class="d-flex gap-2 align-items-center">
-            <div class="form-check form-switch mb-0">
-                <input class="form-check-input" type="checkbox" id="showArchivedEmployees" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
-                <label class="form-check-label small" for="showArchivedEmployees"><i class="bi bi-archive me-1"></i>Show Archived</label>
-            </div>
-            @if (!filter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Employee</button> }
+            @if (listTab == "roster")
+            {
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="showArchivedEmployees" checked="@filter.ShowArchived" @onchange="ToggleShowArchived" />
+                    <label class="form-check-label small" for="showArchivedEmployees"><i class="bi bi-archive me-1"></i>Show Archived</label>
+                </div>
+                @if (!filter.ShowArchived) { <button class="btn btn-primary btn-sm" @onclick="GoToNew"><i class="bi bi-plus-lg me-1"></i>New Employee</button> }
+            }
+            @if (listTab == "teamboard")
+            {
+                <button class="btn btn-outline-primary btn-sm" @onclick="LoadTeamBoard" disabled="@_teamBoardLoading">
+                    @if (_teamBoardLoading) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+                </button>
+            }
         </div>
     </div>
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><button class="nav-link @(listTab == "roster" ? "active" : "")" @onclick='() => SwitchListTab("roster")'><i class="bi bi-list-ul me-1"></i>Roster</button></li>
+        <li class="nav-item"><button class="nav-link @(listTab == "teamboard" ? "active" : "")" @onclick='() => SwitchListTab("teamboard")'><i class="bi bi-people-fill me-1"></i>Team Board</button></li>
+    </ul>
+    @if (listTab == "teamboard")
+    {
+        @* ===== TEAM BOARD VIEW ===== *@
+        @if (_teamBoardLoading)
+        {
+            <div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Loading team board...</div>
+        }
+        else if (_teamBoard is not null)
+        {
+            @* Quick Stats Row *@
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="fs-4 fw-bold text-success">@_teamBoard.Count(t => t.IsOnShift)</div>
+                        <small class="text-muted">On Shift</small>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="fs-4 fw-bold text-secondary">@_teamBoard.Count(t => !t.IsOnShift)</div>
+                        <small class="text-muted">Off Shift</small>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="fs-4 fw-bold text-primary">@_teamBoard.Count(t => t.CurrentJobId.HasValue)</div>
+                        <small class="text-muted">On Jobs</small>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <div class="card border-0 shadow-sm text-center py-2">
+                        <div class="fs-4 fw-bold text-info">@_teamBoard.Sum(t => t.HoursToday).ToString("F1")h</div>
+                        <small class="text-muted">Total Hours Today</small>
+                    </div>
+                </div>
+            </div>
+
+            @* Employee Cards *@
+            <div class="row g-3">
+                @foreach (var emp in _teamBoard)
+                {
+                    <div class="col-12 col-md-6 col-xl-4">
+                        <div class="card border-0 shadow-sm h-100 @(emp.IsOnShift ? "border-start border-success border-3" : "")">
+                            <div class="card-body pb-2">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <h6 class="mb-0 cursor-pointer" @onclick="() => GoToDetail(emp.EmployeeId)">@emp.Name</h6>
+                                        <small class="text-muted">@emp.Role @(emp.Territory is not null ? $"· {emp.Territory}" : "")</small>
+                                    </div>
+                                    <div>
+                                        @if (emp.IsOnShift)
+                                        {
+                                            <span class="badge bg-success"><i class="bi bi-record-circle me-1"></i>On Shift</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Off</span>
+                                        }
+                                    </div>
+                                </div>
+
+                                @if (emp.IsOnShift)
+                                {
+                                    <div class="small text-muted mb-2">
+                                        <i class="bi bi-clock me-1"></i>Since @emp.ShiftStartTime?.ToLocalTime().ToString("h:mm tt")
+                                        @if (emp.ShiftDuration.HasValue) { <span class="ms-2">(@emp.ShiftDuration.Value.Hours)h @(emp.ShiftDuration.Value.Minutes)m)</span> }
+                                        <span class="ms-2 fw-semibold">@emp.HoursToday.ToString("F1")h today</span>
+                                    </div>
+                                }
+
+                                @if (emp.CurrentJobId.HasValue)
+                                {
+                                    <div class="alert alert-primary py-1 px-2 mb-2 small">
+                                        <i class="bi bi-briefcase-fill me-1"></i>
+                                        <strong class="cursor-pointer" @onclick="() => GoToJob(emp.CurrentJobId.Value)">@emp.CurrentJobNumber</strong>
+                                        @if (!string.IsNullOrEmpty(emp.CurrentJobTitle)) { <span> — @emp.CurrentJobTitle</span> }
+                                        @if (!string.IsNullOrEmpty(emp.CurrentCustomerName)) { <br /><small class="text-muted">@emp.CurrentCustomerName</small> }
+                                        @if (emp.CurrentJobPriority == JobPriority.Emergency) { <span class="badge bg-danger ms-1">Emergency</span> }
+                                        else if (emp.CurrentJobPriority == JobPriority.High) { <span class="badge bg-warning text-dark ms-1">High</span> }
+                                    </div>
+                                }
+
+                                @* Action Buttons *@
+                                <div class="d-flex gap-1 flex-wrap">
+                                    @if (!emp.IsOnShift)
+                                    {
+                                        <button class="btn btn-success btn-sm" @onclick="() => TeamClockIn(emp.EmployeeId)" disabled="@_teamActionInProgress">
+                                            <i class="bi bi-play-fill me-1"></i>Clock In
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <button class="btn btn-danger btn-sm" @onclick="() => TeamClockOut(emp.EmployeeId)" disabled="@_teamActionInProgress">
+                                            <i class="bi bi-stop-fill me-1"></i>Clock Out
+                                        </button>
+                                    }
+
+                                    @if (emp.IsOnShift && !emp.CurrentJobId.HasValue)
+                                    {
+                                        <div class="dropdown">
+                                            <button class="btn btn-primary btn-sm dropdown-toggle" data-bs-toggle="dropdown" disabled="@_teamActionInProgress">
+                                                <i class="bi bi-briefcase me-1"></i>Assign Job
+                                            </button>
+                                            <ul class="dropdown-menu" style="max-height:300px;overflow-y:auto;">
+                                                @if (_assignableJobs is not null)
+                                                {
+                                                    @foreach (var j in _assignableJobs)
+                                                    {
+                                                        <li>
+                                                            <button class="dropdown-item small" @onclick="() => TeamAssignJob(emp.EmployeeId, j.Id)">
+                                                                <span class="badge @GetPriorityBadgeClass(j.Priority) me-1">@j.Priority</span>
+                                                                @j.Display
+                                                                @if (!string.IsNullOrEmpty(j.CustomerName)) { <br /><small class="text-muted">@j.CustomerName</small> }
+                                                            </button>
+                                                        </li>
+                                                    }
+                                                    @if (!_assignableJobs.Any())
+                                                    {
+                                                        <li><span class="dropdown-item text-muted small">No assignable jobs</span></li>
+                                                    }
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                    else if (emp.CurrentJobId.HasValue)
+                                    {
+                                        <button class="btn btn-outline-secondary btn-sm" @onclick="() => TeamUnassignJob(emp.EmployeeId)" disabled="@_teamActionInProgress">
+                                            <i class="bi bi-x-circle me-1"></i>Unassign
+                                        </button>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrEmpty(_teamMsg))
+            {
+                <div class="alert @(_teamMsgIsError ? "alert-danger" : "alert-success") mt-3 py-2 mb-0">
+                    <i class="bi @(_teamMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_teamMsg
+                </div>
+            }
+        }
+    }
+    else
+    {
+    @* ===== ROSTER VIEW ===== *@
     <div class="card border-0 shadow-sm mb-3">
         <div class="card-body py-2">
             <div class="row g-2 align-items-end">
@@ -629,12 +793,14 @@ else
     {
         <div class="alert @(_bulkMsgIsError ? "alert-danger" : "alert-success") mt-2 mb-0 py-2"><i class="bi @(_bulkMsgIsError ? "bi-x-circle" : "bi-check-circle") me-1"></i>@_bulkMsg</div>
     }
+    } @* end roster view *@
 }
 
 @code {
     [Parameter] public int? Id { get; set; }
 
     private string mode = "list";
+    private string listTab = "roster";
     private string detailTab = "jobs";
     private List<EmployeeListItem>? employees;
     private EmployeeFilter filter = new();
@@ -684,6 +850,14 @@ else
     private string manualNotes = "";
     private string? manualMsg;
     private string? manualError;
+
+    // Team Board state
+    private List<EmployeeShiftStatus>? _teamBoard;
+    private List<ShiftJobOption>? _assignableJobs;
+    private bool _teamBoardLoading;
+    private bool _teamActionInProgress;
+    private string? _teamMsg;
+    private bool _teamMsgIsError;
 
     protected override void OnInitialized()
     {
@@ -964,4 +1138,95 @@ else
             private async Task BulkArchive() { if (_selectedIds.Count == 0) return; try { var n = await EmployeeSvc.BulkArchiveEmployeesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} employee(s) archived."; _bulkMsgIsError = false; ClearSelection(); await LoadEmployees(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
             private async Task BulkRestore() { if (_selectedIds.Count == 0) return; try { var n = await EmployeeSvc.BulkRestoreEmployeesAsync(_selectedIds.ToList()); _bulkMsg = $"{n} employee(s) restored."; _bulkMsgIsError = false; ClearSelection(); await LoadEmployees(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
             private async Task BulkDeletePermanently() { if (_selectedIds.Count == 0) return; try { var n = await EmployeeSvc.BulkDeleteEmployeesPermanentlyAsync(_selectedIds.ToList()); _bulkMsg = $"{n} employee(s) permanently deleted."; _bulkMsgIsError = false; ClearSelection(); await LoadEmployees(); } catch (Exception ex) { _bulkMsg = ex.Message; _bulkMsgIsError = true; } }
+
+    // ---- Team Board ----
+    private async Task SwitchListTab(string tab)
+    {
+        listTab = tab;
+        if (tab == "teamboard")
+            await LoadTeamBoard();
+    }
+
+    private async Task LoadTeamBoard()
+    {
+        _teamBoardLoading = true;
+        _teamMsg = null;
+        StateHasChanged();
+        try
+        {
+            _teamBoard = await ShiftSvc.GetTeamBoardAsync();
+            _assignableJobs = await ShiftSvc.GetAssignableJobsAsync();
+        }
+        catch (Exception ex)
+        {
+            _teamMsg = ex.Message;
+            _teamMsgIsError = true;
+        }
+        _teamBoardLoading = false;
+    }
+
+    private async Task TeamClockIn(int employeeId)
+    {
+        _teamActionInProgress = true;
+        _teamMsg = null;
+        try
+        {
+            await ShiftSvc.ClockInEmployeeAsync(employeeId);
+            await LoadTeamBoard();
+        }
+        catch (Exception ex) { _teamMsg = ex.Message; _teamMsgIsError = true; }
+        finally { _teamActionInProgress = false; }
+    }
+
+    private async Task TeamClockOut(int employeeId)
+    {
+        _teamActionInProgress = true;
+        _teamMsg = null;
+        try
+        {
+            await ShiftSvc.ClockOutEmployeeAsync(employeeId);
+            await LoadTeamBoard();
+        }
+        catch (Exception ex) { _teamMsg = ex.Message; _teamMsgIsError = true; }
+        finally { _teamActionInProgress = false; }
+    }
+
+    private async Task TeamAssignJob(int employeeId, int jobId)
+    {
+        _teamActionInProgress = true;
+        _teamMsg = null;
+        try
+        {
+            await ShiftSvc.AssignEmployeeToJobAsync(employeeId, jobId);
+            _teamMsg = "Employee assigned to job.";
+            _teamMsgIsError = false;
+            await LoadTeamBoard();
+        }
+        catch (Exception ex) { _teamMsg = ex.Message; _teamMsgIsError = true; }
+        finally { _teamActionInProgress = false; }
+    }
+
+    private async Task TeamUnassignJob(int employeeId)
+    {
+        _teamActionInProgress = true;
+        _teamMsg = null;
+        try
+        {
+            await ShiftSvc.UnassignEmployeeFromJobAsync(employeeId);
+            _teamMsg = "Employee unassigned from job.";
+            _teamMsgIsError = false;
+            await LoadTeamBoard();
+        }
+        catch (Exception ex) { _teamMsg = ex.Message; _teamMsgIsError = true; }
+        finally { _teamActionInProgress = false; }
+    }
+
+    private static string GetPriorityBadgeClass(JobPriority priority) => priority switch
+    {
+        JobPriority.Emergency => "bg-danger",
+        JobPriority.High => "bg-warning text-dark",
+        JobPriority.Standard => "bg-info",
+        JobPriority.Low => "bg-secondary",
+        _ => "bg-secondary"
+    };
         }

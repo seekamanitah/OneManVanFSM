@@ -15,6 +15,9 @@ public class CustomersApiController : SyncApiController
     [HttpGet]
     public async Task<ActionResult<SyncResponse<Customer>>> GetAll([FromQuery] DateTime? since)
     {
+        // Track device version (async but don't await to avoid slowing down response)
+        _ = TrackDeviceAsync(_db);
+
         var query = _db.Customers.AsNoTracking().Where(c => !c.IsArchived);
         if (since.HasValue)
             query = query.Where(c => c.UpdatedAt > since.Value);

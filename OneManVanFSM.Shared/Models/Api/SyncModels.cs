@@ -40,12 +40,21 @@ public class SyncResponse<T>
 
 /// <summary>
 /// Request for delta sync — "give me everything changed since this timestamp."
+/// Includes device information for tracking installed versions.
 /// </summary>
 public class SyncRequest
 {
     public DateTime? Since { get; set; }
     public int? PageSize { get; set; }
     public int? Page { get; set; }
+
+    // Device tracking fields
+    public string? DeviceId { get; set; }
+    public string? DeviceName { get; set; }
+    public string? Platform { get; set; }
+    public string? OsVersion { get; set; }
+    public string? AppVersion { get; set; }
+    public string? BuildNumber { get; set; }
 }
 
 /// <summary>

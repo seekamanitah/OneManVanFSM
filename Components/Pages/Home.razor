@@ -31,6 +31,18 @@ else if (_data != null)
         </button>
     </div>
 
+    <!-- Build Age Warning -->
+    @if (_buildAgeHours > 24)
+    {
+        <div class="alert alert-warning py-1 mb-2 d-flex align-items-center" style="font-size:0.7rem; border-radius:8px;">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <div>
+                Running build from @_buildTimestamp?.ToLocalTime().ToString("MMM dd h:mm tt") (@_buildAgeHours hours old).
+                <a href="/settings" class="alert-link ms-1">Check Settings for version info</a>
+            </div>
+        </div>
+    }
+
     <!-- Sync Status Bar -->
     @if (_isRemoteMode)
     {
@@ -129,6 +141,32 @@ else if (_data != null)
             </button>
         }
     </div>
+
+    @* Current Job Assignment Banner *@
+    @if (_data.IsClockedIn && _data.ActiveJobId.HasValue)
+    {
+        <div class="card border-0 shadow-sm mb-2" style="background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); cursor:pointer;"
+             @onclick='() => Nav.NavigateTo($"/job/{_data.ActiveJobId}")'>
+            <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center" style="width:32px;height:32px;background:rgba(76,175,80,0.2);">
+                        <i class="bi bi-geo-alt-fill text-success"></i>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="fw-bold small text-success">Assigned Job</div>
+                        <div class="small">
+                            @(_data.ActiveJobNumber ?? "Job") &mdash; @(_data.ActiveJobName ?? "Untitled")
+                        </div>
+                        @if (_data.ActiveJobCustomerName != null)
+                        {
+                            <div class="text-muted" style="font-size:0.7rem;">@_data.ActiveJobCustomerName</div>
+                        }
+                    </div>
+                    <i class="bi bi-chevron-right text-muted"></i>
+                </div>
+            </div>
+        </div>
+    }
 
     <!-- Stat Cards -->
     <div class="gap-grid mb-1" style="grid-template-columns: repeat(4, 1fr);">
@@ -486,6 +524,10 @@ private HashSet<int> _activeJobIds = [];
 private PeriodicTimer? _clockTimer;
 private CancellationTokenSource? _clockCts;
 
+// Build version tracking
+private DateTime? _buildTimestamp;
+private int _buildAgeHours;
+
 // Sync state
 private ISyncService? _syncService;
 private bool _isRemoteMode;
@@ -503,6 +545,7 @@ protected override async Task OnInitializedAsync()
     var session = await AuthService.GetCurrentUserAsync();
     _isElevatedRole = session?.Role is "Owner" or "Admin" or "Manager";
     InitSyncState();
+    CheckBuildAge();
     await LoadPermissions();
     await LoadDashboard();
     StartClockTimer();
@@ -519,6 +562,24 @@ protected override async Task OnInitializedAsync()
             {
                 _syncService.OnSyncProgress += HandleSyncProgress;
             }
+        }
+    }
+
+    private void CheckBuildAge()
+    {
+        // Parse build timestamp from ApplicationVersion (days since 2025-01-01 + HHmm format)
+        if (int.TryParse(AppInfo.Current.BuildString, out var buildNum) && buildNum > 1000)
+        {
+            try
+            {
+                var days = buildNum / 10000;
+                var hourMin = buildNum % 10000;
+                var hour = hourMin / 100;
+                var minute = hourMin % 100;
+                _buildTimestamp = new DateTime(2025, 1, 1).AddDays(days).AddHours(hour).AddMinutes(minute);
+                _buildAgeHours = (int)(DateTime.UtcNow - _buildTimestamp.Value).TotalHours;
+            }
+            catch { /* Invalid format */ }
         }
     }
 

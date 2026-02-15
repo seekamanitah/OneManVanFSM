@@ -27,6 +27,8 @@ public class EmployeeSummary
     public decimal HoursToday { get; set; }
     public decimal HoursThisWeek { get; set; }
     public decimal PendingExpenses { get; set; }
+    public bool IsOnShift { get; set; }
+    public string? CurrentJobTitle { get; set; }
 }
 
 public class ActivityItem

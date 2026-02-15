@@ -305,7 +305,38 @@ public class ApiClient
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         }
 
+        // Add device info headers for tracking
+        AddDeviceHeaders(request);
+
         return request;
+    }
+
+    /// <summary>
+    /// Add device information headers to every API request for server-side tracking.
+    /// </summary>
+    private static void AddDeviceHeaders(HttpRequestMessage request)
+    {
+        try
+        {
+            // DeviceInfo doesn't expose a stable unique ID; generate one and persist it.
+            var deviceId = Preferences.Default.Get("device_id", string.Empty);
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                deviceId = Guid.NewGuid().ToString();
+                Preferences.Default.Set("device_id", deviceId);
+            }
+
+            request.Headers.Add("X-Device-Id", deviceId);
+            request.Headers.Add("X-Device-Name", DeviceInfo.Current.Name);
+            request.Headers.Add("X-Platform", DeviceInfo.Current.Platform.ToString());
+            request.Headers.Add("X-OS-Version", $"{DeviceInfo.Current.Platform} {DeviceInfo.Current.VersionString}");
+            request.Headers.Add("X-App-Version", AppInfo.Current.VersionString);
+            request.Headers.Add("X-Build-Number", AppInfo.Current.BuildString);
+        }
+        catch
+        {
+            // Silently ignore — device info is nice-to-have, not critical
+        }
     }
 
     /// <summary>
@@ -334,6 +365,7 @@ public class ApiClient
                 msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
             if (bodyContent != null)
                 msg.Content = new StringContent(bodyContent, Encoding.UTF8, contentType!);
+            AddDeviceHeaders(msg);
 
             try
             {
@@ -386,6 +418,7 @@ public class ApiClient
             msg.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _token);
         if (body != null)
             msg.Content = new StringContent(body, Encoding.UTF8, contentType ?? "application/json");
+        AddDeviceHeaders(msg);
         return msg;
     }
 }

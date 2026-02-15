@@ -104,10 +104,27 @@ public class MobileSettingsService : IMobileSettingsService
         var dbMode = Preferences.Default.Get("db_mode", "Local");
         var serverUrl = Preferences.Default.Get("db_server_url", "");
 
+        // Parse build timestamp from ApplicationVersion (days since 2025-01-01 + HHmm format)
+        // Example: 46 days + 1345 = 461345
+        var buildTimestamp = "Unknown";
+        if (int.TryParse(AppInfo.Current.BuildString, out var buildNum) && buildNum > 1000)
+        {
+            try
+            {
+                var days = buildNum / 10000;
+                var hourMin = buildNum % 10000;
+                var hour = hourMin / 100;
+                var minute = hourMin % 100;
+                var buildDate = new DateTime(2025, 1, 1).AddDays(days).AddHours(hour).AddMinutes(minute);
+                buildTimestamp = buildDate.ToLocalTime().ToString("MMM dd, yyyy h:mm tt");
+            }
+            catch { /* Invalid format */ }
+        }
+
         return Task.FromResult(new MobileAppInfo
         {
             AppVersion = AppInfo.Current.VersionString,
-            BuildNumber = AppInfo.Current.BuildString,
+            BuildNumber = $"{AppInfo.Current.BuildString} ({buildTimestamp})",
             Framework = ".NET MAUI Blazor Hybrid",
             DatabaseEngine = "SQLite (EF Core)",
             ApiEndpoint = dbMode == "Remote" && !string.IsNullOrWhiteSpace(serverUrl)
