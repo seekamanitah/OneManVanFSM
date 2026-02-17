@@ -283,7 +283,7 @@ else if (_view == View.Detail && _detail is not null)
                                     <td>
                                         @if (a.WarrantyExpiry.HasValue)
                                         {
-                                            var exp = a.WarrantyExpiry.Value < DateTime.UtcNow;
+                                            var exp = a.WarrantyExpiry.Value < DateTime.Now;
                                             <span class="badge @(exp ? "bg-danger" : "bg-success")">@(exp ? "Expired" : a.WarrantyExpiry.Value.ToString("MMM yyyy"))</span>
                                         }
                                         else { <small class="text-muted">—</small> }

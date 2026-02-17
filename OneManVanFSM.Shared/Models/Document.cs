@@ -13,7 +13,7 @@ public class Document
     public DocumentAccessLevel AccessLevel { get; set; } = DocumentAccessLevel.Public;
     public string? CustomTags { get; set; } // JSON array
     public string? Notes { get; set; }
-    public DateTime UploadDate { get; set; } = DateTime.UtcNow;
+    public DateTime UploadDate { get; set; } = DateTime.Now;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public bool IsArchived { get; set; }

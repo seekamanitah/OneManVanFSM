@@ -48,7 +48,7 @@ public class AuthService : IAuthService
 
         // Successful login — reset attempts, update last login
         user.LoginAttempts = 0;
-        user.LastLogin = DateTime.UtcNow;
+        user.LastLogin = DateTime.Now;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 

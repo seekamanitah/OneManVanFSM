@@ -232,7 +232,7 @@ else
             }
             @if (_asset.NextServiceDue.HasValue)
             {
-                var overdue = _asset.NextServiceDue.Value < DateTime.UtcNow;
+                var overdue = _asset.NextServiceDue.Value < DateTime.Now;
                 <div class="d-flex justify-content-between" style="font-size:0.85rem;">
                     <span class="text-muted"><i class="bi bi-clock-history me-1"></i>Next Service</span>
                     <span class="fw-semibold @(overdue ? "text-danger" : "")">
@@ -394,7 +394,7 @@ else
                 <span style="font-size:0.85rem;"><i class="bi bi-image me-2 text-primary"></i>Attach Photo from Gallery</span>
                 <i class="bi bi-chevron-right text-muted" style="font-size:0.75rem;"></i>
             </div>
-            @if (_asset.WarrantyExpiry.HasValue && _asset.WarrantyExpiry.Value >= DateTime.UtcNow)
+            @if (_asset.WarrantyExpiry.HasValue && _asset.WarrantyExpiry.Value >= DateTime.Now)
             {
                 <hr class="my-0" />
                 <div class="d-flex justify-content-between align-items-center py-2" style="cursor:pointer;" @onclick="ShowWarrantyClaim">
@@ -571,7 +571,7 @@ else
         {
             AssetId = Id,
             PerformedBy = _employeeName,
-            ServiceDate = DateTime.UtcNow,
+            ServiceDate = DateTime.Now,
         };
         _showLogService = true;
     }
@@ -610,7 +610,7 @@ else
             ServiceType = "Warranty Service",
             Notes = claimNotes,
             PerformedBy = _employeeName,
-            ServiceDate = DateTime.UtcNow,
+            ServiceDate = DateTime.Now,
         };
         await AssetService.AddServiceLogAsync(log);
         _claimSubmitted = true;

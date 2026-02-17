@@ -226,7 +226,7 @@ public class TemplateService : ITemplateService
         var template = await _db.Templates.FindAsync(id);
         if (template is null) return false;
         template.UsageCount++;
-        template.LastUsed = DateTime.UtcNow;
+        template.LastUsed = DateTime.Now;
         await _db.SaveChangesAsync();
         return true;
     }

@@ -252,7 +252,7 @@
                                                 <td class="text-end fw-medium text-danger">@invoice.BalanceDue.ToString("C")</td>
                                                 <td class="text-end">
                                                     @{
-                                                        var daysOverdue = invoice.DueDate.HasValue ? (int)(DateTime.UtcNow - invoice.DueDate.Value).TotalDays : 0;
+                                                        var daysOverdue = invoice.DueDate.HasValue ? (int)(DateTime.Now - invoice.DueDate.Value).TotalDays : 0;
                                                     }
                                                     @if (daysOverdue > 0)
                                                     {
@@ -334,7 +334,7 @@
                         </h6>
                         <a href="/estimates" class="badge bg-primary-subtle text-primary text-decoration-none">
                             @_data.PendingEstimates.Count Pending
-                            @{ var expiringCount = _data.PendingEstimates.Count(e => e.ExpiryDate.HasValue && e.ExpiryDate.Value <= DateTime.UtcNow.AddDays(7)); }
+                            @{ var expiringCount = _data.PendingEstimates.Count(e => e.ExpiryDate.HasValue && e.ExpiryDate.Value <= DateTime.Now.AddDays(7)); }
                             @if (expiringCount > 0)
                             {
                                 <span>(@expiringCount Expiring)</span>
@@ -358,7 +358,7 @@
                                                 <td>
                                                     @if (est.ExpiryDate.HasValue)
                                                     {
-                                                        var daysToExpiry = (est.ExpiryDate.Value - DateTime.UtcNow).TotalDays;
+                                                        var daysToExpiry = (est.ExpiryDate.Value - DateTime.Now).TotalDays;
                                                         <span class="badge @(daysToExpiry <= 3 ? "bg-danger" : daysToExpiry <= 7 ? "bg-warning" : "bg-secondary")">
                                                             @est.ExpiryDate.Value.ToString("MMM dd")
                                                         </span>

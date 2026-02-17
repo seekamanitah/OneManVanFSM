@@ -25,8 +25,8 @@ public class MobileInventoryItem
     public decimal Price { get; set; }
     public DateTime? ExpiryDate { get; set; }
     public bool IsLowStock => Quantity <= MinThreshold && MinThreshold > 0;
-    public bool IsExpiringSoon => ExpiryDate.HasValue && ExpiryDate.Value < DateTime.UtcNow.AddDays(30);
-    public bool IsExpired => ExpiryDate.HasValue && ExpiryDate.Value < DateTime.UtcNow;
+    public bool IsExpiringSoon => ExpiryDate.HasValue && ExpiryDate.Value < DateTime.Now.AddDays(30);
+    public bool IsExpired => ExpiryDate.HasValue && ExpiryDate.Value < DateTime.Now;
 }
 
 public class MobileInventoryFilter

@@ -961,7 +961,7 @@ else
 
     private async Task ApplyNewEstimateDefaults()
     {
-        form.ExpiryDate = DateTime.UtcNow.AddDays(30);
+        form.ExpiryDate = DateTime.Now.AddDays(30);
         form.TradeType = "HVAC";
         form.Stories = 1;
         form.Zones = 1;
@@ -1134,7 +1134,7 @@ else
         {
             form.DepositAmountPaid ??= form.DepositRequired;
             form.DepositPaymentMethod ??= PaymentMethod.Cash;
-            form.DepositReceivedDate ??= DateTime.UtcNow;
+            form.DepositReceivedDate ??= DateTime.Now;
         }
     }
 

@@ -8,7 +8,7 @@ public class MobileDashboardService(AppDbContext db) : IMobileDashboardService
 {
     public async Task<MobileDashboardData> GetDashboardAsync(int employeeId, bool isElevated = false)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
 
         var todayJobs = await db.Jobs.AsNoTracking()

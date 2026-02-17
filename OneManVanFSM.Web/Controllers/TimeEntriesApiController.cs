@@ -69,7 +69,7 @@ public class TimeEntriesApiController : SyncApiController
         {
             EmployeeId = req.EmployeeId,
             JobId = req.JobId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTime.Now,
             EntryType = entryType,
             HourlyRate = req.RateOverride ?? employee.HourlyRate,
             TimeCategory = req.TimeCategory,
@@ -81,6 +81,24 @@ public class TimeEntriesApiController : SyncApiController
         };
 
         _db.TimeEntries.Add(entry);
+
+        // Auto-assign employee to job team if clocking into a job
+        if (entryType == TimeEntryType.JobClock && req.JobId.HasValue)
+        {
+            var alreadyOnTeam = await _db.Set<JobEmployee>()
+                .AnyAsync(je => je.JobId == req.JobId.Value && je.EmployeeId == req.EmployeeId);
+            if (!alreadyOnTeam)
+            {
+                _db.Set<JobEmployee>().Add(new JobEmployee
+                {
+                    JobId = req.JobId.Value,
+                    EmployeeId = req.EmployeeId,
+                    Role = "Technician",
+                    AssignedAt = DateTime.UtcNow,
+                });
+            }
+        }
+
         await _db.SaveChangesAsync();
         return Ok(entry);
     }
@@ -106,12 +124,12 @@ public class TimeEntriesApiController : SyncApiController
                 .ToListAsync();
             foreach (var jc in openJobClocks)
             {
-                jc.EndTime = DateTime.UtcNow;
+                jc.EndTime = DateTime.Now;
                 jc.Hours = (decimal)(jc.EndTime.Value - jc.StartTime).TotalHours;
                 jc.UpdatedAt = DateTime.UtcNow;
             }
 
-            activeShift.EndTime = DateTime.UtcNow;
+            activeShift.EndTime = DateTime.Now;
             activeShift.Hours = (decimal)(activeShift.EndTime.Value - activeShift.StartTime).TotalHours;
             if (activeShift.Hours > 8)
                 activeShift.OvertimeHours = activeShift.Hours - 8;
@@ -129,7 +147,7 @@ public class TimeEntriesApiController : SyncApiController
             if (activeJob is null)
                 return BadRequest("No active job clock.");
 
-            activeJob.EndTime = DateTime.UtcNow;
+            activeJob.EndTime = DateTime.Now;
             activeJob.Hours = (decimal)(activeJob.EndTime.Value - activeJob.StartTime).TotalHours;
             activeJob.ClockOutLatitude = req.Latitude;
             activeJob.ClockOutLongitude = req.Longitude;
@@ -151,7 +169,7 @@ public class TimeEntriesApiController : SyncApiController
         if (active is null)
             return BadRequest("No active job clock for this job.");
 
-        active.EndTime = DateTime.UtcNow;
+        active.EndTime = DateTime.Now;
         active.Hours = (decimal)(active.EndTime.Value - active.StartTime).TotalHours;
         active.ClockOutLatitude = req.Latitude;
         active.ClockOutLongitude = req.Longitude;
@@ -224,7 +242,7 @@ public class TimeEntriesApiController : SyncApiController
         var breakEntry = new TimeEntry
         {
             EmployeeId = req.EmployeeId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTime.Now,
             EntryType = TimeEntryType.Break,
             IsBillable = false,
             TimeCategory = "Break",
@@ -247,7 +265,7 @@ public class TimeEntriesApiController : SyncApiController
         if (activeBreak is null)
             return BadRequest("No active break to resume from.");
 
-        activeBreak.EndTime = DateTime.UtcNow;
+        activeBreak.EndTime = DateTime.Now;
         activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
         activeBreak.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();

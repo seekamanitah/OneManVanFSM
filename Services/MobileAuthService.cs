@@ -66,7 +66,7 @@ public class MobileAuthService : IMobileAuthService
 
         // Successful login
         user.LoginAttempts = 0;
-        user.LastLogin = DateTime.UtcNow;
+        user.LastLogin = DateTime.Now;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
 

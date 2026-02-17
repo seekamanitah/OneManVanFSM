@@ -15,7 +15,7 @@ public class MobileReportService : IMobileReportService
 
     public async Task<MobileTechReport> GetTechReportAsync(int employeeId)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
         var monthStart = new DateTime(today.Year, today.Month, 1);
 

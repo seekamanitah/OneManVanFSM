@@ -59,8 +59,8 @@ public class CalendarEventDetail
 public class CalendarEventEditModel
 {
     public string? Title { get; set; }
-    public DateTime StartDateTime { get; set; } = DateTime.UtcNow;
-    public DateTime EndDateTime { get; set; } = DateTime.UtcNow.AddHours(2);
+    public DateTime StartDateTime { get; set; } = DateTime.Now;
+    public DateTime EndDateTime { get; set; } = DateTime.Now.AddHours(2);
     public decimal? Duration { get; set; }
     public CalendarEventStatus Status { get; set; } = CalendarEventStatus.Tentative;
     public string? EventType { get; set; }

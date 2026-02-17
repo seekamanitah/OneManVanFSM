@@ -203,7 +203,7 @@ public class JobService : IJobService
         job.AssignedEmployeeId = model.AssignedEmployeeId;
         job.UpdatedAt = DateTime.UtcNow;
         if (model.Status == JobStatus.Completed && !job.CompletedDate.HasValue)
-            job.CompletedDate = DateTime.UtcNow;
+            job.CompletedDate = DateTime.Now;
         await _db.SaveChangesAsync();
 
         if (model.Status == JobStatus.Completed && !wasCompleted)
@@ -251,7 +251,7 @@ public class JobService : IJobService
         if (job is null) return false;
         var wasCompleted = job.CompletedDate.HasValue;
         job.Status = status; job.UpdatedAt = DateTime.UtcNow;
-        if (status == JobStatus.Completed) job.CompletedDate = DateTime.UtcNow;
+        if (status == JobStatus.Completed) job.CompletedDate = DateTime.Now;
         await _db.SaveChangesAsync();
 
         if (status == JobStatus.Completed && !wasCompleted)
@@ -338,8 +338,8 @@ public class JobService : IJobService
         {
             InvoiceNumber = $"INV-{invCount:D5}",
             Status = InvoiceStatus.Draft,
-            InvoiceDate = DateTime.UtcNow,
-            DueDate = DateTime.UtcNow.AddDays(30),
+            InvoiceDate = DateTime.Now,
+            DueDate = DateTime.Now.AddDays(30),
             PaymentTerms = "Net 30",
             Notes = $"Auto-generated from completed job {job.JobNumber}",
             CustomerId = job.CustomerId,
@@ -543,7 +543,7 @@ public class JobService : IJobService
         job.Estimate.DepositAmountPaid = model.Amount;
         job.Estimate.DepositPaymentMethod = model.PaymentMethod;
         job.Estimate.DepositPaymentReference = model.Reference;
-        job.Estimate.DepositReceivedDate = DateTime.UtcNow;
+        job.Estimate.DepositReceivedDate = DateTime.Now;
         job.Estimate.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return true;

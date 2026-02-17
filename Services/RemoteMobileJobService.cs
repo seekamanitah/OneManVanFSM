@@ -127,7 +127,7 @@ public class RemoteMobileJobService : IMobileJobService
         {
             job.Status = status;
             if (status == JobStatus.Completed)
-                job.CompletedDate = DateTime.UtcNow;
+                job.CompletedDate = DateTime.Now;
             job.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
         }
@@ -152,6 +152,42 @@ public class RemoteMobileJobService : IMobileJobService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Job {JobId} status update failed.", id);
+            return false;
+        }
+    }
+
+    public async Task<bool> RescheduleJobAsync(int id, DateTime newDate, TimeSpan? newTime)
+    {
+        var job = await _db.Jobs.FindAsync(id);
+        if (job is not null)
+        {
+            job.ScheduledDate = newDate;
+            job.ScheduledTime = newTime;
+            job.Status = JobStatus.Scheduled;
+            job.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+        }
+
+        try
+        {
+            await _api.PutAsync<object>($"api/jobs/{id}/reschedule", new { Date = newDate, Time = newTime });
+            return true;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogWarning(ex, "Job {JobId} reschedule failed (offline), queueing.", id);
+            _offlineQueue.Enqueue(new OfflineQueueItem
+            {
+                HttpMethod = "PUT",
+                Endpoint = $"api/jobs/{id}/reschedule",
+                PayloadJson = System.Text.Json.JsonSerializer.Serialize(new { Date = newDate, Time = newTime }),
+                Description = $"Job #{id} reschedule → {newDate:yyyy-MM-dd}"
+            });
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Job {JobId} reschedule failed.", id);
             return false;
         }
     }

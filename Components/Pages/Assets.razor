@@ -146,7 +146,7 @@ else
                 <div class="d-flex flex-wrap gap-1 mt-1">
                     @if (asset.WarrantyExpiry.HasValue)
                     {
-                        var daysLeft = (asset.WarrantyExpiry.Value - DateTime.UtcNow).Days;
+                        var daysLeft = (asset.WarrantyExpiry.Value - DateTime.Now).Days;
                         @if (daysLeft < 0)
                         {
                             <span class="badge bg-secondary" style="font-size:0.6rem;">
@@ -166,7 +166,7 @@ else
                             </span>
                         }
                     }
-                    @if (asset.NextServiceDue.HasValue && asset.NextServiceDue.Value < DateTime.UtcNow.AddDays(30))
+                    @if (asset.NextServiceDue.HasValue && asset.NextServiceDue.Value < DateTime.Now.AddDays(30))
                     {
                         <span class="badge bg-info" style="font-size:0.6rem;">
                             <i class="bi bi-calendar-check me-1"></i>Service Due @asset.NextServiceDue.Value.ToString("MMM dd")

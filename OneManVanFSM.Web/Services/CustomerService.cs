@@ -88,7 +88,7 @@ public class CustomerService : ICustomerService
 
         if (customer is null) return null;
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         return new CustomerDetail
         {
@@ -230,7 +230,7 @@ public class CustomerService : ICustomerService
             Tags = model.Tags,
             Notes = model.Notes,
             CompanyId = model.CompanyId,
-            SinceDate = DateTime.UtcNow,
+            SinceDate = DateTime.Now,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };

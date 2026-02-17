@@ -107,7 +107,23 @@ public class JobsApiController : SyncApiController
         job.Status = status;
         job.UpdatedAt = DateTime.UtcNow;
         if (status == JobStatus.Completed)
-            job.CompletedDate = DateTime.UtcNow;
+            job.CompletedDate = DateTime.Now;
+
+        await _db.SaveChangesAsync();
+        return Ok(job);
+    }
+
+    /// <summary>PUT /api/jobs/{id}/reschedule</summary>
+    [HttpPut("{id:int}/reschedule")]
+    public async Task<ActionResult> Reschedule(int id, [FromBody] RescheduleRequest request)
+    {
+        var job = await _db.Jobs.FindAsync(id);
+        if (job is null) return NotFound();
+
+        job.ScheduledDate = request.Date;
+        job.ScheduledTime = request.Time;
+        job.Status = JobStatus.Scheduled;
+        job.UpdatedAt = DateTime.UtcNow;
 
         await _db.SaveChangesAsync();
         return Ok(job);
@@ -140,4 +156,10 @@ public class JobsApiController : SyncApiController
 
         return $"JOB-{max + 1:D5}";
     }
+}
+
+public class RescheduleRequest
+{
+    public DateTime Date { get; set; }
+    public TimeSpan? Time { get; set; }
 }

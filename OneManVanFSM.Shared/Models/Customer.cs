@@ -16,7 +16,7 @@ public class Customer
     public string? City { get; set; }
     public string? State { get; set; }
     public string? Zip { get; set; }
-    public DateTime SinceDate { get; set; } = DateTime.UtcNow;
+    public DateTime SinceDate { get; set; } = DateTime.Now;
     public decimal CreditLimit { get; set; }
     public bool TaxExempt { get; set; }
     public decimal BalanceOwed { get; set; }

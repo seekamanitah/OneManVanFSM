@@ -117,7 +117,7 @@ else if (_data != null)
         {
             <div class="d-flex justify-content-between align-items-center">
                 <div class="text-start">
-                    <div class="clock-label">Clocked In @_data.ClockInTime?.ToLocalTime().ToString("h:mm tt")</div>
+                    <div class="clock-label">Clocked In @_data.ClockInTime?.ToString("h:mm tt")</div>
                     <div class="clock-time">@FormatElapsed()</div>
                 </div>
                 <div class="d-flex flex-column gap-1 align-items-end">
@@ -758,7 +758,7 @@ protected override async Task OnInitializedAsync()
     private string FormatElapsed()
     {
         if (_data?.ClockInTime == null) return "00:00";
-        var elapsed = DateTime.UtcNow - _data.ClockInTime.Value;
+        var elapsed = DateTime.Now - _data.ClockInTime.Value;
         if (elapsed.TotalSeconds < 0) elapsed = TimeSpan.Zero;
         return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}";
     }
@@ -836,7 +836,7 @@ protected override async Task OnInitializedAsync()
     private string FormatPauseElapsed()
     {
         if (_data?.PauseStartTime == null) return "0m";
-        var elapsed = DateTime.UtcNow - _data.PauseStartTime.Value;
+        var elapsed = DateTime.Now - _data.PauseStartTime.Value;
         if (elapsed.TotalSeconds < 0) elapsed = TimeSpan.Zero;
         return elapsed.TotalHours >= 1
             ? $"{(int)elapsed.TotalHours}h {elapsed.Minutes}m"

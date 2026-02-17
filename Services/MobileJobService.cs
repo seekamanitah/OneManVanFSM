@@ -168,7 +168,21 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
         job.Status = status;
         job.UpdatedAt = DateTime.UtcNow;
         if (status == JobStatus.Completed)
-            job.CompletedDate = DateTime.UtcNow;
+            job.CompletedDate = DateTime.Now;
+
+        await db.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> RescheduleJobAsync(int id, DateTime newDate, TimeSpan? newTime)
+    {
+        var job = await db.Jobs.FindAsync(id);
+        if (job is null) return false;
+
+        job.ScheduledDate = newDate;
+        job.ScheduledTime = newTime;
+        job.Status = JobStatus.Scheduled;
+        job.UpdatedAt = DateTime.UtcNow;
 
         await db.SaveChangesAsync();
         return true;
@@ -318,7 +332,7 @@ public class MobileJobService(AppDbContext db) : IMobileJobService
     public async Task<int> CreateJobAsync(MobileJobCreate model)
     {
         // Generate job number: JOB-YYYYMMDD-XXXX
-        var today = DateTime.UtcNow.ToString("yyyyMMdd");
+        var today = DateTime.Now.ToString("yyyyMMdd");
         var todayCount = await db.Jobs.CountAsync(j => j.JobNumber.StartsWith($"JOB-{today}"));
         var jobNumber = $"JOB-{today}-{(todayCount + 1):D4}";
 

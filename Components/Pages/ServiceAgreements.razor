@@ -336,7 +336,7 @@ else
                     <span class="fw-bold" style="font-size:0.85rem;">@agreement.Fee.ToString("C")</span>
                 </div>
                 @{
-                    var daysLeft = (agreement.EndDate - DateTime.UtcNow).Days;
+                    var daysLeft = (agreement.EndDate - DateTime.Now).Days;
                     var barPct = daysLeft > 0 ? Math.Min(100, (int)((1 - (double)daysLeft / 365) * 100)) : 100;
                 }
                 <div class="progress mt-2" style="height:4px; border-radius:4px;">

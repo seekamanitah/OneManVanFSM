@@ -45,7 +45,7 @@
         <p class="card-subtitle mb-1"><i class="bi bi-calendar3 me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</p>
         @if (_detail.ExpiryDate.HasValue)
         {
-            var isExpired = _detail.ExpiryDate.Value < DateTime.UtcNow;
+            var isExpired = _detail.ExpiryDate.Value < DateTime.Now;
             <p class="card-subtitle mb-0 @(isExpired ? "text-danger" : "")">
                 <i class="bi bi-clock me-1"></i>@(isExpired ? "Expired" : "Expires") @_detail.ExpiryDate.Value.ToString("MMM dd, yyyy")
             </p>

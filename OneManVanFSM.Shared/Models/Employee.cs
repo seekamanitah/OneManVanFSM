@@ -11,7 +11,7 @@ public class Employee
     public string? Email { get; set; }
     public string? Address { get; set; }
     public decimal HourlyRate { get; set; }
-    public DateTime HireDate { get; set; } = DateTime.UtcNow;
+    public DateTime HireDate { get; set; } = DateTime.Now;
     public EmployeeStatus Status { get; set; } = EmployeeStatus.Active;
     public string? Territory { get; set; }
     public string? Certifications { get; set; } // JSON array of certs with expiry dates

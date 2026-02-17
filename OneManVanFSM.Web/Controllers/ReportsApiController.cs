@@ -19,7 +19,7 @@ public class ReportsApiController : SyncApiController
     [HttpGet("techreport/{employeeId:int}")]
     public async Task<ActionResult<MobileTechReportDto>> GetTechReport(int employeeId)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
         var monthStart = new DateTime(today.Year, today.Month, 1);
 

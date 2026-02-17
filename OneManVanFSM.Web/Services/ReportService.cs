@@ -8,14 +8,14 @@ public class ReportService(AppDbContext db) : IReportService
 {
     public async Task<ReportKPIs> GetKPIsAsync(ReportPeriod period = ReportPeriod.ThisMonth)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         var rangeStart = period switch
         {
             ReportPeriod.Today => now.Date,
             ReportPeriod.ThisWeek => now.Date.AddDays(-(int)now.DayOfWeek),
-            ReportPeriod.ThisMonth => new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
-            ReportPeriod.ThisQuarter => new DateTime(now.Year, ((now.Month - 1) / 3) * 3 + 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            ReportPeriod.ThisYear => new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            ReportPeriod.ThisMonth => new DateTime(now.Year, now.Month, 1),
+            ReportPeriod.ThisQuarter => new DateTime(now.Year, ((now.Month - 1) / 3) * 3 + 1, 1),
+            ReportPeriod.ThisYear => new DateTime(now.Year, 1, 1),
             ReportPeriod.AllTime => DateTime.MinValue,
             _ => now.Date
         };
@@ -235,7 +235,7 @@ public class ReportService(AppDbContext db) : IReportService
 
     public async Task<List<SeasonalDemandItem>> GetSeasonalDemandAsync()
     {
-        var twoYearsAgo = DateTime.UtcNow.AddYears(-2);
+        var twoYearsAgo = DateTime.Now.AddYears(-2);
 
         var jobs = await db.Jobs
             .Where(j => !j.IsArchived && j.CreatedAt >= twoYearsAgo)
@@ -279,14 +279,14 @@ public class ReportService(AppDbContext db) : IReportService
 
     private DateTime GetRangeStart(ReportPeriod period)
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         return period switch
         {
             ReportPeriod.Today => now.Date,
             ReportPeriod.ThisWeek => now.Date.AddDays(-(int)now.DayOfWeek),
-            ReportPeriod.ThisMonth => new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc),
-            ReportPeriod.ThisQuarter => new DateTime(now.Year, ((now.Month - 1) / 3) * 3 + 1, 1, 0, 0, 0, DateTimeKind.Utc),
-            ReportPeriod.ThisYear => new DateTime(now.Year, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            ReportPeriod.ThisMonth => new DateTime(now.Year, now.Month, 1),
+            ReportPeriod.ThisQuarter => new DateTime(now.Year, ((now.Month - 1) / 3) * 3 + 1, 1),
+            ReportPeriod.ThisYear => new DateTime(now.Year, 1, 1),
             ReportPeriod.AllTime => DateTime.MinValue,
             _ => now.Date
         };
@@ -294,7 +294,7 @@ public class ReportService(AppDbContext db) : IReportService
 
     public async Task<List<ARAgingItem>> GetARAgingAsync()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         var invoices = await db.Invoices
             .Include(i => i.Customer)
@@ -337,7 +337,7 @@ public class ReportService(AppDbContext db) : IReportService
 
     public async Task<List<AssetRepairTrendItem>> GetAssetRepairTrendsAsync()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         var assets = await db.Assets
             .Include(a => a.ServiceLogs)
@@ -402,7 +402,7 @@ public class ReportService(AppDbContext db) : IReportService
 
     public async Task<List<AgreementRenewalItem>> GetAgreementRenewalsAsync()
     {
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         var agreements = await db.ServiceAgreements
             .Include(sa => sa.Customer)

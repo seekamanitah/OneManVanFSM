@@ -45,7 +45,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         var entry = new TimeEntry
         {
             EmployeeId = employeeId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTime.Now,
             EntryType = TimeEntryType.Shift,
             HourlyRate = emp.HourlyRate,
             IsBillable = true,
@@ -68,7 +68,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
 
         foreach (var jc in activeJobClocks)
         {
-            jc.EndTime = DateTime.UtcNow;
+            jc.EndTime = DateTime.Now;
             jc.Hours = Math.Round((decimal)(jc.EndTime.Value - jc.StartTime).TotalHours, 2);
             jc.UpdatedAt = DateTime.UtcNow;
         }
@@ -80,7 +80,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EndTime == null);
         if (activeBreak is not null)
         {
-            activeBreak.EndTime = DateTime.UtcNow;
+            activeBreak.EndTime = DateTime.Now;
             activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
             activeBreak.UpdatedAt = DateTime.UtcNow;
         }
@@ -92,7 +92,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EndTime == null);
         if (shift is null) return null;
 
-        shift.EndTime = DateTime.UtcNow;
+        shift.EndTime = DateTime.Now;
         shift.Hours = Math.Round((decimal)(shift.EndTime.Value - shift.StartTime).TotalHours, 2);
 
         // Calculate overtime (daily: hours > 8)
@@ -142,7 +142,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         {
             EmployeeId = employeeId,
             JobId = jobId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTime.Now,
             EntryType = TimeEntryType.JobClock,
             HourlyRate = rateOverride ?? emp.HourlyRate,
             IsBillable = true,
@@ -150,6 +150,21 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
             UpdatedAt = DateTime.UtcNow,
         };
         db.TimeEntries.Add(entry);
+
+        // Auto-assign employee to job team if not already a member
+        var alreadyOnTeam = await db.Set<JobEmployee>()
+            .AnyAsync(je => je.JobId == jobId && je.EmployeeId == employeeId);
+        if (!alreadyOnTeam)
+        {
+            db.Set<JobEmployee>().Add(new JobEmployee
+            {
+                JobId = jobId,
+                EmployeeId = employeeId,
+                Role = "Technician",
+                AssignedAt = DateTime.UtcNow,
+            });
+        }
+
         await db.SaveChangesAsync();
         return entry;
     }
@@ -163,7 +178,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EndTime == null);
         if (entry is null) return null;
 
-        entry.EndTime = DateTime.UtcNow;
+        entry.EndTime = DateTime.Now;
         entry.Hours = Math.Round((decimal)(entry.EndTime.Value - entry.StartTime).TotalHours, 2);
         entry.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
@@ -201,7 +216,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
         var entry = new TimeEntry
         {
             EmployeeId = employeeId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTime.Now,
             EntryType = TimeEntryType.Break,
             IsBillable = false,
             TimeCategory = "Break",
@@ -222,7 +237,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
                 && t.EndTime == null);
         if (activeBreak is null) return null;
 
-        activeBreak.EndTime = DateTime.UtcNow;
+        activeBreak.EndTime = DateTime.Now;
         activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
         activeBreak.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
@@ -258,7 +273,7 @@ public class MobileTimeService(AppDbContext db) : IMobileTimeService
 
     public async Task<MobileTimeSummary> GetTimeSummaryAsync(int employeeId)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
         var monthStart = new DateTime(today.Year, today.Month, 1);
 

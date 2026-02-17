@@ -369,7 +369,7 @@ namespace OneManVanFSM
 
                 System.Diagnostics.Debug.WriteLine("[SEED] Database is empty. Creating seed data...");
 
-                var today = DateTime.UtcNow.Date;
+                var today = DateTime.Now.Date;
 
                 // Create the tech employee (this is who the mobile user "is")
                 var tech = new OneManVanFSM.Shared.Models.Employee

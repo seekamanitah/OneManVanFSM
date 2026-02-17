@@ -1241,7 +1241,7 @@ public class DataManagementService : IDataManagementService
 
             if (await _db.Customers.AnyAsync()) return false;
 
-            var today = DateTime.UtcNow.Date;
+            var today = DateTime.Now.Date;
 
             // Employees
             var emp1 = new OneManVanFSM.Shared.Models.Employee { Name = "Mike Johnson", Role = OneManVanFSM.Shared.Models.EmployeeRole.Tech, Phone = "(555) 234-5678", Email = "mike@onemanvan.local", HourlyRate = 32m, OvertimeRate = 48m, Territory = "East County", HireDate = today.AddYears(-3), Certifications = "[\"EPA 608 Universal\",\"NATE HVAC\"]", Status = OneManVanFSM.Shared.Models.EmployeeStatus.Active, LicenseNumber = "EPA-608-U-44210", LicenseExpiry = today.AddYears(2), VehicleAssigned = "Van #1 — 2022 Ford Transit", EmergencyContactName = "Sarah Johnson", EmergencyContactPhone = "(555) 234-0001" };

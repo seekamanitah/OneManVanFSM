@@ -86,7 +86,7 @@ public class RemoteMobileTimeService : IMobileTimeService
             var localEntry = new TimeEntry
             {
                 EmployeeId = employeeId,
-                StartTime = DateTime.UtcNow,
+                StartTime = DateTime.Now,
                 EntryType = TimeEntryType.Shift,
                 HourlyRate = emp?.HourlyRate,
                 Notes = "[Offline shift clock-in]",
@@ -135,7 +135,7 @@ public class RemoteMobileTimeService : IMobileTimeService
                 .ToListAsync();
             foreach (var jc in localJobClocks)
             {
-                jc.EndTime = DateTime.UtcNow;
+                jc.EndTime = DateTime.Now;
                 jc.Hours = (decimal)(jc.EndTime.Value - jc.StartTime).TotalHours;
             }
             if (localJobClocks.Count > 0) await _db.SaveChangesAsync();
@@ -150,14 +150,14 @@ public class RemoteMobileTimeService : IMobileTimeService
                 .ToListAsync();
             foreach (var jc in activeJobs)
             {
-                jc.EndTime = DateTime.UtcNow;
+                jc.EndTime = DateTime.Now;
                 jc.Hours = (decimal)(jc.EndTime.Value - jc.StartTime).TotalHours;
             }
             var active = await _db.TimeEntries
                 .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.Shift && t.EndTime == null);
             if (active is not null)
             {
-                active.EndTime = DateTime.UtcNow;
+                active.EndTime = DateTime.Now;
                 active.Hours = (decimal)(active.EndTime.Value - active.StartTime).TotalHours;
                 if (active.Hours > 8) active.OvertimeHours = active.Hours - 8;
                 await _db.SaveChangesAsync();
@@ -233,7 +233,7 @@ public class RemoteMobileTimeService : IMobileTimeService
             {
                 EmployeeId = employeeId,
                 JobId = jobId,
-                StartTime = DateTime.UtcNow,
+                StartTime = DateTime.Now,
                 EntryType = TimeEntryType.JobClock,
                 HourlyRate = rateOverride ?? emp?.HourlyRate,
                 IsBillable = true,
@@ -241,6 +241,21 @@ public class RemoteMobileTimeService : IMobileTimeService
                 CreatedAt = DateTime.UtcNow
             };
             _db.TimeEntries.Add(localEntry);
+
+            // Auto-assign employee to job team locally if not already a member
+            var alreadyOnTeam = await _db.Set<JobEmployee>()
+                .AnyAsync(je => je.JobId == jobId && je.EmployeeId == employeeId);
+            if (!alreadyOnTeam)
+            {
+                _db.Set<JobEmployee>().Add(new JobEmployee
+                {
+                    JobId = jobId,
+                    EmployeeId = employeeId,
+                    Role = "Technician",
+                    AssignedAt = DateTime.UtcNow,
+                });
+            }
+
             await _db.SaveChangesAsync();
             _db.ChangeTracker.Clear();
 
@@ -285,7 +300,7 @@ public class RemoteMobileTimeService : IMobileTimeService
                 .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EntryType == TimeEntryType.JobClock && t.JobId == jobId && t.EndTime == null);
             if (active is not null)
             {
-                active.EndTime = DateTime.UtcNow;
+                active.EndTime = DateTime.Now;
                 active.Hours = (decimal)(active.EndTime.Value - active.StartTime).TotalHours;
                 await _db.SaveChangesAsync();
             }
@@ -355,7 +370,7 @@ public class RemoteMobileTimeService : IMobileTimeService
             var entry = new TimeEntry
             {
                 EmployeeId = employeeId,
-                StartTime = DateTime.UtcNow,
+                StartTime = DateTime.Now,
                 EntryType = TimeEntryType.Break,
                 IsBillable = false,
                 TimeCategory = "Break",
@@ -408,7 +423,7 @@ public class RemoteMobileTimeService : IMobileTimeService
         {
             _logger.LogWarning(ex, "ShiftResume offline for employee {EmployeeId}.", employeeId);
             // Offline fallback - update locally
-            activeBreak.EndTime = DateTime.UtcNow;
+            activeBreak.EndTime = DateTime.Now;
             activeBreak.Hours = Math.Round((decimal)(activeBreak.EndTime.Value - activeBreak.StartTime).TotalHours, 2);
             activeBreak.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
@@ -453,7 +468,7 @@ public class RemoteMobileTimeService : IMobileTimeService
 
     public async Task<MobileTimeSummary> GetTimeSummaryAsync(int employeeId)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
         var monthStart = new DateTime(today.Year, today.Month, 1);
 

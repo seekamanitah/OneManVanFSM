@@ -552,7 +552,7 @@ else if (viewMode is "create" or "edit")
     private async Task ShowCreate()
     {
         await LoadDropdowns();
-        editModel = new() { RecordNumber = $"SH-{DateTime.UtcNow:yyyyMMddHHmm}" };
+        editModel = new() { RecordNumber = $"SH-{DateTime.Now:yyyyMMddHHmm}" };
         editId = null;
         viewMode = "create";
     }

@@ -86,7 +86,7 @@ public class MobileDocumentService(AppDbContext db, ApiClient api) : IMobileDocu
             SiteId = model.SiteId,
             AssetId = model.AssetId,
             UploadedByEmployeeId = model.UploadedByEmployeeId,
-            UploadDate = DateTime.UtcNow,
+            UploadDate = DateTime.Now,
             UpdatedAt = DateTime.UtcNow,
             CreatedAt = DateTime.UtcNow,
         };
