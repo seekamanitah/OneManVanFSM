@@ -1090,8 +1090,8 @@ else
         var profile = await CompanyProfileSvc.GetProfileAsync();
         invoiceForm = new InvoiceEditModel
         {
-            InvoiceDate = DateTime.UtcNow,
-            DueDate = DateTime.UtcNow.AddDays(30),
+            InvoiceDate = DateTime.Now,
+            DueDate = DateTime.Now.AddDays(30),
             TaxRate = profile.DefaultTaxRate > 0 ? profile.DefaultTaxRate : 7.0m,
             TaxIncludedInPrice = true,
             PricingType = "Material & Labor (Itemized)"
@@ -1173,7 +1173,7 @@ else
         {
             InvoiceId = invoiceDetail.Id,
             Amount = invoiceDetail.BalanceDue,
-            PaymentDate = DateTime.UtcNow
+            PaymentDate = DateTime.Now
         };
     }
 
@@ -1379,8 +1379,8 @@ else
         editingInvoiceId = null;
         invoiceForm = new InvoiceEditModel
         {
-            InvoiceDate = DateTime.UtcNow,
-            DueDate = DateTime.UtcNow.AddDays(30),
+            InvoiceDate = DateTime.Now,
+            DueDate = DateTime.Now.AddDays(30),
             TaxRate = profile.DefaultTaxRate > 0 ? profile.DefaultTaxRate : 7.0m,
             TaxIncludedInPrice = true,
             PricingType = "Material & Labor (Itemized)",

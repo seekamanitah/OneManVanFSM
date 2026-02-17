@@ -168,7 +168,7 @@ public class InventoryService : IInventoryService
         {
             TotalItems = items.Count,
             LowStockCount = items.Count(i => i.Quantity <= i.MinThreshold),
-            ExpiringCount = items.Count(i => i.ExpiryDate.HasValue && i.ExpiryDate.Value <= DateTime.UtcNow.AddDays(30)),
+            ExpiringCount = items.Count(i => i.ExpiryDate.HasValue && i.ExpiryDate.Value <= DateTime.Now.AddDays(30)),
             TotalValue = items.Sum(i => i.Cost * i.Quantity)
         };
     }

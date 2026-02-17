@@ -278,7 +278,7 @@ public class ExpenseEditModel
     public string? VendorName { get; set; }
     public string? ReceiptNumber { get; set; }
     public string? Notes { get; set; }
-    public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
+    public DateTime ExpenseDate { get; set; } = DateTime.Now;
     public int? EmployeeId { get; set; }
     public int? JobId { get; set; }
     public int? CustomerId { get; set; }
@@ -346,7 +346,7 @@ public class PaymentEditModel
     public PaymentStatus Status { get; set; } = PaymentStatus.Completed;
     public string? Reference { get; set; }
     public string? Notes { get; set; }
-    public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
+    public DateTime PaymentDate { get; set; } = DateTime.Now;
     public int InvoiceId { get; set; }
 }
 

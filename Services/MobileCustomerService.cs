@@ -29,7 +29,7 @@ public class MobileCustomerService : IMobileCustomerService
                 (c.Address != null && c.Address.ToLower().Contains(term)));
         }
 
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
         return await query
             .OrderBy(c => c.Name)
             .Select(c => new MobileCustomerCard
@@ -138,7 +138,7 @@ public class MobileCustomerService : IMobileCustomerService
             Notes = model.Notes,
             NeedsReview = true,
             CreatedFrom = "mobile",
-            SinceDate = DateTime.UtcNow,
+            SinceDate = DateTime.Now,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };

@@ -86,7 +86,7 @@ public class MobileExpenseCreate
     public string? VendorName { get; set; }
     public string? ReceiptNumber { get; set; }
     public string? Notes { get; set; }
-    public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
+    public DateTime ExpenseDate { get; set; } = DateTime.Now;
     public int? JobId { get; set; }
     public int? CustomerId { get; set; }
 }

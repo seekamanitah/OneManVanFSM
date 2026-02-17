@@ -94,8 +94,8 @@ public class AgreementEditModel
 
     public CoverageLevel CoverageLevel { get; set; } = CoverageLevel.Basic;
     public AgreementStatus Status { get; set; } = AgreementStatus.Active;
-    public DateTime StartDate { get; set; } = DateTime.UtcNow;
-    public DateTime EndDate { get; set; } = DateTime.UtcNow.AddYears(1);
+    public DateTime StartDate { get; set; } = DateTime.Now;
+    public DateTime EndDate { get; set; } = DateTime.Now.AddYears(1);
     public int VisitsIncluded { get; set; }
     public int VisitsUsed { get; set; }
     public decimal Fee { get; set; }

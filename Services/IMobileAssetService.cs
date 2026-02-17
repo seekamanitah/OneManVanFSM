@@ -138,7 +138,7 @@ public class MobileServiceLogCreate
 {
     public int AssetId { get; set; }
     public string ServiceType { get; set; } = string.Empty;
-    public DateTime ServiceDate { get; set; } = DateTime.UtcNow;
+    public DateTime ServiceDate { get; set; } = DateTime.Now;
     public string? PerformedBy { get; set; }
     public string? Notes { get; set; }
     public DateTime? NextDueDate { get; set; }

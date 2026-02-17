@@ -79,7 +79,7 @@ public class DocumentsApiController : SyncApiController
         document.Id = 0;
         document.CreatedAt = DateTime.UtcNow;
         document.UpdatedAt = DateTime.UtcNow;
-        document.UploadDate = DateTime.UtcNow;
+        document.UploadDate = DateTime.Now;
         _db.Documents.Add(document);
         await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = document.Id }, document);

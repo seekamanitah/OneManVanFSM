@@ -9,7 +9,7 @@ public class Payment
     public string? Reference { get; set; }
     public string? TransactionId { get; set; }
     public string? Notes { get; set; }
-    public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
+    public DateTime PaymentDate { get; set; } = DateTime.Now;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     // Navigation properties

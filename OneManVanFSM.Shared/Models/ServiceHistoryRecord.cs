@@ -6,7 +6,7 @@ public class ServiceHistoryRecord
     public string RecordNumber { get; set; } = string.Empty;
     public ServiceHistoryType Type { get; set; } = ServiceHistoryType.NonWarrantyRepair;
     public ServiceHistoryStatus Status { get; set; } = ServiceHistoryStatus.Open;
-    public DateTime ServiceDate { get; set; } = DateTime.UtcNow;
+    public DateTime ServiceDate { get; set; } = DateTime.Now;
     public string? Description { get; set; }
     public string? ResolutionNotes { get; set; }
     public string? Evidence { get; set; } // JSON (photos, receipts, attachments)
@@ -43,7 +43,7 @@ public class ClaimAction
     public ServiceHistoryRecord ServiceHistoryRecord { get; set; } = null!;
     public string Action { get; set; } = string.Empty; // Submitted, Response, Appeal, etc.
     public string? Response { get; set; }
-    public DateTime ActionDate { get; set; } = DateTime.UtcNow;
+    public DateTime ActionDate { get; set; } = DateTime.Now;
     public string? PerformedBy { get; set; }
 }
 

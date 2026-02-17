@@ -175,7 +175,7 @@ else if (mode == "detail" && detail is not null)
                         }
                         @if (detail.LicenseExpiry.HasValue)
                         {
-                            var licExpired = detail.LicenseExpiry.Value < DateTime.UtcNow;
+                            var licExpired = detail.LicenseExpiry.Value < DateTime.Now;
                             <p class="mb-1">
                                 <strong>Expires:</strong>
                                 <span class="@(licExpired ? "text-danger fw-semibold" : "")">@detail.LicenseExpiry.Value.ToString("MMM dd, yyyy")</span>
@@ -223,7 +223,7 @@ else if (mode == "detail" && detail is not null)
                     {
                         <div class="alert alert-success py-2 mb-2">
                             <i class="bi bi-record-circle text-danger me-1"></i>
-                            <strong>Clocked In</strong> since @activeClock.StartTime.ToLocalTime().ToString("h:mm tt")
+                            <strong>Clocked In</strong> since @activeClock.StartTime.ToString("h:mm tt")
                             @if (!string.IsNullOrEmpty(activeClock.JobTitle)) { <br /><small>Job: @activeClock.JobTitle</small> }
                         </div>
                         <button class="btn btn-danger w-100" @onclick="ClockOut" disabled="@isClocking">
@@ -259,10 +259,10 @@ else if (mode == "detail" && detail is not null)
         <div class="col-md-8">
             @* Detail Sub-Tabs *@
             <ul class="nav nav-tabs mb-3">
-                <li class="nav-item"><button class="nav-link @(detailTab == "jobs" ? "active" : "")" @onclick='() => detailTab = "jobs"'>Jobs</button></li>
-                <li class="nav-item"><button class="nav-link @(detailTab == "timesheet" ? "active" : "")" @onclick="LoadTimesheet">Timesheet</button></li>
-                <li class="nav-item"><button class="nav-link @(detailTab == "pay" ? "active" : "")" @onclick="LoadPaySummary">Pay Summary</button></li>
-                <li class="nav-item"><button class="nav-link @(detailTab == "manual" ? "active" : "")" @onclick='() => detailTab = "manual"'>Manual Entry</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "jobs" ? "active" : "")" style="@(detailTab == "jobs" ? "color:#1a2332;border-bottom:2px solid #1a2332;font-weight:600;" : "color:#1a2332;")" @onclick='() => detailTab = "jobs"'>Jobs</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "timesheet" ? "active" : "")" style="@(detailTab == "timesheet" ? "color:#1a2332;border-bottom:2px solid #1a2332;font-weight:600;" : "color:#1a2332;")" @onclick="LoadTimesheet">Timesheet</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "pay" ? "active" : "")" style="@(detailTab == "pay" ? "color:#1a2332;border-bottom:2px solid #1a2332;font-weight:600;" : "color:#1a2332;")" @onclick="LoadPaySummary">Pay Summary</button></li>
+                <li class="nav-item"><button class="nav-link @(detailTab == "manual" ? "active" : "")" style="@(detailTab == "manual" ? "color:#1a2332;border-bottom:2px solid #1a2332;font-weight:600;" : "color:#1a2332;")" @onclick='() => detailTab = "manual"'>Manual Entry</button></li>
             </ul>
 
             @if (detailTab == "jobs")
@@ -300,7 +300,7 @@ else if (mode == "detail" && detail is not null)
                                     @foreach (var t in detail.RecentTimeEntries)
                                     {
                                         <tr>
-                                            <td>@t.StartTime.ToLocalTime().ToString("MMM dd")</td>
+                                            <td>@t.StartTime.ToString("MMM dd")</td>
                                             <td><span class="badge @EntryTypeBadge(t.EntryType)" style="font-size:0.65rem;">@t.EntryType</span></td>
                                             <td>@t.Hours.ToString("F1")h</td>
                                             <td>@(t.JobTitle ?? "—")</td>
@@ -353,7 +353,7 @@ else if (mode == "detail" && detail is not null)
                                                     {
                                                         <div class="d-flex align-items-center gap-1 mb-1">
                                                             <span class="badge @EntryTypeBadge(e.EntryType)" style="font-size:0.65rem;">@e.EntryType</span>
-                                                            <small>@e.StartTime.ToLocalTime().ToString("h:mm tt") - @(e.EndTime?.ToLocalTime().ToString("h:mm tt") ?? "Active")</small>
+                                                            <small>@e.StartTime.ToString("h:mm tt") - @(e.EndTime?.ToString("h:mm tt") ?? "Active")</small>
                                                             @if (e.JobTitle != null) { <small class="text-muted">(@e.JobTitle)</small> }
                                                             @if (!string.IsNullOrEmpty(e.TimeCategory)) { <small class="text-muted fst-italic">[@e.TimeCategory]</small> }
                                                         </div>
@@ -476,13 +476,13 @@ else if (mode == "detail" && detail is not null)
                             <div class="row g-3 mb-3">
                                 <div class="col-sm-3">
                                     <div class="card bg-light border-0 text-center py-2">
-                                        <div class="fs-5 fw-bold">@paySummary.TotalRegularHours.ToString("F1")h</div>
+                                        <div class="fs-5 fw-bold">@paySummary.TotalRegularHours.ToString("F2")h</div>
                                         <small class="text-muted">Regular Hours</small>
                                     </div>
                                 </div>
                                 <div class="col-sm-3">
                                     <div class="card bg-light border-0 text-center py-2">
-                                        <div class="fs-5 fw-bold text-danger">@paySummary.TotalOvertimeHours.ToString("F1")h</div>
+                                        <div class="fs-5 fw-bold text-danger">@paySummary.TotalOvertimeHours.ToString("F2")h</div>
                                         <small class="text-muted">Overtime Hours</small>
                                     </div>
                                 </div>
@@ -525,7 +525,7 @@ else if (mode == "detail" && detail is not null)
                                                 <tr>
                                                     <td>@j.JobNumber</td>
                                                     <td>@(j.Title ?? "—")</td>
-                                                    <td>@j.Hours.ToString("F1")h</td>
+                                                    <td>@j.Hours.ToString("F2")h</td>
                                                     <td><span class="badge @(j.PayType == "FlatRate" ? "bg-warning text-dark" : "bg-info")">@j.PayType</span></td>
                                                     <td class="text-end">@j.Amount.ToString("C")</td>
                                                 </tr>
@@ -639,10 +639,10 @@ else
     @* ── Roster / Team Board Tabs ── *@
     <ul class="nav nav-pills mb-3">
         <li class="nav-item">
-            <button type="button" class="nav-link py-1 px-3 @(_listView == "roster" ? "active" : "text-dark")" @onclick='() => _listView = "roster"'><i class="bi bi-list-ul me-1"></i>Roster</button>
+            <button type="button" class="nav-link py-1 px-3 @(_listView == "roster" ? "active" : "")" style="@(_listView == "roster" ? "background:#1a2332;color:#fff;" : "color:#1a2332;")" @onclick='() => _listView = "roster"'><i class="bi bi-list-ul me-1"></i>Roster</button>
         </li>
         <li class="nav-item">
-            <button type="button" class="nav-link py-1 px-3 @(_listView == "teamboard" ? "active" : "text-dark")" @onclick="SwitchToTeamBoard"><i class="bi bi-people-fill me-1"></i>Team Board</button>
+            <button type="button" class="nav-link py-1 px-3 @(_listView == "teamboard" ? "active" : "")" style="@(_listView == "teamboard" ? "background:#1a2332;color:#fff;" : "color:#1a2332;")" @onclick="SwitchToTeamBoard"><i class="bi bi-people-fill me-1"></i>Team Board</button>
         </li>
     </ul>
     @if (_listView == "teamboard")
@@ -875,7 +875,7 @@ else
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var dow = (int)today.DayOfWeek;
         timesheetWeekStart = today.AddDays(-dow);
         payPeriodStart = today.AddDays(-13);
@@ -1073,7 +1073,7 @@ else
             int? jobId = int.TryParse(manualJobId, out var jid) ? jid : null;
             var entryType = Enum.TryParse<TimeEntryType>(manualEntryType, out var et) ? et : TimeEntryType.Shift;
             string? category = string.IsNullOrWhiteSpace(manualTimeCategory) ? null : manualTimeCategory;
-            await EmployeeSvc.AddManualTimeEntryAsync(detail.Id, jobId, manualStart.ToUniversalTime(), manualEnd.ToUniversalTime(), manualBillable, string.IsNullOrWhiteSpace(manualNotes) ? null : manualNotes, entryType, category);
+            await EmployeeSvc.AddManualTimeEntryAsync(detail.Id, jobId, manualStart, manualEnd, manualBillable, string.IsNullOrWhiteSpace(manualNotes) ? null : manualNotes, entryType, category);
             manualMsg = "Time entry added successfully.";
             detail = await EmployeeSvc.GetEmployeeAsync(detail.Id);
         }
@@ -1087,8 +1087,8 @@ else
         _editingEntry = entry;
         _editEntryType = entry.EntryType.ToString();
         _editTimeCategory = entry.TimeCategory ?? "";
-        _editStart = entry.StartTime.ToLocalTime();
-        _editEnd = entry.EndTime?.ToLocalTime() ?? DateTime.Now;
+        _editStart = entry.StartTime;
+        _editEnd = entry.EndTime ?? DateTime.Now;
         _editBillable = entry.IsBillable;
         _editNotes = "";
         _editMsg = null;
@@ -1111,7 +1111,7 @@ else
         {
             var entryType = Enum.TryParse<TimeEntryType>(_editEntryType, out var et) ? et : TimeEntryType.Shift;
             string? category = string.IsNullOrWhiteSpace(_editTimeCategory) ? null : _editTimeCategory;
-            var ok = await EmployeeSvc.UpdateTimeEntryAsync(_editingEntry.Id, _editStart.ToUniversalTime(), _editEnd.ToUniversalTime(), _editBillable, string.IsNullOrWhiteSpace(_editNotes) ? null : _editNotes, entryType, category);
+            var ok = await EmployeeSvc.UpdateTimeEntryAsync(_editingEntry.Id, _editStart, _editEnd, _editBillable, string.IsNullOrWhiteSpace(_editNotes) ? null : _editNotes, entryType, category);
             if (ok)
             {
                 _editMsg = "Entry updated.";
@@ -1236,7 +1236,7 @@ else
                 {
                     var allEmployees = await EmployeeSvc.GetEmployeesAsync(new EmployeeFilter { Status = EmployeeStatus.Active });
                     var items = new List<TeamBoardMember>();
-                    var today = DateTime.UtcNow.Date;
+                    var today = DateTime.Now.Date;
                     foreach (var emp in allEmployees)
                     {
                         var clock = await EmployeeSvc.GetActiveClockAsync(emp.Id);

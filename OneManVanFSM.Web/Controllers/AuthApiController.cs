@@ -74,7 +74,7 @@ public class AuthApiController : ControllerBase
 
         // Successful login
         user.LoginAttempts = 0;
-        user.LastLogin = DateTime.UtcNow;
+        user.LastLogin = DateTime.Now;
         await _db.SaveChangesAsync();
 
         var jwt = _jwtService.GenerateToken(user.Id, user.Username, user.Role.ToString(), user.EmployeeId);

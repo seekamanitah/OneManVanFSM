@@ -129,8 +129,8 @@ public class MobileInvoiceService : IMobileInvoiceService
         {
             InvoiceNumber = $"INV-{count:D5}",
             Status = InvoiceStatus.Draft,
-            InvoiceDate = DateTime.UtcNow,
-            DueDate = DateTime.UtcNow.AddDays(30),
+            InvoiceDate = DateTime.Now,
+            DueDate = DateTime.Now.AddDays(30),
             PaymentTerms = "Net 30",
             CustomerId = model.CustomerId,
             JobId = model.JobId,
@@ -177,8 +177,8 @@ public class MobileInvoiceService : IMobileInvoiceService
         {
             InvoiceNumber = $"INV-{count:D5}",
             Status = InvoiceStatus.Draft,
-            InvoiceDate = DateTime.UtcNow,
-            DueDate = model.DueDate ?? DateTime.UtcNow.AddDays(30),
+            InvoiceDate = DateTime.Now,
+            DueDate = model.DueDate ?? DateTime.Now.AddDays(30),
             PaymentTerms = model.PaymentTerms,
             PricingType = "Material & Labor (Itemized)",
             CustomerId = model.CustomerId,

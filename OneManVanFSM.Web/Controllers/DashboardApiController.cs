@@ -22,7 +22,7 @@ public class DashboardApiController : SyncApiController
     [HttpGet("{employeeId:int}")]
     public async Task<ActionResult<MobileDashboardResponse>> GetDashboard(int employeeId, [FromQuery] bool elevated = false)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
 
         var todayJobs = await _db.Jobs

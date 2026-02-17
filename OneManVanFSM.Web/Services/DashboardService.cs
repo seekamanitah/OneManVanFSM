@@ -8,9 +8,9 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
 {
     public async Task<DashboardData> GetDashboardDataAsync(DashboardPeriod period = DashboardPeriod.Today)
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var weekStart = today.AddDays(-(int)today.DayOfWeek);
-        var monthStart = new DateTime(today.Year, today.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthStart = new DateTime(today.Year, today.Month, 1);
 
         // Determine date range for scheduled jobs based on period
         var rangeStart = today;

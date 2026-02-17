@@ -108,7 +108,7 @@ public class RemoteMobileCustomerService : IMobileCustomerService
             Notes = model.Notes,
             NeedsReview = true,
             CreatedFrom = "mobile",
-            SinceDate = DateTime.UtcNow,
+            SinceDate = DateTime.Now,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow,
         };

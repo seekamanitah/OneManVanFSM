@@ -220,8 +220,8 @@ else
                 }
                 @if (asset.WarrantyExpiry.HasValue)
                 {
-                    var isExpired = asset.WarrantyExpiry.Value < DateTime.UtcNow;
-                    var isExpiringSoon = asset.WarrantyExpiry.Value < DateTime.UtcNow.AddMonths(3);
+                    var isExpired = asset.WarrantyExpiry.Value < DateTime.Now;
+                    var isExpiringSoon = asset.WarrantyExpiry.Value < DateTime.Now.AddMonths(3);
                     <p class="card-subtitle mb-0 @(isExpired ? "text-danger" : isExpiringSoon ? "text-warning" : "")">
                         <i class="bi bi-shield-check me-1"></i>Warranty:
                         @(isExpired ? "Expired" : asset.WarrantyExpiry.Value.ToString("MMM dd, yyyy"))

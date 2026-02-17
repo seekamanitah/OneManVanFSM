@@ -52,7 +52,7 @@ public class MobileAssetService(AppDbContext db) : IMobileAssetService
     public async Task<MobileAssetStats> GetStatsAsync()
     {
         var assets = await db.Assets.Where(a => !a.IsArchived).ToListAsync();
-        var now = DateTime.UtcNow;
+        var now = DateTime.Now;
 
         return new MobileAssetStats
         {

@@ -89,7 +89,7 @@ public class ServiceHistoryEditModel
     public string RecordNumber { get; set; } = string.Empty;
     public ServiceHistoryType Type { get; set; } = ServiceHistoryType.NonWarrantyRepair;
     public ServiceHistoryStatus Status { get; set; } = ServiceHistoryStatus.Open;
-    public DateTime ServiceDate { get; set; } = DateTime.UtcNow;
+    public DateTime ServiceDate { get; set; } = DateTime.Now;
     public string? Description { get; set; }
     public string? ResolutionNotes { get; set; }
     public string? Evidence { get; set; }
@@ -111,7 +111,7 @@ public class ClaimActionEditModel
     [System.ComponentModel.DataAnnotations.Required]
     public string Action { get; set; } = string.Empty;
     public string? Response { get; set; }
-    public DateTime ActionDate { get; set; } = DateTime.UtcNow;
+    public DateTime ActionDate { get; set; } = DateTime.Now;
     public string? PerformedBy { get; set; }
 }
 

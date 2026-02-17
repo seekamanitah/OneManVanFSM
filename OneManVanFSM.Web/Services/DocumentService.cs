@@ -171,7 +171,7 @@ public class DocumentService : IDocumentService
             AssetId = model.AssetId,
             JobId = model.JobId,
             EmployeeId = model.EmployeeId,
-            UploadDate = DateTime.UtcNow,
+            UploadDate = DateTime.Now,
             CreatedAt = DateTime.UtcNow
         };
         _db.Documents.Add(doc);

@@ -194,7 +194,7 @@ public class EmployeeService : IEmployeeService
         {
             EmployeeId = employeeId,
             JobId = jobId,
-            StartTime = DateTime.UtcNow,
+            StartTime = DateTime.Now,
             IsBillable = jobId.HasValue,
             Notes = notes
         };
@@ -209,7 +209,7 @@ public class EmployeeService : IEmployeeService
             .FirstOrDefaultAsync(t => t.EmployeeId == employeeId && t.EndTime == null);
         if (active is null) return null;
 
-        active.EndTime = DateTime.UtcNow;
+        active.EndTime = DateTime.Now;
         var totalHours = (decimal)(active.EndTime.Value - active.StartTime).TotalHours;
         active.Hours = Math.Round(totalHours, 2);
         active.OvertimeHours = 0; // Will be calculated in pay summary
@@ -268,27 +268,33 @@ public class EmployeeService : IEmployeeService
             .Where(je => je.EmployeeId == employeeId && je.PayType == JobEmployeePayType.FlatRate)
             .ToListAsync();
 
-        var totalHours = entries.Sum(e => e.Hours);
-        var regularHours = Math.Min(totalHours, 40);
-        var overtimeHours = Math.Max(totalHours - 40, 0);
+        // Use only Shift entries for payable hours (job clocks overlap with shift time)
+        var shiftHours = entries.Where(e => e.EntryType == TimeEntryType.Shift).Sum(e => e.Hours);
+        var regularHours = Math.Round(Math.Min(shiftHours, 40), 2);
+        var overtimeHours = Math.Round(Math.Max(shiftHours - 40, 0), 2);
 
-        var regularPay = regularHours * emp.HourlyRate;
-        var overtimePay = overtimeHours * emp.HourlyRate * 1.5m;
+        var regularPay = Math.Round(regularHours * emp.HourlyRate, 2);
+        var overtimePay = Math.Round(overtimeHours * emp.HourlyRate * 1.5m, 2);
         var flatRateTotal = jobEmployees.Sum(je => je.FlatRateAmount ?? 0);
 
-        var jobHours = entries.GroupBy(e => e.JobId).Where(g => g.Key.HasValue).Select(g =>
-        {
-            var job = g.First().Job;
-            return new PayPeriodJobEntry
+        // Use only JobClock entries for the per-job breakdown
+        var jobHours = entries
+            .Where(e => e.EntryType == TimeEntryType.JobClock && e.JobId.HasValue)
+            .GroupBy(e => e.JobId!.Value)
+            .Select(g =>
             {
-                JobId = g.Key!.Value,
-                JobNumber = job?.JobNumber ?? "—",
-                Title = job?.Title,
-                Hours = g.Sum(e => e.Hours),
-                PayType = "Hourly",
-                Amount = g.Sum(e => e.Hours) * emp.HourlyRate
-            };
-        }).ToList();
+                var job = g.First().Job;
+                var hours = Math.Round(g.Sum(e => e.Hours), 2);
+                return new PayPeriodJobEntry
+                {
+                    JobId = g.Key,
+                    JobNumber = job?.JobNumber ?? "—",
+                    Title = job?.Title,
+                    Hours = hours,
+                    PayType = "Hourly",
+                    Amount = Math.Round(hours * emp.HourlyRate, 2)
+                };
+            }).ToList();
 
         foreach (var je in jobEmployees.Where(je => je.FlatRateAmount > 0))
         {

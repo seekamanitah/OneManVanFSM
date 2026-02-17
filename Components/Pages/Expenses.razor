@@ -483,7 +483,7 @@ else
 
     private void ShowCreate()
     {
-        _form = new MobileExpenseCreate { ExpenseDate = DateTime.UtcNow };
+        _form = new MobileExpenseCreate { ExpenseDate = DateTime.Now };
         _error = null;
         _mode = "create";
         _ = LoadJobOptions();

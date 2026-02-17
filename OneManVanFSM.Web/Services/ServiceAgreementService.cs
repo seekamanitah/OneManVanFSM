@@ -168,7 +168,7 @@ public class ServiceAgreementService : IServiceAgreementService
     /// </summary>
     public async Task<int> GenerateAgreementJobsAsync()
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         var activeAgreements = await _db.ServiceAgreements
             .Include(a => a.ServiceAgreementAssets).ThenInclude(sa => sa.Asset)
             .Include(a => a.Customer)
@@ -247,7 +247,7 @@ public class ServiceAgreementService : IServiceAgreementService
     /// </summary>
     public async Task<int> UpdateAgreementStatusesAsync()
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         int updated = 0;
 
         // Mark expired agreements
@@ -290,7 +290,7 @@ public class ServiceAgreementService : IServiceAgreementService
     /// </summary>
     public async Task<int> ProcessAutoRenewalsAsync()
     {
-        var today = DateTime.UtcNow.Date;
+        var today = DateTime.Now.Date;
         int renewed = 0;
 
         var autoRenewable = await _db.ServiceAgreements

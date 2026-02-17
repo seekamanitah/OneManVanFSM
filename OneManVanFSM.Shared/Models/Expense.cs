@@ -15,7 +15,7 @@ public class Expense
     public string? ReceiptNumber { get; set; } // Receipt/Invoice Number
     public string? ReceiptPath { get; set; } // File path for receipt attachment
     public string? Notes { get; set; }
-    public DateTime ExpenseDate { get; set; } = DateTime.UtcNow;
+    public DateTime ExpenseDate { get; set; } = DateTime.Now;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
     public bool IsArchived { get; set; }

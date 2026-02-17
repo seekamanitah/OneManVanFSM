@@ -26,8 +26,8 @@ public class RemoteMobileExpenseService : IMobileExpenseService
 
     public async Task<MobileExpenseStats> GetStatsAsync()
     {
-        var now = DateTime.UtcNow;
-        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var now = DateTime.Now;
+        var monthStart = new DateTime(now.Year, now.Month, 1);
         var expenses = await _db.Expenses.Where(e => !e.IsArchived).ToListAsync();
 
         return new MobileExpenseStats

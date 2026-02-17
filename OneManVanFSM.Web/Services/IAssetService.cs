@@ -47,7 +47,7 @@ public class AssetListItem
     public DateTime? InstallDate { get; set; }
     public DateTime? WarrantyExpiry { get; set; }
     public bool NoWarranty { get; set; }
-    public bool WarrantyActive => !NoWarranty && WarrantyExpiry.HasValue && WarrantyExpiry.Value > DateTime.UtcNow;
+    public bool WarrantyActive => !NoWarranty && WarrantyExpiry.HasValue && WarrantyExpiry.Value > DateTime.Now;
 }
 
 public class AssetDetail

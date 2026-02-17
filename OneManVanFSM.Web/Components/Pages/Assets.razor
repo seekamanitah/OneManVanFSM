@@ -660,7 +660,7 @@ else if (mode == "detail" && detail is not null)
                             @if (detail.FilterLastChanged.HasValue) { <div class="col-sm-3"><strong>Last Changed:</strong> @detail.FilterLastChanged.Value.ToString("MMM dd, yyyy")</div> }
                             @if (detail.FilterNextDue.HasValue)
                             {
-                                var filterOverdue = detail.FilterNextDue.Value < DateTime.UtcNow;
+                                var filterOverdue = detail.FilterNextDue.Value < DateTime.Now;
                                 <div class="col-sm-3">
                                     <strong>Next Due:</strong>
                                     <span class="@(filterOverdue ? "text-danger fw-bold" : "")">@detail.FilterNextDue.Value.ToString("MMM dd, yyyy") @(filterOverdue ? "(Overdue)" : "")</span>
@@ -738,7 +738,7 @@ else if (mode == "detail" && detail is not null)
                             <strong>Next Service:</strong>
                             @if (detail.NextServiceDue.HasValue)
                             {
-                                var overdue = detail.NextServiceDue.Value < DateTime.UtcNow;
+                                var overdue = detail.NextServiceDue.Value < DateTime.Now;
                                 <span class="@(overdue ? "text-danger fw-bold" : "")">
                                     @detail.NextServiceDue.Value.ToString("MMM dd, yyyy") @(overdue ? " (Overdue)" : "")
                                 </span>
@@ -766,7 +766,7 @@ else if (mode == "detail" && detail is not null)
                         <div class="row g-2">
                             @if (detail.LaborWarrantyExpiry.HasValue)
                             {
-                                var laborDays = (int)(detail.LaborWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                                var laborDays = (int)(detail.LaborWarrantyExpiry.Value - DateTime.Now).TotalDays;
                                 <div class="col-sm-4">
                                     <strong>Labor@(detail.LaborWarrantyTermYears.HasValue ? $" ({detail.LaborWarrantyTermYears}yr)" : ""):</strong>
                                     <span class="@(laborDays < 0 ? "text-danger" : laborDays < 90 ? "text-warning" : "text-success")">
@@ -778,7 +778,7 @@ else if (mode == "detail" && detail is not null)
                             }
                             @if (detail.PartsWarrantyExpiry.HasValue)
                             {
-                                var partsDays = (int)(detail.PartsWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                                var partsDays = (int)(detail.PartsWarrantyExpiry.Value - DateTime.Now).TotalDays;
                                 <div class="col-sm-4">
                                     <strong>Parts@(detail.PartsWarrantyTermYears.HasValue ? $" ({detail.PartsWarrantyTermYears}yr)" : ""):</strong>
                                     <span class="@(partsDays < 0 ? "text-danger" : partsDays < 90 ? "text-warning" : "text-success")">
@@ -790,7 +790,7 @@ else if (mode == "detail" && detail is not null)
                             }
                             @if (detail.CompressorWarrantyExpiry.HasValue)
                             {
-                                var compDays = (int)(detail.CompressorWarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+                                var compDays = (int)(detail.CompressorWarrantyExpiry.Value - DateTime.Now).TotalDays;
                                 <div class="col-sm-4">
                                     <strong>Compressor@(detail.CompressorWarrantyTermYears.HasValue ? $" ({detail.CompressorWarrantyTermYears}yr)" : ""):</strong>
                                     <span class="@(compDays < 0 ? "text-danger" : compDays < 90 ? "text-warning" : "text-success")">
@@ -1298,9 +1298,9 @@ private async Task DetermineView()
         mode = "form"; editId = null;
         form = new AssetEditModel
         {
-            InstallDate = DateTime.UtcNow.Date,
-            WarrantyStartDate = DateTime.UtcNow.Date,
-            NextServiceDue = DateTime.UtcNow.Date.AddYears(1)
+            InstallDate = DateTime.Now.Date,
+            WarrantyStartDate = DateTime.Now.Date,
+            NextServiceDue = DateTime.Now.Date.AddYears(1)
         };
         _selectedJobIds = [];
         await LoadFormDependencies();
@@ -1562,7 +1562,7 @@ private void RecalculateWarrantyExpiries()
 
 private string GetWarrantyTermCss(DateTime expiry)
 {
-    var days = (expiry - DateTime.UtcNow).TotalDays;
+    var days = (expiry - DateTime.Now).TotalDays;
     if (days < 0) return "text-danger";
     if (days < 90) return "text-warning";
     return "text-success";
@@ -1753,7 +1753,7 @@ private async Task LoadForEdit(int id)
     {
         if (d.NoWarranty) return "none";
         if (!d.WarrantyExpiry.HasValue) return "none";
-        var daysLeft = (d.WarrantyExpiry.Value - DateTime.UtcNow).TotalDays;
+        var daysLeft = (d.WarrantyExpiry.Value - DateTime.Now).TotalDays;
         if (daysLeft < 0) return "expired";
         if (daysLeft < 90) return "expiring";
         return "active";
