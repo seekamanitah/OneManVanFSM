@@ -1,0 +1,468 @@
+@page "/templates"
+@inject IMobileTemplateService TemplateSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_mode == "detail" && _detail != null)
+{
+    <!-- Detail View -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Template Detail</span>
+        @if (_detail.IsArchived)
+        {
+            <span class="badge bg-secondary ms-auto" style="font-size:0.7rem;">Archived</span>
+        }
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <div style="font-size:0.95rem; font-weight:700;">@_detail.Name</div>
+                <div class="d-flex align-items-center gap-1 mt-1">
+                    <span class="badge @GetTypeBadge(_detail.Type)" style="font-size:0.65rem;">@FormatType(_detail.Type)</span>
+                    @if (_detail.IsCompanyDefault)
+                    {
+                        <span class="badge bg-warning text-dark" style="font-size:0.65rem;"><i class="bi bi-star-fill me-1"></i>Default</span>
+                    }
+                </div>
+            </div>
+            <div class="text-end text-muted" style="font-size:0.7rem;">
+                <div>Used @_detail.UsageCount time@(_detail.UsageCount != 1 ? "s" : "")</div>
+                @if (_detail.LastUsed.HasValue) { <div>Last: @_detail.LastUsed.Value.ToString("MMM dd")</div> }
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_detail.Description))
+        {
+            <div style="font-size:0.78rem; margin-bottom:0.3rem;">@_detail.Description</div>
+        }
+
+        <div class="d-flex flex-wrap gap-2 text-muted" style="font-size:0.7rem;">
+            @if (!string.IsNullOrWhiteSpace(_detail.CustomerName)) { <span><i class="bi bi-person me-1"></i>@_detail.CustomerName</span> }
+            @if (!string.IsNullOrWhiteSpace(_detail.CompanyName)) { <span><i class="bi bi-building me-1"></i>@_detail.CompanyName</span> }
+            <span><i class="bi bi-calendar3 me-1"></i>Created @_detail.CreatedAt.ToString("MMM dd, yyyy")</span>
+        </div>
+    </div>
+
+    <!-- Template Data -->
+    @if (!string.IsNullOrWhiteSpace(_detail.Data))
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Template Content</div>
+            <pre style="font-size:0.7rem; max-height:200px; overflow:auto; background:#f8f9fa; padding:0.5rem; border-radius:0.25rem; margin:0; white-space:pre-wrap;">@_detail.Data</pre>
+        </div>
+    }
+
+    <!-- Version History -->
+    @if (_detail.Versions.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Version History (@_detail.Versions.Count)</div>
+            @foreach (var v in _detail.Versions)
+            {
+                <div class="d-flex gap-2 py-1" style="border-bottom:1px solid #f0f0f0;">
+                    <div>
+                        <span class="badge bg-primary bg-opacity-10 text-primary" style="font-size:0.65rem;">v@v.VersionNumber</span>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:0.78rem;">@(v.ChangeNotes ?? "No notes")</div>
+                        <div style="font-size:0.65rem;" class="text-muted">@v.CreatedAt.ToString("MMM dd, yyyy h:mm tt")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.78rem;"><strong>Notes:</strong> @_detail.Notes</div>
+        </div>
+    }
+
+    <!-- Actions -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Actions</div>
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="StartEdit"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-sm btn-outline-info flex-fill" @onclick="() => _showClone = true"><i class="bi bi-copy me-1"></i>Clone</button>
+            @if (_detail.IsArchived)
+            {
+                <button class="btn btn-sm btn-outline-success flex-fill" @onclick="RestoreTemplate"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-warning flex-fill" @onclick="ArchiveTemplate"><i class="bi bi-archive me-1"></i>Archive</button>
+            }
+            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => _deleteConfirm = true"><i class="bi bi-trash3 me-1"></i>Delete</button>
+        </div>
+
+        @if (_showClone)
+        {
+            <div class="mt-2 d-flex gap-2">
+                <input type="text" class="form-control form-control-sm flex-fill" @bind="_cloneName" placeholder="New template name" />
+                <button class="btn btn-sm btn-info" @onclick="CloneTemplate" disabled="@(string.IsNullOrWhiteSpace(_cloneName))"><i class="bi bi-check-lg"></i></button>
+                <button class="btn btn-sm btn-outline-secondary" @onclick="() => _showClone = false"><i class="bi bi-x-lg"></i></button>
+            </div>
+        }
+
+        @if (_deleteConfirm)
+        {
+            <div class="alert alert-danger py-2 d-flex align-items-center gap-2 mt-2" style="font-size:0.8rem;">
+                <span>Permanently delete?</span>
+                <button class="btn btn-sm btn-danger" style="font-size:0.75rem; padding:2px 10px;" @onclick="DeleteTemplate">Yes</button>
+                <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => _deleteConfirm = false">No</button>
+            </div>
+        }
+    </div>
+}
+else if (_mode == "edit" && _detail != null)
+{
+    <!-- Edit Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick='() => _mode = "detail"'><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Edit Template</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.Name" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Type</label>
+            <select class="form-select form-select-sm" @bind="_editForm.Type">
+                @foreach (var t in Enum.GetValues<TemplateType>())
+                {
+                    <option value="@t">@FormatType(t)</option>
+                }
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Description" placeholder="What this template is for..."></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Content (JSON)</label>
+            <textarea class="form-control form-control-sm" rows="6" @bind="_editForm.Data" placeholder='{"sections": [], "items": []}' style="font-family:monospace; font-size:0.7rem;"></textarea>
+        </div>
+        <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="isDefault" @bind="_editForm.IsCompanyDefault" />
+            <label class="form-check-label" for="isDefault" style="font-size:0.78rem;">Company Default</label>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Notes" placeholder="Internal notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick='() => _mode = "detail"'>Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Update
+        </button>
+    </div>
+}
+else if (_mode == "create")
+{
+    <!-- Create Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">New Template</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_createForm.Name" placeholder="Template name" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Type</label>
+            <select class="form-select form-select-sm" @bind="_createForm.Type">
+                @foreach (var t in Enum.GetValues<TemplateType>())
+                {
+                    <option value="@t">@FormatType(t)</option>
+                }
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_createForm.Description" placeholder="What this template is for..."></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Content (JSON)</label>
+            <textarea class="form-control form-control-sm" rows="6" @bind="_createForm.Data" placeholder='{"sections": [], "items": []}' style="font-family:monospace; font-size:0.7rem;"></textarea>
+        </div>
+        <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="isDefaultCreate" @bind="_createForm.IsCompanyDefault" />
+            <label class="form-check-label" for="isDefaultCreate" style="font-size:0.78rem;">Company Default</label>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_createForm.Notes" placeholder="Internal notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="BackToList">Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveCreate" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Create Template
+        </button>
+    </div>
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-file-earmark-code me-1"></i>Templates</span>
+        <button class="btn btn-primary btn-sm" @onclick="ShowCreate"><i class="bi bi-plus-lg me-1"></i>New Template</button>
+    </div>
+
+    @if (_stats != null)
+    {
+        <div class="gap-grid mb-2">
+            <div class="stat-card">
+                <div class="stat-icon text-primary"><i class="bi bi-file-earmark-code"></i></div>
+                <div class="stat-value">@_stats.TotalTemplates</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-warning"><i class="bi bi-star-fill"></i></div>
+                <div class="stat-value">@_stats.DefaultCount</div>
+                <div class="stat-label">Defaults</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-success"><i class="bi bi-arrow-repeat"></i></div>
+                <div class="stat-value">@_stats.TotalUsages</div>
+                <div class="stat-label">Usages</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-secondary"><i class="bi bi-archive"></i></div>
+                <div class="stat-value">@_stats.ArchivedCount</div>
+                <div class="stat-label">Archived</div>
+            </div>
+        </div>
+    }
+
+    <div class="mobile-card mb-2" style="padding:0.5rem 0.75rem;">
+        <div class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm flex-fill" placeholder="Search templates..." @bind="_filter.Search" @bind:event="oninput" @bind:after="LoadTemplates" />
+            <div class="form-check d-flex align-items-center gap-1 ms-1" style="font-size:0.7rem;">
+                <input type="checkbox" class="form-check-input" id="showArch" @bind="_filter.ShowArchived" @bind:after="LoadTemplates" />
+                <label class="form-check-label" for="showArch">All</label>
+            </div>
+        </div>
+    </div>
+
+    <!-- Type Filter -->
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(!_filter.Type.HasValue ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterType(null)">All</button>
+        @foreach (var t in Enum.GetValues<TemplateType>())
+        {
+            <button class="btn btn-sm @(_filter.Type == t ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterType(t)">@FormatType(t)</button>
+        }
+    </div>
+
+    @if (_templates.Any())
+    {
+        @foreach (var tmpl in _templates)
+        {
+            <div class="mobile-card mb-1" style="cursor:pointer;" @onclick="() => ViewDetail(tmpl.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi @GetTypeIcon(tmpl.Type) text-muted" style="font-size:0.85rem;"></i>
+                            <span style="font-size:0.85rem; font-weight:600;">@tmpl.Name</span>
+                            @if (tmpl.IsCompanyDefault)
+                            {
+                                <span class="badge bg-warning text-dark" style="font-size:0.5rem;"><i class="bi bi-star-fill"></i></span>
+                            }
+                            @if (tmpl.IsArchived)
+                            {
+                                <span class="badge bg-secondary" style="font-size:0.55rem;">Archived</span>
+                            }
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(tmpl.Description))
+                        {
+                            <div class="text-muted mt-1" style="font-size:0.7rem;">@(tmpl.Description.Length > 60 ? tmpl.Description[..60] + "…" : tmpl.Description)</div>
+                        }
+                    </div>
+                    <div class="text-end">
+                        <span class="badge @GetTypeBadge(tmpl.Type)" style="font-size:0.6rem;">@FormatType(tmpl.Type)</span>
+                        <div class="text-muted mt-1" style="font-size:0.65rem;">@tmpl.UsageCount use@(tmpl.UsageCount != 1 ? "s" : "")</div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-file-earmark-code d-block" style="font-size:2rem;"></i>
+            <p>No templates found</p>
+        </div>
+    }
+}
+
+@code {
+    private string _mode = "list";
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+    private bool _deleteConfirm;
+    private bool _showClone;
+    private string _cloneName = string.Empty;
+
+    private MobileTemplateStats? _stats;
+    private List<MobileTemplateCard> _templates = [];
+    private MobileTemplateDetail? _detail;
+    private MobileTemplateCreate _createForm = new();
+    private MobileTemplateUpdate _editForm = new();
+    private MobileTemplateFilter _filter = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _stats = await TemplateSvc.GetStatsAsync();
+        await LoadTemplates();
+    }
+
+    private async Task LoadTemplates() => _templates = await TemplateSvc.GetTemplatesAsync(_filter);
+
+    private async Task ViewDetail(int id)
+    {
+        _detail = await TemplateSvc.GetTemplateDetailAsync(id);
+        if (_detail != null) { _mode = "detail"; _deleteConfirm = false; _showClone = false; }
+    }
+
+    private void ShowCreate()
+    {
+        _createForm = new MobileTemplateCreate();
+        _error = null;
+        _mode = "create";
+    }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(_createForm.Name)) { _error = "Name is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            var id = await TemplateSvc.CreateTemplateAsync(_createForm);
+            await LoadData();
+            await ViewDetail(id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private void StartEdit()
+    {
+        if (_detail is null) return;
+        _editForm = new MobileTemplateUpdate
+        {
+            Name = _detail.Name,
+            Description = _detail.Description,
+            Type = _detail.Type,
+            Data = _detail.Data,
+            IsCompanyDefault = _detail.IsCompanyDefault,
+            Notes = _detail.Notes,
+        };
+        _error = null;
+        _mode = "edit";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_detail is null) return;
+        if (string.IsNullOrWhiteSpace(_editForm.Name)) { _error = "Name is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            await TemplateSvc.UpdateTemplateAsync(_detail.Id, _editForm);
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ArchiveTemplate()
+    {
+        if (_detail is null) return;
+        await TemplateSvc.ArchiveTemplateAsync(_detail.Id);
+        await ViewDetail(_detail.Id);
+    }
+
+    private async Task RestoreTemplate()
+    {
+        if (_detail is null) return;
+        await TemplateSvc.RestoreTemplateAsync(_detail.Id);
+        await ViewDetail(_detail.Id);
+    }
+
+    private async Task DeleteTemplate()
+    {
+        if (_detail is null) return;
+        _deleteConfirm = false;
+        await TemplateSvc.DeleteTemplateAsync(_detail.Id);
+        await BackToList();
+    }
+
+    private async Task CloneTemplate()
+    {
+        if (_detail is null || string.IsNullOrWhiteSpace(_cloneName)) return;
+        await TemplateSvc.CloneTemplateAsync(_detail.Id, _cloneName.Trim());
+        _showClone = false;
+        _cloneName = string.Empty;
+        await LoadData();
+    }
+
+    private async Task BackToList() { _mode = "list"; _detail = null; await LoadData(); }
+    private async Task FilterType(TemplateType? type) { _filter.Type = type; await LoadTemplates(); }
+
+    private static string FormatType(TemplateType t) => t switch
+    {
+        TemplateType.MaterialList => "Material List",
+        TemplateType.JobChecklist => "Job Checklist",
+        TemplateType.EstimateFormat => "Estimate",
+        TemplateType.ProductVariant => "Product",
+        TemplateType.ServiceAgreementStructure => "Agreement",
+        TemplateType.Other => "Other",
+        _ => t.ToString(),
+    };
+
+    private static string GetTypeBadge(TemplateType t) => t switch
+    {
+        TemplateType.MaterialList => "bg-primary bg-opacity-75",
+        TemplateType.JobChecklist => "bg-success bg-opacity-75",
+        TemplateType.EstimateFormat => "bg-info",
+        TemplateType.ProductVariant => "bg-warning text-dark",
+        TemplateType.ServiceAgreementStructure => "bg-secondary",
+        _ => "bg-dark bg-opacity-50",
+    };
+
+    private static string GetTypeIcon(TemplateType t) => t switch
+    {
+        TemplateType.MaterialList => "bi-list-check",
+        TemplateType.JobChecklist => "bi-clipboard-check",
+        TemplateType.EstimateFormat => "bi-file-earmark-text",
+        TemplateType.ProductVariant => "bi-box",
+        TemplateType.ServiceAgreementStructure => "bi-file-earmark-ruled",
+        _ => "bi-file-earmark-code",
+    };
+}

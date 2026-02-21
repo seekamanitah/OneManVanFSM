@@ -131,6 +131,7 @@ public class MobileDataManagementService(AppDbContext db) : IMobileDataManagemen
         await db.Database.ExecuteSqlRawAsync("DELETE FROM \"Customers\"");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM \"Companies\"");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM \"Employees\"");
+        await db.Database.ExecuteSqlRawAsync("DELETE FROM \"TemplateVersions\"");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM \"Templates\"");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM \"DropdownOptions\"");
         await db.Database.ExecuteSqlRawAsync("DELETE FROM \"ItemAssociations\"");

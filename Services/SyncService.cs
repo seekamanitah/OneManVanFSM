@@ -21,7 +21,8 @@ public class SyncService : ISyncService
     [
         "Customers", "Companies", "Sites", "Jobs", "Employees",
         "Assets", "Products", "Estimates", "Invoices", "Expenses", "Inventory",
-        "QuickNotes", "Documents", "TimeEntries", "ServiceAgreements", "MaterialLists"
+        "QuickNotes", "Documents", "TimeEntries", "ServiceAgreements", "MaterialLists",
+        "CalendarEvents", "Suppliers", "Templates", "DropdownOptions"
     ];
 
     public bool IsSyncing { get; private set; }
@@ -153,6 +154,12 @@ public class SyncService : ISyncService
                 "MaterialLists" => await PullAndMergeWithChildren<MaterialList, MaterialListItem>(
                     $"api/materiallists{sinceParam}", e => e.Id, (db, _) => db.MaterialLists,
                     e => e.Items, i => i.MaterialListId),
+                "CalendarEvents" => await PullAndMerge<CalendarEvent>($"api/calendarevents{sinceParam}", e => e.Id, (db, e) => db.CalendarEvents),
+                "Suppliers" => await PullAndMerge<Supplier>($"api/suppliers{sinceParam}", e => e.Id, (db, e) => db.Suppliers),
+                "Templates" => await PullAndMergeWithChildren<Template, TemplateVersion>(
+                    $"api/templates{sinceParam}", e => e.Id, (db, _) => db.Templates,
+                    e => e.Versions, v => v.TemplateId),
+                "DropdownOptions" => await PullAndMerge<DropdownOption>($"api/dropdownoptions{sinceParam}", e => e.Id, (db, e) => db.DropdownOptions),
                 _ => 0
             };
 

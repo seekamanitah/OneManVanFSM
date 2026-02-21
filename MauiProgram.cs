@@ -99,6 +99,7 @@ namespace OneManVanFSM
                 builder.Services.AddScoped<IMobileDropdownService, MobileDropdownService>();
                 builder.Services.AddScoped<IMobileSupplierService, MobileSupplierService>();
                 builder.Services.AddScoped<IMobileDataManagementService, MobileDataManagementService>();
+                builder.Services.AddScoped<IMobileTemplateService, MobileTemplateService>();
 
                 System.Diagnostics.Debug.WriteLine("[DI] Remote mode \u2014 registered API-backed services.");
             }
@@ -133,6 +134,7 @@ namespace OneManVanFSM
                 builder.Services.AddScoped<IMobileDropdownService, MobileDropdownService>();
                 builder.Services.AddScoped<IMobileSupplierService, MobileSupplierService>();
                 builder.Services.AddScoped<IMobileDataManagementService, MobileDataManagementService>();
+                builder.Services.AddScoped<IMobileTemplateService, MobileTemplateService>();
 
                 System.Diagnostics.Debug.WriteLine("[DI] Local mode \u2014 registered direct-DB services.");
             }
