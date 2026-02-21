@@ -271,6 +271,8 @@ public class ExpenseEditModel
     public decimal Amount { get; set; }
 
     public decimal TaxAmount { get; set; }
+    public decimal TaxRate { get; set; } // Percentage (e.g., 9.75 for 9.75%)
+    public bool TaxEnabled { get; set; } = true;
     public decimal Total { get; set; }
     public string? PaymentMethod { get; set; } = "Cash";
     public ExpenseStatus Status { get; set; } = ExpenseStatus.Pending;
