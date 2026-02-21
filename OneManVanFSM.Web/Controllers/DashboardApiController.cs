@@ -161,6 +161,9 @@ public class DashboardApiController : SyncApiController
             ActiveJobClockCount = activeJobClocks.Count,
             ActiveJobName = activeJobClocks.FirstOrDefault()?.Job?.Title
                 ?? activeJobClocks.FirstOrDefault()?.Job?.JobNumber,
+            ActiveJobId = activeJobClocks.FirstOrDefault()?.Job?.Id,
+            ActiveJobNumber = activeJobClocks.FirstOrDefault()?.Job?.JobNumber,
+            ActiveJobCustomerName = activeJobClocks.FirstOrDefault()?.Job?.Customer?.Name,
             JobHoursToday = jobHoursToday,
             DraftEstimateCount = draftEstimateCount,
             PendingInvoiceCount = pendingInvoiceCount,
@@ -192,6 +195,9 @@ public class MobileDashboardResponse
     public int WarrantyAlertCount { get; set; }
     public int ActiveJobClockCount { get; set; }
     public string? ActiveJobName { get; set; }
+    public int? ActiveJobId { get; set; }
+    public string? ActiveJobNumber { get; set; }
+    public string? ActiveJobCustomerName { get; set; }
     public decimal JobHoursToday { get; set; }
     public int DraftEstimateCount { get; set; }
     public int PendingInvoiceCount { get; set; }

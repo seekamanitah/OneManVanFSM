@@ -636,9 +636,10 @@ protected override async Task OnInitializedAsync()
 
     private string FormatJobElapsed()
     {
-        if (_jobClockStartTime == null) return "00:00";
+        if (_jobClockStartTime == null) return "00:00:00";
         var elapsed = DateTime.Now - _jobClockStartTime.Value;
-        return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}";
+        if (elapsed.TotalSeconds < 0) elapsed = TimeSpan.Zero;
+        return $"{(int)elapsed.TotalHours:D2}:{elapsed.Minutes:D2}:{elapsed.Seconds:D2}";
     }
 
     private async Task SaveMaterial()
@@ -749,7 +750,7 @@ protected override async Task OnInitializedAsync()
         _jobTimerCts?.Cancel();
         _jobTimerCts = new CancellationTokenSource();
         _jobTimer?.Dispose();
-        _jobTimer = new PeriodicTimer(TimeSpan.FromSeconds(30));
+        _jobTimer = new PeriodicTimer(TimeSpan.FromSeconds(1));
         _ = TickJobTimerAsync(_jobTimerCts.Token);
     }
 
