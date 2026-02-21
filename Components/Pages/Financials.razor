@@ -1,0 +1,249 @@
+@page "/financials"
+@inject IMobileFinancialService FinSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else
+{
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-graph-up-arrow me-1"></i>Financials</span>
+        <div class="d-flex gap-1">
+            <button class="btn btn-sm @(_tab == "overview" ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.7rem; padding:2px 8px;" @onclick='() => _tab = "overview"'>Overview</button>
+            <button class="btn btn-sm @(_tab == "monthly" ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.7rem; padding:2px 8px;" @onclick='() => _tab = "monthly"'>Monthly</button>
+            <button class="btn btn-sm @(_tab == "aging" ? "btn-primary" : "btn-outline-secondary")" style="font-size:0.7rem; padding:2px 8px;" @onclick="LoadAging">Aging</button>
+        </div>
+    </div>
+
+    @if (_tab == "overview" && _dashboard != null)
+    {
+        <!-- Profit Summary -->
+        <div class="mobile-card mb-2" style="background: linear-gradient(135deg, var(--primary) 0%, #1a3a5c 100%); color:white;">
+            <div class="text-center">
+                <div style="font-size:0.7rem; opacity:0.8;">Net Profit (All Time)</div>
+                <div style="font-size:1.6rem; font-weight:700;">@_dashboard.NetProfit.ToString("C")</div>
+            </div>
+            <div class="d-flex justify-content-around mt-2" style="font-size:0.75rem;">
+                <div class="text-center">
+                    <div style="opacity:0.7;">Revenue</div>
+                    <div style="font-weight:600;">@_dashboard.TotalRevenue.ToString("C0")</div>
+                </div>
+                <div class="text-center">
+                    <div style="opacity:0.7;">Expenses</div>
+                    <div style="font-weight:600;">@_dashboard.TotalExpenses.ToString("C0")</div>
+                </div>
+                <div class="text-center">
+                    <div style="opacity:0.7;">Outstanding</div>
+                    <div style="font-weight:600;">@_dashboard.TotalOutstanding.ToString("C0")</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- This Month -->
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;"><i class="bi bi-calendar3 me-1"></i>This Month</div>
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Revenue</span><span class="text-success fw-bold">@_dashboard.RevenueThisMonth.ToString("C")</span>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Expenses</span><span class="text-danger fw-bold">@_dashboard.ExpensesThisMonth.ToString("C")</span>
+            </div>
+            <hr style="margin:0.3rem 0;" />
+            <div class="d-flex justify-content-between fw-bold" style="font-size:0.85rem;">
+                <span>Profit</span><span class="@(_dashboard.ProfitThisMonth >= 0 ? "text-success" : "text-danger")">@_dashboard.ProfitThisMonth.ToString("C")</span>
+            </div>
+        </div>
+
+        <!-- Stats Grid -->
+        <div class="gap-grid mb-2">
+            <div class="stat-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/invoices")'>
+                <div class="stat-icon text-primary"><i class="bi bi-receipt"></i></div>
+                <div class="stat-value">@_dashboard.TotalInvoiceCount</div>
+                <div class="stat-label">Invoices</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-danger"><i class="bi bi-exclamation-circle"></i></div>
+                <div class="stat-value">@_dashboard.OverdueInvoiceCount</div>
+                <div class="stat-label">Overdue</div>
+            </div>
+            <div class="stat-card" style="cursor:pointer;" @onclick='() => Nav.NavigateTo("/expenses")'>
+                <div class="stat-icon text-warning"><i class="bi bi-wallet2"></i></div>
+                <div class="stat-value">@_dashboard.TotalExpenseCount</div>
+                <div class="stat-label">Expenses</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-success"><i class="bi bi-cash-stack"></i></div>
+                <div class="stat-value">@_dashboard.TotalPaymentCount</div>
+                <div class="stat-label">Payments</div>
+            </div>
+        </div>
+
+        <!-- Recent Payments -->
+        @if (_payments.Any())
+        {
+            <div class="mobile-card mb-2">
+                <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Recent Payments</div>
+                @foreach (var p in _payments)
+                {
+                    <div class="d-flex justify-content-between align-items-start py-1" style="border-bottom:1px solid #f0f0f0;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-size:0.8rem; font-weight:500;">@(p.CustomerName ?? p.InvoiceNumber ?? "Payment")</div>
+                            <div style="font-size:0.7rem;" class="text-muted">
+                                @p.PaymentDate.ToString("MMM dd") · @p.Method
+                                @if (!string.IsNullOrWhiteSpace(p.Reference)) { <span>· @p.Reference</span> }
+                            </div>
+                        </div>
+                        <span style="font-size:0.85rem; font-weight:600; color:var(--primary);">@p.Amount.ToString("C")</span>
+                    </div>
+                }
+            </div>
+        }
+
+        <!-- Quick Links -->
+        <div class="d-flex gap-2 mb-2">
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick='() => Nav.NavigateTo("/invoices")'>
+                <i class="bi bi-receipt me-1"></i>Invoices
+            </button>
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick='() => Nav.NavigateTo("/expenses")'>
+                <i class="bi bi-wallet2 me-1"></i>Expenses
+            </button>
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick='() => Nav.NavigateTo("/estimates")'>
+                <i class="bi bi-file-earmark-text me-1"></i>Estimates
+            </button>
+        </div>
+    }
+    else if (_tab == "monthly" && _monthly != null)
+    {
+        <!-- Month Selector -->
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <button class="btn btn-sm btn-outline-secondary" @onclick="PrevMonth"><i class="bi bi-chevron-left"></i></button>
+            <span style="font-size:0.9rem; font-weight:600;">@_monthly.MonthName</span>
+            <button class="btn btn-sm btn-outline-secondary" @onclick="NextMonth"><i class="bi bi-chevron-right"></i></button>
+        </div>
+
+        <!-- Monthly Summary -->
+        <div class="mobile-card mb-2">
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Revenue (@_monthly.PaymentCount payments)</span><span class="text-success fw-bold">@_monthly.Revenue.ToString("C")</span>
+            </div>
+            <div class="d-flex justify-content-between" style="font-size:0.78rem;">
+                <span class="text-muted">Expenses (@_monthly.ExpenseCount)</span><span class="text-danger fw-bold">@_monthly.Expenses.ToString("C")</span>
+            </div>
+            <hr style="margin:0.3rem 0;" />
+            <div class="d-flex justify-content-between fw-bold" style="font-size:0.85rem;">
+                <span>Profit</span><span class="@(_monthly.Profit >= 0 ? "text-success" : "text-danger")">@_monthly.Profit.ToString("C")</span>
+            </div>
+            <div class="text-muted text-center mt-1" style="font-size:0.7rem;">@_monthly.InvoiceCount invoices created</div>
+        </div>
+
+        <!-- Expense Breakdown -->
+        @if (_monthly.ExpensesByCategory.Any())
+        {
+            <div class="mobile-card mb-2">
+                <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Expenses by Category</div>
+                @foreach (var cat in _monthly.ExpensesByCategory)
+                {
+                    <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid #f0f0f0;">
+                        <div>
+                            <div style="font-size:0.8rem; font-weight:500;">@cat.Category</div>
+                            <div style="font-size:0.7rem;" class="text-muted">@cat.Count expense@(cat.Count != 1 ? "s" : "")</div>
+                        </div>
+                        <span style="font-size:0.8rem; font-weight:600;">@cat.Amount.ToString("C")</span>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="bi bi-bar-chart d-block" style="font-size:2rem;"></i>
+                <p>No expenses this month</p>
+            </div>
+        }
+    }
+    else if (_tab == "aging")
+    {
+        @if (_aging.Any())
+        {
+            <div class="mobile-card mb-2">
+                <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Overdue Invoices (@_aging.Count)</div>
+                <div class="d-flex justify-content-between fw-bold mb-2" style="font-size:0.85rem;">
+                    <span>Total Outstanding</span><span class="text-danger">@_aging.Sum(a => a.BalanceDue).ToString("C")</span>
+                </div>
+                @foreach (var inv in _aging)
+                {
+                    <div class="d-flex justify-content-between align-items-start py-1" style="border-bottom:1px solid #f0f0f0; cursor:pointer;" @onclick='() => Nav.NavigateTo("/invoices")'>
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-size:0.8rem; font-weight:500;">@inv.InvoiceNumber</div>
+                            <div style="font-size:0.7rem;" class="text-muted">
+                                @(inv.CustomerName ?? "—") · Due @(inv.DueDate?.ToString("MMM dd") ?? "—")
+                            </div>
+                        </div>
+                        <div class="text-end">
+                            <div style="font-size:0.8rem; font-weight:600;">@inv.BalanceDue.ToString("C")</div>
+                            <span class="badge bg-danger" style="font-size:0.6rem;">@inv.DaysOverdue day@(inv.DaysOverdue != 1 ? "s" : "") late</span>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="empty-state">
+                <i class="bi bi-check-circle d-block text-success" style="font-size:2rem;"></i>
+                <p>No overdue invoices!</p>
+            </div>
+        }
+    }
+}
+
+@code {
+    private bool _loading = true;
+    private string _tab = "overview";
+
+    private MobileFinancialDashboard? _dashboard;
+    private List<MobileRecentPayment> _payments = [];
+    private MobileMonthlyBreakdown? _monthly;
+    private List<MobileAgingInvoice> _aging = [];
+    private int _selectedYear;
+    private int _selectedMonth;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var now = DateTime.Now;
+        _selectedYear = now.Year;
+        _selectedMonth = now.Month;
+        await LoadOverview();
+        _loading = false;
+    }
+
+    private async Task LoadOverview()
+    {
+        _dashboard = await FinSvc.GetDashboardAsync();
+        _payments = await FinSvc.GetRecentPaymentsAsync(5);
+        _monthly = await FinSvc.GetMonthlyBreakdownAsync(_selectedYear, _selectedMonth);
+    }
+
+    private async Task LoadAging()
+    {
+        _tab = "aging";
+        _aging = await FinSvc.GetAgingInvoicesAsync();
+    }
+
+    private async Task PrevMonth()
+    {
+        _selectedMonth--;
+        if (_selectedMonth < 1) { _selectedMonth = 12; _selectedYear--; }
+        _monthly = await FinSvc.GetMonthlyBreakdownAsync(_selectedYear, _selectedMonth);
+    }
+
+    private async Task NextMonth()
+    {
+        _selectedMonth++;
+        if (_selectedMonth > 12) { _selectedMonth = 1; _selectedYear++; }
+        _monthly = await FinSvc.GetMonthlyBreakdownAsync(_selectedYear, _selectedMonth);
+    }
+}

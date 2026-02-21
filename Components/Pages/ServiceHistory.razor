@@ -1,0 +1,575 @@
+@page "/service-history"
+@inject IMobileServiceHistoryService HistorySvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_mode == "detail" && _detail != null)
+{
+    <!-- Detail View -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Record Detail</span>
+        <span class="badge ms-auto @GetStatusBadge(_detail.Status)" style="font-size:0.7rem;">@_detail.Status</span>
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <div style="font-size:0.9rem; font-weight:700;">@_detail.RecordNumber</div>
+                <span class="badge @GetTypeBadge(_detail.Type)" style="font-size:0.65rem;">@FormatType(_detail.Type)</span>
+                @if (!string.IsNullOrWhiteSpace(_detail.IssueType))
+                {
+                    <span class="badge bg-light text-dark" style="font-size:0.65rem;">@_detail.IssueType</span>
+                }
+            </div>
+            @if (_detail.Cost.HasValue)
+            {
+                <div style="font-size:1.1rem; font-weight:700; color:var(--primary);">@_detail.Cost.Value.ToString("C")</div>
+            }
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-2" style="font-size:0.78rem;">
+            <span><i class="bi bi-calendar3 me-1 text-muted"></i>@_detail.ServiceDate.ToString("MMM dd, yyyy")</span>
+            @if (!string.IsNullOrWhiteSpace(_detail.VendorName))
+            {
+                <span><i class="bi bi-shop me-1 text-muted"></i>@_detail.VendorName</span>
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(_detail.Description))
+        {
+            <div style="font-size:0.78rem; margin-bottom:0.3rem;"><strong>Issue:</strong> @_detail.Description</div>
+        }
+        @if (!string.IsNullOrWhiteSpace(_detail.ResolutionNotes))
+        {
+            <div style="font-size:0.78rem;"><strong>Resolution:</strong> @_detail.ResolutionNotes</div>
+        }
+
+        @if (_detail.Reimbursement.HasValue && _detail.Reimbursement > 0)
+        {
+            <div class="d-flex justify-content-between mt-2" style="font-size:0.78rem;">
+                <span class="text-muted">Reimbursed</span><span class="text-success fw-bold">@_detail.Reimbursement.Value.ToString("C")</span>
+            </div>
+        }
+    </div>
+
+    <!-- Linked Info -->
+    @if (_detail.CustomerName != null || _detail.AssetName != null || _detail.JobNumber != null || _detail.TechName != null)
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Linked Info</div>
+            @if (_detail.CustomerName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-person text-muted"></i><span>@_detail.CustomerName</span>
+                </div>
+            }
+            @if (_detail.AssetName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-gear text-muted"></i><span>@_detail.AssetName</span>
+                </div>
+            }
+            @if (_detail.SiteName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-geo-alt text-muted"></i><span>@_detail.SiteName</span>
+                </div>
+            }
+            @if (_detail.JobNumber != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem; cursor:pointer;" @onclick='() => Nav.NavigateTo("/jobs/" + _detail.JobId)'>
+                    <i class="bi bi-briefcase text-muted"></i><span class="text-primary">@_detail.JobNumber</span>
+                </div>
+            }
+            @if (_detail.TechName != null)
+            {
+                <div class="d-flex align-items-center gap-2 mb-1" style="font-size:0.78rem;">
+                    <i class="bi bi-person-badge text-muted"></i><span>@_detail.TechName</span>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Claim Actions Timeline -->
+    @if (_detail.ClaimActions.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Claim Timeline</div>
+            @foreach (var action in _detail.ClaimActions)
+            {
+                <div class="d-flex gap-2 py-1" style="border-bottom:1px solid #f0f0f0;">
+                    <div>
+                        <i class="bi bi-circle-fill" style="font-size:0.4rem; color:var(--primary); margin-top:6px;"></i>
+                    </div>
+                    <div style="flex:1;">
+                        <div style="font-size:0.8rem; font-weight:500;">@action.Action</div>
+                        @if (!string.IsNullOrWhiteSpace(action.Response))
+                        {
+                            <div style="font-size:0.7rem;" class="text-muted">@action.Response</div>
+                        }
+                        <div style="font-size:0.65rem;" class="text-muted">@action.ActionDate.ToString("MMM dd, yyyy") @(action.PerformedBy != null ? $"· {action.PerformedBy}" : "")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.78rem;"><strong>Notes:</strong> @_detail.Notes</div>
+        </div>
+    }
+
+    <!-- Actions -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Actions</div>
+        <div class="d-flex gap-2 flex-wrap">
+            @if (_detail.Status != ServiceHistoryStatus.Resolved && _detail.Status != ServiceHistoryStatus.Denied)
+            {
+                <button class="btn btn-sm btn-outline-success flex-fill" @onclick='() => ChangeStatus(ServiceHistoryStatus.Resolved)'><i class="bi bi-check-circle me-1"></i>Resolve</button>
+            }
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="ShowAddAction"><i class="bi bi-plus-circle me-1"></i>Add Action</button>
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="StartEdit"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => _deleteConfirm = true"><i class="bi bi-trash3 me-1"></i>Delete</button>
+        </div>
+        @if (_deleteConfirm)
+        {
+            <div class="alert alert-danger py-2 d-flex align-items-center gap-2 mt-2" style="font-size:0.8rem;">
+                <span>Delete this record?</span>
+                <button class="btn btn-sm btn-danger" style="font-size:0.75rem; padding:2px 10px;" @onclick="DeleteRecord">Yes</button>
+                <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => _deleteConfirm = false">No</button>
+            </div>
+        }
+    </div>
+}
+else if (_mode == "add-action" && _detail != null)
+{
+    <!-- Add Claim Action -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick='() => _mode = "detail"'><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Add Claim Action</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Action</label>
+            <select class="form-select form-select-sm" @bind="_newAction.Action">
+                <option value="Claim Submitted">Claim Submitted</option>
+                <option value="Vendor Contacted">Vendor Contacted</option>
+                <option value="Parts Ordered">Parts Ordered</option>
+                <option value="Service Scheduled">Service Scheduled</option>
+                <option value="Inspection Complete">Inspection Complete</option>
+                <option value="Denied - Appeal Filed">Denied - Appeal Filed</option>
+                <option value="Approved">Approved</option>
+                <option value="Reimbursement Received">Reimbursement Received</option>
+                <option value="Follow-Up Required">Follow-Up Required</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Response / Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_newAction.Response" placeholder="Details..."></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Performed By</label>
+            <input type="text" class="form-control form-control-sm" @bind="_newAction.PerformedBy" placeholder="Name" />
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick='() => _mode = "detail"'>Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveAction" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-plus-circle me-1"></i>Add Action
+        </button>
+    </div>
+}
+else if (_mode == "edit" && _detail != null)
+{
+    <!-- Edit Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick='() => _mode = "detail"'><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Edit Record</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Type</label>
+                <select class="form-select form-select-sm" @bind="_editForm.Type">
+                    @foreach (var t in Enum.GetValues<ServiceHistoryType>())
+                    {
+                        <option value="@t">@FormatType(t)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Status</label>
+                <select class="form-select form-select-sm" @bind="_editForm.Status">
+                    @foreach (var s in Enum.GetValues<ServiceHistoryStatus>())
+                    {
+                        <option value="@s">@s</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Service Date</label>
+            <input type="date" class="form-control form-control-sm" @bind="_editForm.ServiceDate" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Issue Description</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Description" placeholder="Describe the issue..."></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Issue Type</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.IssueType" placeholder="e.g., Leak, Defect, Vibration" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Cost</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_editForm.Cost" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Reimbursement</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_editForm.Reimbursement" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Vendor</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.VendorName" placeholder="Vendor name" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Resolution Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.ResolutionNotes" placeholder="How was it resolved?"></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Notes" placeholder="Additional notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick='() => _mode = "detail"'>Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Update
+        </button>
+    </div>
+}
+else if (_mode == "create")
+{
+    <!-- Create Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">New Record</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Type</label>
+            <select class="form-select form-select-sm" @bind="_createForm.Type">
+                @foreach (var t in Enum.GetValues<ServiceHistoryType>())
+                {
+                    <option value="@t">@FormatType(t)</option>
+                }
+            </select>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Service Date</label>
+            <input type="date" class="form-control form-control-sm" @bind="_createForm.ServiceDate" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Issue Description</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_createForm.Description" placeholder="Describe the issue..."></textarea>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Issue Type</label>
+            <input type="text" class="form-control form-control-sm" @bind="_createForm.IssueType" placeholder="e.g., Leak, Defect, Vibration" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Cost</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_createForm.Cost" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Vendor</label>
+                <input type="text" class="form-control form-control-sm" @bind="_createForm.VendorName" placeholder="Vendor" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_createForm.Notes" placeholder="Additional notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="BackToList">Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveCreate" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Create Record
+        </button>
+    </div>
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-clock-history me-1"></i>Service History</span>
+        <button class="btn btn-primary btn-sm" @onclick="ShowCreate"><i class="bi bi-plus-lg me-1"></i>New Record</button>
+    </div>
+
+    @if (_stats != null)
+    {
+        <div class="gap-grid mb-2">
+            <div class="stat-card">
+                <div class="stat-icon text-primary"><i class="bi bi-clock-history"></i></div>
+                <div class="stat-value">@_stats.TotalRecords</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-warning"><i class="bi bi-exclamation-triangle"></i></div>
+                <div class="stat-value">@_stats.OpenClaims</div>
+                <div class="stat-label">Open</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
+                <div class="stat-value">@_stats.ResolvedThisMonth</div>
+                <div class="stat-label">Resolved (Mo)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-info"><i class="bi bi-currency-dollar"></i></div>
+                <div class="stat-value">@_stats.TotalCost.ToString("C0")</div>
+                <div class="stat-label">Total Cost</div>
+            </div>
+        </div>
+    }
+
+    <div class="mobile-card mb-2" style="padding:0.5rem 0.75rem;">
+        <input type="text" class="form-control form-control-sm" placeholder="Search records..." @bind="_filter.Search" @bind:event="oninput" @bind:after="LoadRecords" />
+    </div>
+
+    <!-- Type Filter -->
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(!_filter.Type.HasValue ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterType(null)">All</button>
+        @foreach (var t in Enum.GetValues<ServiceHistoryType>())
+        {
+            <button class="btn btn-sm @(_filter.Type == t ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterType(t)">@FormatType(t)</button>
+        }
+    </div>
+
+    <!-- Status Filter -->
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(!_filter.Status.HasValue ? "btn-dark" : "btn-outline-dark")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(null)">All</button>
+        @foreach (var s in Enum.GetValues<ServiceHistoryStatus>())
+        {
+            <button class="btn btn-sm @(_filter.Status == s ? "btn-dark" : "btn-outline-dark")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(s)">@s</button>
+        }
+    </div>
+
+    @if (_records.Any())
+    {
+        @foreach (var rec in _records)
+        {
+            <div class="mobile-card mb-1" style="cursor:pointer;" @onclick="() => ViewDetail(rec.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi @GetTypeIcon(rec.Type) text-muted" style="font-size:0.85rem;"></i>
+                            <span style="font-size:0.85rem; font-weight:600;">@rec.RecordNumber</span>
+                        </div>
+                        <div style="font-size:0.75rem; margin-top:2px;">@(rec.Description?.Length > 60 ? rec.Description[..60] + "…" : rec.Description)</div>
+                        <div class="d-flex flex-wrap gap-2 mt-1 text-muted" style="font-size:0.7rem;">
+                            <span>@rec.ServiceDate.ToString("MMM dd")</span>
+                            @if (!string.IsNullOrWhiteSpace(rec.CustomerName)) { <span>· @rec.CustomerName</span> }
+                            @if (!string.IsNullOrWhiteSpace(rec.AssetName)) { <span>· @rec.AssetName</span> }
+                            @if (!string.IsNullOrWhiteSpace(rec.IssueType)) { <span>· @rec.IssueType</span> }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        @if (rec.Cost.HasValue) { <div style="font-size:0.9rem; font-weight:700;">@rec.Cost.Value.ToString("C")</div> }
+                        <span class="badge @GetStatusBadge(rec.Status)" style="font-size:0.6rem;">@rec.Status</span>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-clock-history d-block" style="font-size:2rem;"></i>
+            <p>No service history records found</p>
+        </div>
+    }
+}
+
+@code {
+    private string _mode = "list";
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+    private bool _deleteConfirm;
+
+    private MobileServiceHistoryStats? _stats;
+    private List<MobileServiceHistoryCard> _records = [];
+    private MobileServiceHistoryDetail? _detail;
+    private MobileServiceHistoryCreate _createForm = new();
+    private MobileServiceHistoryUpdate _editForm = new();
+    private MobileClaimActionCreate _newAction = new();
+    private MobileServiceHistoryFilter _filter = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _stats = await HistorySvc.GetStatsAsync();
+        await LoadRecords();
+    }
+
+    private async Task LoadRecords() => _records = await HistorySvc.GetRecordsAsync(_filter);
+
+    private async Task ViewDetail(int id)
+    {
+        _detail = await HistorySvc.GetRecordDetailAsync(id);
+        if (_detail != null) _mode = "detail";
+    }
+
+    private void ShowCreate()
+    {
+        _createForm = new MobileServiceHistoryCreate();
+        _error = null;
+        _mode = "create";
+    }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(_createForm.Description)) { _error = "Description is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            var id = await HistorySvc.CreateRecordAsync(_createForm);
+            await LoadData();
+            await ViewDetail(id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private void StartEdit()
+    {
+        if (_detail is null) return;
+        _editForm = new MobileServiceHistoryUpdate
+        {
+            Type = _detail.Type, Status = _detail.Status,
+            ServiceDate = _detail.ServiceDate, Description = _detail.Description,
+            ResolutionNotes = _detail.ResolutionNotes, Cost = _detail.Cost,
+            Reimbursement = _detail.Reimbursement, VendorName = _detail.VendorName,
+            IssueType = _detail.IssueType, Notes = _detail.Notes,
+        };
+        _error = null;
+        _mode = "edit";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_detail is null) return;
+        try
+        {
+            _saving = true; _error = null;
+            await HistorySvc.UpdateRecordAsync(_detail.Id, _editForm);
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ChangeStatus(ServiceHistoryStatus status)
+    {
+        if (_detail is null) return;
+        await HistorySvc.UpdateStatusAsync(_detail.Id, status);
+        await ViewDetail(_detail.Id);
+    }
+
+    private void ShowAddAction()
+    {
+        _newAction = new MobileClaimActionCreate();
+        _error = null;
+        _mode = "add-action";
+    }
+
+    private async Task SaveAction()
+    {
+        if (string.IsNullOrWhiteSpace(_newAction.Action)) { _error = "Action is required."; return; }
+        if (_detail is null) return;
+        try
+        {
+            _saving = true; _error = null;
+            await HistorySvc.AddClaimActionAsync(_detail.Id, _newAction);
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task DeleteRecord()
+    {
+        if (_detail is null) return;
+        _deleteConfirm = false;
+        await HistorySvc.DeleteRecordAsync(_detail.Id);
+        await BackToList();
+    }
+
+    private async Task BackToList() { _mode = "list"; _detail = null; await LoadData(); }
+    private async Task FilterType(ServiceHistoryType? type) { _filter.Type = type; await LoadRecords(); }
+    private async Task FilterStatus(ServiceHistoryStatus? status) { _filter.Status = status; await LoadRecords(); }
+
+    private static string FormatType(ServiceHistoryType t) => t switch
+    {
+        ServiceHistoryType.WarrantyClaim => "Warranty",
+        ServiceHistoryType.NonWarrantyRepair => "Repair",
+        ServiceHistoryType.PreventiveMaintenance => "Maintenance",
+        _ => t.ToString(),
+    };
+
+    private static string GetTypeBadge(ServiceHistoryType t) => t switch
+    {
+        ServiceHistoryType.WarrantyClaim => "bg-warning text-dark",
+        ServiceHistoryType.NonWarrantyRepair => "bg-danger bg-opacity-75",
+        ServiceHistoryType.PreventiveMaintenance => "bg-info",
+        _ => "bg-secondary",
+    };
+
+    private static string GetTypeIcon(ServiceHistoryType t) => t switch
+    {
+        ServiceHistoryType.WarrantyClaim => "bi-shield-check",
+        ServiceHistoryType.NonWarrantyRepair => "bi-tools",
+        ServiceHistoryType.PreventiveMaintenance => "bi-wrench-adjustable",
+        _ => "bi-clock-history",
+    };
+
+    private static string GetStatusBadge(ServiceHistoryStatus s) => s switch
+    {
+        ServiceHistoryStatus.Open => "bg-warning text-dark",
+        ServiceHistoryStatus.Submitted => "bg-info",
+        ServiceHistoryStatus.InProgress => "bg-primary",
+        ServiceHistoryStatus.Approved => "bg-success",
+        ServiceHistoryStatus.Denied => "bg-danger",
+        ServiceHistoryStatus.Resolved => "bg-success",
+        _ => "bg-secondary",
+    };
+}

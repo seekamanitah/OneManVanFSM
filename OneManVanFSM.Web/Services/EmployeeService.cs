@@ -309,6 +309,15 @@ public class EmployeeService : IEmployeeService
             });
         }
 
+        // Check if this period has already been approved as an expense
+        var approvedExpense = await _db.Expenses
+            .Where(x => x.EmployeeId == employeeId
+                && x.Category == "Payroll"
+                && x.ExpenseDate >= periodStart.Date && x.ExpenseDate <= periodEnd.Date
+                && !x.IsArchived)
+            .OrderByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync();
+
         return new PayPeriodSummary
         {
             PeriodStart = periodStart,
@@ -320,8 +329,130 @@ public class EmployeeService : IEmployeeService
             OvertimePay = overtimePay,
             FlatRateTotal = flatRateTotal,
             TotalPay = regularPay + overtimePay + flatRateTotal,
-            Jobs = jobHours
+            Jobs = jobHours,
+            IsApproved = approvedExpense is not null,
+            ExpenseId = approvedExpense?.Id
         };
+    }
+
+    public async Task<PayApprovalResult> ApprovePayPeriodAsync(int employeeId, DateTime periodStart, DateTime periodEnd, decimal? flatRateOverride = null)
+    {
+        try
+        {
+            var summary = await GetPaySummaryAsync(employeeId, periodStart, periodEnd);
+            if (summary.IsApproved)
+                return new PayApprovalResult { Success = false, ErrorMessage = "This pay period has already been approved." };
+
+            var emp = await _db.Employees.FindAsync(employeeId)
+                ?? throw new InvalidOperationException("Employee not found.");
+
+            // For flat-rate override (subcontractors), use their entered amount
+            var totalPay = flatRateOverride ?? summary.TotalPay;
+
+            // Build expense description
+            var desc = $"Payroll: {emp.Name} — {periodStart:MMM dd} to {periodEnd:MMM dd, yyyy}";
+            if (flatRateOverride.HasValue)
+                desc += " (Flat Rate)";
+            else
+                desc += $" ({summary.TotalRegularHours:F1}h reg + {summary.TotalOvertimeHours:F1}h OT @ {emp.HourlyRate:C}/hr)";
+
+            var expense = new Expense
+            {
+                Category = "Payroll",
+                Description = desc,
+                Amount = totalPay,
+                TaxAmount = 0,
+                Total = totalPay,
+                PaymentMethod = "ACH",
+                Status = ExpenseStatus.Approved,
+                IsBillable = false,
+                Notes = flatRateOverride.HasValue
+                    ? $"Flat rate payment for {emp.Name}. Period: {periodStart:yyyy-MM-dd} to {periodEnd:yyyy-MM-dd}"
+                    : $"Regular: {summary.RegularPay:C} ({summary.TotalRegularHours:F2}h) | OT: {summary.OvertimePay:C} ({summary.TotalOvertimeHours:F2}h) | Flat Rate Jobs: {summary.FlatRateTotal:C}",
+                ExpenseDate = periodEnd,
+                EmployeeId = employeeId,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            _db.Expenses.Add(expense);
+
+            // Add line items for breakdown
+            int order = 0;
+            if (!flatRateOverride.HasValue)
+            {
+                if (summary.RegularPay > 0)
+                {
+                    _db.ExpenseLines.Add(new ExpenseLine
+                    {
+                        ExpenseId = expense.Id,
+                        Description = $"Regular Hours ({summary.TotalRegularHours:F2}h @ {emp.HourlyRate:C}/hr)",
+                        LineType = "Labor",
+                        Unit = "Hours",
+                        Quantity = summary.TotalRegularHours,
+                        UnitPrice = emp.HourlyRate,
+                        LineTotal = summary.RegularPay,
+                        SortOrder = order++
+                    });
+                }
+                if (summary.OvertimePay > 0)
+                {
+                    var otRate = emp.OvertimeRate ?? emp.HourlyRate * 1.5m;
+                    _db.ExpenseLines.Add(new ExpenseLine
+                    {
+                        ExpenseId = expense.Id,
+                        Description = $"Overtime Hours ({summary.TotalOvertimeHours:F2}h @ {otRate:C}/hr)",
+                        LineType = "Labor",
+                        Unit = "Hours",
+                        Quantity = summary.TotalOvertimeHours,
+                        UnitPrice = otRate,
+                        LineTotal = summary.OvertimePay,
+                        SortOrder = order++
+                    });
+                }
+                foreach (var job in summary.Jobs.Where(j => j.PayType == "Flat Rate"))
+                {
+                    _db.ExpenseLines.Add(new ExpenseLine
+                    {
+                        ExpenseId = expense.Id,
+                        Description = $"Flat Rate — Job {job.JobNumber}: {job.Title ?? "Untitled"}",
+                        LineType = "Labor",
+                        Unit = "Each",
+                        Quantity = 1,
+                        UnitPrice = job.Amount,
+                        LineTotal = job.Amount,
+                        SortOrder = order++
+                    });
+                }
+            }
+            else
+            {
+                _db.ExpenseLines.Add(new ExpenseLine
+                {
+                    ExpenseId = expense.Id,
+                    Description = $"Flat Rate Payment — {emp.Name}",
+                    LineType = "Labor",
+                    Unit = "Each",
+                    Quantity = 1,
+                    UnitPrice = flatRateOverride.Value,
+                    LineTotal = flatRateOverride.Value,
+                    SortOrder = 0
+                });
+            }
+
+            await _db.SaveChangesAsync();
+
+            // Re-save lines with correct ExpenseId (EF sets Id after first save)
+            foreach (var line in _db.ChangeTracker.Entries<ExpenseLine>().Where(e => e.Entity.ExpenseId == 0))
+                line.Entity.ExpenseId = expense.Id;
+            await _db.SaveChangesAsync();
+
+            return new PayApprovalResult { Success = true, ExpenseId = expense.Id, TotalPay = totalPay };
+        }
+        catch (Exception ex)
+        {
+            return new PayApprovalResult { Success = false, ErrorMessage = ex.Message };
+        }
     }
 
     public async Task<TimeEntry> AddManualTimeEntryAsync(int employeeId, int? jobId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType = TimeEntryType.Shift, string? timeCategory = null)

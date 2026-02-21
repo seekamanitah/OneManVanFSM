@@ -339,23 +339,33 @@ else
                                 }
                                 else
                                 {
-                                    <InputNumber @bind-Value="expenseForm.Amount" class="form-control form-control-sm" />
+                                    <InputNumber @bind-Value="expenseForm.Amount" class="form-control form-control-sm" @oninput="OnAmountChanged" />
                                 }
                             </div>
                             @if (expenseForm.Lines.Count == 0) { <ValidationMessage For="() => expenseForm.Amount" /> }
                         </div>
                         <div class="col-md-4">
-                            <label class="form-label">Tax Amount</label>
+                            <label class="form-label">
+                                Tax Rate
+                                <div class="form-check form-check-inline ms-2">
+                                    <input class="form-check-input" type="checkbox" id="taxEnabled" @bind="expenseForm.TaxEnabled" @oninput="OnTaxEnabledChanged" />
+                                    <label class="form-check-label small" for="taxEnabled">Apply Tax</label>
+                                </div>
+                            </label>
                             <div class="input-group input-group-sm">
-                                <span class="input-group-text">$</span>
-                                <InputNumber @bind-Value="expenseForm.TaxAmount" class="form-control form-control-sm" />
+                                <InputNumber @bind-Value="expenseForm.TaxRate" class="form-control form-control-sm" step="0.01" min="0" max="100" disabled="@(!expenseForm.TaxEnabled)" @oninput="OnTaxRateChanged" />
+                                <span class="input-group-text">%</span>
                             </div>
+                            @if (expenseForm.TaxEnabled)
+                            {
+                                <small class="text-muted">Tax Amount: $@expenseForm.TaxAmount.ToString("F2")</small>
+                            }
                         </div>
                         <div class="col-md-4">
                             <label class="form-label">Total</label>
                             <div class="input-group input-group-sm">
                                 <span class="input-group-text">$</span>
-                                <input type="text" class="form-control form-control-sm fw-bold" value="@((expenseForm.Amount + expenseForm.TaxAmount).ToString("F2"))" readonly />
+                                <input type="text" class="form-control form-control-sm fw-bold" value="@expenseForm.Total.ToString("F2")" readonly />
                             </div>
                         </div>
                         <div class="col-md-6">
@@ -636,7 +646,7 @@ else
     private bool _expBulkMsgIsError;
     private bool _allExpensesSelected => expenses is not null && expenses.Count > 0 && expenses.All(e => _selectedExpenseIds.Contains(e.Id));
 
-    private List<string> _expenseCategories = ["Materials", "Equipment", "Tools", "Fuel", "Vehicle", "Disposal", "Permits", "Supplies", "Subcontractor", "Insurance", "Office", "Travel", "Training", "Uniforms", "Refrigerant", "Other"];
+    private List<string> _expenseCategories = ["Materials", "Equipment", "Tools", "Fuel", "Vehicle", "Disposal", "Permits", "Supplies", "Subcontractor", "Insurance", "Office", "Travel", "Training", "Uniforms", "Refrigerant", "Payroll", "Other"];
     private List<string> _paymentMethods = ["Cash", "Check", "Card", "ACH", "Zelle", "Company Card", "Other"];
     private List<string> _expenseStatuses = Enum.GetValues<ExpenseStatus>().Select(s => s.ToString()).ToList();
     private List<string> _expenseLineTypes = ["Material", "Equipment", "Fuel", "Disposal", "Permit", "Subcontractor", "Fee", "Other"];
@@ -659,6 +669,8 @@ else
         _ => ""
     };
 
+    private decimal _defaultTaxRate = 0m;
+
     protected override async Task OnInitializedAsync()
     {
         _customers = await CustomerSvc.GetCustomersAsync();
@@ -679,6 +691,7 @@ else
         Nav.LocationChanged += OnLocationChanged;
 
         var profile = await CompanyProfileSvc.GetProfileAsync();
+        _defaultTaxRate = profile.DefaultTaxRate;
         _printTemplate = profile.DefaultPrintTemplate;
         var saved = await JS.InvokeAsync<string?>("getLocalStorage", "printTemplate");
         if (!string.IsNullOrWhiteSpace(saved)) _printTemplate = saved;
@@ -731,7 +744,9 @@ else
         expenseForm = new ExpenseEditModel
         {
             ExpenseDate = DateTime.Now,
-            PaymentMethod = "Cash"
+            PaymentMethod = "Cash",
+            TaxRate = _defaultTaxRate,
+            TaxEnabled = _defaultTaxRate > 0
         };
     }
 
@@ -741,12 +756,23 @@ else
     {
         if (expenseDetail is null) return;
         editingExpenseId = expenseDetail.Id;
+
+        // Calculate tax rate from existing tax amount (backward compatibility)
+        decimal taxRate = _defaultTaxRate;
+        bool taxEnabled = expenseDetail.TaxAmount > 0;
+        if (taxEnabled && expenseDetail.Amount > 0)
+        {
+            taxRate = (expenseDetail.TaxAmount / expenseDetail.Amount) * 100m;
+        }
+
         expenseForm = new ExpenseEditModel
         {
             Category = expenseDetail.Category,
             Description = expenseDetail.Description,
             Amount = expenseDetail.Amount,
             TaxAmount = expenseDetail.TaxAmount,
+            TaxRate = taxRate,
+            TaxEnabled = taxEnabled,
             Total = expenseDetail.Total,
             PaymentMethod = expenseDetail.PaymentMethod ?? "Cash",
             Status = expenseDetail.Status,
@@ -879,7 +905,38 @@ else
     {
         if (expenseForm.Lines.Count > 0)
             expenseForm.Amount = expenseForm.Lines.Sum(l => l.Quantity * l.UnitPrice);
+
+        // Calculate tax amount from rate
+        if (expenseForm.TaxEnabled && expenseForm.TaxRate > 0)
+            expenseForm.TaxAmount = expenseForm.Amount * (expenseForm.TaxRate / 100m);
+        else
+            expenseForm.TaxAmount = 0;
+
         expenseForm.Total = expenseForm.Amount + expenseForm.TaxAmount;
+    }
+
+    private void OnAmountChanged(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var amount))
+        {
+            expenseForm.Amount = amount;
+            RecalcExpenseAmount();
+        }
+    }
+
+    private void OnTaxRateChanged(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), out var rate))
+        {
+            expenseForm.TaxRate = rate;
+            RecalcExpenseAmount();
+        }
+    }
+
+    private void OnTaxEnabledChanged(ChangeEventArgs e)
+    {
+        expenseForm.TaxEnabled = e.Value?.ToString()?.ToLower() == "true";
+        RecalcExpenseAmount();
     }
 
     private async Task SaveExpense()

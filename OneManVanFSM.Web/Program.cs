@@ -112,6 +112,7 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 builder.Services.AddSingleton<IPdfService, PdfService>();
 builder.Services.AddSingleton<IQrCodeService, QrCodeService>();
+builder.Services.AddHostedService<BackupHostedService>();
 
 var app = builder.Build();
 

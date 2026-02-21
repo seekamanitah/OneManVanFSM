@@ -6,6 +6,7 @@
 @implements IDisposable
 @inject IEmployeeService EmployeeSvc
 @inject IJobService JobSvc
+@inject IFinancialService FinSvc
 @inject IDropdownService DropdownSvc
 @inject NavigationManager Nav
 
@@ -337,12 +338,13 @@ else if (mode == "detail" && detail is not null)
                                             <th class="text-end">OT</th>
                                             <th class="text-end">Total</th>
                                             <th>Entries</th>
-                                            <th style="width:80px;"></th>
+                                            <th style="width:110px;"></th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @foreach (var day in timesheetDays)
                                         {
+                                            var capturedDay = day;
                                             <tr class="@(day.Date.DayOfWeek == DayOfWeek.Sunday || day.Date.DayOfWeek == DayOfWeek.Saturday ? "table-light" : "")">
                                                 <td><strong>@day.Date.ToString("ddd MMM dd")</strong></td>
                                                 <td class="text-end">@((day.TotalHours - day.OvertimeHours).ToString("F1"))h</td>
@@ -361,13 +363,18 @@ else if (mode == "detail" && detail is not null)
                                                     @if (!day.Entries.Any()) { <small class="text-muted">No entries</small> }
                                                 </td>
                                                 <td>
-                                                    @foreach (var e in day.Entries)
-                                                    {
-                                                        <div class="d-flex gap-1 mb-1">
-                                                            <button class="btn btn-outline-primary btn-sm py-0 px-1" title="Edit" @onclick="() => StartEditEntry(e)"><i class="bi bi-pencil" style="font-size:0.7rem;"></i></button>
-                                                            <button class="btn btn-outline-danger btn-sm py-0 px-1" title="Delete" @onclick="() => DeleteEntry(e.Id)"><i class="bi bi-trash" style="font-size:0.7rem;"></i></button>
-                                                        </div>
-                                                    }
+                                                    <div class="d-flex flex-column gap-1">
+                                                        <button class="btn btn-primary btn-sm py-0 px-2" title="Add hours to this day" @onclick="() => StartQuickAddHours(capturedDay.Date)">
+                                                            <i class="bi bi-plus-circle me-1" style="font-size:0.7rem;"></i><span style="font-size:0.7rem;">Add Hours</span>
+                                                        </button>
+                                                        @foreach (var e in day.Entries)
+                                                        {
+                                                            <div class="d-flex gap-1">
+                                                                <button class="btn btn-outline-primary btn-sm py-0 px-1" title="Edit" @onclick="() => StartEditEntry(e)"><i class="bi bi-pencil" style="font-size:0.7rem;"></i></button>
+                                                                <button class="btn btn-outline-danger btn-sm py-0 px-1" title="Delete" @onclick="() => DeleteEntry(e.Id)"><i class="bi bi-trash" style="font-size:0.7rem;"></i></button>
+                                                            </div>
+                                                        }
+                                                    </div>
                                                 </td>
                                             </tr>
                                         }
@@ -383,6 +390,85 @@ else if (mode == "detail" && detail is not null)
                                     </tfoot>
                                 </table>
                             </div>
+
+                            @* Quick Add Hours Panel *@
+                            @if (_quickAddDate.HasValue)
+                            {
+                                <div class="card border-primary mt-3">
+                                    <div class="card-header bg-primary text-white py-2 d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0"><i class="bi bi-plus-circle me-1"></i>Add Hours — @_quickAddDate.Value.ToString("ddd, MMM dd")</h6>
+                                        <button class="btn btn-sm btn-outline-light py-0" @onclick="CancelQuickAdd"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-md-2">
+                                                <label class="form-label small">Hours</label>
+                                                <input type="number" class="form-control form-control-sm" step="0.25" min="0.25" max="24" @bind="_quickAddHours" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small">Start Time</label>
+                                                <input type="time" class="form-control form-control-sm" @bind="_quickAddStartTime" />
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small">Entry Type</label>
+                                                <select class="form-select form-select-sm" @bind="_quickAddEntryType">
+                                                    <option value="Shift">Shift</option>
+                                                    <option value="JobClock">Job Clock</option>
+                                                    <option value="Break">Break</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small">Category</label>
+                                                <select class="form-select form-select-sm" @bind="_quickAddCategory">
+                                                    <option value="">— None —</option>
+                                                    <option value="Travel">Travel</option>
+                                                    <option value="On-Site">On-Site</option>
+                                                    <option value="Diagnostic">Diagnostic</option>
+                                                    <option value="Admin">Admin</option>
+                                                    <option value="Break">Break</option>
+                                                    <option value="Training">Training</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small">Job</label>
+                                                <select class="form-select form-select-sm" @bind="_quickAddJobId">
+                                                    <option value="">— None —</option>
+                                                    @foreach (var j in jobOptions)
+                                                    {
+                                                        <option value="@j.Id">@j.Display</option>
+                                                    }
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <div class="form-check mt-4">
+                                                    <input class="form-check-input" type="checkbox" @bind="_quickAddBillable" id="quickAddBillable" />
+                                                    <label class="form-check-label" for="quickAddBillable">Billable</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-8">
+                                                <label class="form-label small">Notes</label>
+                                                <input type="text" class="form-control form-control-sm" @bind="_quickAddNotes" placeholder="Optional notes" />
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 d-flex gap-2">
+                                            <button class="btn btn-primary btn-sm" @onclick="SaveQuickAddHours" disabled="@(_quickAddHours <= 0 || isClocking)">
+                                                @if (isClocking) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                                <i class="bi bi-check-lg me-1"></i>Add Entry
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" @onclick="CancelQuickAdd">Cancel</button>
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(_quickAddMsg))
+                                        {
+                                            <div class="alert alert-success mt-2 py-2 mb-0"><i class="bi bi-check-circle me-1"></i>@_quickAddMsg</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(_quickAddError))
+                                        {
+                                            <div class="alert alert-danger mt-2 py-2 mb-0"><i class="bi bi-x-circle me-1"></i>@_quickAddError</div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+
                             @* Inline edit panel *@
                             @if (_editingEntry is not null)
                             {
@@ -473,6 +559,16 @@ else if (mode == "detail" && detail is not null)
                     <div class="card-body">
                         @if (paySummary is not null)
                         {
+                            @if (paySummary.IsApproved)
+                            {
+                                <div class="alert alert-success py-2 mb-3 d-flex justify-content-between align-items-center">
+                                    <span><i class="bi bi-check-circle-fill me-1"></i><strong>Approved</strong> — This pay period has been approved and recorded as an expense.</span>
+                                    @if (paySummary.ExpenseId.HasValue)
+                                    {
+                                        <button class="btn btn-outline-success btn-sm" @onclick="() => ViewPayExpense(paySummary.ExpenseId.Value)"><i class="bi bi-receipt me-1"></i>View Expense</button>
+                                    }
+                                </div>
+                            }
                             <div class="row g-3 mb-3">
                                 <div class="col-sm-3">
                                     <div class="card bg-light border-0 text-center py-2">
@@ -526,12 +622,74 @@ else if (mode == "detail" && detail is not null)
                                                     <td>@j.JobNumber</td>
                                                     <td>@(j.Title ?? "—")</td>
                                                     <td>@j.Hours.ToString("F2")h</td>
-                                                    <td><span class="badge @(j.PayType == "FlatRate" ? "bg-warning text-dark" : "bg-info")">@j.PayType</span></td>
+                                                    <td><span class="badge @(j.PayType == "FlatRate" || j.PayType == "Flat Rate" ? "bg-warning text-dark" : "bg-info")">@j.PayType</span></td>
                                                     <td class="text-end">@j.Amount.ToString("C")</td>
                                                 </tr>
                                             }
                                         </tbody>
                                     </table>
+                                </div>
+                            }
+
+                            @* Approve & Create Expense Section *@
+                            @if (!paySummary.IsApproved)
+                            {
+                                <div class="card border-primary mt-3">
+                                    <div class="card-header bg-primary text-white py-2">
+                                        <h6 class="mb-0"><i class="bi bi-check-circle me-1"></i>Approve Pay Period & Create Expense</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="row g-3 align-items-end">
+                                            <div class="col-md-4">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" id="useFlatRateOverride" @bind="_useFlatRateOverride" />
+                                                    <label class="form-check-label" for="useFlatRateOverride">
+                                                        <strong>Flat Rate Override</strong>
+                                                        <br /><small class="text-muted">For subcontractors or flat-rate employees</small>
+                                                    </label>
+                                                </div>
+                                            </div>
+                                            @if (_useFlatRateOverride)
+                                            {
+                                                <div class="col-md-4">
+                                                    <label class="form-label">Flat Rate Amount</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <span class="input-group-text">$</span>
+                                                        <input type="number" class="form-control form-control-sm" step="0.01" min="0" @bind="_flatRateOverrideAmount" />
+                                                    </div>
+                                                </div>
+                                            }
+                                            <div class="col-md-4">
+                                                <div class="fw-bold" style="font-size:1.1rem;">
+                                                    Total: @((_useFlatRateOverride ? _flatRateOverrideAmount : paySummary.TotalPay).ToString("C"))
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="mt-3 d-flex gap-2">
+                                            @if (!_confirmApproval)
+                                            {
+                                                <button class="btn btn-success btn-sm" @onclick="() => _confirmApproval = true" disabled="@(_useFlatRateOverride && _flatRateOverrideAmount <= 0)">
+                                                    <i class="bi bi-check-circle me-1"></i>Approve & Create Expense
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-success btn-sm fw-semibold" @onclick="ApprovePayPeriod" disabled="@_isApproving">
+                                                    @if (_isApproving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+                                                    <i class="bi bi-exclamation-triangle me-1"></i>Confirm Approval
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-sm" @onclick="() => _confirmApproval = false">Cancel</button>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrEmpty(_approvalMsg))
+                                        {
+                                            <div class="alert alert-success mt-2 py-2 mb-0"><i class="bi bi-check-circle me-1"></i>@_approvalMsg</div>
+                                        }
+                                        @if (!string.IsNullOrEmpty(_approvalError))
+                                        {
+                                            <div class="alert alert-danger mt-2 py-2 mb-0"><i class="bi bi-x-circle me-1"></i>@_approvalError</div>
+                                        }
+                                    </div>
                                 </div>
                             }
                         }
@@ -872,6 +1030,26 @@ else
     private string? _editMsg;
     private string? _editError;
 
+    // Pay approval state
+    private bool _useFlatRateOverride;
+    private decimal _flatRateOverrideAmount;
+    private bool _confirmApproval;
+    private bool _isApproving;
+    private string? _approvalMsg;
+    private string? _approvalError;
+
+    // Quick Add Hours state
+    private DateTime? _quickAddDate;
+    private decimal _quickAddHours = 8;
+    private TimeOnly _quickAddStartTime = new(8, 0);
+    private string _quickAddEntryType = "Shift";
+    private string _quickAddCategory = "";
+    private string _quickAddJobId = "";
+    private bool _quickAddBillable = true;
+    private string _quickAddNotes = "";
+    private string? _quickAddMsg;
+    private string? _quickAddError;
+
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
@@ -1054,13 +1232,96 @@ else
     private async Task PrevWeek() { timesheetWeekStart = timesheetWeekStart.AddDays(-7); await LoadTimesheet(); }
     private async Task NextWeek() { timesheetWeekStart = timesheetWeekStart.AddDays(7); await LoadTimesheet(); }
 
+    // Quick Add Hours
+    private void StartQuickAddHours(DateTime date)
+    {
+        _quickAddDate = date;
+        _quickAddHours = 8;
+        _quickAddStartTime = new TimeOnly(8, 0);
+        _quickAddEntryType = "Shift";
+        _quickAddCategory = "";
+        _quickAddJobId = "";
+        _quickAddBillable = true;
+        _quickAddNotes = "";
+        _quickAddMsg = null;
+        _quickAddError = null;
+        _editingEntry = null;
+    }
+
+    private void CancelQuickAdd()
+    {
+        _quickAddDate = null;
+        _quickAddMsg = null;
+        _quickAddError = null;
+    }
+
+    private async Task SaveQuickAddHours()
+    {
+        if (detail is null || !_quickAddDate.HasValue || _quickAddHours <= 0) return;
+        _quickAddMsg = null;
+        _quickAddError = null;
+        isClocking = true;
+        try
+        {
+            int? jobId = int.TryParse(_quickAddJobId, out var jid) ? jid : null;
+            var entryType = Enum.TryParse<TimeEntryType>(_quickAddEntryType, out var et) ? et : TimeEntryType.Shift;
+            string? category = string.IsNullOrWhiteSpace(_quickAddCategory) ? null : _quickAddCategory;
+
+            var start = _quickAddDate.Value.Add(_quickAddStartTime.ToTimeSpan());
+            var end = start.AddHours((double)_quickAddHours);
+
+            await EmployeeSvc.AddManualTimeEntryAsync(
+                detail.Id, jobId, start, end, _quickAddBillable,
+                string.IsNullOrWhiteSpace(_quickAddNotes) ? null : _quickAddNotes,
+                entryType, category);
+
+            _quickAddMsg = $"{_quickAddHours:F1}h added to {_quickAddDate.Value:ddd, MMM dd}.";
+            await LoadTimesheet();
+            detail = await EmployeeSvc.GetEmployeeAsync(detail.Id);
+        }
+        catch (Exception ex) { _quickAddError = ex.Message; }
+        finally { isClocking = false; }
+    }
+
     // Pay Summary
     private async Task LoadPaySummary()
     {
         detailTab = "pay";
+        _confirmApproval = false;
+        _approvalMsg = null;
+        _approvalError = null;
+        _useFlatRateOverride = false;
+        _flatRateOverrideAmount = 0;
         if (detail is null) return;
         paySummary = await EmployeeSvc.GetPaySummaryAsync(detail.Id, payPeriodStart, payPeriodEnd);
     }
+
+    private async Task ApprovePayPeriod()
+    {
+        if (detail is null || paySummary is null) return;
+        _isApproving = true;
+        _approvalMsg = null;
+        _approvalError = null;
+        try
+        {
+            decimal? flatOverride = _useFlatRateOverride ? _flatRateOverrideAmount : null;
+            var result = await EmployeeSvc.ApprovePayPeriodAsync(detail.Id, payPeriodStart, payPeriodEnd, flatOverride);
+            if (result.Success)
+            {
+                _approvalMsg = $"Pay period approved! Expense #{result.ExpenseId} created for {result.TotalPay:C}.";
+                _confirmApproval = false;
+                paySummary = await EmployeeSvc.GetPaySummaryAsync(detail.Id, payPeriodStart, payPeriodEnd);
+            }
+            else
+            {
+                _approvalError = result.ErrorMessage ?? "Approval failed.";
+            }
+        }
+        catch (Exception ex) { _approvalError = ex.Message; }
+        finally { _isApproving = false; }
+    }
+
+    private void ViewPayExpense(int expenseId) => Nav.NavigateTo($"/financials/expenses/{expenseId}");
 
     // Manual Entry
     private async Task AddManualEntry()

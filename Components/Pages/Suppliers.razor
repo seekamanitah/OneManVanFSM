@@ -1,0 +1,414 @@
+@page "/suppliers"
+@inject IMobileSupplierService SupplierSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_mode == "detail" && _detail != null)
+{
+    <!-- Detail View -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Supplier Detail</span>
+        <span class="badge ms-auto @(_detail.IsActive ? "bg-success" : "bg-secondary")" style="font-size:0.7rem;">@(_detail.IsActive ? "Active" : "Inactive")</span>
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div style="font-size:1rem; font-weight:700; margin-bottom:0.3rem;">@_detail.Name</div>
+        <div class="d-flex flex-wrap gap-2" style="font-size:0.78rem;">
+            @if (!string.IsNullOrWhiteSpace(_detail.ContactName))
+            {
+                <span><i class="bi bi-person me-1 text-muted"></i>@_detail.ContactName</span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.Phone))
+            {
+                <span><i class="bi bi-telephone me-1 text-muted"></i><a href="tel:@_detail.Phone" class="text-primary">@_detail.Phone</a></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.Email))
+            {
+                <span><i class="bi bi-envelope me-1 text-muted"></i><a href="mailto:@_detail.Email" class="text-primary">@_detail.Email</a></span>
+            }
+            @if (!string.IsNullOrWhiteSpace(_detail.Website))
+            {
+                <span><i class="bi bi-globe me-1 text-muted"></i>@_detail.Website</span>
+            }
+        </div>
+        @if (!string.IsNullOrWhiteSpace(_detail.AccountNumber) || !string.IsNullOrWhiteSpace(_detail.PaymentTerms))
+        {
+            <div class="d-flex gap-3 mt-1 text-muted" style="font-size:0.75rem;">
+                @if (!string.IsNullOrWhiteSpace(_detail.AccountNumber)) { <span>Acct: @_detail.AccountNumber</span> }
+                @if (!string.IsNullOrWhiteSpace(_detail.PaymentTerms)) { <span>Terms: @_detail.PaymentTerms</span> }
+            </div>
+        }
+    </div>
+
+    <!-- Linked Products -->
+    @if (_detail.Products.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Products (@_detail.Products.Count)</div>
+            @foreach (var p in _detail.Products)
+            {
+                <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid #f0f0f0; cursor:pointer;" @onclick='() => Nav.NavigateTo("/products")'>
+                    <div>
+                        <div style="font-size:0.8rem; font-weight:500;">@p.Name</div>
+                        @if (!string.IsNullOrWhiteSpace(p.Brand)) { <div class="text-muted" style="font-size:0.7rem;">@p.Brand</div> }
+                    </div>
+                    <div class="text-end" style="font-size:0.78rem;">
+                        <div>Cost: @p.Cost.ToString("C")</div>
+                        <div class="text-muted">Price: @p.Price.ToString("C")</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Linked Inventory -->
+    @if (_detail.Inventory.Any())
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Inventory (@_detail.Inventory.Count)</div>
+            @foreach (var i in _detail.Inventory)
+            {
+                <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid #f0f0f0; cursor:pointer;" @onclick='() => Nav.NavigateTo("/inventory")'>
+                    <div>
+                        <div style="font-size:0.8rem; font-weight:500;">@i.Name</div>
+                        @if (!string.IsNullOrWhiteSpace(i.SKU)) { <div class="text-muted" style="font-size:0.7rem;">SKU: @i.SKU</div> }
+                    </div>
+                    <div class="text-end" style="font-size:0.78rem;">
+                        <div>Qty: @i.Quantity</div>
+                        <div class="text-muted">@i.Cost.ToString("C")/ea</div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.78rem;"><strong>Notes:</strong> @_detail.Notes</div>
+        </div>
+    }
+
+    <!-- Actions -->
+    <div class="mobile-card mb-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="StartEdit"><i class="bi bi-pencil me-1"></i>Edit</button>
+            @if (_detail.IsActive)
+            {
+                <button class="btn btn-sm btn-outline-warning flex-fill" @onclick="ArchiveSupplier"><i class="bi bi-archive me-1"></i>Deactivate</button>
+            }
+            else
+            {
+                <button class="btn btn-sm btn-outline-success flex-fill" @onclick="RestoreSupplier"><i class="bi bi-arrow-counterclockwise me-1"></i>Reactivate</button>
+            }
+        </div>
+    </div>
+}
+else if (_mode == "edit" && _detail != null)
+{
+    <!-- Edit Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick='() => _mode = "detail"'><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Edit Supplier</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.Name" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Contact Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.ContactName" placeholder="Primary contact" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Phone</label>
+                <input type="tel" class="form-control form-control-sm" @bind="_editForm.Phone" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Email</label>
+                <input type="email" class="form-control form-control-sm" @bind="_editForm.Email" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Website</label>
+            <input type="url" class="form-control form-control-sm" @bind="_editForm.Website" placeholder="https://" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Account #</label>
+                <input type="text" class="form-control form-control-sm" @bind="_editForm.AccountNumber" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Payment Terms</label>
+                <select class="form-select form-select-sm" @bind="_editForm.PaymentTerms">
+                    <option value="">— Select —</option>
+                    <option value="Due on Receipt">Due on Receipt</option>
+                    <option value="Net 15">Net 15</option>
+                    <option value="Net 30">Net 30</option>
+                    <option value="Net 45">Net 45</option>
+                    <option value="Net 60">Net 60</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Notes" placeholder="Notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick='() => _mode = "detail"'>Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Update
+        </button>
+    </div>
+}
+else if (_mode == "create")
+{
+    <!-- Create Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">New Supplier</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_createForm.Name" placeholder="Supplier name" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Contact Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_createForm.ContactName" placeholder="Primary contact" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Phone</label>
+                <input type="tel" class="form-control form-control-sm" @bind="_createForm.Phone" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Email</label>
+                <input type="email" class="form-control form-control-sm" @bind="_createForm.Email" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Website</label>
+            <input type="url" class="form-control form-control-sm" @bind="_createForm.Website" placeholder="https://" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Account #</label>
+                <input type="text" class="form-control form-control-sm" @bind="_createForm.AccountNumber" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Payment Terms</label>
+                <select class="form-select form-select-sm" @bind="_createForm.PaymentTerms">
+                    <option value="">— Select —</option>
+                    <option value="Due on Receipt">Due on Receipt</option>
+                    <option value="Net 15">Net 15</option>
+                    <option value="Net 30">Net 30</option>
+                    <option value="Net 45">Net 45</option>
+                    <option value="Net 60">Net 60</option>
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_createForm.Notes" placeholder="Notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="BackToList">Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveCreate" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Create Supplier
+        </button>
+    </div>
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-truck me-1"></i>Suppliers</span>
+        <button class="btn btn-primary btn-sm" @onclick="ShowCreate"><i class="bi bi-plus-lg me-1"></i>New Supplier</button>
+    </div>
+
+    @if (_stats != null)
+    {
+        <div class="gap-grid mb-2">
+            <div class="stat-card">
+                <div class="stat-icon text-primary"><i class="bi bi-truck"></i></div>
+                <div class="stat-value">@_stats.TotalSuppliers</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-success"><i class="bi bi-check-circle"></i></div>
+                <div class="stat-value">@_stats.ActiveCount</div>
+                <div class="stat-label">Active</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-secondary"><i class="bi bi-pause-circle"></i></div>
+                <div class="stat-value">@_stats.InactiveCount</div>
+                <div class="stat-label">Inactive</div>
+            </div>
+        </div>
+    }
+
+    <div class="mobile-card mb-2" style="padding:0.5rem 0.75rem;">
+        <div class="d-flex gap-2">
+            <input type="text" class="form-control form-control-sm flex-fill" placeholder="Search suppliers..." @bind="_filter.Search" @bind:event="oninput" @bind:after="LoadSuppliers" />
+            <div class="form-check d-flex align-items-center gap-1 ms-1" style="font-size:0.7rem;">
+                <input type="checkbox" class="form-check-input" id="showArchived" @bind="_filter.ShowArchived" @bind:after="LoadSuppliers" />
+                <label class="form-check-label" for="showArchived">All</label>
+            </div>
+        </div>
+    </div>
+
+    @if (_suppliers.Any())
+    {
+        @foreach (var s in _suppliers)
+        {
+            <div class="mobile-card mb-1" style="cursor:pointer;" @onclick="() => ViewDetail(s.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi bi-truck text-muted" style="font-size:0.85rem;"></i>
+                            <span style="font-size:0.85rem; font-weight:600;">@s.Name</span>
+                            @if (!s.IsActive)
+                            {
+                                <span class="badge bg-secondary" style="font-size:0.55rem;">Inactive</span>
+                            }
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-1 text-muted" style="font-size:0.7rem;">
+                            @if (!string.IsNullOrWhiteSpace(s.ContactName)) { <span>@s.ContactName</span> }
+                            @if (!string.IsNullOrWhiteSpace(s.Phone)) { <span>· @s.Phone</span> }
+                            @if (!string.IsNullOrWhiteSpace(s.PaymentTerms)) { <span>· @s.PaymentTerms</span> }
+                        </div>
+                    </div>
+                    <div class="text-end text-muted" style="font-size:0.7rem;">
+                        @if (s.LinkedProductCount > 0) { <div>@s.LinkedProductCount product@(s.LinkedProductCount != 1 ? "s" : "")</div> }
+                        @if (s.LinkedInventoryCount > 0) { <div>@s.LinkedInventoryCount item@(s.LinkedInventoryCount != 1 ? "s" : "")</div> }
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-truck d-block" style="font-size:2rem;"></i>
+            <p>No suppliers found</p>
+        </div>
+    }
+}
+
+@code {
+    private string _mode = "list";
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+
+    private MobileSupplierStats? _stats;
+    private List<MobileSupplierCard> _suppliers = [];
+    private MobileSupplierDetail? _detail;
+    private MobileSupplierCreate _createForm = new();
+    private MobileSupplierUpdate _editForm = new();
+    private MobileSupplierFilter _filter = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _stats = await SupplierSvc.GetStatsAsync();
+        await LoadSuppliers();
+    }
+
+    private async Task LoadSuppliers() => _suppliers = await SupplierSvc.GetSuppliersAsync(_filter);
+
+    private async Task ViewDetail(int id)
+    {
+        _detail = await SupplierSvc.GetSupplierDetailAsync(id);
+        if (_detail != null) _mode = "detail";
+    }
+
+    private void ShowCreate()
+    {
+        _createForm = new MobileSupplierCreate();
+        _error = null;
+        _mode = "create";
+    }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(_createForm.Name)) { _error = "Supplier name is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            var id = await SupplierSvc.CreateSupplierAsync(_createForm);
+            await LoadData();
+            await ViewDetail(id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private void StartEdit()
+    {
+        if (_detail is null) return;
+        _editForm = new MobileSupplierUpdate
+        {
+            Name = _detail.Name, ContactName = _detail.ContactName,
+            Phone = _detail.Phone, Email = _detail.Email,
+            Website = _detail.Website, AccountNumber = _detail.AccountNumber,
+            PaymentTerms = _detail.PaymentTerms, Notes = _detail.Notes,
+            IsActive = _detail.IsActive,
+        };
+        _error = null;
+        _mode = "edit";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_detail is null) return;
+        if (string.IsNullOrWhiteSpace(_editForm.Name)) { _error = "Supplier name is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            await SupplierSvc.UpdateSupplierAsync(_detail.Id, _editForm);
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ArchiveSupplier()
+    {
+        if (_detail is null) return;
+        await SupplierSvc.ArchiveSupplierAsync(_detail.Id);
+        await ViewDetail(_detail.Id);
+    }
+
+    private async Task RestoreSupplier()
+    {
+        if (_detail is null) return;
+        await SupplierSvc.RestoreSupplierAsync(_detail.Id);
+        await ViewDetail(_detail.Id);
+    }
+
+    private async Task BackToList() { _mode = "list"; _detail = null; await LoadData(); }
+}

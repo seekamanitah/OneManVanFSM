@@ -1,0 +1,335 @@
+@page "/data-management"
+@inject IMobileDataManagementService DataSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-database-gear me-1"></i>Data Management</span>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="Refresh"><i class="bi bi-arrow-clockwise"></i></button>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_message))
+    {
+        <div class="alert @(_messageSuccess ? "alert-success" : "alert-danger") py-2 d-flex align-items-center gap-2 mb-2" style="font-size:0.8rem;">
+            <i class="bi @(_messageSuccess ? "bi-check-circle-fill" : "bi-exclamation-circle-fill")"></i>
+            <span>@_message</span>
+            <button class="btn-close ms-auto" style="font-size:0.5rem;" @onclick='() => _message = null'></button>
+        </div>
+    }
+
+    <!-- Database Stats -->
+    @if (_stats != null)
+    {
+        <div class="mobile-card mb-2">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <div style="font-size:0.8rem; font-weight:600;">Database Overview</div>
+                <span class="badge bg-primary" style="font-size:0.7rem;">@_stats.DatabaseSizeFormatted</span>
+            </div>
+            <div class="row g-1" style="font-size:0.78rem;">
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Customers</span><span class="fw-bold">@_stats.CustomerCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Jobs</span><span class="fw-bold">@_stats.JobCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Invoices</span><span class="fw-bold">@_stats.InvoiceCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Estimates</span><span class="fw-bold">@_stats.EstimateCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Inventory</span><span class="fw-bold">@_stats.InventoryItemCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Products</span><span class="fw-bold">@_stats.ProductCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Assets</span><span class="fw-bold">@_stats.AssetCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Employees</span><span class="fw-bold">@_stats.EmployeeCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Suppliers</span><span class="fw-bold">@_stats.SupplierCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Expenses</span><span class="fw-bold">@_stats.ExpenseCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Time Entries</span><span class="fw-bold">@_stats.TimeEntryCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Notes</span><span class="fw-bold">@_stats.NoteCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Documents</span><span class="fw-bold">@_stats.DocumentCount</span></div>
+                <div class="col-6 d-flex justify-content-between"><span class="text-muted">Agreements</span><span class="fw-bold">@_stats.AgreementCount</span></div>
+            </div>
+        </div>
+    }
+
+    <!-- Backup -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;"><i class="bi bi-download me-1"></i>Backup</div>
+        <p style="font-size:0.75rem;" class="text-muted mb-2">Create a snapshot of your local database. Backups are stored on this device.</p>
+        <button class="btn btn-sm btn-primary w-100" @onclick="CreateBackup" disabled="@_busy">
+            @if (_busy && _action == "backup") { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-hdd me-1"></i>Create Backup
+        </button>
+    </div>
+
+    <!-- Restore -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;"><i class="bi bi-upload me-1"></i>Restore</div>
+        @if (_backups.Any())
+        {
+            <p style="font-size:0.75rem;" class="text-muted mb-2">Restore from a previous backup. This will replace all current data.</p>
+            @foreach (var backup in _backups)
+            {
+                var fileName = Path.GetFileName(backup);
+                var capturedBackup = backup;
+                <div class="d-flex justify-content-between align-items-center py-1" style="border-bottom:1px solid #f0f0f0;">
+                    <div>
+                        <div style="font-size:0.8rem; font-weight:500;">@fileName</div>
+                        <div style="font-size:0.65rem;" class="text-muted">@FormatFileDate(backup) — @FormatFileSize(backup)</div>
+                    </div>
+                    @if (_confirmRestore == backup)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-danger" style="font-size:0.7rem; padding:2px 8px;" @onclick="() => RestoreBackup(capturedBackup)" disabled="@_busy">Confirm</button>
+                            <button class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem; padding:2px 8px;" @onclick="() => _confirmRestore = null">Cancel</button>
+                        </div>
+                    }
+                    else if (_confirmDeleteBackup == backup)
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-danger" style="font-size:0.7rem; padding:2px 8px;" @onclick="() => DeleteBackup(capturedBackup)" disabled="@_busy">Delete</button>
+                            <button class="btn btn-sm btn-outline-secondary" style="font-size:0.7rem; padding:2px 8px;" @onclick="() => _confirmDeleteBackup = null">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="d-flex gap-1">
+                            <button class="btn btn-sm btn-outline-primary" style="font-size:0.7rem; padding:2px 8px;" @onclick="() => _confirmRestore = capturedBackup"><i class="bi bi-arrow-counterclockwise me-1"></i>Restore</button>
+                            <button class="btn btn-sm btn-outline-danger" style="font-size:0.7rem; padding:2px 6px;" @onclick="() => _confirmDeleteBackup = capturedBackup" title="Delete"><i class="bi bi-trash"></i></button>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_backups.Count > 1)
+            {
+                <div class="mt-2">
+                    <button class="btn btn-sm btn-outline-warning w-100" @onclick="CleanupBackups" disabled="@_busy" style="font-size:0.75rem;">
+                        <i class="bi bi-trash3 me-1"></i>Cleanup: Keep Last @_maxBackups, Delete > @_retentionDays Days
+                    </button>
+                </div>
+            }
+        }
+        else
+        {
+            <p style="font-size:0.75rem;" class="text-muted mb-0">No backups available. Create a backup first.</p>
+        }
+
+        <div class="mt-2 d-flex gap-2" style="font-size:0.75rem;">
+            <div class="d-flex align-items-center gap-1">
+                <label class="text-muted">Keep max:</label>
+                <input type="number" class="form-control form-control-sm" style="width:60px; font-size:0.75rem;" min="1" max="50" @bind="_maxBackups" />
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <label class="text-muted">Retain days:</label>
+                <input type="number" class="form-control form-control-sm" style="width:60px; font-size:0.75rem;" min="7" max="365" @bind="_retentionDays" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Demo Data -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;"><i class="bi bi-box-seam me-1"></i>Demo Data</div>
+        <p style="font-size:0.75rem;" class="text-muted mb-2">Load sample data to explore the app. Includes customers, jobs, products, inventory, and suppliers.</p>
+        <button class="btn btn-sm btn-outline-primary w-100" @onclick="SeedDemo" disabled="@(_busy || _hasData)">
+            @if (_busy && _action == "seed") { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-box-seam me-1"></i>@(_hasData ? "Demo Data Already Loaded" : "Load Demo Data")
+        </button>
+    </div>
+
+    <!-- Purge (Danger Zone) -->
+    <div class="mobile-card mb-2" style="border-left:3px solid #dc3545;">
+        <div style="font-size:0.8rem; font-weight:600; color:#dc3545; margin-bottom:0.3rem;"><i class="bi bi-exclamation-triangle-fill me-1"></i>Danger Zone</div>
+        <p style="font-size:0.75rem;" class="text-muted mb-2">Permanently delete ALL data from the local database. This cannot be undone unless you restore from a backup.</p>
+        @if (_confirmPurge)
+        {
+            <div class="alert alert-danger py-2 mb-2" style="font-size:0.78rem;">
+                <strong>Are you sure?</strong> This will permanently erase all data.
+            </div>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary flex-fill" @onclick="() => _confirmPurge = false">Cancel</button>
+                <button class="btn btn-sm btn-danger flex-fill" @onclick="PurgeDatabase" disabled="@_busy">
+                    @if (_busy && _action == "purge") { <span class="spinner-border spinner-border-sm me-1"></span> }
+                    <i class="bi bi-trash3 me-1"></i>Yes, Purge Everything
+                </button>
+            </div>
+        }
+        else
+        {
+            <button class="btn btn-sm btn-outline-danger w-100" @onclick="() => _confirmPurge = true" disabled="@_busy">
+                <i class="bi bi-trash3 me-1"></i>Purge All Data
+            </button>
+        }
+    </div>
+}
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private string? _action;
+    private string? _message;
+    private bool _messageSuccess;
+    private bool _hasData;
+    private bool _confirmPurge;
+    private string? _confirmRestore;
+    private string? _confirmDeleteBackup;
+    private int _maxBackups = 10;
+    private int _retentionDays = 90;
+
+    private MobileDataStats? _stats;
+    private List<string> _backups = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+        _loading = false;
+    }
+
+    private async Task LoadAll()
+    {
+        _stats = await DataSvc.GetDataStatsAsync();
+        _hasData = await DataSvc.HasDataAsync();
+        _backups = await DataSvc.GetAvailableBackupsAsync();
+    }
+
+    private async Task Refresh()
+    {
+        _message = null;
+        await LoadAll();
+    }
+
+    private async Task CreateBackup()
+    {
+        try
+        {
+            _busy = true; _action = "backup"; _message = null;
+            var path = await DataSvc.BackupDatabaseAsync();
+            _messageSuccess = true;
+            _message = $"Backup created: {Path.GetFileName(path)}";
+            _backups = await DataSvc.GetAvailableBackupsAsync();
+        }
+        catch (Exception ex)
+        {
+            _messageSuccess = false;
+            _message = $"Backup failed: {ex.Message}";
+        }
+        finally { _busy = false; _action = null; }
+    }
+
+    private async Task RestoreBackup(string path)
+    {
+        try
+        {
+            _busy = true; _action = "restore"; _message = null; _confirmRestore = null;
+            var success = await DataSvc.RestoreDatabaseAsync(path);
+            if (success)
+            {
+                _messageSuccess = true;
+                _message = "Database restored successfully. Restart the app to ensure all data loads correctly.";
+                await LoadAll();
+            }
+            else
+            {
+                _messageSuccess = false;
+                _message = "Restore failed — backup file not found.";
+            }
+        }
+        catch (Exception ex)
+        {
+            _messageSuccess = false;
+            _message = $"Restore failed: {ex.Message}";
+        }
+        finally { _busy = false; _action = null; }
+    }
+
+    private async Task SeedDemo()
+    {
+        try
+        {
+            _busy = true; _action = "seed"; _message = null;
+            var seeded = await DataSvc.SeedDemoDataAsync();
+            _messageSuccess = seeded;
+            _message = seeded ? "Demo data loaded successfully!" : "Data already exists — cannot load demo data.";
+            await LoadAll();
+        }
+        catch (Exception ex)
+        {
+            _messageSuccess = false;
+            _message = $"Seed failed: {ex.Message}";
+        }
+        finally { _busy = false; _action = null; }
+    }
+
+    private async Task PurgeDatabase()
+    {
+        try
+        {
+            _busy = true; _action = "purge"; _message = null; _confirmPurge = false;
+            await DataSvc.PurgeDatabaseAsync();
+            _messageSuccess = true;
+            _message = "All data has been permanently deleted.";
+            await LoadAll();
+        }
+        catch (Exception ex)
+        {
+            _messageSuccess = false;
+            _message = $"Purge failed: {ex.Message}";
+        }
+        finally { _busy = false; _action = null; }
+    }
+
+    private static string FormatFileDate(string filePath)
+    {
+        try
+        {
+            var info = new FileInfo(filePath);
+            return info.CreationTime.ToString("MMM dd, yyyy h:mm tt");
+        }
+        catch { return "Unknown"; }
+    }
+
+    private static string FormatFileSize(string filePath)
+    {
+        try
+        {
+            var info = new FileInfo(filePath);
+            if (info.Length < 1024) return $"{info.Length} B";
+            if (info.Length < 1048576) return $"{info.Length / 1024.0:F1} KB";
+            return $"{info.Length / 1048576.0:F1} MB";
+        }
+        catch { return ""; }
+    }
+
+    private async Task DeleteBackup(string path)
+    {
+        try
+        {
+            _busy = true; _action = "delete"; _confirmDeleteBackup = null;
+            var ok = await DataSvc.DeleteBackupAsync(path);
+            _messageSuccess = ok;
+            _message = ok ? $"Backup deleted: {Path.GetFileName(path)}" : "Backup not found.";
+            _backups = await DataSvc.GetAvailableBackupsAsync();
+        }
+        catch (Exception ex)
+        {
+            _messageSuccess = false;
+            _message = $"Delete failed: {ex.Message}";
+        }
+        finally { _busy = false; _action = null; }
+    }
+
+    private async Task CleanupBackups()
+    {
+        try
+        {
+            _busy = true; _action = "cleanup"; _message = null;
+            var deleted = await DataSvc.CleanupOldBackupsAsync(_maxBackups, _retentionDays);
+            _messageSuccess = true;
+            _message = deleted > 0 ? $"Cleaned up {deleted} old backup(s)." : "No backups needed cleanup.";
+            _backups = await DataSvc.GetAvailableBackupsAsync();
+        }
+        catch (Exception ex)
+        {
+            _messageSuccess = false;
+            _message = $"Cleanup failed: {ex.Message}";
+        }
+        finally { _busy = false; _action = null; }
+    }
+}

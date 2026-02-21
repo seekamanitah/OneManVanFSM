@@ -307,7 +307,10 @@ public class DashboardService(AppDbContext db, IServiceAgreementService agreemen
             .Where(p => p.PaymentDate >= timeEntriesStart)
             .SumAsync(p => p.Amount);
         var totalOutstanding = await db.Invoices
-            .Where(i => !i.IsArchived && i.BalanceDue > 0 && i.Status != InvoiceStatus.Void)
+            .Where(i => !i.IsArchived
+                && i.BalanceDue > 0
+                && i.Status != InvoiceStatus.Paid
+                && i.Status != InvoiceStatus.Void)
             .SumAsync(i => i.BalanceDue);
         var activeCustomerCount = await db.Customers.CountAsync(c => !c.IsArchived);
         var activeAgreementCount = await db.ServiceAgreements
