@@ -23,6 +23,7 @@ public interface IEmployeeService
     Task<TimeEntry> AddManualTimeEntryAsync(int employeeId, int? jobId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType = TimeEntryType.Shift, string? timeCategory = null);
     Task<bool> UpdateTimeEntryAsync(int entryId, DateTime start, DateTime end, bool isBillable, string? notes, TimeEntryType entryType, string? timeCategory);
     Task<bool> DeleteTimeEntryAsync(int entryId);
+    Task<PayApprovalResult> ApprovePayPeriodAsync(int employeeId, DateTime periodStart, DateTime periodEnd, decimal? flatRateOverride = null);
 }
 
 public class EmployeeFilter
@@ -150,6 +151,16 @@ public class PayPeriodSummary
     public decimal FlatRateTotal { get; set; }
     public decimal TotalPay { get; set; }
     public List<PayPeriodJobEntry> Jobs { get; set; } = [];
+    public bool IsApproved { get; set; }
+    public int? ExpenseId { get; set; }
+}
+
+public class PayApprovalResult
+{
+    public bool Success { get; set; }
+    public int ExpenseId { get; set; }
+    public decimal TotalPay { get; set; }
+    public string? ErrorMessage { get; set; }
 }
 
 public class PayPeriodJobEntry

@@ -646,7 +646,7 @@ else
     private bool _expBulkMsgIsError;
     private bool _allExpensesSelected => expenses is not null && expenses.Count > 0 && expenses.All(e => _selectedExpenseIds.Contains(e.Id));
 
-    private List<string> _expenseCategories = ["Materials", "Equipment", "Tools", "Fuel", "Vehicle", "Disposal", "Permits", "Supplies", "Subcontractor", "Insurance", "Office", "Travel", "Training", "Uniforms", "Refrigerant", "Other"];
+    private List<string> _expenseCategories = ["Materials", "Equipment", "Tools", "Fuel", "Vehicle", "Disposal", "Permits", "Supplies", "Subcontractor", "Insurance", "Office", "Travel", "Training", "Uniforms", "Refrigerant", "Payroll", "Other"];
     private List<string> _paymentMethods = ["Cash", "Check", "Card", "ACH", "Zelle", "Company Card", "Other"];
     private List<string> _expenseStatuses = Enum.GetValues<ExpenseStatus>().Select(s => s.ToString()).ToList();
     private List<string> _expenseLineTypes = ["Material", "Equipment", "Fuel", "Disposal", "Permit", "Subcontractor", "Fee", "Other"];
