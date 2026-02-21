@@ -17,6 +17,13 @@ public class CompanyProfile
     public decimal DefaultTaxRate { get; set; } = 0m;
     public string DefaultPrintTemplate { get; set; } = "Classic";
 
+    // Auto-backup settings
+    public bool AutoBackupEnabled { get; set; }
+    public string AutoBackupFrequency { get; set; } = "Daily"; // Daily, Weekly, Monthly
+    public int AutoBackupMaxCount { get; set; } = 10;
+    public int AutoBackupRetentionDays { get; set; } = 90;
+    public DateTime? LastAutoBackup { get; set; }
+
     // SMTP configuration
     public string SmtpHost { get; set; } = "";
     public int SmtpPort { get; set; } = 587;

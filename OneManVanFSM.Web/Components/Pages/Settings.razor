@@ -1293,6 +1293,40 @@ else if (tab == "data")
 
             <hr class="my-3" />
 
+            @* Automatic Backup Settings *@
+            <h6 class="mb-2"><i class="bi bi-clock-history me-1"></i>Automatic Backups</h6>
+            <p class="small text-muted mb-2">Schedule automatic backups with retention policies. Backups are saved to the server's Backups folder and old ones are automatically cleaned up.</p>
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="autoBackupToggle" @bind="_autoBackupEnabled" />
+                        <label class="form-check-label" for="autoBackupToggle">Enable Auto-Backup</label>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Frequency</label>
+                    <select class="form-select form-select-sm" @bind="_autoBackupFrequency" disabled="@(!_autoBackupEnabled)">
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly">Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Max Backups to Keep</label>
+                    <input type="number" class="form-control form-control-sm" min="1" max="100" @bind="_autoBackupMaxCount" disabled="@(!_autoBackupEnabled)" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small">Retention (Days)</label>
+                    <input type="number" class="form-control form-control-sm" min="7" max="365" @bind="_autoBackupRetentionDays" disabled="@(!_autoBackupEnabled)" />
+                </div>
+            </div>
+            <small class="text-muted d-block mt-1">
+                <i class="bi bi-info-circle me-1"></i>Backups older than @_autoBackupRetentionDays days OR exceeding @_autoBackupMaxCount total are automatically deleted (whichever condition is met first, always keeping at least 1).
+                Save Company Profile above to apply changes.
+            </small>
+
+            <hr class="my-3" />
+
             @* Purge & Reset Section *@
             <h6 class="mb-2 text-danger"><i class="bi bi-radioactive me-1"></i>Purge & Reset Database</h6>
             <p class="small text-muted">Deletes ALL data from every table (customers, jobs, invoices, etc.) and re-creates the default admin account. A backup is automatically saved before purging.</p>
@@ -1427,6 +1461,12 @@ private Dictionary<string, bool> notificationSettings = new()
     private ImportPreview? importPreview;
     private bool isProcessing;
     private string? processingAction;
+
+    // Auto-backup settings
+    private bool _autoBackupEnabled;
+    private string _autoBackupFrequency = "Daily";
+    private int _autoBackupMaxCount = 10;
+    private int _autoBackupRetentionDays = 90;
 
     // Template management state
     private List<TemplateListItem>? _templateList;
@@ -2286,6 +2326,10 @@ private Dictionary<string, bool> notificationSettings = new()
                     _smtpPassword = profile.GetValueOrDefault("SmtpPassword", "");
                     _smtpUseSsl = !profile.TryGetValue("SmtpUseSsl", out var ssl) || ssl != "false";
                     _publicBaseUrl = profile.GetValueOrDefault("PublicBaseUrl", "");
+                    _autoBackupEnabled = profile.GetValueOrDefault("AutoBackupEnabled", "false") == "true";
+                    _autoBackupFrequency = profile.GetValueOrDefault("AutoBackupFrequency", "Daily");
+                    _autoBackupMaxCount = int.TryParse(profile.GetValueOrDefault("AutoBackupMaxCount", "10"), out var maxCount) ? maxCount : 10;
+                    _autoBackupRetentionDays = int.TryParse(profile.GetValueOrDefault("AutoBackupRetentionDays", "90"), out var retDays) ? retDays : 90;
                 }
             }
         }
@@ -2313,6 +2357,10 @@ private Dictionary<string, bool> notificationSettings = new()
                 ["SmtpPassword"] = _smtpPassword,
                 ["SmtpUseSsl"] = _smtpUseSsl.ToString().ToLower(),
                 ["PublicBaseUrl"] = _publicBaseUrl,
+                ["AutoBackupEnabled"] = _autoBackupEnabled.ToString().ToLower(),
+                ["AutoBackupFrequency"] = _autoBackupFrequency,
+                ["AutoBackupMaxCount"] = _autoBackupMaxCount.ToString(),
+                ["AutoBackupRetentionDays"] = _autoBackupRetentionDays.ToString(),
             };
             var json = System.Text.Json.JsonSerializer.Serialize(profile, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(CompanyProfilePath, json);

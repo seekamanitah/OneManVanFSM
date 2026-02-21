@@ -9,6 +9,8 @@ public interface IMobileDataManagementService
     Task<string> BackupDatabaseAsync();
     Task<bool> RestoreDatabaseAsync(string backupPath);
     Task<List<string>> GetAvailableBackupsAsync();
+    Task<bool> DeleteBackupAsync(string backupPath);
+    Task<int> CleanupOldBackupsAsync(int maxCount, int retentionDays);
 }
 
 public class MobileDataStats

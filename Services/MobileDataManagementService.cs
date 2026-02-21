@@ -191,4 +191,46 @@ public class MobileDataManagementService(AppDbContext db) : IMobileDataManagemen
 
         return Task.FromResult(backups);
     }
+
+    public Task<bool> DeleteBackupAsync(string backupPath)
+    {
+        if (!File.Exists(backupPath))
+            return Task.FromResult(false);
+
+        try
+        {
+            File.Delete(backupPath);
+            return Task.FromResult(true);
+        }
+        catch
+        {
+            return Task.FromResult(false);
+        }
+    }
+
+    public Task<int> CleanupOldBackupsAsync(int maxCount, int retentionDays)
+    {
+        var backupDir = Path.Combine(FileSystem.AppDataDirectory, "Backups");
+        if (!Directory.Exists(backupDir))
+            return Task.FromResult(0);
+
+        var backupFiles = Directory.GetFiles(backupDir, "*.db")
+            .Select(f => new FileInfo(f))
+            .OrderByDescending(f => f.CreationTimeUtc)
+            .ToList();
+
+        var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
+        var deleted = 0;
+
+        for (int i = 0; i < backupFiles.Count; i++)
+        {
+            var file = backupFiles[i];
+            if (i > 0 && (i >= maxCount || file.CreationTimeUtc < cutoffDate))
+            {
+                try { file.Delete(); deleted++; } catch { }
+            }
+        }
+
+        return Task.FromResult(deleted);
+    }
 }

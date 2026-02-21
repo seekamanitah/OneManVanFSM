@@ -31,6 +31,11 @@ public class CompanyProfileService : ICompanyProfileService
                         SmtpPassword = dict.GetValueOrDefault("SmtpPassword", ""),
                         SmtpUseSsl = !dict.TryGetValue("SmtpUseSsl", out var ssl) || ssl != "false",
                         PublicBaseUrl = dict.GetValueOrDefault("PublicBaseUrl", null),
+                        AutoBackupEnabled = dict.GetValueOrDefault("AutoBackupEnabled", "false") == "true",
+                        AutoBackupFrequency = dict.GetValueOrDefault("AutoBackupFrequency", "Daily"),
+                        AutoBackupMaxCount = int.TryParse(dict.GetValueOrDefault("AutoBackupMaxCount", "10"), out var maxBackups) ? maxBackups : 10,
+                        AutoBackupRetentionDays = int.TryParse(dict.GetValueOrDefault("AutoBackupRetentionDays", "90"), out var retDays) ? retDays : 90,
+                        LastAutoBackup = DateTime.TryParse(dict.GetValueOrDefault("LastAutoBackup", ""), out var lastBak) ? lastBak : null,
                     };
                 }
             }
