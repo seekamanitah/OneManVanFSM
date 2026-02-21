@@ -1,0 +1,538 @@
+@page "/material-lists"
+@inject IMobileMaterialListService ListSvc
+@inject NavigationManager Nav
+
+@if (_loading)
+{
+    <div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div></div>
+}
+else if (_mode == "detail" && _detail != null)
+{
+    <!-- Detail View -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">List Detail</span>
+        <span class="badge ms-auto @GetStatusBadge(_detail.Status)" style="font-size:0.7rem;">@_detail.Status</span>
+    </div>
+
+    <div class="mobile-card mb-2">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+                <div style="font-size:0.9rem; font-weight:700;">@_detail.Name</div>
+                @if (_detail.IsTemplate) { <span class="badge bg-info bg-opacity-10 text-info" style="font-size:0.65rem;">Template</span> }
+                @if (!string.IsNullOrWhiteSpace(_detail.TradeType)) { <span class="badge bg-light text-dark" style="font-size:0.65rem;">@_detail.TradeType</span> }
+            </div>
+            <div style="font-size:1.1rem; font-weight:700; color:var(--primary);">@_detail.Total.ToString("C")</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 mb-1" style="font-size:0.78rem;">
+            @if (!string.IsNullOrWhiteSpace(_detail.JobNumber)) { <span><i class="bi bi-briefcase me-1 text-muted"></i>@_detail.JobNumber</span> }
+            @if (!string.IsNullOrWhiteSpace(_detail.CustomerName)) { <span><i class="bi bi-person me-1 text-muted"></i>@_detail.CustomerName</span> }
+            @if (!string.IsNullOrWhiteSpace(_detail.PONumber)) { <span><i class="bi bi-hash me-1 text-muted"></i>PO: @_detail.PONumber</span> }
+        </div>
+        @if (_detail.MarkupPercent > 0 || _detail.TaxPercent > 0)
+        {
+            <div class="d-flex gap-3 text-muted" style="font-size:0.7rem;">
+                @if (_detail.MarkupPercent > 0) { <span>Markup: @_detail.MarkupPercent%</span> }
+                @if (_detail.TaxPercent > 0) { <span>Tax: @_detail.TaxPercent%</span> }
+                @if (_detail.ContingencyPercent > 0) { <span>Contingency: @_detail.ContingencyPercent%</span> }
+            </div>
+        }
+    </div>
+
+    <!-- Items -->
+    <div class="mobile-card mb-2">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <div style="font-size:0.8rem; font-weight:600;">Items (@_detail.Items.Count)</div>
+            <button class="btn btn-sm btn-outline-primary" style="font-size:0.7rem; padding:2px 8px;" @onclick="ShowAddItem"><i class="bi bi-plus-lg me-1"></i>Add</button>
+        </div>
+        @if (_detail.Items.Any())
+        {
+            @foreach (var grouped in _detail.Items.GroupBy(i => i.Section ?? "General"))
+            {
+                <div style="font-size:0.7rem; font-weight:600; color:var(--primary); margin-top:0.3rem;">@grouped.Key</div>
+                @foreach (var item in grouped)
+                {
+                    <div class="d-flex justify-content-between align-items-start py-1" style="border-bottom:1px solid #f0f0f0;">
+                        <div style="min-width:0; flex:1;">
+                            <div style="font-size:0.8rem; font-weight:500;">@item.ItemName</div>
+                            <div style="font-size:0.7rem;" class="text-muted">
+                                @item.Quantity @(item.Unit ?? "ea") × @item.BaseCost.ToString("C")
+                                @if (item.LaborHours > 0) { <span>· @item.LaborHours hr labor</span> }
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-center gap-1">
+                            <span style="font-size:0.8rem; font-weight:600;">@((item.FlatPrice > 0 ? item.FlatPrice * item.Quantity : item.BaseCost * item.Quantity).ToString("C"))</span>
+                            <button class="btn btn-sm btn-outline-danger" style="font-size:0.6rem; padding:1px 4px;" @onclick="() => RemoveItem(item.Id)"><i class="bi bi-x"></i></button>
+                        </div>
+                    </div>
+                }
+            }
+        }
+        else
+        {
+            <div class="text-muted text-center py-2" style="font-size:0.78rem;">No items yet</div>
+        }
+    </div>
+
+    @if (!string.IsNullOrWhiteSpace(_detail.Notes))
+    {
+        <div class="mobile-card mb-2">
+            <div style="font-size:0.78rem;"><strong>Notes:</strong> @_detail.Notes</div>
+        </div>
+    }
+
+    <!-- Actions -->
+    <div class="mobile-card mb-2">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.3rem;">Actions</div>
+        <div class="d-flex gap-2 flex-wrap">
+            @if (_detail.Status == MaterialListStatus.Draft)
+            {
+                <button class="btn btn-sm btn-outline-success flex-fill" @onclick='() => ChangeStatus(MaterialListStatus.Approved)'><i class="bi bi-check-circle me-1"></i>Approve</button>
+            }
+            <button class="btn btn-sm btn-outline-primary flex-fill" @onclick="StartEdit"><i class="bi bi-pencil me-1"></i>Edit</button>
+            <button class="btn btn-sm btn-outline-danger flex-fill" @onclick="() => _deleteConfirm = true"><i class="bi bi-trash3 me-1"></i>Delete</button>
+        </div>
+        @if (_deleteConfirm)
+        {
+            <div class="alert alert-danger py-2 d-flex align-items-center gap-2 mt-2" style="font-size:0.8rem;">
+                <span>Delete this list?</span>
+                <button class="btn btn-sm btn-danger" style="font-size:0.75rem; padding:2px 10px;" @onclick="DeleteList">Yes</button>
+                <button class="btn btn-sm btn-outline-secondary" style="font-size:0.75rem; padding:2px 10px;" @onclick="() => _deleteConfirm = false">No</button>
+            </div>
+        }
+    </div>
+}
+else if (_mode == "add-item" && _detail != null)
+{
+    <!-- Add Item -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick='() => _mode = "detail"'><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Add Item</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Item Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_newItem.ItemName" placeholder="Item name" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Section</label>
+            <input type="text" class="form-control form-control-sm" @bind="_newItem.Section" placeholder="e.g., Ductwork, Grills" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Qty</label>
+                <input type="number" class="form-control form-control-sm" @bind="_newItem.Quantity" />
+            </div>
+            <div class="col-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Unit</label>
+                <input type="text" class="form-control form-control-sm" @bind="_newItem.Unit" placeholder="ea" />
+            </div>
+            <div class="col-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Cost</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_newItem.BaseCost" />
+            </div>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Labor Hours</label>
+                <input type="number" class="form-control form-control-sm" step="0.25" @bind="_newItem.LaborHours" />
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Flat Price</label>
+                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_newItem.FlatPrice" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <input type="text" class="form-control form-control-sm" @bind="_newItem.Notes" placeholder="Optional notes" />
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick='() => _mode = "detail"'>Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveItem" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-plus-circle me-1"></i>Add Item
+        </button>
+    </div>
+}
+else if (_mode == "edit" && _detail != null)
+{
+    <!-- Edit Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick='() => _mode = "detail"'><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">Edit List</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.Name" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Trade Type</label>
+                <select class="form-select form-select-sm" @bind="_editForm.TradeType">
+                    <option value="HVAC">HVAC</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Pricing</label>
+                <select class="form-select form-select-sm" @bind="_editForm.PricingMethod">
+                    @foreach (var pm in Enum.GetValues<PricingMethod>())
+                    {
+                        <option value="@pm">@pm</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Markup %</label>
+                <input type="number" class="form-control form-control-sm" step="0.1" @bind="_editForm.MarkupPercent" />
+            </div>
+            <div class="col-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Tax %</label>
+                <input type="number" class="form-control form-control-sm" step="0.1" @bind="_editForm.TaxPercent" />
+            </div>
+            <div class="col-4">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Conting. %</label>
+                <input type="number" class="form-control form-control-sm" step="0.1" @bind="_editForm.ContingencyPercent" />
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">PO Number</label>
+            <input type="text" class="form-control form-control-sm" @bind="_editForm.PONumber" placeholder="Optional" />
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Notes" placeholder="Notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick='() => _mode = "detail"'>Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Update
+        </button>
+    </div>
+}
+else if (_mode == "create")
+{
+    <!-- Create Form -->
+    <div class="d-flex align-items-center mb-2">
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
+        <span style="font-size:0.95rem; font-weight:700;">New Material List</span>
+    </div>
+    <div class="mobile-card mb-2">
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name</label>
+            <input type="text" class="form-control form-control-sm" @bind="_createForm.Name" placeholder="List name" />
+        </div>
+        <div class="row g-2 mb-2">
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Trade Type</label>
+                <select class="form-select form-select-sm" @bind="_createForm.TradeType">
+                    <option value="HVAC">HVAC</option>
+                    <option value="Plumbing">Plumbing</option>
+                    <option value="Electrical">Electrical</option>
+                    <option value="General">General</option>
+                </select>
+            </div>
+            <div class="col-6">
+                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Pricing</label>
+                <select class="form-select form-select-sm" @bind="_createForm.PricingMethod">
+                    @foreach (var pm in Enum.GetValues<PricingMethod>())
+                    {
+                        <option value="@pm">@pm</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Linked Job</label>
+            <select class="form-select form-select-sm" @bind="_createForm.JobId">
+                <option value="">— None —</option>
+                @foreach (var j in _jobs)
+                {
+                    <option value="@j.Id">@j.JobNumber — @(j.Title ?? "Untitled")</option>
+                }
+            </select>
+        </div>
+        <div class="form-check mb-2">
+            <input type="checkbox" class="form-check-input" id="isTemplate" @bind="_createForm.IsTemplate" />
+            <label class="form-check-label" for="isTemplate" style="font-size:0.78rem;">Save as template</label>
+        </div>
+        <div class="mb-2">
+            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
+            <textarea class="form-control form-control-sm" rows="2" @bind="_createForm.Notes" placeholder="Notes..."></textarea>
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(_error))
+    {
+        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+    }
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="BackToList">Cancel</button>
+        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveCreate" disabled="@_saving">
+            @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
+            <i class="bi bi-check-circle me-1"></i>Create List
+        </button>
+    </div>
+}
+else
+{
+    <!-- List View -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-list-check me-1"></i>Material Lists</span>
+        <button class="btn btn-primary btn-sm" @onclick="ShowCreate"><i class="bi bi-plus-lg me-1"></i>New List</button>
+    </div>
+
+    @if (_stats != null)
+    {
+        <div class="gap-grid mb-2">
+            <div class="stat-card">
+                <div class="stat-icon text-primary"><i class="bi bi-list-check"></i></div>
+                <div class="stat-value">@_stats.TotalLists</div>
+                <div class="stat-label">Total</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-warning"><i class="bi bi-pencil-square"></i></div>
+                <div class="stat-value">@_stats.DraftCount</div>
+                <div class="stat-label">Drafts</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-info"><i class="bi bi-clipboard-data"></i></div>
+                <div class="stat-value">@_stats.TemplateCount</div>
+                <div class="stat-label">Templates</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon text-success"><i class="bi bi-currency-dollar"></i></div>
+                <div class="stat-value">@_stats.TotalValue.ToString("C0")</div>
+                <div class="stat-label">Value</div>
+            </div>
+        </div>
+    }
+
+    <div class="mobile-card mb-2" style="padding:0.5rem 0.75rem;">
+        <input type="text" class="form-control form-control-sm" placeholder="Search lists..." @bind="_filter.Search" @bind:event="oninput" @bind:after="LoadLists" />
+    </div>
+
+    <div class="d-flex gap-1 flex-wrap mb-2">
+        <button class="btn btn-sm @(!_filter.Status.HasValue ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(null)">All</button>
+        @foreach (var s in Enum.GetValues<MaterialListStatus>())
+        {
+            <button class="btn btn-sm @(_filter.Status == s ? "btn-primary" : "btn-outline-secondary")" style="border-radius:20px; font-size:0.7rem; padding:2px 10px;" @onclick="() => FilterStatus(s)">@s</button>
+        }
+    </div>
+
+    @if (_lists.Any())
+    {
+        @foreach (var list in _lists)
+        {
+            <div class="mobile-card mb-1" style="cursor:pointer;" @onclick="() => ViewDetail(list.Id)">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div style="min-width:0; flex:1;">
+                        <div class="d-flex align-items-center gap-1">
+                            <i class="bi bi-list-check text-muted" style="font-size:0.85rem;"></i>
+                            <span style="font-size:0.85rem; font-weight:600;">@list.Name</span>
+                            @if (list.IsTemplate) { <span class="badge bg-info bg-opacity-10 text-info" style="font-size:0.55rem;">Template</span> }
+                        </div>
+                        <div class="d-flex flex-wrap gap-2 mt-1 text-muted" style="font-size:0.7rem;">
+                            <span>@list.ItemCount items</span>
+                            @if (!string.IsNullOrWhiteSpace(list.TradeType)) { <span>· @list.TradeType</span> }
+                            @if (!string.IsNullOrWhiteSpace(list.JobNumber)) { <span>· @list.JobNumber</span> }
+                            @if (!string.IsNullOrWhiteSpace(list.CustomerName)) { <span>· @list.CustomerName</span> }
+                        </div>
+                    </div>
+                    <div class="text-end">
+                        <div style="font-size:0.9rem; font-weight:700;">@list.GrandTotal.ToString("C")</div>
+                        <span class="badge @GetStatusBadge(list.Status)" style="font-size:0.6rem;">@list.Status</span>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="empty-state">
+            <i class="bi bi-list-check d-block" style="font-size:2rem;"></i>
+            <p>No material lists found</p>
+        </div>
+    }
+}
+
+@code {
+    private string _mode = "list";
+    private bool _loading = true;
+    private bool _saving;
+    private string? _error;
+    private bool _deleteConfirm;
+
+    private MobileMaterialListStats? _stats;
+    private List<MobileMaterialListCard> _lists = [];
+    private MobileMaterialListDetail? _detail;
+    private MobileMaterialListCreate _createForm = new();
+    private MobileMaterialListUpdate _editForm = new();
+    private MobileMaterialListItemCreate _newItem = new();
+    private MobileMaterialListFilter _filter = new();
+    private List<MobileJobOption> _jobs = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+        _loading = false;
+    }
+
+    private async Task LoadData()
+    {
+        _stats = await ListSvc.GetStatsAsync();
+        await LoadLists();
+    }
+
+    private async Task LoadLists() => _lists = await ListSvc.GetListsAsync(_filter);
+
+    private async Task ViewDetail(int id)
+    {
+        _detail = await ListSvc.GetListDetailAsync(id);
+        if (_detail != null) _mode = "detail";
+    }
+
+    private void ShowCreate()
+    {
+        _createForm = new MobileMaterialListCreate();
+        _error = null;
+        _mode = "create";
+        _ = LoadJobOptions();
+    }
+
+    private async Task LoadJobOptions()
+    {
+        _jobs = await ListSvc.GetJobOptionsAsync();
+        StateHasChanged();
+    }
+
+    private async Task SaveCreate()
+    {
+        if (string.IsNullOrWhiteSpace(_createForm.Name)) { _error = "Name is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            var id = await ListSvc.CreateListAsync(_createForm);
+            await LoadData();
+            await ViewDetail(id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private void StartEdit()
+    {
+        if (_detail is null) return;
+        _editForm = new MobileMaterialListUpdate
+        {
+            Name = _detail.Name,
+            TradeType = _detail.TradeType,
+            PricingMethod = _detail.PricingMethod,
+            MarkupPercent = _detail.MarkupPercent,
+            TaxPercent = _detail.TaxPercent,
+            ContingencyPercent = _detail.ContingencyPercent,
+            Notes = _detail.Notes,
+            PONumber = _detail.PONumber,
+            JobId = _detail.JobId,
+            CustomerId = _detail.CustomerId,
+            SiteId = _detail.SiteId,
+        };
+        _error = null;
+        _mode = "edit";
+    }
+
+    private async Task SaveEdit()
+    {
+        if (_detail is null) return;
+        if (string.IsNullOrWhiteSpace(_editForm.Name)) { _error = "Name is required."; return; }
+        try
+        {
+            _saving = true; _error = null;
+            await ListSvc.UpdateListAsync(_detail.Id, _editForm);
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task ChangeStatus(MaterialListStatus status)
+    {
+        if (_detail is null) return;
+        await ListSvc.UpdateStatusAsync(_detail.Id, status);
+        await ViewDetail(_detail.Id);
+    }
+
+    private async Task DeleteList()
+    {
+        if (_detail is null) return;
+        _deleteConfirm = false;
+        await ListSvc.DeleteListAsync(_detail.Id);
+        await BackToList();
+    }
+
+    private void ShowAddItem()
+    {
+        _newItem = new MobileMaterialListItemCreate();
+        _error = null;
+        _mode = "add-item";
+    }
+
+    private async Task SaveItem()
+    {
+        if (string.IsNullOrWhiteSpace(_newItem.ItemName)) { _error = "Item name is required."; return; }
+        if (_detail is null) return;
+        try
+        {
+            _saving = true; _error = null;
+            await ListSvc.AddItemAsync(_detail.Id, _newItem);
+            await ViewDetail(_detail.Id);
+        }
+        catch (Exception ex) { _error = ex.Message; }
+        finally { _saving = false; }
+    }
+
+    private async Task RemoveItem(int itemId)
+    {
+        if (_detail is null) return;
+        await ListSvc.RemoveItemAsync(_detail.Id, itemId);
+        await ViewDetail(_detail.Id);
+    }
+
+    private async Task BackToList()
+    {
+        _mode = "list";
+        _detail = null;
+        await LoadData();
+    }
+
+    private async Task FilterStatus(MaterialListStatus? status)
+    {
+        _filter.Status = status;
+        await LoadLists();
+    }
+
+    private static string GetStatusBadge(MaterialListStatus s) => s switch
+    {
+        MaterialListStatus.Draft => "bg-warning text-dark",
+        MaterialListStatus.Approved => "bg-success",
+        MaterialListStatus.Ordered => "bg-info",
+        MaterialListStatus.Completed => "bg-primary",
+        MaterialListStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary",
+    };
+}

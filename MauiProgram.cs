@@ -93,6 +93,9 @@ namespace OneManVanFSM
                 builder.Services.AddScoped<IMobilePdfService, MobilePdfService>();
                 builder.Services.AddScoped<IMobileQrCodeService, MobileQrCodeService>();
                 builder.Services.AddScoped<IMobilePhotoService, MobilePhotoService>();
+                builder.Services.AddScoped<IMobileMaterialListService, MobileMaterialListService>();
+                builder.Services.AddScoped<IMobileServiceHistoryService, MobileServiceHistoryService>();
+                builder.Services.AddScoped<IMobileFinancialService, MobileFinancialService>();
 
                 System.Diagnostics.Debug.WriteLine("[DI] Remote mode \u2014 registered API-backed services.");
             }
@@ -121,6 +124,9 @@ namespace OneManVanFSM
                 builder.Services.AddScoped<IMobilePdfService, MobilePdfService>();
                 builder.Services.AddScoped<IMobileQrCodeService, MobileQrCodeService>();
                 builder.Services.AddScoped<IMobilePhotoService, MobilePhotoService>();
+                builder.Services.AddScoped<IMobileMaterialListService, MobileMaterialListService>();
+                builder.Services.AddScoped<IMobileServiceHistoryService, MobileServiceHistoryService>();
+                builder.Services.AddScoped<IMobileFinancialService, MobileFinancialService>();
 
                 System.Diagnostics.Debug.WriteLine("[DI] Local mode \u2014 registered direct-DB services.");
             }
