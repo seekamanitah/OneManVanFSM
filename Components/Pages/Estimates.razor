@@ -105,7 +105,7 @@
                         </div>
                         <div class="text-end" style="white-space:nowrap;">
                             <span style="font-size:0.85rem; font-weight:600;">@line.LineTotal.ToString("C")</span>
-                            <div class="text-muted" style="font-size:0.7rem;">@line.Quantity × @line.UnitPrice.ToString("C")</div>
+                            <div class="text-muted" style="font-size:0.7rem;">@line.Quantity ï¿½ @line.UnitPrice.ToString("C")</div>
                         </div>
                     </div>
                 }
@@ -287,73 +287,94 @@ else if (!Id.HasValue)
 {
     @if (_showCreate)
     {
-        <div class="mobile-card" style="padding:0.75rem;">
-            @if (_isElevatedRole)
-            {
-                <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-calculator me-1"></i>New Estimate</h6>
-                <div class="mb-1">
-                    <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Title *" @bind="_fullEstimate.Title" />
+        @if (_isElevatedRole)
+        {
+            <!-- Full Estimate Bottom Sheet (Elevated Role) -->
+            <div class="form-sheet-backdrop" @onclick="() => _showCreate = false"></div>
+            <div class="form-sheet" @onclick:stopPropagation="true">
+                <div class="form-sheet-handle"></div>
+                <div class="form-sheet-header">
+                    <span class="form-sheet-title"><i class="bi bi-calculator-fill"></i>New Estimate</span>
+                    <button class="form-sheet-close" @onclick="() => _showCreate = false"><i class="bi bi-x"></i></button>
                 </div>
-                <div class="mb-1">
-                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullEstimate.CustomerId">
-                        <option value="">Customer (optional)</option>
-                        @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
-                    </select>
+
+                <div class="fs-section">Estimate Info</div>
+                <div class="fs-field">
+                    <label>Title *</label>
+                    <input type="text" class="form-control" placeholder="Estimate title" @bind="_fullEstimate.Title" />
                 </div>
-                <div class="mb-1">
-                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullEstimate.SiteId">
-                        <option value="">Site (optional)</option>
-                        @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
-                    </select>
+                <div class="fs-field">
+                    <label>Customer</label>
+                    <div class="fs-input-group">
+                        <i class="bi bi-person"></i>
+                        <select class="form-select" @bind="_fullEstimate.CustomerId">
+                            <option value="">Customer (optional)</option>
+                            @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
+                        </select>
+                    </div>
                 </div>
-                <div class="row g-1 mb-1">
-                    <div class="col-6">
-                        <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullEstimate.TradeType">
+                <div class="fs-field">
+                    <label>Site</label>
+                    <div class="fs-input-group">
+                        <i class="bi bi-geo-alt"></i>
+                        <select class="form-select" @bind="_fullEstimate.SiteId">
+                            <option value="">Site (optional)</option>
+                            @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="fs-row">
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Trade Type</label>
+                        <select class="form-select" @bind="_fullEstimate.TradeType">
                             <option value="">Trade Type</option>
                             <option value="HVAC">HVAC</option>
                             <option value="Plumbing">Plumbing</option>
                             <option value="Electrical">Electrical</option>
                         </select>
                     </div>
-                    <div class="col-6">
-                        <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullEstimate.Priority">
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Priority</label>
+                        <select class="form-select" @bind="_fullEstimate.Priority">
                             @foreach (var p in Enum.GetValues<JobPriority>()) { <option value="@p">@p</option> }
                         </select>
                     </div>
                 </div>
-                <div class="row g-1 mb-1">
-                    <div class="col-6">
-                        <label style="font-size:0.75rem;" class="text-muted">Expiry Date</label>
-                        <input type="date" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_fullEstimate.ExpiryDate" />
+                <div class="fs-row">
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Expiry Date</label>
+                        <div class="fs-input-group">
+                            <i class="bi bi-calendar3"></i>
+                            <input type="date" class="form-control" @bind="_fullEstimate.ExpiryDate" />
+                        </div>
                     </div>
-                    <div class="col-6">
-                        <label style="font-size:0.75rem;" class="text-muted">System Type</label>
-                        <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="e.g. Split, Heat Pump" @bind="_fullEstimate.SystemType" />
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>System Type</label>
+                        <input type="text" class="form-control" placeholder="e.g. Split, Heat Pump" @bind="_fullEstimate.SystemType" />
                     </div>
                 </div>
 
-                <!-- Line Items -->
-                <div class="d-flex justify-content-between align-items-center mt-2 mb-1">
-                    <span style="font-size:0.8rem; font-weight:600;">Line Items (@_fullEstimate.Lines.Count)</span>
-                    <button class="btn btn-sm btn-outline-primary" style="font-size:0.7rem; padding:2px 8px;" @onclick="AddEstimateLine">
-                        <i class="bi bi-plus me-1"></i>Add
+                <div class="fs-section">
+                    <span>Line Items (@_fullEstimate.Lines.Count)</span>
+                    <button class="btn btn-sm btn-outline-primary ms-auto" style="font-size:0.7rem; padding:2px 8px; border-radius:8px;" @onclick="AddEstimateLine">
+                        <i class="bi bi-plus me-1"></i>Add Line
                     </button>
                 </div>
                 @for (var idx = 0; idx < _fullEstimate.Lines.Count; idx++)
                 {
                     var i = idx;
                     var line = _fullEstimate.Lines[i];
-                    <div class="border rounded p-2 mb-1" style="background:#f8f9fa; font-size:0.85rem;">
+                    <div class="border rounded p-2 mb-2" style="background:#f8f9fa; border-radius:10px !important;">
                         <div class="d-flex justify-content-between align-items-center mb-1">
-                            <span class="fw-semibold" style="font-size:0.75rem;">Item @(i + 1)</span>
-                            <button class="btn btn-sm btn-outline-danger" style="font-size:0.65rem; padding:1px 5px;" @onclick="() => RemoveEstimateLine(i)">
-                                <i class="bi bi-x"></i>
+                            <span class="fw-semibold" style="font-size:0.75rem; color:#6c757d;">Line @(i + 1)</span>
+                            <button class="btn btn-sm btn-outline-danger" style="font-size:0.65rem; padding:1px 6px; border-radius:6px;" @onclick="() => RemoveEstimateLine(i)">
+                                <i class="bi bi-trash3"></i>
                             </button>
                         </div>
-                        <input type="text" class="form-control mb-1" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Description *" @bind="line.Description" />
+                        <input type="text" class="form-control mb-1" style="border-radius:8px; font-size:0.85rem;" placeholder="Description *" @bind="line.Description" />
                         <div class="row g-1">
                             <div class="col-4">
-                                <select class="form-select" style="min-height:34px; font-size:0.8rem; padding:4px 6px;" @bind="line.LineType">
+                                <select class="form-select" style="border-radius:8px; font-size:0.8rem;" @bind="line.LineType">
                                     <option value="Labor">Labor</option>
                                     <option value="Material">Material</option>
                                     <option value="Equipment">Equipment</option>
@@ -361,10 +382,10 @@ else if (!Id.HasValue)
                                 </select>
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Qty" @bind="line.Quantity" step="0.5" min="0.1" />
+                                <input type="number" class="form-control" style="border-radius:8px; font-size:0.85rem;" placeholder="Qty" @bind="line.Quantity" step="0.5" min="0.1" />
                             </div>
                             <div class="col-4">
-                                <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" placeholder="Price" @bind="line.UnitPrice" step="0.01" min="0" />
+                                <input type="number" class="form-control" style="border-radius:8px; font-size:0.85rem;" placeholder="$ Price" @bind="line.UnitPrice" step="0.01" min="0" />
                             </div>
                         </div>
                         <div class="text-end mt-1" style="font-size:0.75rem; color:var(--primary); font-weight:600;">
@@ -373,98 +394,126 @@ else if (!Id.HasValue)
                     </div>
                 }
 
-                <!-- Pricing -->
-                <div class="row g-1 mb-1 mt-2">
-                    <div class="col-4">
-                        <label style="font-size:0.75rem;" class="text-muted">Markup %</label>
-                        <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" @bind="_fullEstimate.MarkupPercent" step="1" min="0" />
+                <div class="fs-section">Pricing</div>
+                <div class="fs-row-3">
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Markup %</label>
+                        <input type="number" class="form-control" @bind="_fullEstimate.MarkupPercent" step="1" min="0" />
                     </div>
-                    <div class="col-4">
-                        <label style="font-size:0.75rem;" class="text-muted">Tax %</label>
-                        <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" @bind="_fullEstimate.TaxPercent" step="0.1" min="0" />
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Tax %</label>
+                        <input type="number" class="form-control" @bind="_fullEstimate.TaxPercent" step="0.1" min="0" />
                     </div>
-                    <div class="col-4">
-                        <label style="font-size:0.75rem;" class="text-muted">Deposit $</label>
-                        <input type="number" class="form-control" style="min-height:34px; font-size:0.85rem; padding:4px 8px;" @bind="_fullEstimate.DepositRequired" step="10" min="0" />
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Deposit $</label>
+                        <input type="number" class="form-control" @bind="_fullEstimate.DepositRequired" step="10" min="0" />
                     </div>
                 </div>
 
-                <!-- Calculated Total Preview -->
-                <div class="border rounded p-2 mb-1" style="background:#e8f5e9; font-size:0.8rem;">
-                    <div class="d-flex justify-content-between"><span class="text-muted">Subtotal</span><span>@EstPreviewSubtotal.ToString("C")</span></div>
+                <div class="mobile-card mb-2" style="background:#f0faf3; padding:0.65rem 0.85rem;">
+                    <div class="d-flex justify-content-between" style="font-size:0.8rem;"><span class="text-muted">Subtotal</span><span>@EstPreviewSubtotal.ToString("C")</span></div>
                     @if (_fullEstimate.MarkupPercent > 0)
                     {
-                        <div class="d-flex justify-content-between"><span class="text-muted">Markup (@_fullEstimate.MarkupPercent%)</span><span>@EstPreviewMarkup.ToString("C")</span></div>
+                        <div class="d-flex justify-content-between" style="font-size:0.8rem;"><span class="text-muted">Markup (@_fullEstimate.MarkupPercent%)</span><span>@EstPreviewMarkup.ToString("C")</span></div>
                     }
                     @if (_fullEstimate.TaxPercent > 0)
                     {
-                        <div class="d-flex justify-content-between"><span class="text-muted">Tax (@_fullEstimate.TaxPercent%)</span><span>@EstPreviewTax.ToString("C")</span></div>
+                        <div class="d-flex justify-content-between" style="font-size:0.8rem;"><span class="text-muted">Tax (@_fullEstimate.TaxPercent%)</span><span>@EstPreviewTax.ToString("C")</span></div>
                     }
                     <hr class="my-1" />
-                    <div class="d-flex justify-content-between fw-bold"><span>Total</span><span>@EstPreviewTotal.ToString("C")</span></div>
+                    <div class="d-flex justify-content-between fw-bold" style="font-size:0.88rem;"><span>Total</span><span class="text-primary">@EstPreviewTotal.ToString("C")</span></div>
                 </div>
 
-                <div class="mb-1">
-                    <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_fullEstimate.Notes"></textarea>
+                <div class="fs-field">
+                    <label>Notes</label>
+                    <textarea class="form-control" rows="2" placeholder="Notes (optional)" @bind="_fullEstimate.Notes"></textarea>
                 </div>
-                <div class="d-flex gap-2 mt-1">
-                    <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveEstimate" disabled="@string.IsNullOrWhiteSpace(_fullEstimate.Title)">
+
+                @if (_saveError != null)
+                {
+                    <div class="alert alert-danger py-1 mb-0" style="font-size:0.78rem; border-radius:10px;">@_saveError</div>
+                }
+                <div class="fs-actions">
+                    <button class="btn btn-outline-secondary flex-shrink-0" @onclick="() => _showCreate = false">Cancel</button>
+                    <button class="btn btn-primary flex-fill" @onclick="SaveEstimate" disabled="@string.IsNullOrWhiteSpace(_fullEstimate.Title)">
                         <i class="bi bi-check-lg me-1"></i>Create Estimate
                     </button>
-                    <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
                 </div>
-            }
-            else
-            {
-                <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-calculator me-1"></i>Quick Draft Estimate</h6>
-                <div class="mb-1">
-                    <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Title *" @bind="_newEstimate.Title" />
+            </div>
+        }
+        else
+        {
+            <!-- Quick Draft Bottom Sheet (Standard Role) -->
+            <div class="form-sheet-backdrop" @onclick="() => _showCreate = false"></div>
+            <div class="form-sheet" @onclick:stopPropagation="true">
+                <div class="form-sheet-handle"></div>
+                <div class="form-sheet-header">
+                    <span class="form-sheet-title"><i class="bi bi-calculator-fill"></i>Quick Draft Estimate</span>
+                    <button class="form-sheet-close" @onclick="() => _showCreate = false"><i class="bi bi-x"></i></button>
                 </div>
-                <div class="mb-1">
-                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newEstimate.CustomerId">
-                        <option value="">Customer (optional)</option>
-                        @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
-                    </select>
+
+                <div class="fs-section">Estimate Info</div>
+                <div class="fs-field">
+                    <label>Title *</label>
+                    <input type="text" class="form-control" placeholder="Estimate title" @bind="_newEstimate.Title" />
                 </div>
-                <div class="mb-1">
-                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newEstimate.SiteId">
-                        <option value="">Site (optional)</option>
-                        @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
-                    </select>
+                <div class="fs-field">
+                    <label>Customer</label>
+                    <div class="fs-input-group">
+                        <i class="bi bi-person"></i>
+                        <select class="form-select" @bind="_newEstimate.CustomerId">
+                            <option value="">Customer (optional)</option>
+                            @foreach (var c in _custOpts) { <option value="@c.Id">@c.Name</option> }
+                        </select>
+                    </div>
                 </div>
-                <div class="row g-1 mb-1">
-                    <div class="col-6">
-                        <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newEstimate.TradeType">
+                <div class="fs-field">
+                    <label>Site</label>
+                    <div class="fs-input-group">
+                        <i class="bi bi-geo-alt"></i>
+                        <select class="form-select" @bind="_newEstimate.SiteId">
+                            <option value="">Site (optional)</option>
+                            @foreach (var s in _siteOpts) { <option value="@s.Id">@s.Name</option> }
+                        </select>
+                    </div>
+                </div>
+                <div class="fs-row">
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Trade Type</label>
+                        <select class="form-select" @bind="_newEstimate.TradeType">
                             <option value="">Trade Type</option>
                             <option value="HVAC">HVAC</option>
                             <option value="Plumbing">Plumbing</option>
                             <option value="Electrical">Electrical</option>
                         </select>
                     </div>
-                    <div class="col-6">
-                        <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newEstimate.Priority">
+                    <div class="fs-field" style="margin-bottom:0;">
+                        <label>Priority</label>
+                        <select class="form-select" @bind="_newEstimate.Priority">
                             @foreach (var p in Enum.GetValues<JobPriority>()) { <option value="@p">@p</option> }
                         </select>
                     </div>
                 </div>
-                <div class="mb-1">
-                    <textarea class="form-control" rows="2" style="min-height:auto; font-size:0.9rem; padding:6px 10px;" placeholder="Notes (optional)" @bind="_newEstimate.Notes"></textarea>
+                <div class="fs-field">
+                    <label>Notes</label>
+                    <textarea class="form-control" rows="2" placeholder="Notes (optional)" @bind="_newEstimate.Notes"></textarea>
                 </div>
-                <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
-                    <i class="bi bi-info-circle me-1"></i>Creates a Draft estimate. Add line items, pricing, and deposit details on the web app.
+                <div class="alert alert-info py-1 px-2 mb-0" style="font-size:0.75rem; border-radius:10px;">
+                    <i class="bi bi-info-circle me-1"></i>Creates a Draft. Add line items &amp; pricing on the web app.
                 </div>
-                <div class="d-flex gap-2 mt-1">
-                    <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveEstimate" disabled="@string.IsNullOrWhiteSpace(_newEstimate.Title)">
+
+                @if (_saveError != null)
+                {
+                    <div class="alert alert-danger py-1 mt-2 mb-0" style="font-size:0.78rem; border-radius:10px;">@_saveError</div>
+                }
+                <div class="fs-actions">
+                    <button class="btn btn-outline-secondary flex-shrink-0" @onclick="() => _showCreate = false">Cancel</button>
+                    <button class="btn btn-primary flex-fill" @onclick="SaveEstimate" disabled="@string.IsNullOrWhiteSpace(_newEstimate.Title)">
                         <i class="bi bi-check-lg me-1"></i>Create Draft
                     </button>
-                    <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
                 </div>
-            }
-            @if (_saveError != null)
-            {
-                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
-            }
-        </div>
+            </div>
+        }
     }
 
     <!-- Estimate List View -->
@@ -476,7 +525,7 @@ else if (!Id.HasValue)
                 <option value="@s">@s</option>
             }
         </select>
-        <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search estimates…"
+        <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search estimatesï¿½"
                @bind="_search" @bind:event="oninput" @bind:after="LoadEstimates" />
         <button class="btn btn-outline-secondary btn-sm" @onclick="LoadEstimates" title="Refresh">
             <i class="bi bi-arrow-clockwise"></i>
@@ -511,7 +560,7 @@ else if (!Id.HasValue)
                 <div class="d-flex justify-content-between align-items-center mt-1">
                     <span class="fw-bold" style="font-size:0.95rem;">@est.Total.ToString("C")</span>
                     <span class="text-muted" style="font-size:0.7rem;">
-                        @est.LineCount line@(est.LineCount != 1 ? "s" : "") · @est.CreatedAt.ToString("MMM dd")
+                        @est.LineCount line@(est.LineCount != 1 ? "s" : "") ï¿½ @est.CreatedAt.ToString("MMM dd")
                     </span>
                 </div>
                 @if (est.ExpiryDate.HasValue)
@@ -540,12 +589,9 @@ else if (!Id.HasValue)
         </div>
     }
 
-    @if (!_showCreate)
-    {
-        <button class="fab" title="New Estimate" @onclick="ShowCreateEstimate">
-            <i class="bi bi-plus-lg"></i>
-        </button>
-    }
+    <button class="fab" title="New Estimate" @onclick="ShowCreateEstimate">
+        <i class="bi bi-plus-lg"></i>
+    </button>
 }
 else
 {

@@ -1197,3 +1197,264 @@ html, body {
 [data-theme="dark"] .fab {
     box-shadow: 0 4px 12px rgba(0,0,0,.5);
 }
+
+/* ── Bottom Sheet (Slide-Up Forms) ───────────────────────────────────── */
+.form-sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.42);
+    z-index: 1040;
+    animation: fsBackdropIn 0.22s ease;
+}
+
+@keyframes fsBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.form-sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--bottom-nav-height);
+    max-height: 88vh;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    z-index: 1041;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: 0 -6px 32px rgba(0,0,0,.18);
+    animation: fsSlideUp 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    padding: 0 1rem 1.25rem;
+}
+
+@keyframes fsSlideUp {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+.form-sheet-handle {
+    width: 38px;
+    height: 4px;
+    background: #dee2e6;
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+}
+
+.form-sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 0 0.65rem;
+    border-bottom: 1px solid #f0f2f5;
+    margin-bottom: 0.85rem;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 1;
+}
+
+.form-sheet-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1a1d23;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0;
+}
+
+.form-sheet-title i {
+    color: var(--primary);
+    font-size: 1.05rem;
+}
+
+.form-sheet-close {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #f1f3f5;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6c757d;
+    font-size: 0.9rem;
+    transition: background 0.15s;
+    flex-shrink: 0;
+}
+
+.form-sheet-close:hover { background: #e2e6ea; }
+
+/* Field section label inside a form sheet */
+.fs-section {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #8a93a2;
+    margin: 1rem 0 0.45rem;
+    display: flex;
+    align-items: center;
+}
+
+/* Compact two-column grid for side-by-side fields */
+.fs-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+}
+
+.fs-row-3 {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 0.5rem;
+    margin-bottom: 0.55rem;
+}
+
+/* Icon prefix on inputs */
+.fs-input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.fs-input-group > i {
+    position: absolute;
+    left: 10px;
+    color: #adb5bd;
+    font-size: 0.85rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.fs-input-group > .form-control,
+.fs-input-group > .form-select {
+    padding-left: 2rem;
+}
+
+/* Floating-label wrapper for form sheets */
+.fs-field {
+    position: relative;
+    margin-bottom: 0.55rem;
+}
+
+.fs-field label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #6c757d;
+    margin-bottom: 0.2rem;
+    display: block;
+}
+
+.fs-field .form-control,
+.fs-field .form-select {
+    min-height: 42px;
+    font-size: 0.88rem;
+    border-radius: 10px;
+    border-color: #dee2e6;
+    padding: 0.5rem 0.75rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.fs-field .form-control:focus,
+.fs-field .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13,110,253,.12);
+}
+
+.fs-field textarea.form-control {
+    min-height: auto;
+    resize: none;
+}
+
+/* Live total display inside a sheet */
+.fs-total-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(13,110,253,.08);
+    color: var(--primary-dark);
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.35rem 0.75rem;
+    border-radius: 20px;
+    margin-bottom: 0.55rem;
+}
+
+/* Submit / cancel action row */
+.fs-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid #f0f2f5;
+    margin-top: 0.5rem;
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    padding-bottom: 0.25rem;
+}
+
+.fs-actions .btn {
+    min-height: 44px;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+/* Dark mode support */
+[data-theme="dark"] .form-sheet {
+    background: var(--dm-card);
+}
+
+[data-theme="dark"] .form-sheet-header {
+    background: var(--dm-card);
+    border-bottom-color: var(--dm-border);
+}
+
+[data-theme="dark"] .form-sheet-title {
+    color: var(--dm-text);
+}
+
+[data-theme="dark"] .form-sheet-close {
+    background: #2a2a3e;
+    color: var(--dm-text-muted);
+}
+
+[data-theme="dark"] .form-sheet-close:hover {
+    background: #333350;
+}
+
+[data-theme="dark"] .fs-section {
+    color: var(--dm-text-muted);
+}
+
+[data-theme="dark"] .fs-field label {
+    color: var(--dm-text-muted);
+}
+
+[data-theme="dark"] .fs-field .form-control,
+[data-theme="dark"] .fs-field .form-select {
+    background-color: var(--dm-input-bg);
+    border-color: var(--dm-border);
+    color: var(--dm-text);
+}
+
+[data-theme="dark"] .fs-field .form-control:focus,
+[data-theme="dark"] .fs-field .form-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(13,110,253,.2);
+}
+
+[data-theme="dark"] .fs-total-badge {
+    background: rgba(13,110,253,.15);
+    color: #6ea8fe;
+}
+
+[data-theme="dark"] .fs-actions {
+    background: var(--dm-card);
+    border-top-color: var(--dm-border);
+}

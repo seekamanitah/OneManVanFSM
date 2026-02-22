@@ -116,146 +116,173 @@ else if (_mode == "detail" && _detailItem != null)
 else if (_mode == "edit" && _detailItem != null)
 {
     <!-- Edit Form -->
-    <div class="d-flex align-items-center mb-2">
+    <div class="d-flex align-items-center mb-3">
         <button class="btn btn-sm btn-outline-secondary me-2" @onclick="CancelEdit"><i class="bi bi-arrow-left"></i></button>
-        <span style="font-size:0.95rem; font-weight:700;">Edit Item</span>
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-pencil-fill text-primary me-1"></i>Edit Item</span>
     </div>
 
-    <div class="mobile-card mb-2" style="padding:0.75rem;">
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Name *</label>
-            <input type="text" class="form-control form-control-sm" @bind="_editItem.Name" />
+    <div class="mobile-card mb-2" style="padding:0.85rem;">
+        <div class="fs-section" style="margin-top:0;">Identity</div>
+        <div class="fs-field">
+            <label>Name *</label>
+            <input type="text" class="form-control" @bind="_editItem.Name" />
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">SKU</label>
-                <input type="text" class="form-control form-control-sm" @bind="_editItem.SKU" />
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>SKU</label>
+                <input type="text" class="form-control" @bind="_editItem.SKU" />
             </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Part Number</label>
-                <input type="text" class="form-control form-control-sm" @bind="_editItem.PartNumber" />
-            </div>
-        </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Category</label>
-                <input type="text" class="form-control form-control-sm" @bind="_editItem.Category" placeholder="e.g. Fittings, Filters" />
-            </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Unit</label>
-                <input type="text" class="form-control form-control-sm" @bind="_editItem.Unit" placeholder="e.g. Each, Box" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Part Number</label>
+                <input type="text" class="form-control" @bind="_editItem.PartNumber" />
             </div>
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Location</label>
-                <select class="form-select form-select-sm" @bind="_editItem.Location">
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Category</label>
+                <input type="text" class="form-control" @bind="_editItem.Category" placeholder="e.g. Fittings" />
+            </div>
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Unit</label>
+                <input type="text" class="form-control" @bind="_editItem.Unit" placeholder="e.g. Each, Box" />
+            </div>
+        </div>
+
+        <div class="fs-section">Location</div>
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Location</label>
+                <select class="form-select" @bind="_editItem.Location">
                     @foreach (var loc in Enum.GetValues<InventoryLocation>()) { <option value="@loc">@loc</option> }
                 </select>
             </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Shelf / Bin</label>
-                <input type="text" class="form-control form-control-sm" @bind="_editItem.ShelfBin" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Shelf / Bin</label>
+                <input type="text" class="form-control" @bind="_editItem.ShelfBin" />
             </div>
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-4">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Qty</label>
-                <input type="number" step="1" min="0" class="form-control form-control-sm" @bind="_editItem.Quantity" />
+
+        <div class="fs-section">Stock &amp; Pricing</div>
+        <div class="fs-row-3">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Qty</label>
+                <input type="number" step="1" min="0" class="form-control" @bind="_editItem.Quantity" />
             </div>
-            <div class="col-4">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Cost</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">$</span>
-                    <input type="number" step="0.01" min="0" class="form-control" @bind="_editItem.Cost" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Cost</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius:10px 0 0 10px; padding:4px 8px;">$</span>
+                    <input type="number" step="0.01" min="0" class="form-control" style="border-radius:0 10px 10px 0;" @bind="_editItem.Cost" />
                 </div>
             </div>
-            <div class="col-4">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Price</label>
-                <div class="input-group input-group-sm">
-                    <span class="input-group-text">$</span>
-                    <input type="number" step="0.01" min="0" class="form-control" @bind="_editItem.Price" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Price</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius:10px 0 0 10px; padding:4px 8px;">$</span>
+                    <input type="number" step="0.01" min="0" class="form-control" style="border-radius:0 10px 10px 0;" @bind="_editItem.Price" />
                 </div>
             </div>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Min Threshold</label>
-            <input type="number" step="1" class="form-control form-control-sm" @bind="_editItem.MinThreshold" />
+        <div class="fs-field">
+            <label>Min Threshold (reorder alert)</label>
+            <input type="number" step="1" class="form-control" @bind="_editItem.MinThreshold" />
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
-            <textarea class="form-control form-control-sm" rows="2" @bind="_editItem.Description"></textarea>
+
+        <div class="fs-section">Notes</div>
+        <div class="fs-field">
+            <label>Description</label>
+            <textarea class="form-control" rows="2" @bind="_editItem.Description"></textarea>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
-            <textarea class="form-control form-control-sm" rows="2" @bind="_editItem.Notes"></textarea>
+        <div class="fs-field">
+            <label>Notes</label>
+            <textarea class="form-control" rows="2" @bind="_editItem.Notes"></textarea>
         </div>
     </div>
 
     @if (_saveError != null)
     {
-        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_saveError</div>
+        <div class="alert alert-danger py-1 mb-2" style="font-size:0.78rem; border-radius:10px;">@_saveError</div>
     }
 
     <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="CancelEdit">Cancel</button>
-        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@string.IsNullOrWhiteSpace(_editItem.Name)">
+        <button class="btn btn-outline-secondary flex-fill" style="border-radius:12px;" @onclick="CancelEdit">Cancel</button>
+        <button class="btn btn-primary flex-fill" style="border-radius:12px;" @onclick="SaveEdit" disabled="@string.IsNullOrWhiteSpace(_editItem.Name)">
             <i class="bi bi-check-circle me-1"></i>Update Item
         </button>
     </div>
 }
 else
 {
+    @* Bottom Sheet: Add Inventory Item *@
     @if (_showCreate)
     {
-        <div class="mobile-card" style="padding:0.75rem;">
-            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-box-seam me-1"></i>Quick Add Inventory Item</h6>
-            <div class="mb-1">
-                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Item name *" @bind="_newItem.Name" />
+        <div class="form-sheet-backdrop" @onclick="() => _showCreate = false"></div>
+        <div class="form-sheet" @onclick:stopPropagation="true">
+            <div class="form-sheet-handle"></div>
+            <div class="form-sheet-header">
+                <span class="form-sheet-title"><i class="bi bi-box-seam-fill"></i>New Inventory Item</span>
+                <button class="form-sheet-close" @onclick="() => _showCreate = false"><i class="bi bi-x"></i></button>
             </div>
-            <div class="mb-1">
-                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="SKU (optional)" @bind="_newItem.SKU" />
+
+            <div class="fs-section">Item Info</div>
+            <div class="fs-field">
+                <label>Name *</label>
+                <input type="text" class="form-control" placeholder="Item name" @bind="_newItem.Name" />
             </div>
-            <div class="row g-1 mb-1">
-                <div class="col-6">
-                    <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newItem.Location">
+            <div class="fs-field">
+                <label>SKU</label>
+                <input type="text" class="form-control" placeholder="Optional" @bind="_newItem.SKU" />
+            </div>
+            <div class="fs-row">
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>Location</label>
+                    <select class="form-select" @bind="_newItem.Location">
                         @foreach (var loc in Enum.GetValues<InventoryLocation>()) { <option value="@loc">@loc</option> }
                     </select>
                 </div>
-                <div class="col-6">
-                    <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Shelf / Bin" @bind="_newItem.ShelfBin" />
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>Shelf / Bin</label>
+                    <input type="text" class="form-control" placeholder="Optional" @bind="_newItem.ShelfBin" />
                 </div>
             </div>
-            <div class="row g-1 mb-1">
-                <div class="col-4">
-                    <input type="number" step="1" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Qty" @bind="_newItem.Quantity" />
+
+            <div class="fs-section">Stock &amp; Pricing</div>
+            <div class="fs-row-3">
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>Qty</label>
+                    <input type="number" step="1" class="form-control" placeholder="0" @bind="_newItem.Quantity" />
                 </div>
-                <div class="col-4">
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>Cost</label>
                     <div class="input-group">
-                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 6px;">$</span>
-                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Cost" @bind="_newItem.Cost" />
+                        <span class="input-group-text" style="border-radius:10px 0 0 10px; padding:4px 8px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="border-radius:0 10px 10px 0;" placeholder="0" @bind="_newItem.Cost" />
                     </div>
                 </div>
-                <div class="col-4">
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>Price</label>
                     <div class="input-group">
-                        <span class="input-group-text" style="font-size:0.85rem; padding:4px 6px;">$</span>
-                        <input type="number" step="0.01" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Price" @bind="_newItem.Price" />
+                        <span class="input-group-text" style="border-radius:10px 0 0 10px; padding:4px 8px;">$</span>
+                        <input type="number" step="0.01" class="form-control" style="border-radius:0 10px 10px 0;" placeholder="0" @bind="_newItem.Price" />
                     </div>
                 </div>
             </div>
-            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
-                <i class="bi bi-info-circle me-1"></i>Complete thresholds, supplier, expiry, and barcode details on the web app.
+
+            <div class="alert alert-info py-1 px-2 mt-2 mb-0" style="font-size:0.75rem; border-radius:10px;">
+                <i class="bi bi-info-circle me-1"></i>Thresholds, supplier, expiry &amp; barcode can be set on the web app.
             </div>
-            <div class="d-flex gap-2 mt-1">
-                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveItem" disabled="@string.IsNullOrWhiteSpace(_newItem.Name)">
-                    <i class="bi bi-check-lg me-1"></i>Save
-                </button>
-                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
-            </div>
+
             @if (_saveError != null)
             {
-                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
+                <div class="alert alert-danger py-1 mt-2 mb-0" style="font-size:0.78rem; border-radius:10px;">@_saveError</div>
             }
+
+            <div class="fs-actions">
+                <button class="btn btn-outline-secondary flex-shrink-0" @onclick="() => _showCreate = false">Cancel</button>
+                <button class="btn btn-primary flex-fill" @onclick="SaveItem" disabled="@string.IsNullOrWhiteSpace(_newItem.Name)">
+                    <i class="bi bi-check-lg me-1"></i>Save Item
+                </button>
+            </div>
         </div>
     }
 
@@ -292,7 +319,7 @@ else
                 <option value="@loc">@loc</option>
             }
         </select>
-        <input type="search" class="form-control" placeholder="Search inventory…" @bind="_search"
+        <input type="search" class="form-control" placeholder="Search inventoryï¿½" @bind="_search"
                @bind:event="oninput" @bind:after="LoadInventory" />
         <button class="btn btn-outline-secondary" style="min-width:38px; padding:4px 8px;" @onclick="LoadInventory" title="Refresh">
             <i class="bi bi-arrow-clockwise"></i>
@@ -411,12 +438,9 @@ else
         </div>
     }
 
-    @if (!_showCreate)
-    {
-        <button class="fab" title="New Item" @onclick="ShowCreateItem">
-            <i class="bi bi-plus-lg"></i>
-        </button>
-    }
+    <button class="fab" title="New Item" @onclick="ShowCreateItem">
+        <i class="bi bi-plus-lg"></i>
+    </button>
 }
 
 @code {
