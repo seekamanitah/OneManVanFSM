@@ -109,7 +109,7 @@ else if (_mode == "detail" && _detail != null)
                         <div style="font-size:0.8rem; font-weight:500;">@l.Description</div>
                         <div style="font-size:0.7rem;" class="text-muted">
                             @l.Quantity x @l.UnitPrice.ToString("C")
-                            @if (!string.IsNullOrWhiteSpace(l.LineType)) { <span>· @l.LineType</span> }
+                            @if (!string.IsNullOrWhiteSpace(l.LineType)) { <span>ï¿½ @l.LineType</span> }
                         </div>
                     </div>
                     <span style="font-size:0.8rem; font-weight:600;">@l.LineTotal.ToString("C")</span>
@@ -155,16 +155,17 @@ else if (_mode == "detail" && _detail != null)
 else if (_mode == "edit" && _detail != null)
 {
     <!-- Edit Form -->
-    <div class="d-flex align-items-center mb-2">
+    <div class="d-flex align-items-center mb-3">
         <button class="btn btn-sm btn-outline-secondary me-2" @onclick="CancelEdit"><i class="bi bi-arrow-left"></i></button>
-        <span style="font-size:0.95rem; font-weight:700;">Edit Expense</span>
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-pencil-fill text-primary me-1"></i>Edit Expense</span>
     </div>
 
-    <div class="mobile-card mb-2">
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Category</label>
-            <select class="form-select form-select-sm" @bind="_editForm.Category">
-                <option value="">\u2014 Select \u2014</option>
+    <div class="mobile-card mb-2" style="padding:0.85rem;">
+        <div class="fs-section" style="margin-top:0;">Details</div>
+        <div class="fs-field">
+            <label>Category</label>
+            <select class="form-select" @bind="_editForm.Category">
+                <option value="">&mdash; Select &mdash;</option>
                 <option value="Materials">Materials</option>
                 <option value="Fuel">Fuel</option>
                 <option value="Tools">Tools</option>
@@ -177,31 +178,44 @@ else if (_mode == "edit" && _detail != null)
                 <option value="Other">Other</option>
             </select>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
-            <input type="text" class="form-control form-control-sm" @bind="_editForm.Description" placeholder="What was purchased?" />
+        <div class="fs-field">
+            <label>Description</label>
+            <input type="text" class="form-control" @bind="_editForm.Description" placeholder="What was purchased?" />
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Amount</label>
-                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_editForm.Amount" />
+
+        <div class="fs-section">Amount</div>
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Amount</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius:10px 0 0 10px;">$</span>
+                    <input type="number" class="form-control" style="border-radius:0 10px 10px 0;" step="0.01" @bind="_editForm.Amount" />
+                </div>
             </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Tax</label>
-                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_editForm.TaxAmount" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Tax</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius:10px 0 0 10px;">$</span>
+                    <input type="number" class="form-control" style="border-radius:0 10px 10px 0;" step="0.01" @bind="_editForm.TaxAmount" />
+                </div>
             </div>
         </div>
-        <div class="text-end mb-2" style="font-size:0.8rem; font-weight:600; color:var(--primary);">
-            Total: @((_editForm.Amount + _editForm.TaxAmount).ToString("C"))
+        <div class="fs-total-badge mt-2">
+            <i class="bi bi-receipt"></i>Total: @((_editForm.Amount + _editForm.TaxAmount).ToString("C"))
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Vendor</label>
-            <input type="text" class="form-control form-control-sm" @bind="_editForm.VendorName" placeholder="Store or vendor name" />
+
+        <div class="fs-section">Payment</div>
+        <div class="fs-field">
+            <label>Vendor</label>
+            <div class="fs-input-group">
+                <i class="bi bi-shop"></i>
+                <input type="text" class="form-control" @bind="_editForm.VendorName" placeholder="Store or vendor name" />
+            </div>
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Payment Method</label>
-                <select class="form-select form-select-sm" @bind="_editForm.PaymentMethod">
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Payment Method</label>
+                <select class="form-select" @bind="_editForm.PaymentMethod">
                     <option value="Cash">Cash</option>
                     <option value="Card">Card</option>
                     <option value="Check">Check</option>
@@ -210,9 +224,9 @@ else if (_mode == "edit" && _detail != null)
                     <option value="Other">Other</option>
                 </select>
             </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Status</label>
-                <select class="form-select form-select-sm" @bind="_editForm.Status">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Status</label>
+                <select class="form-select" @bind="_editForm.Status">
                     <option value="@ExpenseStatus.Pending">Pending</option>
                     <option value="@ExpenseStatus.Approved">Approved</option>
                     <option value="@ExpenseStatus.Reimbursed">Reimbursed</option>
@@ -220,28 +234,31 @@ else if (_mode == "edit" && _detail != null)
                 </select>
             </div>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Receipt #</label>
-            <input type="text" class="form-control form-control-sm" @bind="_editForm.ReceiptNumber" placeholder="Optional receipt number" />
+        <div class="fs-field">
+            <label>Receipt #</label>
+            <div class="fs-input-group">
+                <i class="bi bi-hash"></i>
+                <input type="text" class="form-control" @bind="_editForm.ReceiptNumber" placeholder="Optional" />
+            </div>
         </div>
-        <div class="form-check mb-2">
-            <input type="checkbox" class="form-check-input" id="editBillable" @bind="_editForm.IsBillable" />
-            <label class="form-check-label" for="editBillable" style="font-size:0.78rem;">Billable to customer</label>
+        <div class="form-check mb-2 mt-1">
+            <input type="checkbox" class="form-check-input darker-border-checkbox" id="editBillable" @bind="_editForm.IsBillable" />
+            <label class="form-check-label" for="editBillable" style="font-size:0.82rem;">Billable to customer</label>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
-            <textarea class="form-control form-control-sm" rows="2" @bind="_editForm.Notes" placeholder="Additional notes..."></textarea>
+        <div class="fs-field">
+            <label>Notes</label>
+            <textarea class="form-control" rows="2" @bind="_editForm.Notes" placeholder="Additional notes..."></textarea>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(_error))
     {
-        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+        <div class="alert alert-danger py-1 mb-2" style="font-size:0.78rem; border-radius:10px;">@_error</div>
     }
 
     <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="CancelEdit">Cancel</button>
-        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveEdit" disabled="@_saving">
+        <button class="btn btn-outline-secondary flex-fill" style="border-radius:12px;" @onclick="CancelEdit">Cancel</button>
+        <button class="btn btn-primary flex-fill" style="border-radius:12px;" @onclick="SaveEdit" disabled="@_saving">
             @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
             <i class="bi bi-check-circle me-1"></i>Update Expense
         </button>
@@ -250,16 +267,17 @@ else if (_mode == "edit" && _detail != null)
 else if (_mode == "create")
 {
     <!-- Create Form -->
-    <div class="d-flex align-items-center mb-2">
+    <div class="d-flex align-items-center mb-3">
         <button class="btn btn-sm btn-outline-secondary me-2" @onclick="BackToList"><i class="bi bi-arrow-left"></i></button>
-        <span style="font-size:0.95rem; font-weight:700;">Log Expense</span>
+        <span style="font-size:0.95rem; font-weight:700;"><i class="bi bi-wallet2 text-primary me-1"></i>Log Expense</span>
     </div>
 
-    <div class="mobile-card mb-2">
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Category</label>
-            <select class="form-select form-select-sm" @bind="_form.Category">
-                <option value="">â€” Select â€”</option>
+    <div class="mobile-card mb-2" style="padding:0.85rem;">
+        <div class="fs-section" style="margin-top:0;">Details</div>
+        <div class="fs-field">
+            <label>Category</label>
+            <select class="form-select" @bind="_form.Category">
+                <option value="">&mdash; Select &mdash;</option>
                 <option value="Materials">Materials</option>
                 <option value="Fuel">Fuel</option>
                 <option value="Tools">Tools</option>
@@ -272,31 +290,44 @@ else if (_mode == "create")
                 <option value="Other">Other</option>
             </select>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Description</label>
-            <input type="text" class="form-control form-control-sm" @bind="_form.Description" placeholder="What was purchased?" />
+        <div class="fs-field">
+            <label>Description</label>
+            <input type="text" class="form-control" @bind="_form.Description" placeholder="What was purchased?" />
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Amount</label>
-                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_form.Amount" />
+
+        <div class="fs-section">Amount</div>
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Amount</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius:10px 0 0 10px;">$</span>
+                    <input type="number" class="form-control" style="border-radius:0 10px 10px 0;" step="0.01" @bind="_form.Amount" />
+                </div>
             </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Tax</label>
-                <input type="number" class="form-control form-control-sm" step="0.01" @bind="_form.TaxAmount" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Tax</label>
+                <div class="input-group">
+                    <span class="input-group-text" style="border-radius:10px 0 0 10px;">$</span>
+                    <input type="number" class="form-control" style="border-radius:0 10px 10px 0;" step="0.01" @bind="_form.TaxAmount" />
+                </div>
             </div>
         </div>
-        <div class="text-end mb-2" style="font-size:0.8rem; font-weight:600; color:var(--primary);">
-            Total: @((_form.Amount + _form.TaxAmount).ToString("C"))
+        <div class="fs-total-badge mt-2">
+            <i class="bi bi-receipt"></i>Total: @((_form.Amount + _form.TaxAmount).ToString("C"))
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Vendor</label>
-            <input type="text" class="form-control form-control-sm" @bind="_form.VendorName" placeholder="Store or vendor name" />
+
+        <div class="fs-section">Payment</div>
+        <div class="fs-field">
+            <label>Vendor</label>
+            <div class="fs-input-group">
+                <i class="bi bi-shop"></i>
+                <input type="text" class="form-control" @bind="_form.VendorName" placeholder="Store or vendor name" />
+            </div>
         </div>
-        <div class="row g-2 mb-2">
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Payment Method</label>
-                <select class="form-select form-select-sm" @bind="_form.PaymentMethod">
+        <div class="fs-row">
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Payment Method</label>
+                <select class="form-select" @bind="_form.PaymentMethod">
                     <option value="Cash">Cash</option>
                     <option value="Card">Card</option>
                     <option value="Check">Check</option>
@@ -305,43 +336,52 @@ else if (_mode == "create")
                     <option value="Other">Other</option>
                 </select>
             </div>
-            <div class="col-6">
-                <label class="form-label" style="font-size:0.78rem; font-weight:600;">Date</label>
-                <input type="date" class="form-control form-control-sm" @bind="_form.ExpenseDate" />
+            <div class="fs-field" style="margin-bottom:0;">
+                <label>Date</label>
+                <div class="fs-input-group">
+                    <i class="bi bi-calendar3"></i>
+                    <input type="date" class="form-control" @bind="_form.ExpenseDate" />
+                </div>
             </div>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Receipt #</label>
-            <input type="text" class="form-control form-control-sm" @bind="_form.ReceiptNumber" placeholder="Optional receipt number" />
+        <div class="fs-field">
+            <label>Receipt #</label>
+            <div class="fs-input-group">
+                <i class="bi bi-hash"></i>
+                <input type="text" class="form-control" @bind="_form.ReceiptNumber" placeholder="Optional" />
+            </div>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Linked Job</label>
-            <select class="form-select form-select-sm" @bind="_form.JobId">
-                <option value="">â€” None â€”</option>
-                @foreach (var j in _jobs)
-                {
-                    <option value="@j.Id">@j.JobNumber â€” @(j.Title ?? "Untitled")</option>
-                }
-            </select>
+        <div class="fs-field">
+            <label>Linked Job</label>
+            <div class="fs-input-group">
+                <i class="bi bi-briefcase"></i>
+                <select class="form-select" @bind="_form.JobId">
+                    <option value="">&mdash; None &mdash;</option>
+                    @foreach (var j in _jobs)
+                    {
+                        <option value="@j.Id">@j.JobNumber &mdash; @(j.Title ?? "Untitled")</option>
+                    }
+                </select>
+            </div>
         </div>
-        <div class="form-check mb-2">
-            <input type="checkbox" class="form-check-input" id="billable" @bind="_form.IsBillable" />
-            <label class="form-check-label" for="billable" style="font-size:0.78rem;">Billable to customer</label>
+        <div class="form-check mb-2 mt-1">
+            <input type="checkbox" class="form-check-input darker-border-checkbox" id="billable" @bind="_form.IsBillable" />
+            <label class="form-check-label" for="billable" style="font-size:0.82rem;">Billable to customer</label>
         </div>
-        <div class="mb-2">
-            <label class="form-label" style="font-size:0.78rem; font-weight:600;">Notes</label>
-            <textarea class="form-control form-control-sm" rows="2" @bind="_form.Notes" placeholder="Additional notes..."></textarea>
+        <div class="fs-field">
+            <label>Notes</label>
+            <textarea class="form-control" rows="2" @bind="_form.Notes" placeholder="Additional notes..."></textarea>
         </div>
     </div>
 
     @if (!string.IsNullOrEmpty(_error))
     {
-        <div class="alert alert-danger py-1" style="font-size:0.78rem;">@_error</div>
+        <div class="alert alert-danger py-1 mb-2" style="font-size:0.78rem; border-radius:10px;">@_error</div>
     }
 
     <div class="d-flex gap-2">
-        <button class="btn btn-outline-secondary btn-sm flex-fill" @onclick="BackToList">Cancel</button>
-        <button class="btn btn-primary btn-sm flex-fill" @onclick="SaveExpense" disabled="@_saving">
+        <button class="btn btn-outline-secondary flex-fill" style="border-radius:12px;" @onclick="BackToList">Cancel</button>
+        <button class="btn btn-primary flex-fill" style="border-radius:12px;" @onclick="SaveExpense" disabled="@_saving">
             @if (_saving) { <span class="spinner-border spinner-border-sm me-1"></span> }
             <i class="bi bi-check-circle me-1"></i>Save Expense
         </button>
@@ -419,9 +459,9 @@ else
                         </div>
                         <div class="d-flex flex-wrap gap-2 mt-1 text-muted" style="font-size:0.7rem;">
                             <span>@exp.ExpenseDate.ToString("MMM dd")</span>
-                            @if (!string.IsNullOrWhiteSpace(exp.VendorName)) { <span>· @exp.VendorName</span> }
-                            @if (!string.IsNullOrWhiteSpace(exp.JobNumber)) { <span>· @exp.JobNumber</span> }
-                            @if (exp.IsBillable) { <span class="text-success">· Billable</span> }
+                            @if (!string.IsNullOrWhiteSpace(exp.VendorName)) { <span>ï¿½ @exp.VendorName</span> }
+                            @if (!string.IsNullOrWhiteSpace(exp.JobNumber)) { <span>ï¿½ @exp.JobNumber</span> }
+                            @if (exp.IsBillable) { <span class="text-success">ï¿½ Billable</span> }
                         </div>
                     </div>
                     <div class="text-end">

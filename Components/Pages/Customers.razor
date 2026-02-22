@@ -152,7 +152,7 @@
                             <span class="badge bg-light text-dark" style="font-size:0.65rem;">@sa.CoverageLevel</span>
                         </div>
                         <span class="card-subtitle">
-                            @sa.VisitsUsed/@sa.VisitsIncluded visits � Exp @sa.EndDate.ToString("MMM dd, yyyy")
+                            @sa.VisitsUsed/@sa.VisitsIncluded visits � Exp @sa.EndDate.ToString("MMM dd, yyyy")
                         </span>
                     </div>
                 </div>
@@ -233,51 +233,9 @@
 }
 else
 {
-    @if (_showCreate)
-    {
-        <div class="mobile-card" style="padding:0.75rem;">
-            <h6 class="fw-bold mb-2" style="font-size:0.85rem;"><i class="bi bi-person-plus me-1"></i>Quick Add Customer</h6>
-            <div class="mb-1">
-                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Customer name *" @bind="_newCust.Name" />
-            </div>
-            <div class="mb-1">
-                <select class="form-select" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" @bind="_newCust.Type">
-                    @foreach (var t in Enum.GetValues<CustomerType>()) { <option value="@t">@t</option> }
-                </select>
-            </div>
-            <div class="mb-1">
-                <input type="tel" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Phone" @bind="_newCust.PrimaryPhone" />
-            </div>
-            <div class="mb-1">
-                <input type="email" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Email" @bind="_newCust.PrimaryEmail" />
-            </div>
-            <div class="mb-1">
-                <input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Address" @bind="_newCust.Address" />
-            </div>
-            <div class="row g-1 mb-1">
-                <div class="col-5"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="City" @bind="_newCust.City" /></div>
-                <div class="col-3"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="State" @bind="_newCust.State" /></div>
-                <div class="col-4"><input type="text" class="form-control" style="min-height:38px; font-size:0.9rem; padding:6px 10px;" placeholder="Zip" @bind="_newCust.Zip" /></div>
-            </div>
-            <div class="alert alert-info py-1 px-2 mb-1" style="font-size:0.75rem;">
-                <i class="bi bi-info-circle me-1"></i>Complete details (tags, preferred contact, etc.) on the web app.
-            </div>
-            <div class="d-flex gap-2 mt-1">
-                <button class="btn btn-primary flex-fill" style="min-height:40px;" @onclick="SaveCustomer" disabled="@string.IsNullOrWhiteSpace(_newCust.Name)">
-                    <i class="bi bi-check-lg me-1"></i>Save
-                </button>
-                <button class="btn btn-outline-secondary" style="min-height:40px;" @onclick="() => _showCreate = false">Cancel</button>
-            </div>
-            @if (_saveError != null)
-            {
-                <div class="alert alert-danger mt-2 py-1" style="font-size:0.8rem;">@_saveError</div>
-            }
-        </div>
-    }
-
     <!-- List View -->
     <div class="d-flex gap-2 mb-2">
-        <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search customers�"
+        <input type="search" class="form-control" style="min-height:36px; font-size:0.85rem; padding:4px 10px;" placeholder="Search customers�"
                @bind="_search" @bind:event="oninput" @bind:after="LoadCustomers" />
         <button class="btn btn-outline-secondary btn-sm" @onclick="LoadCustomers" title="Refresh">
             <i class="bi bi-arrow-clockwise"></i>
@@ -373,7 +331,86 @@ else
             <i class="bi bi-plus-lg"></i>
         </button>
     }
-}
+
+    @* ── Add Customer Bottom Sheet ── *@
+    @if (_showCreate)
+    {
+        <div class="form-sheet-backdrop" @onclick="() => _showCreate = false"></div>
+        <div class="form-sheet" @onclick:stopPropagation="true">
+            <div class="form-sheet-handle"></div>
+            <div class="form-sheet-header">
+                <span class="form-sheet-title"><i class="bi bi-person-plus-fill"></i>New Customer</span>
+                <button class="form-sheet-close" @onclick="() => _showCreate = false"><i class="bi bi-x"></i></button>
+            </div>
+
+            <div class="fs-section">Basic Info</div>
+            <div class="fs-field">
+                <label>Customer Name *</label>
+                <input type="text" class="form-control" placeholder="Full name or company" @bind="_newCust.Name" />
+            </div>
+            <div class="fs-field">
+                <label>Type</label>
+                <select class="form-select" @bind="_newCust.Type">
+                    @foreach (var t in Enum.GetValues<CustomerType>()) { <option value="@t">@t</option> }
+                </select>
+            </div>
+
+            <div class="fs-section">Contact</div>
+            <div class="fs-field">
+                <label>Phone</label>
+                <div class="fs-input-group">
+                    <i class="bi bi-telephone"></i>
+                    <input type="tel" class="form-control" placeholder="(555) 000-0000" @bind="_newCust.PrimaryPhone" />
+                </div>
+            </div>
+            <div class="fs-field">
+                <label>Email</label>
+                <div class="fs-input-group">
+                    <i class="bi bi-envelope"></i>
+                    <input type="email" class="form-control" placeholder="name@example.com" @bind="_newCust.PrimaryEmail" />
+                </div>
+            </div>
+
+            <div class="fs-section">Address</div>
+            <div class="fs-field">
+                <label>Street</label>
+                <div class="fs-input-group">
+                    <i class="bi bi-geo-alt"></i>
+                    <input type="text" class="form-control" placeholder="Street address" @bind="_newCust.Address" />
+                </div>
+            </div>
+            <div class="fs-row-3">
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>City</label>
+                    <input type="text" class="form-control" placeholder="City" @bind="_newCust.City" />
+                </div>
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>State</label>
+                    <input type="text" class="form-control" placeholder="ST" @bind="_newCust.State" />
+                </div>
+                <div class="fs-field" style="margin-bottom:0;">
+                    <label>Zip</label>
+                    <input type="text" class="form-control" placeholder="00000" @bind="_newCust.Zip" />
+                </div>
+            </div>
+
+            <div class="alert alert-info py-1 px-2 mt-2 mb-0" style="font-size:0.75rem; border-radius:10px;">
+                <i class="bi bi-info-circle me-1"></i>Tags, preferred contact &amp; more can be set on the web app.
+            </div>
+
+            @if (_saveError != null)
+            {
+                <div class="alert alert-danger py-1 mt-2 mb-0" style="font-size:0.78rem; border-radius:10px;">@_saveError</div>
+            }
+
+            <div class="fs-actions">
+                <button class="btn btn-outline-secondary flex-shrink-0" @onclick="() => _showCreate = false">Cancel</button>
+                <button class="btn btn-primary flex-fill" @onclick="SaveCustomer" disabled="@string.IsNullOrWhiteSpace(_newCust.Name)">
+                    <i class="bi bi-check-lg me-1"></i>Save Customer
+                </button>
+            </div>
+        </div>
+    }
 
 @code {
     [Parameter] public int Id { get; set; }
